@@ -1,230 +1,244 @@
-import { useState, useEffect } from 'react';
-import { Menu, X, Phone } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+'use client';
+import { useState } from 'react';
+import { Menu, X, User } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 const Header = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
-
-  const navItems = [
-    { label: 'Productos', path: '/productos' },
-    { label: 'Distribuidores', path: '/distribuidores' },
-    { label: 'Nosotros', path: '/nosotros' },
+  const navLinks = [
+    { name: 'INICIO', href: '/' },
+    { name: 'CATÁLOGO', href: '/productos' },
+    { name: 'DISTRIBUIDORES', href: '/distribuidores' },
+    { name: 'NOSOTROS', href: '/nosotros' },
   ];
 
   return (
-    <header className={`header ${scrolled ? 'scrolled' : ''}`}>
-      <div className="container header-container">
-        <div className="logo-container">
-          <Link to="/" className="logo-link">
-            <span className="brand-text">GREENLAND</span>
-            <span className="brand-sub">PRODUCTS</span>
-          </Link>
-        </div>
+    <header className="site-header">
+      <div className="header-inner">
+        {/* Logo */}
+        <Link href="/" className="header-logo">
+          <img src="/logo-transparent.png" alt="Greenland Products" className="logo-image" />
+        </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="desktop-nav">
-          <ul>
-            {navItems.map((item) => (
-              <li key={item.path}>
-                <Link
-                  to={item.path}
-                  className={location.pathname === item.path ? 'active' : ''}
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+        {/* Desktop Nav */}
+        <nav className="header-nav desktop-nav">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`nav-link ${pathname === link.href ? 'active' : ''}`}
+            >
+              {link.name}
+            </Link>
+          ))}
         </nav>
 
+        {/* Right side */}
         <div className="header-actions">
-          <Link to="/contacto" className="btn btn-primary contact-btn">
-            Contactar
+          <a href="tel:+525512345678" className="header-phone">
+            +52 (55) 1234 5678
+          </a>
+          <Link href="/login" className="btn btn-dark header-cta">
+            ACCESO
           </Link>
-        </div>
-
-        {/* Mobile Menu Button */}
-        <button className="mobile-menu-btn" onClick={toggleMenu} aria-label="Toggle menu">
-          {isMenuOpen ? <X size={24} color="white" /> : <Menu size={24} color="white" />}
-        </button>
-
-        {/* Mobile Navigation */}
-        <div className={`mobile-nav-overlay ${isMenuOpen ? 'open' : ''}`}>
-          <nav className="mobile-nav">
-            <ul>
-              {navItems.map((item) => (
-                <li key={item.path}>
-                  <Link to={item.path} onClick={() => setIsMenuOpen(false)}>
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-              <li>
-                <Link to="/contacto" className="mobile-cta" onClick={() => setIsMenuOpen(false)}>
-                  Contactar
-                </Link>
-              </li>
-            </ul>
-          </nav>
+          <button
+            className="mobile-toggle"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Menu"
+          >
+            {menuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
       </div>
 
-      <style>{`
-                .header {
-                    background-color: var(--color-primary);
-                    position: sticky;
-                    top: 0;
-                    z-index: 1000;
-                    padding: 1.25rem 0;
-                    transition: all 0.3s ease;
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-                }
+      {/* Mobile Nav */}
+      {menuOpen && (
+        <div className="mobile-nav">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`mobile-link ${pathname === link.href ? 'active' : ''}`}
+              onClick={() => setMenuOpen(false)}
+            >
+              {link.name}
+            </Link>
+          ))}
+          <Link
+            href="/login"
+            className="mobile-link cta-link"
+            onClick={() => setMenuOpen(false)}
+          >
+            ACCESO DISTRIBUIDORES
+          </Link>
+        </div>
+      )}
 
-                .header.scrolled {
-                    padding: 0.75rem 0;
-                    background-color: rgba(15, 23, 42, 0.95);
-                    backdrop-filter: blur(10px);
-                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-                }
-                
-                .header-container {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                }
+      <style jsx>{`
+        .site-header {
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border-bottom: 1px solid var(--color-border-light);
+        }
 
-                .logo-link {
-                    display: flex;
-                    flex-direction: column;
-                    line-height: 1;
-                }
+        .header-inner {
+          max-width: 1280px;
+          margin: 0 auto;
+          padding: 0 2rem;
+          height: 80px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
 
-                .brand-text {
-                    font-family: var(--font-primary);
-                    font-size: 1.5rem;
-                    font-weight: 800;
-                    color: var(--color-white);
-                    letter-spacing: -0.02em;
-                }
+        /* Logo */
+        .header-logo {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            transition: opacity 0.2s ease;
+        }
+        
+        .header-logo:hover {
+            opacity: 0.9;
+        }
 
-                .brand-sub {
-                    font-size: 0.75rem;
-                    color: var(--color-secondary);
-                    font-family: var(--font-mono);
-                    letter-spacing: 0.2em;
-                    text-transform: uppercase;
-                }
+        .logo-image {
+            height: 48px;
+            width: auto;
+            object-fit: contain;
+        }
 
-                .desktop-nav ul {
-                    display: flex;
-                    gap: 2.5rem;
-                }
+        /* Nav */
+        .desktop-nav {
+          display: flex;
+          align-items: center;
+          gap: 2.5rem;
+        }
 
-                .desktop-nav a {
-                    font-weight: 500;
-                    color: var(--color-text-light);
-                    font-size: 0.95rem;
-                    opacity: 0.8;
-                    transition: all 0.2s;
-                    position: relative;
-                }
+        .nav-link {
+          font-size: 0.8rem;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          color: var(--color-text-secondary);
+          transition: color 0.2s ease;
+          position: relative;
+          padding: 0.25rem 0;
+        }
 
-                .desktop-nav a:hover, .desktop-nav a.active {
-                    opacity: 1;
-                    color: var(--color-white);
-                }
+        .nav-link::after {
+          content: '';
+          position: absolute;
+          bottom: -2px;
+          left: 0;
+          width: 0%;
+          height: 2px;
+          background: var(--color-primary);
+          transition: width 0.3s ease;
+        }
 
-                .desktop-nav a::after {
-                    content: '';
-                    position: absolute;
-                    width: 0;
-                    height: 2px;
-                    bottom: -4px;
-                    left: 0;
-                    background-color: var(--color-secondary);
-                    transition: width 0.3s ease;
-                }
+        .nav-link:hover {
+          color: var(--color-text);
+        }
 
-                .desktop-nav a:hover::after, .desktop-nav a.active::after {
-                    width: 100%;
-                }
+        .nav-link:hover::after,
+        .nav-link.active::after {
+          width: 100%;
+        }
 
-                .contact-btn {
-                    padding: 0.5rem 1.25rem;
-                    font-size: 0.9rem;
-                }
+        .nav-link.active {
+          color: var(--color-primary);
+        }
 
-                .mobile-menu-btn {
-                    display: none;
-                }
+        /* Actions */
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 1.5rem;
+        }
 
-                .mobile-nav-overlay {
-                    display: none;
-                }
+        .header-phone {
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--color-text-secondary);
+          transition: color 0.2s;
+        }
 
-                @media (max-width: 900px) {
-                    .desktop-nav, .header-actions {
-                        display: none;
-                    }
+        .header-phone:hover {
+          color: var(--color-primary);
+        }
 
-                    .mobile-menu-btn {
-                        display: block;
-                        z-index: 1001;
-                    }
+        .header-cta {
+          padding: 0.6rem 1.5rem;
+          font-size: 0.75rem;
+          letter-spacing: 0.1em;
+        }
 
-                    .mobile-nav-overlay {
-                        display: block;
-                        position: fixed;
-                        top: 0;
-                        left: 0;
-                        width: 100%;
-                        height: 100vh;
-                        background-color: var(--color-primary);
-                        transform: translateX(100%);
-                        transition: transform 0.3s ease-in-out;
-                        padding-top: 5rem;
-                        z-index: 1000;
-                    }
+        .mobile-toggle {
+          display: none;
+          color: var(--color-text);
+          padding: 0.25rem;
+        }
 
-                    .mobile-nav-overlay.open {
-                        transform: translateX(0);
-                    }
+        /* Mobile */
+        .mobile-nav {
+          display: none;
+          flex-direction: column;
+          padding: 1rem 2rem 2rem;
+          border-top: 1px solid var(--color-border-light);
+          background: #FFFFFF;
+        }
 
-                    .mobile-nav ul {
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        gap: 2rem;
-                    }
+        .mobile-link {
+          padding: 1rem 0;
+          font-size: 0.85rem;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          color: var(--color-text-secondary);
+          border-bottom: 1px solid var(--color-border-light);
+          transition: color 0.2s;
+        }
 
-                    .mobile-nav a {
-                        color: var(--color-white);
-                        font-size: 1.5rem;
-                        font-weight: 600;
-                    }
+        .mobile-link:hover,
+        .mobile-link.active {
+          color: var(--color-primary);
+        }
 
-                    .mobile-cta {
-                        color: var(--color-primary) !important;
-                        background-color: var(--color-secondary);
-                        padding: 0.75rem 2rem;
-                        border-radius: var(--radius-md);
-                        margin-top: 1rem;
-                        display: inline-block;
-                    }
-                }
-            `}</style>
+        .mobile-link.cta-link {
+          color: var(--color-primary);
+          border-bottom: none;
+          margin-top: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+          .header-inner {
+            padding: 0 1.25rem;
+            height: 64px;
+          }
+          .desktop-nav {
+            display: none;
+          }
+          .header-phone {
+            display: none;
+          }
+          .header-cta {
+            display: none;
+          }
+          .mobile-toggle {
+            display: block;
+          }
+          .mobile-nav {
+            display: flex;
+          }
+        }
+      `}</style>
     </header>
   );
 };

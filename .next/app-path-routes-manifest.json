@@ -1,0 +1,19 @@
+{
+  "/(auth)/login/page": "/login",
+  "/(dashboard)/dashboard/cms/page": "/dashboard/cms",
+  "/(dashboard)/dashboard/estadisticas/page": "/dashboard/estadisticas",
+  "/(dashboard)/dashboard/inventarios/page": "/dashboard/inventarios",
+  "/(dashboard)/dashboard/page": "/dashboard",
+  "/(dashboard)/dashboard/pedidos/[id]/page": "/dashboard/pedidos/[id]",
+  "/(dashboard)/dashboard/pedidos/nuevo/page": "/dashboard/pedidos/nuevo",
+  "/(dashboard)/dashboard/pedidos/page": "/dashboard/pedidos",
+  "/(dashboard)/dashboard/usuarios/page": "/dashboard/usuarios",
+  "/(public)/distribuidores/page": "/distribuidores",
+  "/(public)/nosotros/page": "/nosotros",
+  "/(public)/page": "/",
+  "/(public)/productos/page": "/productos",
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/auth/callback/route": "/auth/callback",
+  "/favicon.ico/route": "/favicon.ico"
+}
