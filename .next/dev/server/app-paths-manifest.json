@@ -1,16 +1,4 @@
 {
-  "/(auth)/login/page": "app/(auth)/login/page.js",
-  "/(dashboard)/dashboard/cms/page": "app/(dashboard)/dashboard/cms/page.js",
-  "/(dashboard)/dashboard/estadisticas/page": "app/(dashboard)/dashboard/estadisticas/page.js",
-  "/(dashboard)/dashboard/inventarios/page": "app/(dashboard)/dashboard/inventarios/page.js",
-  "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
-  "/(dashboard)/dashboard/pedidos/[id]/page": "app/(dashboard)/dashboard/pedidos/[id]/page.js",
-  "/(dashboard)/dashboard/pedidos/nuevo/page": "app/(dashboard)/dashboard/pedidos/nuevo/page.js",
-  "/(dashboard)/dashboard/pedidos/page": "app/(dashboard)/dashboard/pedidos/page.js",
-  "/(dashboard)/dashboard/usuarios/page": "app/(dashboard)/dashboard/usuarios/page.js",
-  "/(public)/distribuidores/page": "app/(public)/distribuidores/page.js",
-  "/(public)/nosotros/page": "app/(public)/nosotros/page.js",
   "/(public)/page": "app/(public)/page.js",
-  "/(public)/productos/page": "app/(public)/productos/page.js",
   "/_not-found/page": "app/_not-found/page.js"
 }

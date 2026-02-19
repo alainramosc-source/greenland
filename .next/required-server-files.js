@@ -297,8 +297,8 @@ self.__SERVER_FILES_MANIFEST={
     },
     "distDirRoot": ".next"
   },
-  "appDir": "/Users/axelramos/Downloads/landing page greenland/next-app",
-  "relativeAppDir": "next-app",
+  "appDir": "/Users/axelramos/Downloads/landing page greenland",
+  "relativeAppDir": "",
   "files": [
     ".next/routes-manifest.json",
     ".next/server/pages-manifest.json",

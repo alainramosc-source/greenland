@@ -1,3 +1,0 @@
-module.exports=[93695,(a,b,c)=>{b.exports=a.x("next/dist/shared/lib/no-fallback-error.external.js",()=>require("next/dist/shared/lib/no-fallback-error.external.js"))},17529,a=>{a.n(a.i(83925))},23333,a=>{a.n(a.i(60793))},6876,a=>{a.n(a.i(13948))},25214,a=>{a.n(a.i(69339))},41792,a=>{a.n(a.i(45833))},17907,a=>{a.n(a.i(80402))},79096,a=>{"use strict";var b=a.i(96165);function c(){return(0,b.jsxs)("div",{className:"container",style:{padding:"5rem 0",color:"white"},children:[(0,b.jsx)("h1",{children:"Distribuidores"}),(0,b.jsx)("p",{children:"Formulario para registro de nuevos distribuidores."})]})}a.s(["default",()=>c])}];
-
-//# sourceMappingURL=%5Broot-of-the-server%5D__535ecf74._.js.map
