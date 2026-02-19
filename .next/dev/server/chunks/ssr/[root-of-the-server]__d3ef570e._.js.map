@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 22, "column": 0}, "map": {"version":3,"sources":["file:///Users/axelramos/Downloads/landing%20page%20greenland/next-app/src/app/%28public%29/productos/page.js"],"sourcesContent":["export default function ProductosPage() {\n    return (\n        <div className=\"container\" style={{ padding: '5rem 0', color: 'white' }}>\n            <h1>Catálogo de Productos</h1>\n            <p>Próximamente: Lista de productos y filtros.</p>\n        </div>\n    );\n}\n"],"names":[],"mappings":";;;;;;AAAe,SAAS;IACpB,qBACI,6PAAC;QAAI,WAAU;QAAY,OAAO;YAAE,SAAS;YAAU,OAAO;QAAQ;;0BAClE,6PAAC;0BAAG;;;;;;0BACJ,6PAAC;0BAAE;;;;;;;;;;;;AAGf"}}]
-}
