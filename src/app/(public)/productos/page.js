@@ -115,25 +115,25 @@ export default async function ProductosPage({ searchParams }) {
                     ) : (
                         <div className="catalog-grid">
                             {displayProducts.map(product => (
-                                <div key={product.id} className="product-card">
+                                <Link href={`/productos/${product.sku}`} key={product.id} className="product-card" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column' }}>
                                     <div className="product-image">
                                         <ProductGallery sku={product.sku} productName={product.name} />
                                         {product.stock_quantity < 10 && product.stock_quantity > 0 && (
                                             <span className="badge-low-stock">Pocas Piezas</span>
                                         )}
                                     </div>
-                                    <div className="product-info">
+                                    <div className="product-info" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                                         <span className="product-category">{product.categories?.name}</span>
                                         <h3>{product.name}</h3>
                                         <p>{product.description?.substring(0, 80)}...</p>
-                                        <div className="product-footer">
+                                        <div className="product-footer" style={{ marginTop: 'auto' }}>
                                             <span className="price">${parseFloat(product.price).toLocaleString()} <span style={{ fontSize: '0.7em', fontWeight: 400 }}>MXN</span></span>
-                                            <button className="btn-icon" aria-label="Ver detalles">
+                                            <button className="btn-icon" aria-label="Ver detalles" style={{ pointerEvents: 'none' }} tabIndex={-1}>
                                                 <ArrowRight size={20} />
                                             </button>
                                         </div>
                                     </div>
-                                </div>
+                                </Link>
                             ))}
                         </div>
                     )}

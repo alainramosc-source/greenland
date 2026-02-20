@@ -275,3 +275,10 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* Product Details Page (PDP) */
+@media (min-width: 992px) {
+    .pdp-grid {
+        grid-template-columns: 1fr 1fr !important;
+    }
+}
