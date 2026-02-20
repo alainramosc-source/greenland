@@ -92,7 +92,7 @@ const Header = () => {
           max-width: 1280px;
           margin: 0 auto;
           padding: 0 2rem;
-          min-height: 90px; /* Slightly taller to accommodate the larger base */
+          min-height: 100px; /* Slightly taller to accommodate the larger base */
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -111,10 +111,10 @@ const Header = () => {
         }
 
         .logo-image {
-            height: 140px; /* Significantly increased to offset the image's large white margins */
+            height: 280px; /* Doubled again */
             width: auto;
             object-fit: contain;
-            margin: -30px 0; /* Negative margin lets the white space overflow without stretching the header excessively */
+            margin: -100px 0; /* Huge negative margin to offset massive white space without blowing up header */
         }
 
         /* Nav */
