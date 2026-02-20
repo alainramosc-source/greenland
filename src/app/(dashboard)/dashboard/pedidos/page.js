@@ -5,11 +5,11 @@ import Link from 'next/link';
 import { Plus, Eye } from 'lucide-react';
 
 const STATUS_CONFIG = {
-  pending: { label: 'Pendiente', color: '#fbbf24', bg: 'rgba(234, 179, 8, 0.15)' },
-  processing: { label: 'En Proceso', color: '#60a5fa', bg: 'rgba(59, 130, 246, 0.15)' },
-  shipped: { label: 'Enviado', color: '#4ade80', bg: 'rgba(34, 197, 94, 0.15)' },
-  delivered: { label: 'Entregado', color: '#34d399', bg: 'rgba(16, 185, 129, 0.15)' },
-  cancelled: { label: 'Cancelado', color: '#fca5a5', bg: 'rgba(239, 68, 68, 0.15)' },
+  pending: { label: 'Pendiente', color: '#dee24b', bg: 'rgba(222, 226, 75, 0.1)', shadow: '0 0 10px rgba(222, 226, 75, 0.3)' },
+  processing: { label: 'En Proceso', color: '#FFFFFF', bg: 'rgba(106, 154, 4, 0.4)', shadow: '0 0 10px rgba(106, 154, 4, 0.4)' },
+  shipped: { label: 'Enviado', color: '#dee24b', bg: 'rgba(222, 226, 75, 0.2)', shadow: '0 0 12px rgba(222, 226, 75, 0.4)' },
+  delivered: { label: 'Entregado', color: '#6a9a04', bg: 'rgba(106, 154, 4, 0.2)', shadow: '0 0 12px rgba(106, 154, 4, 0.4)' },
+  cancelled: { label: 'Cancelado', color: '#747474', bg: 'rgba(116, 116, 116, 0.1)', shadow: 'none' },
 };
 
 const FILTER_TABS = [
@@ -135,7 +135,7 @@ export default function PedidosPage() {
                     {isAdmin && <td>{order.profiles?.full_name || order.profiles?.email || '—'}</td>}
                     {isAdmin && <td>{order.profiles?.city || '—'}</td>}
                     <td>
-                      <span className="status-badge" style={{ background: sc.bg, color: sc.color }}>
+                      <span className="status-badge" style={{ background: sc.bg, color: sc.color, border: `1px solid ${sc.color}`, boxShadow: sc.shadow }}>
                         {sc.label}
                       </span>
                     </td>
@@ -181,100 +181,125 @@ export default function PedidosPage() {
           flex-wrap: wrap;
         }
         .filter-tab {
-          background: transparent;
-          border: 1px solid #747474;
+          background: rgba(116, 116, 116, 0.1);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          border: 1px solid rgba(116, 116, 116, 0.3);
           color: #FFFFFF;
-          padding: 0.5rem 1rem;
-          border-radius: 8px;
+          padding: 0.65rem 1.25rem;
+          border-radius: 12px;
           cursor: pointer;
-          font-size: 0.85rem;
+          font-size: 0.9rem;
+          font-weight: 500;
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          transition: all 0.2s;
+          gap: 0.75rem;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .filter-tab:hover {
-          background: rgba(116, 116, 116, 0.2);
-          border-color: #dee24b;
+          background: rgba(116, 116, 116, 0.25);
+          border-color: rgba(222, 226, 75, 0.5);
           color: #dee24b;
+          box-shadow: 0 0 15px rgba(222, 226, 75, 0.15);
         }
         .filter-tab.active {
-          background: #6a9a04;
+          background: rgba(106, 154, 4, 0.25);
           color: #dee24b;
           border-color: #6a9a04;
           font-weight: 600;
+          box-shadow: 0 0 20px rgba(106, 154, 4, 0.2);
         }
         .filter-tab.active .tab-count {
-          background: rgba(0,0,0,0.3);
-          color: inherit;
+          background: #dee24b;
+          color: #000000;
         }
         .tab-count {
-          background: #747474;
-          padding: 0.1rem 0.5rem;
+          background: rgba(116, 116, 116, 0.4);
+          padding: 0.1rem 0.6rem;
           border-radius: 99px;
           font-size: 0.75rem;
-          font-weight: 600;
-          color: #000000;
+          font-weight: 700;
+          color: #FFFFFF;
+          transition: all 0.3s;
         }
         .empty-state {
           text-align: center;
-          padding: 4rem 1rem;
+          padding: 5rem 1rem;
           color: #747474;
+          font-size: 1.1rem;
         }
         .orders-table {
           width: 100%;
-          border-collapse: collapse;
+          border-collapse: separate;
+          border-spacing: 0;
           color: #FFFFFF;
         }
         .orders-table th {
           text-align: left;
-          padding: 1rem;
-          background-color: rgba(116, 116, 116, 0.1);
-          border-bottom: 1px solid #747474;
-          color: #747474;
-          font-weight: 600;
+          padding: 1.25rem 1rem;
+          background-color: rgba(0, 0, 0, 0.4);
+          backdrop-filter: blur(4px);
+          border-bottom: 1px solid rgba(116, 116, 116, 0.4);
+          color: #FFFFFF;
+          font-weight: 700;
           font-size: 0.85rem;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
         }
+        .orders-table th:first-child { border-top-left-radius: 12px; }
+        .orders-table th:last-child { border-top-right-radius: 12px; }
         .orders-table td {
-          padding: 1rem;
-          border-bottom: 1px solid #747474;
+          padding: 1.25rem 1rem;
+          border-bottom: 1px solid rgba(116, 116, 116, 0.2);
           font-size: 0.95rem;
+          transition: background-color 0.2s;
         }
         .orders-table tr:hover td {
-           background-color: rgba(116, 116, 116, 0.05);
+           background-color: rgba(222, 226, 75, 0.05);
+        }
+        .orders-table tr:last-child td {
+           border-bottom: none;
         }
         .order-number {
-          font-weight: 600;
+          font-weight: 700;
           color: #dee24b;
+          font-size: 1.05rem;
         }
         .amount {
-          font-weight: 600;
+          font-weight: 700;
+          color: #FFFFFF;
+          font-size: 1.05rem;
         }
         .status-badge {
-          padding: 0.25rem 0.65rem;
+          padding: 0.4rem 1rem;
           border-radius: 99px;
-          font-size: 0.78rem;
-          font-weight: 700;
+          font-size: 0.75rem;
+          font-weight: 800;
           text-transform: uppercase;
-          letter-spacing: 0.03em;
+          letter-spacing: 0.05em;
+          backdrop-filter: blur(4px);
         }
         .btn-action {
           display: inline-flex;
           align-items: center;
-          gap: 0.4rem;
-          background: transparent;
-          border: 1px solid #747474;
+          gap: 0.5rem;
+          background: rgba(116, 116, 116, 0.2);
+          backdrop-filter: blur(4px);
+          border: 1px solid rgba(116, 116, 116, 0.4);
           color: #FFFFFF;
-          padding: 0.35rem 0.75rem;
-          border-radius: 6px;
+          padding: 0.5rem 1rem;
+          border-radius: 8px;
           text-decoration: none;
-          font-size: 0.82rem;
-          transition: all 0.2s;
+          font-size: 0.85rem;
+          font-weight: 600;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .btn-action:hover {
-          background: #6a9a04;
-          border-color: #6a9a04;
-          color: #dee24b;
+          background: rgba(106, 154, 4, 0.8);
+          border-color: #dee24b;
+          color: #FFFFFF;
+          box-shadow: 0 0 15px rgba(106, 154, 4, 0.4);
+          transform: translateY(-2px);
         }
       `}</style>
     </div>
