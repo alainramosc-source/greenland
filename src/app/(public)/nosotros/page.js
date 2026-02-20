@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+export const revalidate = 0;
+
 export default function NosotrosPage() {
     return (
         <div className="page-wrapper" style={{ paddingTop: '6rem', paddingBottom: '8rem', background: '#FFFFFF' }}>
