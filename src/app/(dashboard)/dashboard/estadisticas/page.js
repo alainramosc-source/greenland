@@ -208,117 +208,131 @@ export default function EstadisticasPage() {
     const maxStatusCount = Math.max(...Object.values(statusBreakdown), 1);
 
     return (
-        <div className="stats-page">
-            <div className="page-header">
+        <div className="min-h-screen w-full bg-white text-black rounded-2xl p-6 md:p-8 shadow flex flex-col gap-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1>📊 Estadísticas</h1>
-                    <p>Panel de análisis y métricas del negocio</p>
+                    <h1 className="text-3xl font-semibold tracking-tight">Estadísticas</h1>
+                    <p className="text-gray-500 mt-1">Panel de análisis y métricas del negocio</p>
                 </div>
-                <button className="btn btn-glass refresh-btn" onClick={fetchAllData}>
+                <button
+                    className="flex items-center gap-2 px-5 py-2.5 bg-white text-black hover:bg-gray-50 border border-gray-200 rounded-full transition-colors font-medium shadow-sm"
+                    onClick={fetchAllData}
+                >
                     <RefreshCw size={18} /> Actualizar
                 </button>
             </div>
 
             {/* Date Filter */}
-            <div className="filters-bar glass-panel">
-                <div className="filter-row">
-                    <Calendar size={18} className="filter-icon" />
-                    <span className="filter-label">Periodo:</span>
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4 bg-gray-50/50 p-2 border border-gray-100 rounded-2xl">
+                <div className="flex items-center gap-3 px-3">
+                    <Calendar size={18} className="text-gray-400" />
+                    <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Periodo</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
                     {['today', 'week', 'month', 'year', 'all'].map(key => (
                         <button
                             key={key}
-                            className={`filter-chip ${dateRange === key ? 'active' : ''}`}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${dateRange === key
+                                    ? 'bg-black text-white shadow-md'
+                                    : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                }`}
                             onClick={() => setDateRange(key)}
                         >
                             {{ today: 'Hoy', week: 'Semana', month: 'Mes', year: 'Año', all: 'Todo' }[key]}
                         </button>
                     ))}
                     <button
-                        className={`filter-chip ${dateRange === 'custom' ? 'active' : ''}`}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${dateRange === 'custom'
+                                ? 'bg-black text-white shadow-md'
+                                : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                            }`}
                         onClick={() => setDateRange('custom')}
                     >
                         Personalizado
                     </button>
                 </div>
                 {dateRange === 'custom' && (
-                    <div className="custom-range">
-                        <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="date-input" />
-                        <span className="range-sep">—</span>
-                        <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="date-input" />
+                    <div className="flex items-center gap-2 ml-auto w-full md:w-auto">
+                        <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="bg-white border border-gray-200 text-black px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 flex-1" />
+                        <span className="text-gray-400">—</span>
+                        <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="bg-white border border-gray-200 text-black px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-black/5 flex-1" />
                     </div>
                 )}
             </div>
 
-            {/* KPI Cards */}
-            <div className="kpi-grid">
-                <div className="kpi-card glass-panel">
-                    <div className="kpi-icon" style={{ background: 'rgba(59,130,246,0.15)', color: '#60a5fa' }}><Package size={24} /></div>
-                    <div className="kpi-data">
-                        <span className="kpi-value">{kpis.totalOrders}</span>
-                        <span className="kpi-label">Total Pedidos</span>
+            {/* KPI Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                <div className="bg-white border border-gray-100 rounded-2xl p-5 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><Package size={24} /></div>
+                    <div>
+                        <div className="text-3xl font-bold text-gray-900">{kpis.totalOrders}</div>
+                        <div className="text-sm font-medium text-gray-500 mt-1">Total Pedidos</div>
                     </div>
                 </div>
-                <div className="kpi-card glass-panel">
-                    <div className="kpi-icon" style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80' }}><DollarSign size={24} /></div>
-                    <div className="kpi-data">
-                        <span className="kpi-value">{fmt(kpis.totalRevenue)}</span>
-                        <span className="kpi-label">Ingresos Totales</span>
+                <div className="bg-white border border-gray-100 rounded-2xl p-5 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-xl bg-green-50 text-green-600 flex items-center justify-center"><DollarSign size={24} /></div>
+                    <div>
+                        <div className="text-3xl font-bold text-gray-900">{fmt(kpis.totalRevenue)}</div>
+                        <div className="text-sm font-medium text-gray-500 mt-1">Ingresos Totales</div>
                     </div>
                 </div>
-                <div className="kpi-card glass-panel">
-                    <div className="kpi-icon" style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24' }}><Clock size={24} /></div>
-                    <div className="kpi-data">
-                        <span className="kpi-value">{kpis.pendingOrders}</span>
-                        <span className="kpi-label">Pendientes</span>
+                <div className="bg-white border border-gray-100 rounded-2xl p-5 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-xl bg-yellow-50 text-yellow-600 flex items-center justify-center"><Clock size={24} /></div>
+                    <div>
+                        <div className="text-3xl font-bold text-gray-900">{kpis.pendingOrders}</div>
+                        <div className="text-sm font-medium text-gray-500 mt-1">Pendientes</div>
                     </div>
                 </div>
-                <div className="kpi-card glass-panel">
-                    <div className="kpi-icon" style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171' }}><AlertTriangle size={24} /></div>
-                    <div className="kpi-data">
-                        <span className="kpi-value">{kpis.lowStockProducts}</span>
-                        <span className="kpi-label">Stock Bajo</span>
+                <div className="bg-white border border-gray-100 rounded-2xl p-5 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center"><AlertTriangle size={24} /></div>
+                    <div>
+                        <div className="text-3xl font-bold text-gray-900">{kpis.lowStockProducts}</div>
+                        <div className="text-sm font-medium text-gray-500 mt-1">Stock Bajo</div>
                     </div>
                 </div>
-                <div className="kpi-card glass-panel">
-                    <div className="kpi-icon" style={{ background: 'rgba(168,85,247,0.15)', color: '#c084fc' }}><Users size={24} /></div>
-                    <div className="kpi-data">
-                        <span className="kpi-value">{kpis.activeDistributors}</span>
-                        <span className="kpi-label">Distribuidores Activos</span>
+                <div className="bg-white border border-gray-100 rounded-2xl p-5 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center"><Users size={24} /></div>
+                    <div>
+                        <div className="text-3xl font-bold text-gray-900">{kpis.activeDistributors}</div>
+                        <div className="text-sm font-medium text-gray-500 mt-1">Distribuidores</div>
                     </div>
                 </div>
-                <div className="kpi-card glass-panel">
-                    <div className="kpi-icon" style={{ background: 'rgba(6,182,212,0.15)', color: '#22d3ee' }}><TrendingUp size={24} /></div>
-                    <div className="kpi-data">
-                        <span className="kpi-value">{fmt(kpis.avgTicket)}</span>
-                        <span className="kpi-label">Ticket Promedio</span>
+                <div className="bg-white border border-gray-100 rounded-2xl p-5 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center"><TrendingUp size={24} /></div>
+                    <div>
+                        <div className="text-3xl font-bold text-gray-900">{fmt(kpis.avgTicket)}</div>
+                        <div className="text-sm font-medium text-gray-500 mt-1">Ticket Promedio</div>
                     </div>
                 </div>
             </div>
 
             {/* Main Grid */}
-            <div className="main-grid">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
                 {/* Status Breakdown */}
-                <div className="section-card glass-panel">
-                    <h3><BarChart3 size={20} /> Desglose por Estado</h3>
-                    <div className="status-bars">
+                <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+                    <h3 className="flex items-center gap-2 text-lg font-semibold mb-6 text-gray-900">
+                        <BarChart3 size={20} className="text-gray-400" /> Desglose por Estado
+                    </h3>
+                    <div className="flex flex-col gap-5">
                         {Object.entries(statusBreakdown).map(([key, count]) => {
                             const cfg = statusConfig[key];
                             return (
-                                <div key={key} className="status-bar-row">
-                                    <div className="status-bar-label">
-                                        <span className="status-dot" style={{ background: cfg.color }}></span>
-                                        {cfg.label}
+                                <div key={key} className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2 w-32 shrink-0">
+                                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: cfg.color }}></div>
+                                        <span className="text-sm font-medium text-gray-600">{cfg.label}</span>
                                     </div>
-                                    <div className="status-bar-track">
+                                    <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
                                         <div
-                                            className="status-bar-fill"
+                                            className="h-full rounded-full transition-all duration-500"
                                             style={{
-                                                width: `${(count / maxStatusCount) * 100}%`,
-                                                background: `linear-gradient(90deg, ${cfg.color}88, ${cfg.color})`
+                                                width: `${maxStatusCount > 0 ? (count / maxStatusCount) * 100 : 0}%`,
+                                                background: cfg.color
                                             }}
                                         />
                                     </div>
-                                    <span className="status-bar-count" style={{ color: cfg.color }}>{count}</span>
+                                    <span className="text-sm font-bold w-8 text-right text-gray-900">{count}</span>
                                 </div>
                             );
                         })}
@@ -326,100 +340,126 @@ export default function EstadisticasPage() {
                 </div>
 
                 {/* Orders by City */}
-                <div className="section-card glass-panel">
-                    <h3><MapPin size={20} /> Pedidos por Ciudad</h3>
+                <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+                    <h3 className="flex items-center gap-2 text-lg font-semibold mb-6 text-gray-900">
+                        <MapPin size={20} className="text-gray-400" /> Pedidos por Ciudad
+                    </h3>
                     {ordersByCity.length > 0 ? (
-                        <div className="mini-table-wrap">
-                            <table className="mini-table">
-                                <thead>
-                                    <tr><th>Ciudad</th><th>Pedidos</th><th>Ingresos</th></tr>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="text-xs text-gray-500 uppercase bg-gray-50/50">
+                                    <tr>
+                                        <th className="px-4 py-3 font-medium rounded-l-xl">Ciudad</th>
+                                        <th className="px-4 py-3 font-medium text-right">Pedidos</th>
+                                        <th className="px-4 py-3 font-medium text-right rounded-r-xl">Ingresos</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
                                     {ordersByCity.map((row, i) => (
-                                        <tr key={i}>
-                                            <td className="city-cell">{row.city}</td>
-                                            <td className="num-cell">{row.count}</td>
-                                            <td className="num-cell revenue">{fmt(row.revenue)}</td>
+                                        <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
+                                            <td className="px-4 py-3 font-medium text-gray-900">{row.city}</td>
+                                            <td className="px-4 py-3 text-right text-gray-500">{row.count}</td>
+                                            <td className="px-4 py-3 text-right font-semibold text-gray-900">{fmt(row.revenue)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
-                    ) : <p className="no-data">Sin datos para este periodo</p>}
+                    ) : <p className="text-center text-gray-400 py-8">Sin datos para este periodo</p>}
                 </div>
 
                 {/* Top Distributors */}
-                <div className="section-card glass-panel">
-                    <h3><Users size={20} /> Top Distribuidores</h3>
+                <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+                    <h3 className="flex items-center gap-2 text-lg font-semibold mb-6 text-gray-900">
+                        <Users size={20} className="text-gray-400" /> Top Distribuidores
+                    </h3>
                     {topDistributors.length > 0 ? (
-                        <div className="mini-table-wrap">
-                            <table className="mini-table">
-                                <thead>
-                                    <tr><th>Distribuidor</th><th>Ciudad</th><th>Pedidos</th><th>Ingresos</th></tr>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="text-xs text-gray-500 uppercase bg-gray-50/50">
+                                    <tr>
+                                        <th className="px-4 py-3 font-medium rounded-l-xl whitespace-nowrap">Distribuidor</th>
+                                        <th className="px-4 py-3 font-medium">Ciudad</th>
+                                        <th className="px-4 py-3 font-medium text-right">Pedidos</th>
+                                        <th className="px-4 py-3 font-medium text-right rounded-r-xl">Ingresos</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
                                     {topDistributors.map((row, i) => (
-                                        <tr key={i}>
-                                            <td>{row.name}</td>
-                                            <td className="muted">{row.city}</td>
-                                            <td className="num-cell">{row.count}</td>
-                                            <td className="num-cell revenue">{fmt(row.revenue)}</td>
+                                        <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
+                                            <td className="px-4 py-3 font-medium text-gray-900">{row.name}</td>
+                                            <td className="px-4 py-3 text-gray-500">{row.city}</td>
+                                            <td className="px-4 py-3 text-right text-gray-500">{row.count}</td>
+                                            <td className="px-4 py-3 text-right font-semibold text-gray-900">{fmt(row.revenue)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
-                    ) : <p className="no-data">Sin datos para este periodo</p>}
+                    ) : <p className="text-center text-gray-400 py-8">Sin datos para este periodo</p>}
                 </div>
 
                 {/* Top Products */}
-                <div className="section-card glass-panel">
-                    <h3><ShoppingCart size={20} /> Productos Más Vendidos</h3>
+                <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+                    <h3 className="flex items-center gap-2 text-lg font-semibold mb-6 text-gray-900">
+                        <ShoppingCart size={20} className="text-gray-400" /> Productos Más Vendidos
+                    </h3>
                     {topProducts.length > 0 ? (
-                        <div className="mini-table-wrap">
-                            <table className="mini-table">
-                                <thead>
-                                    <tr><th>Producto</th><th>SKU</th><th>Cantidad</th><th>Revenue</th></tr>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="text-xs text-gray-500 uppercase bg-gray-50/50">
+                                    <tr>
+                                        <th className="px-4 py-3 font-medium rounded-l-xl">Producto</th>
+                                        <th className="px-4 py-3 font-medium">SKU</th>
+                                        <th className="px-4 py-3 font-medium text-right">Cantidad</th>
+                                        <th className="px-4 py-3 font-medium text-right rounded-r-xl">Ingresos</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
                                     {topProducts.map((row, i) => (
-                                        <tr key={i}>
-                                            <td>{row.name}</td>
-                                            <td className="muted">{row.sku}</td>
-                                            <td className="num-cell">{row.qty}</td>
-                                            <td className="num-cell revenue">{fmt(row.revenue)}</td>
+                                        <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
+                                            <td className="px-4 py-3 font-medium text-gray-900 max-w-[150px] truncate" title={row.name}>{row.name}</td>
+                                            <td className="px-4 py-3 text-gray-500">{row.sku}</td>
+                                            <td className="px-4 py-3 text-right text-gray-500">{row.qty}</td>
+                                            <td className="px-4 py-3 text-right font-semibold text-gray-900">{fmt(row.revenue)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
-                    ) : <p className="no-data">Sin datos para este periodo</p>}
+                    ) : <p className="text-center text-gray-400 py-8">Sin datos para este periodo</p>}
                 </div>
 
                 {/* Critical Inventory */}
-                <div className="section-card glass-panel full-width">
-                    <h3><AlertTriangle size={20} /> Inventario Crítico</h3>
+                <div className="lg:col-span-2 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+                    <h3 className="flex items-center gap-2 text-lg font-semibold mb-6 text-gray-900">
+                        <Box size={20} className="text-gray-400" /> Inventario Crítico
+                    </h3>
                     {criticalInventory.length > 0 ? (
-                        <div className="mini-table-wrap">
-                            <table className="mini-table">
-                                <thead>
-                                    <tr><th>Producto</th><th>SKU</th><th>Stock Actual</th><th>Mínimo</th><th>Estado</th></tr>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="text-xs text-gray-500 uppercase bg-gray-50/50">
+                                    <tr>
+                                        <th className="px-4 py-3 font-medium rounded-l-xl">Producto</th>
+                                        <th className="px-4 py-3 font-medium">SKU</th>
+                                        <th className="px-4 py-3 font-medium text-right">Stock</th>
+                                        <th className="px-4 py-3 font-medium text-right">Mínimo</th>
+                                        <th className="px-4 py-3 font-medium rounded-r-xl w-32">Estado</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
                                     {criticalInventory.map((p, i) => {
                                         const pct = p.stock_minimum ? (p.stock_quantity / p.stock_minimum) * 100 : 0;
+                                        const color = pct <= 25 ? '#ef4444' : pct <= 50 ? '#f59e0b' : '#22c55e';
                                         return (
-                                            <tr key={i}>
-                                                <td>{p.name}</td>
-                                                <td className="muted">{p.sku}</td>
-                                                <td className="num-cell">{p.stock_quantity}</td>
-                                                <td className="num-cell">{p.stock_minimum || 10}</td>
-                                                <td>
-                                                    <div className="stock-bar-wrap">
-                                                        <div className="stock-bar" style={{
-                                                            width: `${Math.min(pct, 100)}%`,
-                                                            background: pct <= 25 ? '#ef4444' : pct <= 50 ? '#f59e0b' : '#22c55e'
-                                                        }} />
+                                            <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
+                                                <td className="px-4 py-3 font-medium text-gray-900">{p.name}</td>
+                                                <td className="px-4 py-3 text-gray-500">{p.sku}</td>
+                                                <td className="px-4 py-3 text-right font-semibold" style={{ color }}>{p.stock_quantity}</td>
+                                                <td className="px-4 py-3 text-right text-gray-500">{p.stock_minimum || 10}</td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex bg-gray-100 h-2 rounded-full overflow-hidden w-full">
+                                                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}></div>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -429,308 +469,17 @@ export default function EstadisticasPage() {
                             </table>
                         </div>
                     ) : (
-                        <div className="no-critical">
-                            <span style={{ fontSize: '2rem' }}>✅</span>
-                            <p>Todos los productos tienen stock adecuado</p>
+                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                            <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center text-green-500 mb-4">
+                                <Package size={32} />
+                            </div>
+                            <h4 className="text-lg font-semibold text-gray-900">Inventario Saludable</h4>
+                            <p className="text-gray-500 mt-1">Todos los productos tienen stock adecuado al momento.</p>
                         </div>
                     )}
                 </div>
+
             </div>
-
-            <style jsx>{`
-        .stats-page {
-          max-width: 1400px;
-          margin: 0 auto;
-        }
-        .page-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 2rem;
-        }
-        .page-header h1 {
-          font-size: 2rem;
-          color: var(--color-text-main);
-          margin: 0;
-        }
-        .page-header p {
-          color: var(--color-text-muted);
-          margin-top: 0.25rem;
-        }
-        .refresh-btn {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.6rem 1.25rem;
-        }
-
-        /* Filters */
-        .filters-bar {
-          padding: 1rem 1.25rem;
-          margin-bottom: 1.5rem;
-          background: white;
-          border: 1px solid var(--color-border);
-        }
-        .filter-row {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          flex-wrap: wrap;
-        }
-        .filter-icon {
-          color: var(--color-text-muted);
-        }
-        .filter-label {
-          color: var(--color-text-muted);
-          font-size: 0.85rem;
-          font-weight: 600;
-        }
-        .filter-chip {
-          padding: 0.4rem 1rem;
-          border-radius: 99px;
-          border: 1px solid var(--color-border);
-          background: white;
-          color: var(--color-text-muted);
-          font-size: 0.82rem;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .filter-chip:hover {
-          border-color: var(--color-primary);
-          color: var(--color-primary-dark);
-          background: var(--color-bg-alt);
-        }
-        .filter-chip.active {
-          background: var(--color-primary);
-          border-color: var(--color-primary);
-          color: #064E3B;
-          font-weight: 600;
-        }
-        .custom-range {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          margin-top: 0.75rem;
-        }
-        .date-input {
-          background: white;
-          border: 1px solid var(--color-border);
-          color: var(--color-text-main);
-          padding: 0.5rem 0.75rem;
-          border-radius: var(--radius-sm);
-        }
-        .date-input:focus {
-          border-color: var(--color-primary);
-          outline: none;
-        }
-        .range-sep {
-          color: var(--color-text-muted);
-        }
-
-        /* KPI Grid */
-        .kpi-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1rem;
-          margin-bottom: 2rem;
-        }
-        .kpi-card {
-          padding: 1.5rem;
-          display: flex;
-          align-items: center;
-          gap: 1.25rem;
-          transition: transform 0.2s, box-shadow 0.2s;
-          background: white;
-          border: 1px solid var(--color-border);
-        }
-        .kpi-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 15px rgba(0,0,0,0.1);
-          border-color: var(--color-primary);
-        }
-        .kpi-icon {
-          width: 52px;
-          height: 52px;
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .kpi-data {
-          display: flex;
-          flex-direction: column;
-        }
-        .kpi-value {
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: var(--color-text-main);
-          line-height: 1.2;
-        }
-        .kpi-label {
-          font-size: 0.78rem;
-          color: var(--color-text-muted);
-          margin-top: 0.15rem;
-        }
-
-        /* Main Grid */
-        .main-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 1.5rem;
-        }
-        .section-card {
-          padding: 1.5rem;
-          background: white;
-          border: 1px solid var(--color-border);
-        }
-        .section-card.full-width {
-          grid-column: 1 / -1;
-        }
-        .section-card h3 {
-          display: flex;
-          align-items: center;
-          gap: 0.6rem;
-          color: var(--color-text-main);
-          font-size: 1.05rem;
-          margin: 0 0 1.25rem 0;
-        }
-
-        /* Status Bars */
-        .status-bars {
-          display: flex;
-          flex-direction: column;
-          gap: 0.9rem;
-        }
-        .status-bar-row {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-        .status-bar-label {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          min-width: 120px;
-          font-size: 0.85rem;
-          color: var(--color-text-muted);
-        }
-        .status-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-        .status-bar-track {
-          flex: 1;
-          height: 10px;
-          background: var(--color-bg-alt);
-          border-radius: 99px;
-          overflow: hidden;
-        }
-        .status-bar-fill {
-          height: 100%;
-          border-radius: 99px;
-          transition: width 0.5s ease;
-          min-width: 4px;
-        }
-        .status-bar-count {
-          font-weight: 700;
-          font-size: 0.95rem;
-          min-width: 30px;
-          text-align: right;
-        }
-
-        /* Mini Tables */
-        .mini-table-wrap {
-          overflow-x: auto;
-        }
-        .mini-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 0.85rem;
-        }
-        .mini-table th {
-          text-align: left;
-          padding: 0.6rem 0.75rem;
-          color: var(--color-text-muted);
-          font-size: 0.75rem;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          border-bottom: 1px solid var(--color-border);
-          background: var(--color-bg-alt);
-        }
-        .mini-table td {
-          padding: 0.6rem 0.75rem;
-          color: var(--color-text-muted);
-          border-bottom: 1px solid var(--color-bg-alt);
-        }
-        .mini-table tbody tr:hover {
-          background: var(--color-bg-surface);
-        }
-        .num-cell {
-          text-align: right;
-          font-variant-numeric: tabular-nums;
-        }
-        .num-cell.revenue {
-          color: var(--color-primary-dark);
-          font-weight: 600;
-        }
-        .city-cell {
-          color: var(--color-text-main);
-          font-weight: 500;
-        }
-        .muted {
-          color: var(--color-text-muted);
-          font-size: 0.8rem;
-        }
-
-        /* Stock Bar */
-        .stock-bar-wrap {
-          width: 80px;
-          height: 8px;
-          background: var(--color-bg-alt);
-          border-radius: 99px;
-          overflow: hidden;
-        }
-        .stock-bar {
-          height: 100%;
-          border-radius: 99px;
-          transition: width 0.4s;
-        }
-
-        .no-data {
-          color: var(--color-text-muted);
-          text-align: center;
-          padding: 2rem;
-          font-size: 0.9rem;
-        }
-        .no-critical {
-          text-align: center;
-          padding: 2rem;
-          color: var(--color-text-muted);
-        }
-
-        .loading {
-          text-align: center;
-          padding: 4rem;
-          color: var(--color-text-muted);
-          font-size: 1.1rem;
-        }
-
-        @media (max-width: 768px) {
-          .main-grid {
-            grid-template-columns: 1fr;
-          }
-          .kpi-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-          .page-header {
-            flex-direction: column;
-            gap: 1rem;
-          }
-        }
-      `}</style>
         </div>
     );
 }
