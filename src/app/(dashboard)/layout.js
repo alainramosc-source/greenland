@@ -59,7 +59,12 @@ export default function DashboardLayout({ children }) {
         .dashboard-layout {
           display: flex;
           min-height: 100vh;
-          background-color: var(--color-bg-main);
+          background-color: #000000;
+          background-image: 
+            radial-gradient(circle at 15% 50%, rgba(106, 154, 4, 0.15), transparent 25%),
+            radial-gradient(circle at 85% 30%, rgba(222, 226, 75, 0.15), transparent 25%);
+          background-attachment: fixed;
+          color: #FFFFFF;
         }
 
         .dashboard-content-wrapper {
@@ -79,8 +84,8 @@ export default function DashboardLayout({ children }) {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: var(--color-text-main);
-          background: var(--color-bg-main);
+          color: #FFFFFF;
+          background: #000000;
         }
 
         @media (max-width: 768px) {

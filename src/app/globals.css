@@ -221,3 +221,14 @@ h6 {
     padding: 1rem;
   }
 }
+
+/* ===== SHARED GLASSMORPHISM MODULES ===== */
+.glass-panel {
+  background: rgba(116, 116, 116, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 12px;
+  border: 1px solid rgba(116, 116, 116, 0.3);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  color: #FFFFFF;
+}

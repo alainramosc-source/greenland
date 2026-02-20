@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
@@ -40,7 +40,10 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
 
         <nav className="sidebar-nav">
           <div className="nav-section">
-            <span className="nav-label">MENU PRINCIPAL</span>
+            <span className="nav-label">
+              <Grid size={15} style={{ opacity: 0.8 }} />
+              MENÚ PRINCIPAL
+            </span>
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               return (
@@ -59,7 +62,10 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
 
           {adminItems.length > 0 && (
             <div className="nav-section admin-section">
-              <span className="nav-label">ADMINISTRACIÓN</span>
+              <span className="nav-label">
+                <Shield size={15} style={{ opacity: 0.8 }} />
+                ADMINISTRACIÓN
+              </span>
               {adminItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
@@ -98,8 +104,10 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
           left: 0;
           width: var(--layout-sidebar-width);
           height: 100vh;
-          background: #000000;
-          border-right: 1px solid #747474;
+          background: rgba(0, 0, 0, 0.5); /* Glassmorphism Base */
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border-right: 1px solid rgba(116, 116, 116, 0.4);
           display: flex;
           flex-direction: column;
           z-index: 50;
@@ -107,24 +115,24 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
         }
 
         .sidebar-header {
-          padding: 1.5rem;
+          padding: 2rem 1.5rem;
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          border-bottom: 1px solid #747474;
+          border-bottom: 1px solid rgba(116, 116, 116, 0.4);
         }
 
         .logo-mark {
-          width: 36px;
-          height: 36px;
+          width: 44px;
+          height: 44px;
           background: #6a9a04;
           color: #000000;
-          border-radius: 10px;
+          border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: 900;
-          font-size: 1.2rem;
+          font-size: 1.4rem;
         }
 
         .logo-text {
@@ -134,14 +142,14 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
 
         .brand {
           font-weight: 800;
-          font-size: 0.95rem;
+          font-size: 1.1rem;
           color: #FFFFFF;
           letter-spacing: 0.04em;
           line-height: 1;
         }
 
         .sub {
-          font-size: 0.6rem;
+          font-size: 0.65rem;
           color: #dee24b;
           letter-spacing: 0.15em;
           font-weight: 600;
@@ -149,25 +157,28 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
 
         .sidebar-nav {
           flex: 1;
-          padding: 1.5rem 1rem;
+          padding: 2rem 1rem;
           overflow-y: auto;
         }
 
         .nav-section {
           display: flex;
           flex-direction: column;
-          gap: 0.25rem;
+          gap: 0.5rem;
         }
 
         .admin-section {
-          margin-top: 1.5rem;
+          margin-top: 2rem;
         }
 
         .nav-label {
-          font-size: 0.65rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.75rem;
           color: #747474;
           padding-left: 0.75rem;
-          margin-bottom: 0.75rem;
+          margin-bottom: 1rem;
           font-weight: 700;
           letter-spacing: 0.1em;
         }
@@ -175,15 +186,15 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
         .nav-link {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
-          padding: 0.7rem 0.75rem;
-          color: #FFFFFF;
-          border-radius: 10px;
-          transition: all 0.2s;
+          gap: 1rem;
+          padding: 0.8rem 1rem;
+          color: rgba(255, 255, 255, 0.85);
+          border-radius: 12px;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           font-weight: 500;
-          font-size: 0.875rem;
+          font-size: 1rem;
           background: transparent;
-          border: none;
+          border: 1px solid transparent;
           width: 100%;
           cursor: pointer;
           text-align: left;
@@ -192,18 +203,20 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
 
         .nav-link:hover {
           background: rgba(116, 116, 116, 0.2);
+          border-color: rgba(116, 116, 116, 0.3);
           color: #dee24b;
         }
 
         .nav-link.active {
-          background: rgba(106, 154, 4, 0.2);
+          background: rgba(106, 154, 4, 0.15);
+          border-color: rgba(106, 154, 4, 0.3);
           color: #dee24b;
           font-weight: 600;
         }
 
         .sidebar-footer {
-          padding: 1.25rem;
-          border-top: 1px solid #747474;
+          padding: 1.5rem;
+          border-top: 1px solid rgba(116, 116, 116, 0.4);
         }
 
         .logout-btn {

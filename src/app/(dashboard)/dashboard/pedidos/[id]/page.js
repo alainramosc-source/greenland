@@ -305,40 +305,40 @@ export default function OrderDetailsPage() {
       <style jsx>{`
         .details-container { max-width: 1200px; margin: 0 auto; }
         .page-header { margin-bottom: 2rem; }
-        .back-link { display:inline-flex; align-items:center; gap:0.5rem; color:var(--color-text-muted); text-decoration:none; margin-bottom:1rem; font-size:0.9rem; transition:color 0.2s; }
-        .back-link:hover { color: white; }
+        .back-link { display:inline-flex; align-items:center; gap:0.5rem; color:#747474; text-decoration:none; margin-bottom:1rem; font-size:0.9rem; transition:color 0.2s; }
+        .back-link:hover { color: #FFFFFF; }
         .header-title { display:flex; align-items:center; gap:1.5rem; }
-        .header-title h1 { font-size:2rem; margin:0; color:white; }
+        .header-title h1 { font-size:2rem; margin:0; color:#FFFFFF; }
         .status-badge { padding:0.3rem 0.85rem; border-radius:99px; font-size:0.85rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; }
         .details-grid { display:grid; grid-template-columns:1fr 380px; gap:2rem; }
-        .glass-panel { padding:1.5rem; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:16px; }
-        .items-list h3, .summary-card h3 { margin:0 0 1.5rem; font-size:1.1rem; color:white; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.75rem; }
-        .items-table { width:100%; border-collapse:collapse; color:white; }
-        .items-table th { text-align:left; padding:0.75rem; color:var(--color-text-muted); font-weight:500; font-size:0.85rem; border-bottom:1px solid rgba(255,255,255,0.05); }
-        .items-table td { padding:1rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.05); vertical-align:middle; }
+        .glass-panel { padding:1.5rem; }
+        .items-list h3, .summary-card h3 { margin:0 0 1.5rem; font-size:1.1rem; color:#FFFFFF; border-bottom:1px solid rgba(116, 116, 116, 0.4); padding-bottom:0.75rem; }
+        .items-table { width:100%; border-collapse:collapse; color:#FFFFFF; }
+        .items-table th { text-align:left; padding:0.75rem; color:#747474; font-weight:500; font-size:0.85rem; border-bottom:1px solid rgba(116, 116, 116, 0.4); }
+        .items-table td { padding:1rem 0.75rem; border-bottom:1px solid rgba(116, 116, 116, 0.4); vertical-align:middle; }
         .product-info { display:flex; align-items:center; gap:1rem; }
-        .product-thumb { width:48px; height:48px; background:rgba(255,255,255,0.05); border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+        .product-thumb { width:48px; height:48px; background:rgba(116, 116, 116, 0.2); border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
         .product-thumb img { width:100%; height:100%; object-fit:cover; }
-        .product-name { font-weight:500; color:white; }
-        .product-sku { font-size:0.75rem; color:var(--color-text-muted); }
-        .product-stock { font-size:0.72rem; color:#60a5fa; margin-top:2px; }
-        .subtotal { font-weight:600; color:var(--color-primary); }
+        .product-name { font-weight:500; color:#FFFFFF; }
+        .product-sku { font-size:0.75rem; color:#747474; }
+        .product-stock { font-size:0.72rem; color:#dee24b; margin-top:2px; }
+        .subtotal { font-weight:600; color:#6a9a04; }
 
         /* Distributor Info */
         .dist-info { display:flex; flex-direction:column; gap:0.35rem; }
-        .dist-name { font-weight:600; color:white; font-size:1rem; }
-        .dist-detail { color:var(--color-text-muted); font-size:0.88rem; }
+        .dist-name { font-weight:600; color:#FFFFFF; font-size:1rem; }
+        .dist-detail { color:#747474; font-size:0.88rem; }
 
         /* Summary */
         .summary-card + .summary-card { margin-top: 1rem; }
         .summary-row { display:flex; gap:1rem; margin-bottom:1.5rem; }
-        .summary-row .icon { color:var(--color-primary); margin-top:0.25rem; }
-        .summary-row label { display:block; font-size:0.8rem; color:var(--color-text-muted); margin-bottom:0.25rem; }
-        .summary-row div:last-child { color:white; font-size:0.95rem; }
-        .summary-row.total .amount { font-size:1.5rem; font-weight:700; color:var(--color-primary); }
+        .summary-row .icon { color:#6a9a04; margin-top:0.25rem; }
+        .summary-row label { display:block; font-size:0.8rem; color:#747474; margin-bottom:0.25rem; }
+        .summary-row div:last-child { color:#FFFFFF; font-size:0.95rem; }
+        .summary-row.total .amount { font-size:1.5rem; font-weight:700; color:#6a9a04; }
 
         /* Admin Action Buttons */
-        .actions-card { border-color: rgba(255,255,255,0.1); }
+        .actions-card { border-color: rgba(116, 116, 116, 0.4); }
         .action-buttons { display:flex; flex-direction:column; gap:0.75rem; }
         .btn-action-lg {
           display: flex;

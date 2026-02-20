@@ -29,13 +29,15 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
 
       <style jsx>{`
         .top-bar {
-          height: 64px;
+          height: 80px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0 1.5rem;
-          background: #000000;
-          border-bottom: 1px solid #747474;
+          padding: 0 2rem;
+          background: rgba(0, 0, 0, 0.4);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border-bottom: 1px solid rgba(116, 116, 116, 0.3);
           position: sticky;
           top: 0;
           z-index: 40;
