@@ -64,9 +64,10 @@ export default function UsersPage() {
   };
 
   const filteredUsers = users.filter(user => {
+    const safeSearch = searchTerm?.toLowerCase() || '';
     const matchesSearch =
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      (user.email && user.email.toLowerCase().includes(safeSearch)) ||
+      (user.full_name && user.full_name.toLowerCase().includes(safeSearch));
 
     const matchesRole = filterRole === 'all' || user.role === filterRole;
 

@@ -6,269 +6,270 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 export default function NuevoPedidoPage() {
-    const [products, setProducts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [categories, setCategories] = useState([]);
-    const [selectedCategory, setSelectedCategory] = useState("all");
-    const [searchQuery, setSearchQuery] = useState("");
-    const [cart, setCart] = useState([]);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [orderSuccess, setOrderSuccess] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [cart, setCart] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState(false);
 
-    const router = useRouter();
-    const supabase = createClient();
+  const router = useRouter();
+  const supabase = createClient();
 
-    // Load products & categories
-    useEffect(() => {
-        async function fetchData() {
-            // Products
-            const { data: productsData } = await supabase
-                .from('products')
-                .select(`
+  // Load products & categories
+  useEffect(() => {
+    async function fetchData() {
+      // Products
+      const { data: productsData } = await supabase
+        .from('products')
+        .select(`
           *,
           categories:category_id (name, slug)
         `)
-                .eq('is_active', true)
-                .order('name');
+        .eq('is_active', true)
+        .order('name');
 
-            if (productsData) setProducts(productsData);
+      if (productsData) setProducts(productsData);
 
-            // Unique categories
-            const uniqueCats = Array.from(new Set(productsData?.map(p => p.categories?.name))).filter(Boolean);
-            setCategories(uniqueCats);
+      // Unique categories
+      const uniqueCats = Array.from(new Set(productsData?.map(p => p.categories?.name))).filter(Boolean);
+      setCategories(uniqueCats);
 
-            setLoading(false);
-        }
-        fetchData();
-    }, []);
+      setLoading(false);
+    }
+    fetchData();
+  }, []);
 
-    // Filter products
-    const filteredProducts = products.filter(product => {
-        const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            product.sku.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesCategory = selectedCategory === "all" || product.categories?.name === selectedCategory;
-        return matchesSearch && matchesCategory;
+  // Filter products
+  const filteredProducts = products.filter(product => {
+    const safeQuery = searchQuery?.toLowerCase() || '';
+    const matchesSearch = (product.name && product.name.toLowerCase().includes(safeQuery)) ||
+      (product.sku && product.sku.toLowerCase().includes(safeQuery));
+    const matchesCategory = selectedCategory === "all" || product.categories?.name === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  // Cart logic
+  const addToCart = (product) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.id === product.id);
+      if (existing) {
+        return prev.map(item =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [...prev, { ...product, quantity: 1 }];
     });
+  };
 
-    // Cart logic
-    const addToCart = (product) => {
-        setCart(prev => {
-            const existing = prev.find(item => item.id === product.id);
-            if (existing) {
-                return prev.map(item =>
-                    item.id === product.id
-                        ? { ...item, quantity: item.quantity + 1 }
-                        : item
-                );
-            }
-            return [...prev, { ...product, quantity: 1 }];
-        });
-    };
+  const removeFromCart = (id) => {
+    setCart(prev => prev.filter(item => item.id !== id));
+  };
 
-    const removeFromCart = (id) => {
-        setCart(prev => prev.filter(item => item.id !== id));
-    };
+  const updateQuantity = (id, delta) => {
+    setCart(prev => prev.map(item => {
+      if (item.id === id) {
+        const newQty = Math.max(1, item.quantity + delta);
+        return { ...item, quantity: newQty };
+      }
+      return item;
+    }));
+  };
 
-    const updateQuantity = (id, delta) => {
-        setCart(prev => prev.map(item => {
-            if (item.id === id) {
-                const newQty = Math.max(1, item.quantity + delta);
-                return { ...item, quantity: newQty };
-            }
-            return item;
-        }));
-    };
+  const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
-    const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  // Submit Order
+  const handleSubmitOrder = async () => {
+    if (cart.length === 0) return;
+    setIsSubmitting(true);
 
-    // Submit Order
-    const handleSubmitOrder = async () => {
-        if (cart.length === 0) return;
-        setIsSubmitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
 
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error("No user found");
+      // 1. Create Order
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          distributor_id: user.id,
+          order_number: `ORD-${Date.now().toString().slice(-6)}`, // Simple ID gen
+          status: 'pending',
+          total_amount: cartTotal,
+          notes: 'Pedido generado desde web'
+        })
+        .select()
+        .single();
 
-            // 1. Create Order
-            const { data: order, error: orderError } = await supabase
-                .from('orders')
-                .insert({
-                    distributor_id: user.id,
-                    order_number: `ORD-${Date.now().toString().slice(-6)}`, // Simple ID gen
-                    status: 'pending',
-                    total_amount: cartTotal,
-                    notes: 'Pedido generado desde web'
-                })
-                .select()
-                .single();
+      if (orderError) throw orderError;
 
-            if (orderError) throw orderError;
+      // 2. Create Order Items
+      const orderItems = cart.map(item => ({
+        order_id: order.id,
+        product_id: item.id,
+        quantity: item.quantity,
+        unit_price: item.price
+      }));
 
-            // 2. Create Order Items
-            const orderItems = cart.map(item => ({
-                order_id: order.id,
-                product_id: item.id,
-                quantity: item.quantity,
-                unit_price: item.price
-            }));
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
 
-            const { error: itemsError } = await supabase
-                .from('order_items')
-                .insert(orderItems);
+      if (itemsError) throw itemsError;
 
-            if (itemsError) throw itemsError;
+      setOrderSuccess(true);
+      setCart([]);
 
-            setOrderSuccess(true);
-            setCart([]);
+      // Redirect after 2s
+      setTimeout(() => {
+        router.push('/dashboard/pedidos');
+      }, 2000);
 
-            // Redirect after 2s
-            setTimeout(() => {
-                router.push('/dashboard/pedidos');
-            }, 2000);
+    } catch (error) {
+      console.error('Error creating order:', error);
+      alert('Error al crear el pedido. Intente nuevamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-        } catch (error) {
-            console.error('Error creating order:', error);
-            alert('Error al crear el pedido. Intente nuevamente.');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
+  if (loading) return <div className="p-8 text-center text-white">Cargando catálogo...</div>;
 
-    if (loading) return <div className="p-8 text-center text-white">Cargando catálogo...</div>;
+  return (
+    <div className="new-order-container">
+      {orderSuccess && (
+        <div className="success-overlay">
+          <div className="success-modal glass-panel">
+            <CheckCircle size={64} className="text-primary mb-4" />
+            <h2>¡Pedido Creado!</h2>
+            <p>Tu pedido ha sido registrado exitosamente.</p>
+            <p className="text-sm text-muted">Redirigiendo...</p>
+          </div>
+        </div>
+      )}
 
-    return (
-        <div className="new-order-container">
-            {orderSuccess && (
-                <div className="success-overlay">
-                    <div className="success-modal glass-panel">
-                        <CheckCircle size={64} className="text-primary mb-4" />
-                        <h2>¡Pedido Creado!</h2>
-                        <p>Tu pedido ha sido registrado exitosamente.</p>
-                        <p className="text-sm text-muted">Redirigiendo...</p>
-                    </div>
+      <div className="catalog-section">
+        <header className="mb-6">
+          <h1 className="text-2xl font-bold text-white mb-4">Nuevo Pedido</h1>
+
+          <div className="filters">
+            <div className="search-box glass-input-wrapper">
+              <Search size={18} className="text-muted" />
+              <input
+                type="text"
+                placeholder="Buscar productos..."
+                className="glass-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            <div className="category-pills">
+              <button
+                className={`pill ${selectedCategory === 'all' ? 'active' : ''}`}
+                onClick={() => setSelectedCategory('all')}
+              >
+                Todos
+              </button>
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  className={`pill ${selectedCategory === cat ? 'active' : ''}`}
+                  onClick={() => setSelectedCategory(cat)}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+        </header>
+
+        <div className="products-grid">
+          {filteredProducts.map(product => (
+            <div key={product.id} className="product-card glass-panel">
+              <div className="product-image">
+                {product.image_url ? (
+                  <img src={product.image_url} alt={product.name} />
+                ) : (
+                  <div className="placeholder-img"><Package size={32} /></div>
+                )}
+              </div>
+              <div className="product-info">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-semibold text-white">{product.name}</h3>
+                  <span className="price">${product.price}</span>
                 </div>
+                <p className="text-sm text-muted mb-4 line-clamp-2">{product.description}</p>
+                <div className="flex justify-between items-center mt-auto">
+                  <span className="text-xs text-muted">SKU: {product.sku}</span>
+                  <button
+                    className="btn-add"
+                    onClick={() => addToCart(product)}
+                  >
+                    <Plus size={16} /> Agregar
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="cart-sidebar glass-panel">
+        <div className="cart-header">
+          <ShoppingCart size={20} />
+          <h2>Resumen del Pedido</h2>
+          <span className="badge">{cart.length}</span>
+        </div>
+
+        <div className="cart-items">
+          {cart.length === 0 ? (
+            <div className="empty-cart">
+              <ShoppingCart size={48} className="opacity-20 mb-2" />
+              <p>Tu carrito está vacío</p>
+            </div>
+          ) : (
+            cart.map(item => (
+              <div key={item.id} className="cart-item">
+                <div className="item-details">
+                  <h4>{item.name}</h4>
+                  <span className="item-price">${item.price * item.quantity}</span>
+                </div>
+                <div className="qty-controls">
+                  <button onClick={() => item.quantity > 1 ? updateQuantity(item.id, -1) : removeFromCart(item.id)}>
+                    <Minus size={14} />
+                  </button>
+                  <span>{item.quantity}</span>
+                  <button onClick={() => updateQuantity(item.id, 1)}>
+                    <Plus size={14} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="cart-footer">
+          <div className="total-row">
+            <span>Total Estimado</span>
+            <span className="total-amount">${cartTotal.toFixed(2)}</span>
+          </div>
+          <button
+            className="btn-checkout"
+            disabled={cart.length === 0 || isSubmitting}
+            onClick={handleSubmitOrder}
+          >
+            {isSubmitting ? 'Procesando...' : (
+              <>Confirmar Pedido <ArrowRight size={18} /></>
             )}
+          </button>
+        </div>
+      </div>
 
-            <div className="catalog-section">
-                <header className="mb-6">
-                    <h1 className="text-2xl font-bold text-white mb-4">Nuevo Pedido</h1>
-
-                    <div className="filters">
-                        <div className="search-box glass-input-wrapper">
-                            <Search size={18} className="text-muted" />
-                            <input
-                                type="text"
-                                placeholder="Buscar productos..."
-                                className="glass-input"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="category-pills">
-                            <button
-                                className={`pill ${selectedCategory === 'all' ? 'active' : ''}`}
-                                onClick={() => setSelectedCategory('all')}
-                            >
-                                Todos
-                            </button>
-                            {categories.map(cat => (
-                                <button
-                                    key={cat}
-                                    className={`pill ${selectedCategory === cat ? 'active' : ''}`}
-                                    onClick={() => setSelectedCategory(cat)}
-                                >
-                                    {cat}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </header>
-
-                <div className="products-grid">
-                    {filteredProducts.map(product => (
-                        <div key={product.id} className="product-card glass-panel">
-                            <div className="product-image">
-                                {product.image_url ? (
-                                    <img src={product.image_url} alt={product.name} />
-                                ) : (
-                                    <div className="placeholder-img"><Package size={32} /></div>
-                                )}
-                            </div>
-                            <div className="product-info">
-                                <div className="flex justify-between items-start mb-2">
-                                    <h3 className="font-semibold text-white">{product.name}</h3>
-                                    <span className="price">${product.price}</span>
-                                </div>
-                                <p className="text-sm text-muted mb-4 line-clamp-2">{product.description}</p>
-                                <div className="flex justify-between items-center mt-auto">
-                                    <span className="text-xs text-muted">SKU: {product.sku}</span>
-                                    <button
-                                        className="btn-add"
-                                        onClick={() => addToCart(product)}
-                                    >
-                                        <Plus size={16} /> Agregar
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            <div className="cart-sidebar glass-panel">
-                <div className="cart-header">
-                    <ShoppingCart size={20} />
-                    <h2>Resumen del Pedido</h2>
-                    <span className="badge">{cart.length}</span>
-                </div>
-
-                <div className="cart-items">
-                    {cart.length === 0 ? (
-                        <div className="empty-cart">
-                            <ShoppingCart size={48} className="opacity-20 mb-2" />
-                            <p>Tu carrito está vacío</p>
-                        </div>
-                    ) : (
-                        cart.map(item => (
-                            <div key={item.id} className="cart-item">
-                                <div className="item-details">
-                                    <h4>{item.name}</h4>
-                                    <span className="item-price">${item.price * item.quantity}</span>
-                                </div>
-                                <div className="qty-controls">
-                                    <button onClick={() => item.quantity > 1 ? updateQuantity(item.id, -1) : removeFromCart(item.id)}>
-                                        <Minus size={14} />
-                                    </button>
-                                    <span>{item.quantity}</span>
-                                    <button onClick={() => updateQuantity(item.id, 1)}>
-                                        <Plus size={14} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-
-                <div className="cart-footer">
-                    <div className="total-row">
-                        <span>Total Estimado</span>
-                        <span className="total-amount">${cartTotal.toFixed(2)}</span>
-                    </div>
-                    <button
-                        className="btn-checkout"
-                        disabled={cart.length === 0 || isSubmitting}
-                        onClick={handleSubmitOrder}
-                    >
-                        {isSubmitting ? 'Procesando...' : (
-                            <>Confirmar Pedido <ArrowRight size={18} /></>
-                        )}
-                    </button>
-                </div>
-            </div>
-
-            <style jsx>{`
+      <style jsx>{`
         .new-order-container {
           display: grid;
           grid-template-columns: 1fr 340px;
@@ -569,6 +570,6 @@ export default function NuevoPedidoPage() {
           .dashboard-main { padding-bottom: 300px; } /* Space for fixed cart */
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }
