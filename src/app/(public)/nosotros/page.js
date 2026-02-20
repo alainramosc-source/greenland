@@ -1,6 +1,7 @@
+'use client';
 import Link from 'next/link';
 
-export const revalidate = 0;
+// Remove the `revalidate = 0` line since this is now a client component
 
 export default function NosotrosPage() {
     return (
