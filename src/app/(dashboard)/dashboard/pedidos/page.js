@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   ShoppingCart, CircleDollarSign, Clock, CheckCircle,
   TrendingUp, TrendingDown, Filter, Download, MoreVertical,
-  ChevronLeft, ChevronRight, Eye, Package
+  ChevronLeft, ChevronRight, Eye, Package, Plus
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -124,6 +124,9 @@ export default function PedidosPage() {
             <p>Gestión y seguimiento de envíos actuales.</p>
           </div>
           <div className="table-actions">
+            <Link href="/dashboard/pedidos/nuevo" className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', borderRadius: '0.5rem', background: '#6a9a04', color: '#fff', fontSize: '0.875rem', fontWeight: '500', transition: 'all 0.2s', textDecoration: 'none' }}>
+              <Plus size={18} /> Crear Pedido
+            </Link>
             <button className="btn-glass" onClick={() => setStatusFilter(statusFilter === 'all' ? 'processing' : 'all')}>
               <Filter size={18} /> Filtros {statusFilter !== 'all' && '(Activo)'}
             </button>
