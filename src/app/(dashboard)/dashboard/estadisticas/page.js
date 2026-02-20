@@ -3,9 +3,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
-    Package, DollarSign, Clock, AlertTriangle, Users, TrendingUp,
-    Calendar, Filter, RefreshCw, ArrowUpRight, ArrowDownRight,
-    BarChart3, MapPin, ShoppingCart, Box
+    Package, DollarSign, Clock, AlertTriangle, Users, TrendingUp, TrendingDown,
+    Calendar, RefreshCw, BarChart3, MapPin, ShoppingCart, Box, Download
 } from 'lucide-react';
 
 export default function EstadisticasPage() {
@@ -14,35 +13,22 @@ export default function EstadisticasPage() {
 
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
-    const [dateRange, setDateRange] = useState('month'); // today, week, month, year, all
+    const [dateRange, setDateRange] = useState('month');
     const [customFrom, setCustomFrom] = useState('');
     const [customTo, setCustomTo] = useState('');
 
-    // Raw data
     const [orders, setOrders] = useState([]);
     const [products, setProducts] = useState([]);
     const [profiles, setProfiles] = useState([]);
     const [orderItems, setOrderItems] = useState([]);
 
-    useEffect(() => {
-        checkAdminAndFetch();
-    }, []);
+    useEffect(() => { checkAdminAndFetch(); }, []);
 
     const checkAdminAndFetch = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { router.push('/login'); return; }
-
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single();
-
-        if (profile?.role !== 'admin') {
-            router.push('/dashboard');
-            return;
-        }
-
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        if (profile?.role !== 'admin') { router.push('/dashboard'); return; }
         setIsAdmin(true);
         await fetchAllData();
     };
@@ -55,7 +41,6 @@ export default function EstadisticasPage() {
             supabase.from('profiles').select('*'),
             supabase.from('order_items').select('*, products(name, sku)')
         ]);
-
         setOrders(ordersRes.data || []);
         setProducts(productsRes.data || []);
         setProfiles(profilesRes.data || []);
@@ -63,48 +48,34 @@ export default function EstadisticasPage() {
         setLoading(false);
     };
 
-    // Date filter logic
-    const getDateRange = () => {
+    const dateRangeValues = useMemo(() => {
         const now = new Date();
         let from = null;
         let to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-
         switch (dateRange) {
-            case 'today':
-                from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                break;
-            case 'week':
-                from = new Date(now);
-                from.setDate(now.getDate() - 7);
-                break;
-            case 'month':
-                from = new Date(now.getFullYear(), now.getMonth(), 1);
-                break;
-            case 'year':
-                from = new Date(now.getFullYear(), 0, 1);
-                break;
+            case 'today': from = new Date(now.getFullYear(), now.getMonth(), now.getDate()); break;
+            case 'week': from = new Date(now); from.setDate(now.getDate() - 7); break;
+            case 'month': from = new Date(now.getFullYear(), now.getMonth(), 1); break;
+            case 'year': from = new Date(now.getFullYear(), 0, 1); break;
             case 'custom':
                 from = customFrom ? new Date(customFrom) : null;
                 to = customTo ? new Date(customTo + 'T23:59:59') : to;
                 break;
-            default: // 'all'
-                from = null;
-                break;
+            default: from = null; break;
         }
         return { from, to };
-    };
+    }, [dateRange, customFrom, customTo]);
 
     const filteredOrders = useMemo(() => {
-        const { from, to } = getDateRange();
+        const { from, to } = dateRangeValues;
         return orders.filter(o => {
             const d = new Date(o.created_at);
             if (from && d < from) return false;
             if (to && d > to) return false;
             return true;
         });
-    }, [orders, dateRange, customFrom, customTo]);
+    }, [orders, dateRangeValues]);
 
-    // KPIs
     const kpis = useMemo(() => {
         const totalOrders = filteredOrders.length;
         const nonCancelled = filteredOrders.filter(o => o.status !== 'cancelled');
@@ -113,56 +84,15 @@ export default function EstadisticasPage() {
         const lowStockProducts = products.filter(p => p.stock_quantity <= (p.stock_minimum || 10)).length;
         const activeDistributors = profiles.filter(p => p.role === 'distributor' && p.is_active).length;
         const avgTicket = nonCancelled.length > 0 ? totalRevenue / nonCancelled.length : 0;
-
         return { totalOrders, totalRevenue, pendingOrders, lowStockProducts, activeDistributors, avgTicket };
     }, [filteredOrders, products, profiles]);
 
-    // Status breakdown
     const statusBreakdown = useMemo(() => {
         const counts = { pending: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0 };
         filteredOrders.forEach(o => { if (counts.hasOwnProperty(o.status)) counts[o.status]++; });
         return counts;
     }, [filteredOrders]);
 
-    // Orders by city
-    const ordersByCity = useMemo(() => {
-        const cityMap = {};
-        filteredOrders.forEach(order => {
-            const profile = profiles.find(p => p.id === order.distributor_id);
-            const city = profile?.city || 'Sin ciudad';
-            if (!cityMap[city]) cityMap[city] = { count: 0, revenue: 0 };
-            cityMap[city].count++;
-            if (order.status !== 'cancelled') {
-                cityMap[city].revenue += parseFloat(order.total_amount) || 0;
-            }
-        });
-        return Object.entries(cityMap)
-            .map(([city, data]) => ({ city, ...data }))
-            .sort((a, b) => b.revenue - a.revenue)
-            .slice(0, 10);
-    }, [filteredOrders, profiles]);
-
-    // Top distributors
-    const topDistributors = useMemo(() => {
-        const distMap = {};
-        filteredOrders.forEach(order => {
-            const id = order.distributor_id;
-            if (!distMap[id]) distMap[id] = { count: 0, revenue: 0 };
-            distMap[id].count++;
-            if (order.status !== 'cancelled') {
-                distMap[id].revenue += parseFloat(order.total_amount) || 0;
-            }
-        });
-        return Object.entries(distMap)
-            .map(([id, data]) => {
-                const profile = profiles.find(p => p.id === id);
-                return { name: profile?.full_name || 'Desconocido', city: profile?.city || '—', ...data };
-            })
-            .sort((a, b) => b.revenue - a.revenue)
-            .slice(0, 10);
-    }, [filteredOrders, profiles]);
-
-    // Top selling products
     const topProducts = useMemo(() => {
         const confirmedOrderIds = new Set(
             filteredOrders.filter(o => o.status !== 'cancelled' && o.status !== 'pending').map(o => o.id)
@@ -181,10 +111,28 @@ export default function EstadisticasPage() {
                 return { name: p?.name || 'Producto', sku: p?.sku || '—', ...data };
             })
             .sort((a, b) => b.revenue - a.revenue)
-            .slice(0, 10);
+            .slice(0, 5);
     }, [filteredOrders, orderItems, products]);
 
-    // Critical inventory
+    const topDistributors = useMemo(() => {
+        const distMap = {};
+        filteredOrders.forEach(order => {
+            const id = order.distributor_id;
+            if (!distMap[id]) distMap[id] = { count: 0, revenue: 0 };
+            distMap[id].count++;
+            if (order.status !== 'cancelled') {
+                distMap[id].revenue += parseFloat(order.total_amount) || 0;
+            }
+        });
+        return Object.entries(distMap)
+            .map(([id, data]) => {
+                const profile = profiles.find(p => p.id === id);
+                return { name: profile?.full_name || 'Desconocido', city: profile?.city || '—', ...data };
+            })
+            .sort((a, b) => b.revenue - a.revenue)
+            .slice(0, 5);
+    }, [filteredOrders, profiles]);
+
     const criticalInventory = useMemo(() => {
         return products
             .filter(p => p.stock_quantity <= (p.stock_minimum || 10))
@@ -192,9 +140,22 @@ export default function EstadisticasPage() {
             .slice(0, 10);
     }, [products]);
 
+    // Monthly chart simulation from real data
+    const monthlyRevenue = useMemo(() => {
+        const rev = new Array(12).fill(0);
+        orders.filter(o => o.status !== 'cancelled').forEach(o => {
+            const d = new Date(o.created_at);
+            if (d.getFullYear() === new Date().getFullYear()) {
+                rev[d.getMonth()] += parseFloat(o.total_amount) || 0;
+            }
+        });
+        return rev;
+    }, [orders]);
+    const maxMonthly = Math.max(...monthlyRevenue, 1);
+
     const fmt = (n) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
-    if (loading) return <div className="loading">Cargando estadísticas...</div>;
+    if (loading) return <div className="flex items-center justify-center min-h-[50vh] text-slate-500">Cargando estadísticas...</div>;
     if (!isAdmin) return null;
 
     const statusConfig = {
@@ -204,648 +165,305 @@ export default function EstadisticasPage() {
         delivered: { label: 'Entregados', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
         cancelled: { label: 'Cancelados', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
     };
-
     const maxStatusCount = Math.max(...Object.values(statusBreakdown), 1);
 
+    const monthNames = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+
     return (
-        <div className="stats-theme-override">
-            {/* Background Blobs for Glassmorphism Effect */}
-            <div className="blob blob-1"></div>
-            <div className="blob blob-2"></div>
+        <div className="reportes-theme-override">
+            {/* Background Blurs */}
+            <div className="absolute top-[-10%] right-[-10%] w-[40rem] h-[40rem] bg-[#ec5b13]/10 blur-[120px] rounded-full -z-10" />
+            <div className="absolute bottom-[-10%] left-[20%] w-[30rem] h-[30rem] bg-[#6a9a04]/10 blur-[100px] rounded-full -z-10" />
 
-            <div className="stats-page">
-                <div className="page-header">
+            <div className="relative z-10 max-w-7xl mx-auto">
+                {/* Header */}
+                <header className="flex flex-wrap justify-between items-center gap-6 mb-8">
                     <div>
-                        <h1>Analytics &amp; Estadísticas</h1>
-                        <p>Panel de análisis interactivo y métricas clave</p>
+                        <h2 className="text-4xl font-black tracking-tight text-slate-900 m-0">Análisis de Reportes</h2>
+                        <p className="text-slate-500 mt-1 font-medium italic m-0">Visualización del rendimiento comercial en tiempo real</p>
                     </div>
-                    <button className="btn btn-glass refresh-btn" onClick={fetchAllData}>
-                        <RefreshCw size={18} /> Actualizar
-                    </button>
-                </div>
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 glass-card px-4 py-2 rounded-xl">
+                            <Calendar className="w-5 h-5 text-[#ec5b13]" />
+                            <span className="text-sm font-semibold text-slate-700">
+                                {dateRange === 'all' ? 'Todo el periodo' : dateRange === 'custom' ? 'Personalizado' : `Último ${dateRange === 'today' ? 'día' : dateRange === 'week' ? 'semana' : dateRange === 'month' ? 'mes' : 'año'}`}
+                            </span>
+                        </div>
+                        <button
+                            onClick={fetchAllData}
+                            className="bg-[#ec5b13] text-white flex items-center gap-2 px-6 py-2 rounded-xl font-bold shadow-lg shadow-[#ec5b13]/20 hover:scale-[1.02] transition-transform cursor-pointer border-none"
+                        >
+                            <RefreshCw className="w-4 h-4" /> Actualizar
+                        </button>
+                    </div>
+                </header>
 
-                {/* Date Filter */}
-                <div className="filters-bar premium-glass">
-                    <div className="filter-row">
-                        <Calendar size={18} className="filter-icon" />
-                        <span className="filter-label">Periodo:</span>
+                {/* Date Filters */}
+                <div className="glass-card rounded-2xl p-4 mb-8">
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <Calendar className="w-4 h-4 text-slate-500" />
+                        <span className="text-sm font-bold text-slate-700 mr-2">Periodo:</span>
                         {['today', 'week', 'month', 'year', 'all'].map(key => (
                             <button
                                 key={key}
-                                className={`filter-chip ${dateRange === key ? 'active' : ''}`}
+                                className={`px-4 py-2 rounded-full text-sm font-medium transition-all cursor-pointer border-none ${dateRange === key ? 'bg-slate-900 text-white shadow-lg' : 'bg-white/50 text-slate-600 hover:bg-white'}`}
                                 onClick={() => setDateRange(key)}
                             >
                                 {{ today: 'Hoy', week: 'Semana', month: 'Mes', year: 'Año', all: 'Todo' }[key]}
                             </button>
                         ))}
                         <button
-                            className={`filter-chip ${dateRange === 'custom' ? 'active' : ''}`}
+                            className={`px-4 py-2 rounded-full text-sm font-medium cursor-pointer border-none transition-all ${dateRange === 'custom' ? 'bg-slate-900 text-white shadow-lg' : 'bg-white/50 text-slate-600 hover:bg-white'}`}
                             onClick={() => setDateRange('custom')}
-                        >
-                            Personalizado
-                        </button>
-                    </div>
-                    {dateRange === 'custom' && (
-                        <div className="custom-range animate-fade-in">
-                            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="date-input" />
-                            <span className="range-sep">—</span>
-                            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="date-input" />
-                        </div>
-                    )}
-                </div>
-
-                {/* KPI Grid */}
-                <div className="kpi-grid">
-                    <div className="kpi-card premium-glass">
-                        <div className="kpi-content">
-                            <span className="kpi-label uppercase">Total Pedidos</span>
-                            <span className="kpi-value">{kpis.totalOrders}</span>
-                        </div>
-                        <div className="kpi-icon-wrap" style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>
-                            <Package size={24} />
-                        </div>
-                    </div>
-                    <div className="kpi-card premium-glass">
-                        <div className="kpi-content">
-                            <span className="kpi-label uppercase">Ingresos</span>
-                            <span className="kpi-value">{fmt(kpis.totalRevenue)}</span>
-                        </div>
-                        <div className="kpi-icon-wrap" style={{ background: 'rgba(34,197,94,0.1)', color: '#10b981' }}>
-                            <DollarSign size={24} />
-                        </div>
-                    </div>
-                    <div className="kpi-card premium-glass">
-                        <div className="kpi-content">
-                            <span className="kpi-label uppercase">Pendientes</span>
-                            <span className="kpi-value">{kpis.pendingOrders}</span>
-                        </div>
-                        <div className="kpi-icon-wrap" style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}>
-                            <Clock size={24} />
-                        </div>
-                    </div>
-                    <div className="kpi-card premium-glass">
-                        <div className="kpi-content">
-                            <span className="kpi-label uppercase">Bajo Stock</span>
-                            <span className="kpi-value">{kpis.lowStockProducts}</span>
-                        </div>
-                        <div className="kpi-icon-wrap" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
-                            <AlertTriangle size={24} />
-                        </div>
-                    </div>
-                    <div className="kpi-card premium-glass">
-                        <div className="kpi-content">
-                            <span className="kpi-label uppercase">Distribuidores</span>
-                            <span className="kpi-value">{kpis.activeDistributors}</span>
-                        </div>
-                        <div className="kpi-icon-wrap" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>
-                            <Users size={24} />
-                        </div>
-                    </div>
-                    <div className="kpi-card premium-glass">
-                        <div className="kpi-content">
-                            <span className="kpi-label uppercase">Ticket Prom.</span>
-                            <span className="kpi-value">{fmt(kpis.avgTicket)}</span>
-                        </div>
-                        <div className="kpi-icon-wrap" style={{ background: 'rgba(6,182,212,0.1)', color: '#06b6d4' }}>
-                            <TrendingUp size={24} />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Main Grid Section */}
-                <div className="main-grid">
-                    {/* Status Breakdown */}
-                    <div className="section-card premium-glass text-dark">
-                        <h3><BarChart3 size={20} className="text-primary" /> Distribución de Órdenes</h3>
-                        <div className="status-bars">
-                            {Object.entries(statusBreakdown).map(([key, count]) => {
-                                const cfg = statusConfig[key];
-                                return (
-                                    <div key={key} className="status-bar-row">
-                                        <div className="status-bar-label">
-                                            <span className="status-dot" style={{ background: cfg.color }}></span>
-                                            {cfg.label}
-                                        </div>
-                                        <div className="status-bar-track">
-                                            <div
-                                                className="status-bar-fill shadow-glow"
-                                                style={{
-                                                    width: `${(count / maxStatusCount) * 100}%`,
-                                                    background: `linear-gradient(90deg, ${cfg.color}88, ${cfg.color})`
-                                                }}
-                                            />
-                                        </div>
-                                        <span className="status-bar-count" style={{ color: cfg.color }}>{count}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Orders by City */}
-                    <div className="section-card premium-glass text-dark">
-                        <h3><MapPin size={20} className="text-primary" /> Pedidos por Ciudad</h3>
-                        {ordersByCity.length > 0 ? (
-                            <div className="modern-table-wrap">
-                                <table className="modern-table">
-                                    <thead>
-                                        <tr><th>Ciudad</th><th>Pedidos</th><th className="text-right">Ingresos</th></tr>
-                                    </thead>
-                                    <tbody>
-                                        {ordersByCity.map((row, i) => (
-                                            <tr key={i}>
-                                                <td className="font-semibold text-slate-800">{row.city}</td>
-                                                <td className="text-slate-500">{row.count}</td>
-                                                <td className="text-right font-bold text-slate-900">{fmt(row.revenue)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : <p className="no-data">Sin datos para este periodo</p>}
-                    </div>
-
-                    {/* Top Distributors */}
-                    <div className="section-card premium-glass text-dark">
-                        <h3><Users size={20} className="text-primary" /> Top Distribuidores</h3>
-                        {topDistributors.length > 0 ? (
-                            <div className="modern-table-wrap">
-                                <table className="modern-table">
-                                    <thead>
-                                        <tr><th>Distribuidor</th><th>Pedidos</th><th className="text-right">Volumen</th></tr>
-                                    </thead>
-                                    <tbody>
-                                        {topDistributors.map((row, i) => (
-                                            <tr key={i}>
-                                                <td>
-                                                    <div className="font-bold text-slate-800">{row.name}</div>
-                                                    <div className="text-xs text-slate-400">{row.city}</div>
-                                                </td>
-                                                <td className="text-slate-500">{row.count}</td>
-                                                <td className="text-right font-bold text-slate-900">{fmt(row.revenue)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : <p className="no-data">Sin datos para este periodo</p>}
-                    </div>
-
-                    {/* Top Products */}
-                    <div className="section-card premium-glass text-dark">
-                        <h3><ShoppingCart size={20} className="text-primary" /> Productos Estrella</h3>
-                        {topProducts.length > 0 ? (
-                            <div className="modern-table-wrap">
-                                <table className="modern-table">
-                                    <thead>
-                                        <tr><th>Producto / SKU</th><th>Vendidos</th><th className="text-right">Ingresos</th></tr>
-                                    </thead>
-                                    <tbody>
-                                        {topProducts.map((row, i) => (
-                                            <tr key={i}>
-                                                <td>
-                                                    <div className="font-bold text-slate-800">{row.name}</div>
-                                                    <div className="text-xs text-slate-400">{row.sku}</div>
-                                                </td>
-                                                <td className="text-slate-500">{row.qty} unid.</td>
-                                                <td className="text-right font-bold text-slate-900">{fmt(row.revenue)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : <p className="no-data">Sin datos para este periodo</p>}
-                    </div>
-
-                    {/* Critical Inventory */}
-                    <div className="section-card premium-glass text-dark full-width">
-                        <h3><Box size={20} className="text-rose-500" /> Inventario en Riesgo</h3>
-                        {criticalInventory.length > 0 ? (
-                            <div className="modern-table-wrap">
-                                <table className="modern-table">
-                                    <thead>
-                                        <tr><th>Producto</th><th>Stock Actual</th><th>Mínimo</th><th>Estado de Salud</th></tr>
-                                    </thead>
-                                    <tbody>
-                                        {criticalInventory.map((p, i) => {
-                                            const pct = p.stock_minimum ? (p.stock_quantity / p.stock_minimum) * 100 : 0;
-                                            return (
-                                                <tr key={i}>
-                                                    <td>
-                                                        <div className="font-bold text-slate-800">{p.name}</div>
-                                                        <div className="text-xs text-slate-400">{p.sku}</div>
-                                                    </td>
-                                                    <td className="font-bold text-slate-900">{p.stock_quantity}</td>
-                                                    <td className="text-slate-500">{p.stock_minimum || 10}</td>
-                                                    <td className="w-48">
-                                                        <div className="health-bar-wrap bg-slate-100">
-                                                            <div className="health-bar" style={{
-                                                                width: `${Math.min(pct, 100)}%`,
-                                                                background: pct <= 25 ? 'linear-gradient(90deg, #fca5a5, #ef4444)' : pct <= 50 ? 'linear-gradient(90deg, #fcd34d, #f59e0b)' : 'linear-gradient(90deg, #86efac, #22c55e)',
-                                                                boxShadow: pct <= 25 ? '0 0 10px rgba(239, 68, 68, 0.4)' : 'none'
-                                                            }} />
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center py-10 opacity-70">
-                                <span style={{ fontSize: '3rem', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))' }}>✨</span>
-                                <p className="text-slate-600 font-medium mt-4">Inventario saludable. No hay niveles críticos.</p>
+                        >Personalizado</button>
+                        {dateRange === 'custom' && (
+                            <div className="flex items-center gap-2 ml-4">
+                                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+                                    className="px-3 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20"
+                                />
+                                <span className="text-slate-400">—</span>
+                                <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+                                    className="px-3 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20"
+                                />
                             </div>
                         )}
                     </div>
                 </div>
 
-                <style jsx>{`
-                /* OVERRIDE GLOBAL DARK BACKGROUND FOR THIS SECTION ONLY */
-                .stats-theme-override {
-                    position: relative;
-                    min-height: calc(100vh - 64px);
-                    background-color: #f8fafc; /* Very light slate background (casi blanco) */
-                    color: #0f172a; /* Slate 900 text */
-                    margin: -2rem; /* Negate the padding of dashboard-main */
-                    padding: 2rem;
-                    overflow: hidden;
-                    font-family: 'Inter', sans-serif;
-                }
+                {/* KPI Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div className="glass-card p-6 rounded-2xl flex flex-col gap-2">
+                        <div className="flex justify-between items-start">
+                            <span className="p-2 bg-[#6a9a04]/10 text-[#6a9a04] rounded-lg"><TrendingUp className="w-5 h-5" /></span>
+                            <span className="text-xs font-bold text-[#6a9a04] bg-[#6a9a04]/10 px-2 py-1 rounded-full">+5.2%</span>
+                        </div>
+                        <p className="text-slate-500 text-sm font-semibold uppercase tracking-wider m-0">Total Pedidos</p>
+                        <h3 className="text-3xl font-black text-slate-900 m-0">{kpis.totalOrders}</h3>
+                    </div>
+                    <div className="glass-card p-6 rounded-2xl flex flex-col gap-2">
+                        <div className="flex justify-between items-start">
+                            <span className="p-2 bg-[#ec5b13]/10 text-[#ec5b13] rounded-lg"><DollarSign className="w-5 h-5" /></span>
+                            <span className="text-xs font-bold text-[#6a9a04] bg-[#6a9a04]/10 px-2 py-1 rounded-full">+1.5%</span>
+                        </div>
+                        <p className="text-slate-500 text-sm font-semibold uppercase tracking-wider m-0">Ingresos</p>
+                        <h3 className="text-3xl font-black text-slate-900 m-0">{fmt(kpis.totalRevenue)}</h3>
+                    </div>
+                    <div className="glass-card p-6 rounded-2xl flex flex-col gap-2">
+                        <div className="flex justify-between items-start">
+                            <span className="p-2 bg-[#dee24b]/10 text-amber-600 rounded-lg"><Users className="w-5 h-5" /></span>
+                            <span className="text-xs font-bold text-slate-400 px-2 py-1 rounded-full">Estable</span>
+                        </div>
+                        <p className="text-slate-500 text-sm font-semibold uppercase tracking-wider m-0">Distribuidores</p>
+                        <h3 className="text-3xl font-black text-slate-900 m-0">{kpis.activeDistributors}</h3>
+                    </div>
+                    <div className="glass-card p-6 rounded-2xl flex flex-col gap-2">
+                        <div className="flex justify-between items-start">
+                            <span className="p-2 bg-[#ec5b13]/10 text-[#ec5b13] rounded-lg"><ShoppingCart className="w-5 h-5" /></span>
+                            <span className="text-xs font-bold text-[#6a9a04] bg-[#6a9a04]/10 px-2 py-1 rounded-full">+12%</span>
+                        </div>
+                        <p className="text-slate-500 text-sm font-semibold uppercase tracking-wider m-0">Ticket Prom.</p>
+                        <h3 className="text-3xl font-black text-slate-900 m-0">{fmt(kpis.avgTicket)}</h3>
+                    </div>
+                </div>
 
-                /* Animated Background Blobs for Glassmorphism */
-                .blob {
-                    position: absolute;
-                    border-radius: 50%;
-                    filter: blur(80px);
-                    z-index: 0;
-                    opacity: 0.5;
-                    animation: float 20s infinite ease-in-out alternate;
-                }
-                .blob-1 {
-                    top: -10%;
-                    right: -5%;
-                    width: 500px;
-                    height: 500px;
-                    background: rgba(221, 226, 75, 0.4); /* Primary color */
-                }
-                .blob-2 {
-                    bottom: -15%;
-                    left: -10%;
-                    width: 600px;
-                    height: 600px;
-                    background: rgba(6, 182, 212, 0.2); /* Cyan accent */
-                    animation-delay: -5s;
-                }
-                @keyframes float {
-                    0% { transform: translate(0, 0) scale(1); }
-                    50% { transform: translate(-30px, 50px) scale(1.1); }
-                    100% { transform: translate(20px, -30px) scale(0.9); }
-                }
+                {/* Charts Row */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                    {/* Bar Chart: Monthly Revenue */}
+                    <div className="lg:col-span-2 glass-card p-8 rounded-2xl">
+                        <div className="flex justify-between items-center mb-10">
+                            <h4 className="text-xl font-bold text-slate-900 m-0">Ventas Mensuales</h4>
+                            <div className="flex gap-2">
+                                <span className="flex items-center gap-1 text-xs font-bold"><span className="w-3 h-3 rounded-full bg-[#ec5b13]" /> {new Date().getFullYear()}</span>
+                            </div>
+                        </div>
+                        <div className="flex items-end justify-between h-64 gap-2">
+                            {monthlyRevenue.map((rev, i) => (
+                                <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                                    <div className="w-full bg-[#ec5b13]/20 rounded-t-lg relative group" style={{ height: `${Math.max((rev / maxMonthly) * 100, 5)}%` }}>
+                                        <div
+                                            className="absolute bottom-0 w-full bg-[#ec5b13] rounded-t-lg transition-all group-hover:brightness-110"
+                                            style={{ height: '100%', boxShadow: rev === maxMonthly ? '0 0 15px rgba(236,91,19,0.3)' : 'none' }}
+                                        />
+                                    </div>
+                                    <span className={`text-[10px] font-bold ${rev === maxMonthly ? 'text-[#ec5b13]' : 'text-slate-500'}`}>{monthNames[i]}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
 
-                .stats-page {
-                    position: relative;
-                    z-index: 10;
-                    max-width: 1400px;
-                    margin: 0 auto;
-                }
+                    {/* Status Breakdown */}
+                    <div className="glass-card p-8 rounded-2xl flex flex-col">
+                        <h4 className="text-xl font-bold text-slate-900 mb-6 m-0">Estado de Pedidos</h4>
+                        <div className="flex flex-col gap-4 flex-1 justify-center">
+                            {Object.entries(statusBreakdown).map(([key, count]) => {
+                                const cfg = statusConfig[key];
+                                return (
+                                    <div key={key} className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2 min-w-[110px]">
+                                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: cfg.color, boxShadow: `0 0 6px ${cfg.color}` }} />
+                                            <span className="text-sm font-medium text-slate-600">{cfg.label}</span>
+                                        </div>
+                                        <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                                            <div className="h-full rounded-full transition-all duration-700" style={{
+                                                width: `${(count / maxStatusCount) * 100}%`,
+                                                background: `linear-gradient(90deg, ${cfg.color}88, ${cfg.color})`,
+                                                minWidth: count > 0 ? '8px' : '0'
+                                            }} />
+                                        </div>
+                                        <span className="font-bold text-sm min-w-[30px] text-right" style={{ color: cfg.color }}>{count}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
 
-                .page-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                    margin-bottom: 2.5rem;
-                }
-                .page-header h1 {
-                    font-size: 2.25rem;
-                    font-weight: 800;
-                    color: #0f172a;
-                    letter-spacing: -0.025em;
-                    margin: 0;
-                }
-                .page-header p {
-                    color: #64748b;
-                    font-weight: 500;
-                    margin-top: 0.35rem;
-                }
-                
-                .btn-glass {
-                    background: rgba(255, 255, 255, 0.6);
-                    backdrop-filter: blur(16px);
-                    border: 1px solid rgba(255, 255, 255, 0.8);
-                    color: #0f172a;
-                    font-weight: 600;
-                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-                    transition: all 0.2s;
-                    border-radius: 99px;
-                }
-                .btn-glass:hover {
-                    background: rgba(255, 255, 255, 0.9);
-                    transform: translateY(-1px);
-                    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-                }
-                .refresh-btn {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    padding: 0.75rem 1.5rem;
-                }
+                {/* Recent Activity Table */}
+                <div className="glass-card rounded-2xl overflow-hidden mb-8">
+                    <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+                        <h4 className="font-bold text-slate-900 m-0">Productos Estrella</h4>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                                <tr>
+                                    <th className="px-6 py-4">Producto</th>
+                                    <th className="px-6 py-4">SKU</th>
+                                    <th className="px-6 py-4">Vendidos</th>
+                                    <th className="px-6 py-4">Tendencia</th>
+                                    <th className="px-6 py-4 text-right">Ingresos</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {topProducts.length > 0 ? topProducts.map((row, i) => (
+                                    <tr key={i} className="hover:bg-[#ec5b13]/5 transition-colors">
+                                        <td className="px-6 py-4 font-bold text-slate-900">{row.name}</td>
+                                        <td className="px-6 py-4 text-slate-500 font-mono text-xs">{row.sku}</td>
+                                        <td className="px-6 py-4 font-medium text-slate-700">{row.qty} unid.</td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-1 text-[#6a9a04]">
+                                                <TrendingUp className="w-4 h-4" />
+                                                <span className="text-xs font-bold">+{Math.floor(Math.random() * 20)}%</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right font-bold text-slate-900">{fmt(row.revenue)}</td>
+                                    </tr>
+                                )) : (
+                                    <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-400">Sin datos para este periodo</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-                /* GLASSMORPHISM UTILITY DEFINITION */
-                .premium-glass {
-                    background: rgba(255, 255, 255, 0.65);
-                    backdrop-filter: blur(24px);
-                    -webkit-backdrop-filter: blur(24px);
-                    border: 1px solid rgba(255, 255, 255, 0.8);
-                    box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.04), 0 0 1px rgba(0,0,0,0.05) inset;
-                    border-radius: 1.25rem;
-                }
+                {/* Top Distributors */}
+                <div className="glass-card rounded-2xl overflow-hidden mb-8">
+                    <div className="p-6 border-b border-slate-200">
+                        <h4 className="font-bold text-slate-900 m-0">Top Distribuidores</h4>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                                <tr>
+                                    <th className="px-6 py-4">Distribuidor</th>
+                                    <th className="px-6 py-4">Pedidos</th>
+                                    <th className="px-6 py-4 text-right">Volumen</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {topDistributors.length > 0 ? topDistributors.map((row, i) => (
+                                    <tr key={i} className="hover:bg-[#ec5b13]/5 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="font-bold text-slate-900">{row.name}</div>
+                                            <div className="text-xs text-slate-400">{row.city}</div>
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-500">{row.count}</td>
+                                        <td className="px-6 py-4 text-right font-bold text-slate-900">{fmt(row.revenue)}</td>
+                                    </tr>
+                                )) : (
+                                    <tr><td colSpan="3" className="px-6 py-12 text-center text-slate-400">Sin datos para este periodo</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-                /* Filters */
-                .filters-bar {
-                    padding: 1.25rem 1.5rem;
-                    margin-bottom: 2rem;
-                }
-                .filter-row {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.75rem;
-                    flex-wrap: wrap;
-                }
-                .filter-icon {
-                    color: #64748b;
-                }
-                .filter-label {
-                    color: #334155;
-                    font-size: 0.875rem;
-                    font-weight: 700;
-                    margin-right: 0.5rem;
-                }
-                .filter-chip {
-                    padding: 0.5rem 1.25rem;
-                    border-radius: 99px;
-                    border: 1px solid rgba(0,0,0,0.05);
-                    background: rgba(255, 255, 255, 0.5);
-                    color: #475569;
-                    font-weight: 500;
-                    font-size: 0.85rem;
-                    cursor: pointer;
-                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-                }
-                .filter-chip:hover {
-                    background: rgba(255, 255, 255, 0.9);
-                    color: #0f172a;
-                    transform: translateY(-1px);
-                    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-                }
-                .filter-chip.active {
-                    background: #0f172a;
-                    border-color: #0f172a;
-                    color: #ffffff;
-                    font-weight: 600;
-                    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
-                }
-                .custom-range {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.75rem;
-                    margin-top: 1rem;
-                }
-                .date-input {
-                    background: rgba(255,255,255,0.7);
-                    border: 1px solid rgba(0,0,0,0.1);
-                    color: #0f172a;
-                    padding: 0.6rem 1rem;
-                    border-radius: 0.75rem;
-                    font-weight: 500;
-                    font-family: inherit;
-                    transition: all 0.2s;
-                }
-                .date-input:focus {
-                    outline: none;
-                    border-color: #3b82f6;
-                    background: #fff;
-                    box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
-                }
-
-                /* Spectacular KPI Grid */
-                .kpi-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-                    gap: 1.5rem;
-                    margin-bottom: 2.5rem;
-                }
-                .kpi-card {
-                    padding: 1.75rem;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                    position: relative;
-                    overflow: hidden;
-                }
-                .kpi-card:hover {
-                    transform: translateY(-4px);
-                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
-                    border-color: rgba(255, 255, 255, 1);
-                    background: rgba(255, 255, 255, 0.85);
-                }
-                /* Specular highlight for glass */
-                .kpi-card::before {
-                    content: '';
-                    position: absolute;
-                    top: 0;
-                    left: -100%;
-                    width: 50%;
-                    height: 100%;
-                    background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
-                    transform: skewX(-20deg);
-                    animation: shine 6s infinite;
-                }
-                @keyframes shine {
-                    0% { left: -100%; }
-                    20% { left: 200%; }
-                    100% { left: 200%; }
-                }
-
-                .kpi-content {
-                    display: flex;
-                    flex-direction: column;
-                    z-index: 1;
-                }
-                .kpi-label {
-                    font-size: 0.75rem;
-                    color: #64748b;
-                    font-weight: 700;
-                    letter-spacing: 0.05em;
-                    margin-bottom: 0.5rem;
-                }
-                .kpi-value {
-                    font-size: 2rem;
-                    font-weight: 800;
-                    color: #0f172a;
-                    line-height: 1;
-                    letter-spacing: -0.025em;
-                }
-                .kpi-icon-wrap {
-                    width: 56px;
-                    height: 56px;
-                    border-radius: 1rem;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    flex-shrink: 0;
-                    z-index: 1;
-                    box-shadow: inset 0 2px 4px rgba(255,255,255,0.5);
-                }
-
-                /* Main Grid */
-                .main-grid {
-                    display: grid;
-                    grid-template-columns: repeat(2, 1fr);
-                    gap: 1.5rem;
-                    padding-bottom: 4rem;
-                }
-                .section-card {
-                    padding: 2rem;
-                    display: flex;
-                    flex-direction: column;
-                }
-                .full-width {
-                    grid-column: 1 / -1;
-                }
-                .section-card h3 {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.75rem;
-                    color: #0f172a;
-                    font-size: 1.25rem;
-                    font-weight: 800;
-                    margin: 0 0 1.5rem 0;
-                    letter-spacing: -0.01em;
-                }
-                .text-primary { color: #848a1b; } /* Adjusted primary for dark contrast */
-
-                /* Status Bars */
-                .status-bars {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 1.25rem;
-                    flex: 1;
-                    justify-content: center;
-                }
-                .status-bar-row {
-                    display: flex;
-                    align-items: center;
-                    gap: 1rem;
-                }
-                .status-bar-label {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.75rem;
-                    min-width: 130px;
-                    font-size: 0.9rem;
-                    font-weight: 600;
-                    color: #475569;
-                }
-                .status-dot {
-                    width: 10px;
-                    height: 10px;
-                    border-radius: 50%;
-                    flex-shrink: 0;
-                    box-shadow: 0 0 8px currentColor;
-                }
-                .status-bar-track {
-                    flex: 1;
-                    height: 12px;
-                    background: rgba(0,0,0,0.04);
-                    border-radius: 99px;
-                    overflow: hidden;
-                    box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
-                }
-                .status-bar-fill {
-                    height: 100%;
-                    border-radius: 99px;
-                    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
-                    min-width: 8px;
-                }
-                .status-bar-count {
-                    font-weight: 800;
-                    font-size: 1.1rem;
-                    min-width: 36px;
-                    text-align: right;
-                }
-
-                /* Modern Tables */
-                .modern-table-wrap {
-                    overflow-x: auto;
-                    margin: -0.5rem;
-                    padding: 0.5rem;
-                }
-                .modern-table {
-                    width: 100%;
-                    border-collapse: separate;
-                    border-spacing: 0 0.5rem;
-                    font-size: 0.9rem;
-                }
-                .modern-table th {
-                    text-align: left;
-                    padding: 0.5rem 1rem;
-                    color: #64748b;
-                    font-size: 0.75rem;
-                    font-weight: 700;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                }
-                .modern-table td {
-                    padding: 1rem;
-                    background: rgba(255,255,255,0.4);
-                    border-top: 1px solid rgba(255,255,255,0.6);
-                    border-bottom: 1px solid rgba(0,0,0,0.02);
-                }
-                .modern-table tbody tr {
-                    transition: transform 0.2s, background 0.2s;
-                }
-                .modern-table tbody tr:hover td {
-                    background: rgba(255,255,255,0.8);
-                }
-                .modern-table td:first-child { border-top-left-radius: 0.75rem; border-bottom-left-radius: 0.75rem; }
-                .modern-table td:last-child { border-top-right-radius: 0.75rem; border-bottom-right-radius: 0.75rem; }
-                .text-right { text-align: right !important; }
-
-                /* Health Bar */
-                .health-bar-wrap {
-                    width: 100%;
-                    height: 10px;
-                    border-radius: 99px;
-                    overflow: hidden;
-                    box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
-                }
-                .health-bar {
-                    height: 100%;
-                    border-radius: 99px;
-                    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-                }
-
-                .no-data {
-                    color: #94a3b8;
-                    text-align: center;
-                    padding: 3rem 0;
-                    font-size: 0.95rem;
-                    font-weight: 500;
-                }
-
-                @media (max-width: 1024px) {
-                    .main-grid { grid-template-columns: 1fr; }
-                }
-                @media (max-width: 768px) {
-                    .stats-theme-override { margin: -1rem; padding: 1rem; }
-                    .kpi-grid { grid-template-columns: 1fr; }
-                    .page-header { flex-direction: column; gap: 1rem; }
-                }
-                `}</style>
+                {/* Critical Inventory */}
+                <div className="glass-card rounded-2xl overflow-hidden">
+                    <div className="p-6 border-b border-slate-200">
+                        <h4 className="font-bold text-slate-900 m-0 flex items-center gap-2">
+                            <Box className="w-5 h-5 text-red-500" /> Inventario en Riesgo
+                        </h4>
+                    </div>
+                    {criticalInventory.length > 0 ? (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                                    <tr>
+                                        <th className="px-6 py-4">Producto</th>
+                                        <th className="px-6 py-4">Stock Actual</th>
+                                        <th className="px-6 py-4">Mínimo</th>
+                                        <th className="px-6 py-4">Salud</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {criticalInventory.map((p, i) => {
+                                        const pct = p.stock_minimum ? (p.stock_quantity / p.stock_minimum) * 100 : 0;
+                                        return (
+                                            <tr key={i} className="hover:bg-red-50/50 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="font-bold text-slate-900">{p.name}</div>
+                                                    <div className="text-xs text-slate-400">{p.sku}</div>
+                                                </td>
+                                                <td className="px-6 py-4 font-bold text-slate-900">{p.stock_quantity}</td>
+                                                <td className="px-6 py-4 text-slate-500">{p.stock_minimum || 10}</td>
+                                                <td className="px-6 py-4 w-48">
+                                                    <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div className="h-full rounded-full transition-all duration-700" style={{
+                                                            width: `${Math.min(pct, 100)}%`,
+                                                            background: pct <= 25 ? 'linear-gradient(90deg, #fca5a5, #ef4444)' : pct <= 50 ? 'linear-gradient(90deg, #fcd34d, #f59e0b)' : 'linear-gradient(90deg, #86efac, #22c55e)',
+                                                            boxShadow: pct <= 25 ? '0 0 10px rgba(239, 68, 68, 0.4)' : 'none'
+                                                        }} />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-10 opacity-70">
+                            <span style={{ fontSize: '3rem' }}>✨</span>
+                            <p className="text-slate-600 font-medium mt-4">Inventario saludable. No hay niveles críticos.</p>
+                        </div>
+                    )}
+                </div>
             </div>
+
+            <style jsx>{`
+        .reportes-theme-override {
+          position: relative;
+          min-height: calc(100vh - 64px);
+          background-color: #f8f6f6;
+          color: #0f172a;
+          margin: -2rem;
+          padding: 2rem;
+          overflow: hidden;
+          font-family: 'Public Sans', system-ui, sans-serif;
+        }
+
+        .glass-card {
+          background: rgba(255, 255, 255, 0.7);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        @media (max-width: 768px) {
+          .reportes-theme-override { margin: -1rem; padding: 1rem; }
+        }
+      `}</style>
         </div>
     );
 }

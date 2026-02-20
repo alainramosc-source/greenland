@@ -1,42 +1,34 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Search, UserPlus, Filter, MoreVertical, Edit2, Shield, AlertCircle, X, Save } from 'lucide-react';
+import { Search, Filter, Edit2, Shield, AlertCircle, X, Save, UserPlus } from 'lucide-react';
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterRole, setFilterRole] = useState('all'); // all, admin, distributor
-  const [selectedUser, setSelectedUser] = useState(null); // For edit modal
+  const [filterRole, setFilterRole] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [selectedUser, setSelectedUser] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
 
   const supabase = createClient();
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  useEffect(() => { fetchUsers(); }, []);
 
   const fetchUsers = async () => {
     setLoading(true);
-    let query = supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error('Error fetching users:', error);
-    } else {
-      setUsers(data);
-    }
+    if (!error && data) setUsers(data);
     setLoading(false);
   };
 
   const handleEditClick = (user) => {
-    setSelectedUser({ ...user }); // Clone to edit
+    setSelectedUser({ ...user });
     setIsModalOpen(true);
   };
 
@@ -56,7 +48,6 @@ export default function UsersPage() {
     if (error) {
       alert('Error updating user: ' + error.message);
     } else {
-      // Update local state
       setUsers(users.map(u => (u.id === selectedUser.id ? selectedUser : u)));
       setIsModalOpen(false);
     }
@@ -68,191 +59,243 @@ export default function UsersPage() {
     const matchesSearch =
       (user.email && user.email.toLowerCase().includes(safeSearch)) ||
       (user.full_name && user.full_name.toLowerCase().includes(safeSearch));
-
     const matchesRole = filterRole === 'all' || user.role === filterRole;
-
-    return matchesSearch && matchesRole;
+    const matchesStatus = filterStatus === 'all' ||
+      (filterStatus === 'active' && user.is_active) ||
+      (filterStatus === 'inactive' && !user.is_active);
+    return matchesSearch && matchesRole && matchesStatus;
   });
 
-  if (loading) return <div className="loading">Cargando Usuarios...</div>;
+  const totalClients = users.length;
+  const activeClients = users.filter(u => u.is_active).length;
+  const totalRevenue = '$240.5k'; // Placeholder – connect to real data if available
+
+  const getInitials = (user) => {
+    if (user.full_name) {
+      const parts = user.full_name.split(' ');
+      return parts.length >= 2
+        ? (parts[0][0] + parts[1][0]).toUpperCase()
+        : parts[0].substring(0, 2).toUpperCase();
+    }
+    return user.email ? user.email.substring(0, 2).toUpperCase() : '??';
+  };
 
   return (
-    <div className="users-page">
-      <div className="page-header">
-        <div className="header-title">
-          <h1>Gestión de Usuarios</h1>
-          <p>Administra las cuentas de distribuidores y administradores.</p>
-        </div>
-        {/* Placeholder for "Invite User" feature if needed later */}
-        {/* <button className="btn btn-primary"><UserPlus size={18} /> Invitar Usuario</button> */}
-      </div>
+    <div className="clientes-theme-override">
+      <div className="relative z-10 max-w-7xl mx-auto">
+        {/* Page Header */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tight m-0">Clientes</h1>
+            <p className="text-slate-500 mt-1 m-0">Gestión integral de cartera de clientes y facturación.</p>
+          </div>
+          {/* Placeholder for invite button */}
+        </header>
 
-      <div className="filters-bar glass-panel">
-        <div className="search-wrapper">
-          <Search size={18} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Buscar por nombre o correo..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-        </div>
-        <div className="filter-group">
-          <Filter size={18} className="filter-icon" />
-          <select
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-            className="filter-select"
-          >
-            <option value="all">Todos los Roles</option>
-            <option value="distributor">Distribuidores</option>
-            <option value="admin">Administradores</option>
-          </select>
-        </div>
-      </div>
+        {/* Filters & Search */}
+        <section className="glass-panel rounded-2xl p-4 mb-6 flex flex-wrap items-center gap-4">
+          <div className="flex-1 min-w-[300px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                className="w-full pl-11 pr-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 placeholder:text-slate-400 outline-none transition-all"
+                placeholder="Buscar por nombre, empresa o correo..."
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <select
+              className="bg-white/50 border border-slate-200 rounded-xl py-3 pl-4 pr-10 focus:ring-2 focus:ring-[#6a9a04]/30 text-sm font-medium text-slate-700 outline-none"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="all">Todos los Status</option>
+              <option value="active">Activo</option>
+              <option value="inactive">Inactivo</option>
+            </select>
+            <select
+              className="bg-white/50 border border-slate-200 rounded-xl py-3 pl-4 pr-10 focus:ring-2 focus:ring-[#6a9a04]/30 text-sm font-medium text-slate-700 outline-none"
+              value={filterRole}
+              onChange={(e) => setFilterRole(e.target.value)}
+            >
+              <option value="all">Todos los Roles</option>
+              <option value="distributor">Distribuidores</option>
+              <option value="admin">Administradores</option>
+            </select>
+          </div>
+        </section>
 
-      <div className="table-container glass-panel">
-        <table className="users-table">
-          <thead>
-            <tr>
-              <th>Usuario</th>
-              <th>Ciudad</th>
-              <th>Teléfono</th>
-              <th>Rol</th>
-              <th>Estado</th>
-              <th>Fecha Registro</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredUsers.length > 0 ? (
-              filteredUsers.map(user => (
-                <tr key={user.id}>
-                  <td>
-                    <div className="user-info">
-                      <div className="user-avatar">
-                        {user.full_name ? user.full_name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="user-name">{user.full_name || 'Sin nombre'}</div>
-                        <div className="user-email">{user.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="detail-cell">{user.city || '—'}</td>
-                  <td className="detail-cell">{user.phone || '—'}</td>
-                  <td>
-                    <span className={`role-badge ${user.role}`}>
-                      {user.role === 'admin' ? <Shield size={12} /> : null}
-                      {user.role === 'admin' ? 'Administrador' : 'Distribuidor'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
-                      {user.is_active ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </td>
-                  <td className="date-cell">
-                    {new Date(user.created_at).toLocaleDateString()}
-                  </td>
-                  <td>
-                    <button
-                      className="btn-icon"
-                      onClick={() => handleEditClick(user)}
-                      title="Editar Usuario"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                  </td>
+        {/* Table */}
+        <div className="glass-panel rounded-2xl overflow-hidden shadow-xl border border-white/40">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-[#6a9a04]/5 border-b border-[#6a9a04]/10">
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">ID</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Cliente</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Ubicación</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Teléfono</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Rol</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-center">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-center">Acciones</th>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="7" className="empty-state">
-                  <AlertCircle size={32} />
-                  <p>No se encontraron usuarios.</p>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr><td colSpan="7" className="px-6 py-12 text-center text-slate-400">Cargando clientes...</td></tr>
+                ) : filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="px-6 py-12 text-center text-slate-400">
+                      <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      No se encontraron clientes.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredUsers.map((user, idx) => (
+                    <tr key={user.id} className="hover:bg-white/40 transition-colors group">
+                      <td className="px-6 py-5 text-sm font-mono text-slate-400">#{String(idx + 1).padStart(4, '0')}</td>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${user.is_active ? 'bg-[#6a9a04]/20 text-[#6a9a04]' : 'bg-slate-200 text-slate-500'}`}>
+                            {getInitials(user)}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900 group-hover:text-[#6a9a04] transition-colors m-0">{user.full_name || 'Sin nombre'}</p>
+                            <p className="text-xs text-slate-500 m-0">{user.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 text-sm text-slate-600">{user.city || '—'}</td>
+                      <td className="px-6 py-5 text-sm text-slate-600">{user.phone || '—'}</td>
+                      <td className="px-6 py-5 text-sm">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {user.role === 'admin' && <Shield className="w-3 h-3" />}
+                          {user.role === 'admin' ? 'Admin' : 'Distribuidor'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5 text-center">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${user.is_active ? 'bg-[#6a9a04]/10 text-[#6a9a04] border-[#6a9a04]/20' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full mr-2 ${user.is_active ? 'bg-[#6a9a04]' : 'bg-slate-400'}`} />
+                          {user.is_active ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5 text-center">
+                        <button
+                          className="p-2 rounded-lg hover:bg-white transition-colors border-none bg-transparent cursor-pointer"
+                          onClick={() => handleEditClick(user)}
+                          title="Editar Usuario"
+                        >
+                          <Edit2 className="w-4 h-4 text-slate-400 hover:text-[#6a9a04]" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination Footer */}
+          <footer className="px-6 py-4 bg-white/30 border-t border-slate-100 flex items-center justify-between">
+            <p className="text-sm text-slate-500 font-medium m-0">Mostrando {filteredUsers.length} de {users.length} clientes</p>
+          </footer>
+        </div>
+
+        {/* Stats Overview */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+          <div className="glass-panel p-6 rounded-2xl flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center text-[#6a9a04]">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-tight m-0">Total Clientes</p>
+              <p className="text-2xl font-black text-slate-900 m-0">{totalClients}</p>
+            </div>
+          </div>
+          <div className="glass-panel p-6 rounded-2xl flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#dee24b]/20 flex items-center justify-center text-[#6a9a04]">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-tight m-0">Clientes Activos</p>
+              <p className="text-2xl font-black text-slate-900 m-0">{activeClients}</p>
+            </div>
+          </div>
+          <div className="glass-panel p-6 rounded-2xl flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center text-orange-500">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-tight m-0">Facturación Mes</p>
+              <p className="text-2xl font-black text-slate-900 m-0">{totalRevenue}</p>
+            </div>
+          </div>
+        </section>
       </div>
 
       {/* Edit User Modal */}
       {isModalOpen && selectedUser && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel">
-            <div className="modal-header">
-              <h3>Editar Usuario</h3>
-              <button className="close-btn" onClick={() => setIsModalOpen(false)}>
-                <X size={20} />
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center">
+          <div className="glass-panel w-full max-w-[500px] rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-slate-900 m-0">Editar Cliente</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 bg-transparent border-none cursor-pointer">
+                <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
-
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Nombre Completo</label>
-                <input
-                  type="text"
-                  value={selectedUser.full_name || ''}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Nombre Completo</label>
+                <input type="text" value={selectedUser.full_name || ''}
                   onChange={(e) => setSelectedUser({ ...selectedUser, full_name: e.target.value })}
-                  className="input-glass"
+                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none"
                 />
               </div>
-
-              <div className="form-group">
-                <label>Correo Electrónico</label>
-                <input
-                  type="text"
-                  value={selectedUser.email}
-                  disabled
-                  className="input-glass disabled"
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Correo Electrónico</label>
+                <input type="text" value={selectedUser.email} disabled
+                  className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 cursor-not-allowed"
                 />
               </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Ciudad</label>
-                  <input
-                    type="text"
-                    value={selectedUser.city || ''}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Ciudad</label>
+                  <input type="text" value={selectedUser.city || ''}
                     onChange={(e) => setSelectedUser({ ...selectedUser, city: e.target.value })}
-                    className="input-glass"
+                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none"
                     placeholder="Ej. Monterrey, NL"
                   />
                 </div>
-                <div className="form-group">
-                  <label>Teléfono</label>
-                  <input
-                    type="tel"
-                    value={selectedUser.phone || ''}
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Teléfono</label>
+                  <input type="tel" value={selectedUser.phone || ''}
                     onChange={(e) => setSelectedUser({ ...selectedUser, phone: e.target.value })}
-                    className="input-glass"
+                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none"
                     placeholder="81 1234 5678"
                   />
                 </div>
               </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Rol</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Rol</label>
                   <select
                     value={selectedUser.role}
                     onChange={(e) => setSelectedUser({ ...selectedUser, role: e.target.value })}
-                    className="input-glass select"
+                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none"
                   >
                     <option value="distributor">Distribuidor</option>
                     <option value="admin">Administrador</option>
                   </select>
                 </div>
-
-                <div className="form-group">
-                  <label>Estado</label>
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Estado</label>
                   <select
                     value={selectedUser.is_active ? 'true' : 'false'}
                     onChange={(e) => setSelectedUser({ ...selectedUser, is_active: e.target.value === 'true' })}
-                    className="input-glass select"
+                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none"
                   >
                     <option value="true">Activo</option>
                     <option value="false">Inactivo</option>
@@ -260,21 +303,14 @@ export default function UsersPage() {
                 </div>
               </div>
             </div>
-
-            <div className="modal-footer">
-              <button
-                className="btn btn-glass"
-                onClick={() => setIsModalOpen(false)}
-                disabled={updating}
+            <div className="p-6 border-t border-slate-200 flex justify-end gap-3">
+              <button onClick={() => setIsModalOpen(false)} disabled={updating}
+                className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white/50 border border-slate-200 hover:bg-white cursor-pointer transition-all"
+              >Cancelar</button>
+              <button onClick={handleSaveUser} disabled={updating}
+                className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#6a9a04] hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/20 cursor-pointer transition-all flex items-center gap-2 border-none"
               >
-                Cancelar
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleSaveUser}
-                disabled={updating}
-              >
-                {updating ? 'Guardando...' : <><Save size={18} /> Guardar Cambios</>}
+                {updating ? 'Guardando...' : <><Save className="w-4 h-4" /> Guardar Cambios</>}
               </button>
             </div>
           </div>
@@ -282,296 +318,28 @@ export default function UsersPage() {
       )}
 
       <style jsx>{`
-        .users-page {
-          max-width: 1200px;
-          margin: 0 auto;
-        }
-
-        .page-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 2rem;
-        }
-
-        .header-title h1 {
-          font-size: 2rem;
-          color: white;
-          margin: 0;
-        }
-        .header-title p {
-          color: var(--color-text-muted);
-          margin-top: 0.5rem;
-        }
-
-        .filters-bar {
-          display: flex;
-          justify-content: space-between;
-          padding: 1rem;
-          margin-bottom: 1.5rem;
-          gap: 1rem;
-          flex-wrap: wrap;
-        }
-
-        .search-wrapper {
+        .clientes-theme-override {
           position: relative;
-          flex: 1;
-          min-width: 250px;
-        }
-
-        .search-icon {
-          position: absolute;
-          left: 12px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: var(--color-text-muted);
-        }
-
-        .search-input {
-          width: 100%;
-          padding: 0.6rem 0.6rem 0.6rem 2.5rem;
-          background: rgba(0,0,0,0.2);
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: var(--radius-sm);
-          color: white;
-          outline: none;
-        }
-        .search-input:focus {
-          border-color: var(--color-primary);
-        }
-
-        .filter-group {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        .filter-icon {
-          color: var(--color-text-muted);
-        }
-        .filter-select {
-          background: rgba(0,0,0,0.2);
-          border: 1px solid rgba(255,255,255,0.1);
-          color: white;
-          padding: 0.6rem;
-          border-radius: var(--radius-sm);
-          outline: none;
-        }
-
-        .table-container {
-          overflow-x: auto;
-          padding: 0;
-        }
-
-        .users-table {
-          width: 100%;
-          border-collapse: collapse;
-          color: white;
-        }
-
-        .users-table th {
-          text-align: left;
-          padding: 1rem;
-          color: var(--color-text-muted);
-          font-weight: 600;
-          font-size: 0.85rem;
-          border-bottom: 1px solid rgba(255,255,255,0.05);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .users-table td {
-          padding: 1rem;
-          border-bottom: 1px solid rgba(255,255,255,0.05);
-          vertical-align: middle;
-        }
-
-        .user-info {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .user-avatar {
-          width: 36px;
-          height: 36px;
-          background: var(--color-primary);
-          color: black;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 700;
-        }
-
-        .user-name {
-          font-weight: 500;
-          color: white;
-        }
-        .user-email {
-          font-size: 0.8rem;
-          color: var(--color-text-muted);
-        }
-
-        .role-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          padding: 0.25rem 0.6rem;
-          border-radius: 99px;
-          font-size: 0.75rem;
-          font-weight: 600;
-          text-transform: uppercase;
-        }
-        .role-badge.admin {
-          background: rgba(147, 51, 234, 0.2);
-          color: #c084fc;
-        }
-        .role-badge.distributor {
-          background: rgba(59, 130, 246, 0.2);
-          color: #60a5fa;
-        }
-
-        .status-badge {
-          display: inline-block;
-          padding: 0.25rem 0.6rem;
-          border-radius: 99px;
-          font-size: 0.75rem;
-          font-weight: 600;
-        }
-        .status-badge.active {
-          background: rgba(34, 197, 94, 0.2);
-          color: #4ade80;
-        }
-        .status-badge.inactive {
-          background: rgba(239, 68, 68, 0.2);
-          color: #fca5a5;
-        }
-
-        .date-cell {
-          color: var(--color-text-muted);
-          font-size: 0.9rem;
-        }
-
-        .btn-icon {
-          background: rgba(255,255,255,0.05);
-          border: none;
-          color: var(--color-text-muted);
-          width: 32px;
-          height: 32px;
-          border-radius: 6px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .btn-icon:hover {
-          background: var(--color-primary);
-          color: black;
-        }
-
-        .empty-state {
-          text-align: center;
-          padding: 3rem;
-          color: var(--color-text-muted);
-        }
-        .empty-state svg {
-          margin-bottom: 1rem;
-          opacity: 0.5;
-        }
-
-        /* Modal Styles */
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,0.6);
-          backdrop-filter: blur(4px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 100;
-        }
-
-        .modal-content {
-          width: 100%;
-          max-width: 500px;
-          padding: 0; /* Let header/body/footer handle padding */
-          border: 1px solid rgba(255,255,255,0.1);
-          box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-        }
-
-        .modal-header {
-          padding: 1.5rem;
-          border-bottom: 1px solid rgba(255,255,255,0.05);
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        .modal-header h3 {
-          margin: 0;
-          color: white;
-          font-size: 1.25rem;
-        }
-        .close-btn {
-          background: transparent;
-          border: none;
-          color: var(--color-text-muted);
-          cursor: pointer;
-        }
-        .close-btn:hover { color: white; }
-
-        .modal-body {
-          padding: 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-        }
-
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-        .form-group label {
-          font-size: 0.85rem;
-          color: var(--color-text-muted);
-        }
-
-        .input-glass {
-          background: rgba(0,0,0,0.2);
-          border: 1px solid rgba(255,255,255,0.1);
-          color: white;
-          padding: 0.75rem;
-          border-radius: var(--radius-sm);
-          font-family: inherit;
-        }
-        .input-glass:focus {
-          border-color: var(--color-primary);
-          outline: none;
-        }
-        .input-glass.disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .modal-footer {
-          padding: 1.5rem;
-          border-top: 1px solid rgba(255,255,255,0.05);
-          display: flex;
-          justify-content: flex-end;
-          gap: 1rem;
-        }
-
-        .loading {
-          text-align: center;
+          min-height: calc(100vh - 64px);
+          background-color: #f8f6f6;
+          background-image: url('https://www.transparenttextures.com/patterns/cubes.png');
+          background-attachment: fixed;
+          color: #0f172a;
+          margin: -2rem;
           padding: 2rem;
-          color: var(--color-text-muted);
+          overflow: hidden;
+          font-family: 'Public Sans', system-ui, sans-serif;
+        }
+
+        .glass-panel {
+          background: rgba(255, 255, 255, 0.7);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        @media (max-width: 768px) {
+          .clientes-theme-override { margin: -1rem; padding: 1rem; }
         }
       `}</style>
     </div>
