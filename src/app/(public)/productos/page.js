@@ -18,7 +18,7 @@ export default async function ProductosPage({ searchParams }) {
         .order('sort_order');
 
     // Build query
-    let query = supabase.from('products').select('*, categories(name, slug)');
+    let query = supabase.from('products').select('*, categories(name, slug)').eq('is_active', true);
 
     if (categoryFilter) {
         if (categoryFilter === 'spaces') {
