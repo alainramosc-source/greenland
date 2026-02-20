@@ -34,8 +34,8 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
           align-items: center;
           justify-content: space-between;
           padding: 0 1.5rem;
-          background: #FFFFFF;
-          border-bottom: 1px solid var(--color-border, #E5E5E5);
+          background: #000000;
+          border-bottom: 1px solid #747474;
           position: sticky;
           top: 0;
           z-index: 40;
@@ -49,18 +49,21 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
 
         .menu-btn {
           display: none;
-          color: var(--color-text, #111);
+          color: #FFFFFF;
           padding: 0.375rem;
           border-radius: 8px;
           transition: background 0.2s;
+          border: none;
+          background: transparent;
         }
         .menu-btn:hover {
-          background: var(--color-bg-soft, #F5F5F5);
+          background: rgba(116, 116, 116, 0.2);
+          color: #dee24b;
         }
 
         .breadcrumb {
           font-size: 0.85rem;
-          color: var(--color-text-muted, #999);
+          color: #747474;
           font-weight: 500;
         }
 
@@ -72,22 +75,24 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
 
         .icon-btn {
           position: relative;
-          color: var(--color-text-secondary, #555);
+          color: #FFFFFF;
           padding: 0.375rem;
           border-radius: 8px;
           transition: all 0.2s;
+          border: none;
+          background: transparent;
         }
         .icon-btn:hover {
-          background: var(--color-bg-soft, #F5F5F5);
-          color: var(--color-text, #111);
+          background: rgba(116, 116, 116, 0.2);
+          color: #dee24b;
         }
 
         .badge {
           position: absolute;
           top: -2px;
           right: -2px;
-          background: #DC2626;
-          color: #FFFFFF;
+          background: #dee24b;
+          color: #000000;
           font-size: 0.6rem;
           font-weight: 700;
           width: 16px;
@@ -104,15 +109,15 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
           gap: 0.75rem;
           padding: 0.25rem 0.75rem 0.25rem 0.25rem;
           border-radius: 100px;
-          background: var(--color-bg-soft, #F5F5F5);
-          border: 1px solid var(--color-border-light, #F0F0F0);
+          background: rgba(116, 116, 116, 0.1);
+          border: 1px solid #747474;
         }
 
         .avatar {
           width: 32px;
           height: 32px;
-          background: var(--color-primary, #064E3B);
-          color: #FFFFFF;
+          background: #6a9a04;
+          color: #000000;
           border-radius: 50%;
           display: flex;
           align-items: center;
@@ -123,7 +128,7 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
 
         .user-name {
           font-size: 0.85rem;
-          color: var(--color-text, #111);
+          color: #FFFFFF;
           font-weight: 500;
         }
 

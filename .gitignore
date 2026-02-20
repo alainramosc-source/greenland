@@ -3,3 +3,5 @@ node_modules
 .env.local
 _legacy_site
 .next
+.vercel
+.env*.local

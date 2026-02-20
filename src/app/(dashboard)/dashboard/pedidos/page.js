@@ -166,11 +166,11 @@ export default function PedidosPage() {
         }
         .page-header h1 {
           font-size: 1.75rem;
-          color: var(--color-text-main);
+          color: #FFFFFF;
           margin: 0;
         }
         .subtitle {
-          color: var(--color-text-muted);
+          color: #747474;
           margin: 0.25rem 0 0;
           font-size: 0.9rem;
         }
@@ -181,9 +181,9 @@ export default function PedidosPage() {
           flex-wrap: wrap;
         }
         .filter-tab {
-          background: white;
-          border: 1px solid var(--color-border);
-          color: var(--color-text-muted);
+          background: transparent;
+          border: 1px solid #747474;
+          color: #FFFFFF;
           padding: 0.5rem 1rem;
           border-radius: 8px;
           cursor: pointer;
@@ -194,57 +194,58 @@ export default function PedidosPage() {
           transition: all 0.2s;
         }
         .filter-tab:hover {
-          background: var(--color-bg-alt);
-          color: var(--color-text-main);
-          border-color: var(--color-primary);
+          background: rgba(116, 116, 116, 0.2);
+          border-color: #dee24b;
+          color: #dee24b;
         }
         .filter-tab.active {
-          background: var(--color-primary);
-          color: #0d351b;
-          border-color: var(--color-primary);
+          background: #6a9a04;
+          color: #dee24b;
+          border-color: #6a9a04;
           font-weight: 600;
         }
         .filter-tab.active .tab-count {
-          background: rgba(0,0,0,0.1);
+          background: rgba(0,0,0,0.3);
           color: inherit;
         }
         .tab-count {
-          background: var(--color-bg-alt);
+          background: #747474;
           padding: 0.1rem 0.5rem;
           border-radius: 99px;
           font-size: 0.75rem;
           font-weight: 600;
+          color: #000000;
         }
         .empty-state {
           text-align: center;
           padding: 4rem 1rem;
-          color: var(--color-text-muted);
+          color: #747474;
         }
         .orders-table {
           width: 100%;
           border-collapse: collapse;
-          color: var(--color-text-main);
+          color: #FFFFFF;
         }
         .orders-table th {
           text-align: left;
           padding: 1rem;
-          background-color: var(--color-bg-alt);
-          border-bottom: 1px solid var(--color-border);
-          color: var(--color-text-muted);
+          background-color: rgba(116, 116, 116, 0.1);
+          border-bottom: 1px solid #747474;
+          color: #747474;
           font-weight: 600;
           font-size: 0.85rem;
         }
         .orders-table td {
           padding: 1rem;
-          border-bottom: 1px solid var(--color-bg-alt);
+          border-bottom: 1px solid #747474;
           font-size: 0.95rem;
         }
         .orders-table tr:hover td {
-           background-color: var(--color-bg-surface);
+           background-color: rgba(116, 116, 116, 0.05);
         }
         .order-number {
           font-weight: 600;
-          color: var(--color-primary-dark);
+          color: #dee24b;
         }
         .amount {
           font-weight: 600;
@@ -261,9 +262,9 @@ export default function PedidosPage() {
           display: inline-flex;
           align-items: center;
           gap: 0.4rem;
-          background: var(--color-bg-alt);
-          border: 1px solid var(--color-border);
-          color: var(--color-text-muted);
+          background: transparent;
+          border: 1px solid #747474;
+          color: #FFFFFF;
           padding: 0.35rem 0.75rem;
           border-radius: 6px;
           text-decoration: none;
@@ -271,9 +272,9 @@ export default function PedidosPage() {
           transition: all 0.2s;
         }
         .btn-action:hover {
-          background: var(--color-accent-bg);
-          border-color: var(--color-primary);
-          color: var(--color-primary-dark);
+          background: #6a9a04;
+          border-color: #6a9a04;
+          color: #dee24b;
         }
       `}</style>
     </div>

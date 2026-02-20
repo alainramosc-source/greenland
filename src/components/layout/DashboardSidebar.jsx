@@ -21,13 +21,11 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
     { name: 'Inventarios', href: '/dashboard/inventarios', icon: Package },
   ];
 
-  if (userRole === 'admin') {
-    navItems.push(
-      { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: BarChart3 },
-      { name: 'CMS Landing', href: '/dashboard/cms', icon: FileText },
-      { name: 'Usuarios', href: '/dashboard/usuarios', icon: Users }
-    );
-  }
+  const adminItems = userRole === 'admin' ? [
+    { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: BarChart3 },
+    { name: 'Usuarios', href: '/dashboard/usuarios', icon: Users },
+    { name: 'CMS Landing', href: '/dashboard/cms', icon: FileText }
+  ] : [];
 
   return (
     <>
@@ -58,6 +56,26 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
               );
             })}
           </div>
+
+          {adminItems.length > 0 && (
+            <div className="nav-section admin-section">
+              <span className="nav-label">ADMINISTRACIÓN</span>
+              {adminItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`nav-link ${isActive ? 'active' : ''}`}
+                    onClick={onClose}
+                  >
+                    <item.icon size={18} />
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </nav>
 
         <div className="sidebar-footer">
@@ -80,8 +98,8 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
           left: 0;
           width: var(--layout-sidebar-width);
           height: 100vh;
-          background: #FFFFFF;
-          border-right: 1px solid var(--color-border, #E5E5E5);
+          background: #000000;
+          border-right: 1px solid #747474;
           display: flex;
           flex-direction: column;
           z-index: 50;
@@ -93,14 +111,14 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          border-bottom: 1px solid var(--color-border-light, #F0F0F0);
+          border-bottom: 1px solid #747474;
         }
 
         .logo-mark {
           width: 36px;
           height: 36px;
-          background: var(--color-primary, #064E3B);
-          color: #FFFFFF;
+          background: #6a9a04;
+          color: #000000;
           border-radius: 10px;
           display: flex;
           align-items: center;
@@ -117,14 +135,14 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
         .brand {
           font-weight: 800;
           font-size: 0.95rem;
-          color: var(--color-text, #111);
+          color: #FFFFFF;
           letter-spacing: 0.04em;
           line-height: 1;
         }
 
         .sub {
           font-size: 0.6rem;
-          color: var(--color-text-muted, #999);
+          color: #dee24b;
           letter-spacing: 0.15em;
           font-weight: 600;
         }
@@ -141,9 +159,13 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
           gap: 0.25rem;
         }
 
+        .admin-section {
+          margin-top: 1.5rem;
+        }
+
         .nav-label {
           font-size: 0.65rem;
-          color: var(--color-text-muted, #999);
+          color: #747474;
           padding-left: 0.75rem;
           margin-bottom: 0.75rem;
           font-weight: 700;
@@ -155,7 +177,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
           align-items: center;
           gap: 0.75rem;
           padding: 0.7rem 0.75rem;
-          color: var(--color-text-secondary, #555);
+          color: #FFFFFF;
           border-radius: 10px;
           transition: all 0.2s;
           font-weight: 500;
@@ -169,33 +191,33 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
         }
 
         .nav-link:hover {
-          background: var(--color-bg-soft, #F5F5F5);
-          color: var(--color-text, #111);
+          background: rgba(116, 116, 116, 0.2);
+          color: #dee24b;
         }
 
         .nav-link.active {
-          background: rgba(6, 78, 59, 0.06);
-          color: var(--color-primary, #064E3B);
+          background: rgba(106, 154, 4, 0.2);
+          color: #dee24b;
           font-weight: 600;
         }
 
         .sidebar-footer {
           padding: 1.25rem;
-          border-top: 1px solid var(--color-border-light, #F0F0F0);
+          border-top: 1px solid #747474;
         }
 
         .logout-btn {
-          color: #DC2626;
+          color: #FFFFFF;
         }
         .logout-btn:hover {
-          background: #FEF2F2;
-          color: #DC2626;
+          background: rgba(116, 116, 116, 0.2);
+          color: #dee24b;
         }
 
         .user-info {
           margin-top: 0.75rem;
           text-align: center;
-          color: var(--color-text-muted, #999);
+          color: #747474;
           font-size: 0.75rem;
         }
 
@@ -209,7 +231,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
           .sidebar-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(4px);
             z-index: 40;
           }

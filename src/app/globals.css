@@ -186,7 +186,8 @@ h6 {
 .dashboard-layout {
   display: flex;
   min-height: 100vh;
-  background-color: var(--color-bg-alt);
+  background-color: #000000;
+  color: #FFFFFF;
 }
 
 .dashboard-content-wrapper {
@@ -206,8 +207,8 @@ h6 {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text);
-  background: var(--color-bg);
+  color: #FFFFFF;
+  background: #000000;
   font-weight: 500;
 }
 

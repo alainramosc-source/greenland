@@ -4,61 +4,67 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 
 export default function DashboardPage() {
-    const [stats, setStats] = useState({
-        activeOrders: 0,
-        totalSpent: 0,
-        productsCount: 0
-    });
+  const [stats, setStats] = useState({
+    activeOrders: 0,
+    totalSpent: 0,
+    productsCount: 0
+  });
 
-    useEffect(() => {
-        // Fetch stats here
-    }, []);
+  useEffect(() => {
+    // Fetch stats here
+  }, []);
 
-    const StatCard = ({ title, value, icon: Icon, color }) => (
-        <div className="stat-card glass-panel">
-            <div className="stat-icon" style={{ backgroundColor: `${color}20`, color: color }}>
-                <Icon size={24} />
-            </div>
-            <div className="stat-content">
-                <h3>{title}</h3>
-                <p className="stat-value">{value}</p>
-            </div>
+  const StatCard = ({ title, value, icon: Icon, color }) => (
+    <div className="stat-card glass-panel">
+      <div className="stat-icon" style={{ backgroundColor: `${color}20`, color: color }}>
+        <Icon size={24} />
+      </div>
+      <div className="stat-content">
+        <h3>{title}</h3>
+        <p className="stat-value">{value}</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="dashboard-container">
+      <h1 className="page-title">Tablero General</h1>
+
+      <div className="stats-grid">
+        <StatCard
+          title="Pedidos Activos"
+          value="3"
+          icon={ShoppingCart}
+          color="#dee24b"
+        />
+        <StatCard
+          title="Total Comprado"
+          value="$12,450"
+          icon={TrendingUp}
+          color="#6a9a04"
+        />
+        <StatCard
+          title="Productos Disponibles"
+          value="145"
+          icon={Package}
+          color="#FFFFFF"
+        />
+      </div>
+
+      <div className="recent-orders glass-panel">
+        <h2>Pedidos Recientes</h2>
+        <div className="empty-state">
+          No hay pedidos recientes para mostrar.
         </div>
-    );
+      </div>
 
-    return (
-        <div className="dashboard-container">
-            <h1 className="page-title">Tablero General</h1>
+      <style jsx>{`
+        .glass-panel {
+           background: rgba(116, 116, 116, 0.1);
+           border-radius: 12px;
+           border: 1px solid #747474;
+        }
 
-            <div className="stats-grid">
-                <StatCard
-                    title="Pedidos Activos"
-                    value="3"
-                    icon={ShoppingCart}
-                    color="#4ade80"
-                />
-                <StatCard
-                    title="Total Comprado"
-                    value="$12,450"
-                    icon={TrendingUp}
-                    color="#facc15"
-                />
-                <StatCard
-                    title="Productos Disponibles"
-                    value="145"
-                    icon={Package}
-                    color="#60a5fa"
-                />
-            </div>
-
-            <div className="recent-orders glass-panel">
-                <h2>Pedidos Recientes</h2>
-                <div className="empty-state">
-                    No hay pedidos recientes para mostrar.
-                </div>
-            </div>
-
-            <style jsx>{`
         .dashboard-container {
           max-width: 1200px;
           margin: 0 auto;
@@ -66,7 +72,7 @@ export default function DashboardPage() {
 
         .page-title {
           font-size: 1.75rem;
-          color: white;
+          color: #FFFFFF;
           margin-bottom: 2rem;
         }
 
@@ -87,6 +93,7 @@ export default function DashboardPage() {
         
         .stat-card:hover {
           transform: translateY(-2px);
+          border-color: #dee24b;
         }
 
         .stat-icon {
@@ -100,14 +107,14 @@ export default function DashboardPage() {
 
         .stat-content h3 {
           font-size: 0.85rem;
-          color: var(--color-text-muted);
+          color: #747474;
           margin-bottom: 0.25rem;
         }
 
         .stat-value {
           font-size: 1.5rem;
           font-weight: 700;
-          color: white;
+          color: #FFFFFF;
         }
 
         .recent-orders {
@@ -116,19 +123,19 @@ export default function DashboardPage() {
 
         .recent-orders h2 {
           font-size: 1.2rem;
-          color: white;
+          color: #FFFFFF;
           margin-bottom: 1rem;
         }
 
         .empty-state {
           padding: 3rem;
           text-align: center;
-          color: var(--color-text-muted);
-          background: rgba(255, 255, 255, 0.02);
-          border-radius: var(--radius-md);
-          border: 1px dashed rgba(255, 255, 255, 0.1);
+          color: #747474;
+          background: rgba(116, 116, 116, 0.05);
+          border-radius: 12px;
+          border: 1px dashed #747474;
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }
