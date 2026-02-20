@@ -10,11 +10,7 @@ const Footer = () => {
           {/* Brand */}
           <div className="footer-col brand-col">
             <div className="footer-logo">
-              <span className="logo-mark">G</span>
-              <div>
-                <span className="logo-name">GREENLAND</span>
-                <span className="logo-sub">PRODUCTS</span>
-              </div>
+              <img src="/logo-new.jpg" alt="Greenland Products" className="footer-logo-img" />
             </div>
             <p className="footer-desc">
               Soluciones profesionales en mobiliario y equipamiento para espacios versátiles. Calidad industrial para uso intensivo.
@@ -97,34 +93,10 @@ const Footer = () => {
           margin-bottom: 1.25rem;
         }
 
-        .logo-mark {
-          width: 40px;
-          height: 40px;
-          background: var(--color-primary);
-          color: #FFFFFF;
-          border-radius: var(--radius-sm);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 900;
-          font-size: 1.3rem;
-        }
-
-        .logo-name {
-          display: block;
-          font-weight: 800;
-          font-size: 1rem;
-          letter-spacing: 0.04em;
-          color: var(--color-text);
-          line-height: 1.1;
-        }
-
-        .logo-sub {
-          display: block;
-          font-size: 0.55rem;
-          letter-spacing: 0.2em;
-          color: var(--color-text-muted);
-          font-weight: 600;
+        .footer-logo-img {
+          height: 60px;
+          width: auto;
+          object-fit: contain;
         }
 
         .footer-desc {

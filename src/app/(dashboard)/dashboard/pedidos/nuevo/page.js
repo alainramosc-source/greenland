@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { Search, ShoppingCart, Plus, Minus, ArrowRight, CheckCircle, Package } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import ProductGallery from '@/components/ProductGallery';
 
 export default function NuevoPedidoPage() {
   const [products, setProducts] = useState([]);
@@ -191,11 +192,7 @@ export default function NuevoPedidoPage() {
           {filteredProducts.map(product => (
             <div key={product.id} className="product-card glass-panel">
               <div className="product-image">
-                {product.image_url ? (
-                  <img src={product.image_url} alt={product.name} />
-                ) : (
-                  <div className="placeholder-img"><Package size={32} /></div>
-                )}
+                <ProductGallery sku={product.sku} productName={product.name} />
               </div>
               <div className="product-info">
                 <div className="flex justify-between items-start mb-2">

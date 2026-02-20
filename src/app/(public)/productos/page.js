@@ -2,6 +2,7 @@
 import { createClient } from '@/utils/supabase/server';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Filter, ShoppingBag } from 'lucide-react';
+import ProductGallery from '@/components/ProductGallery';
 import './catalog.css';
 
 export const revalidate = 0;
@@ -116,11 +117,7 @@ export default async function ProductosPage({ searchParams }) {
                             {displayProducts.map(product => (
                                 <div key={product.id} className="product-card">
                                     <div className="product-image">
-                                        {product.image_url ? (
-                                            <img src={product.image_url} alt={product.name} />
-                                        ) : (
-                                            <div className="placeholder">Using Placeholder</div>
-                                        )}
+                                        <ProductGallery sku={product.sku} productName={product.name} />
                                         {product.stock_quantity < 10 && product.stock_quantity > 0 && (
                                             <span className="badge-low-stock">Pocas Piezas</span>
                                         )}

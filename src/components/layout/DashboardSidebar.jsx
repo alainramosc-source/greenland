@@ -31,11 +31,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
     <>
       <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <span className="logo-mark">G</span>
-          <div className="logo-text">
-            <span className="brand">GREENLAND</span>
-            <span className="sub">DASHBOARD</span>
-          </div>
+          <img src="/logo-new.jpg" alt="Greenland" className="sidebar-logo-img" />
         </div>
 
         <nav className="sidebar-nav">
@@ -119,43 +115,15 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
           padding: 2.5rem 1.5rem;
           display: flex;
           align-items: center;
+          justify-content: center;
           gap: 1rem;
           border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
-        .logo-mark {
-          width: 48px;
-          height: 48px;
-          background: linear-gradient(135deg, #dee24b, #6a9a04); /* gradient-to-br from-primary to-corporate-green */
-          color: #000000;
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 900;
-          font-size: 1.6rem;
-          box-shadow: 0 10px 15px -3px rgba(222, 226, 75, 0.2);
-        }
-
-        .logo-text {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .brand {
-          font-weight: 800;
-          font-size: 1.25rem;
-          color: #FFFFFF;
-          letter-spacing: 0.025em;
-          line-height: 1;
-        }
-
-        .sub {
-          font-size: 0.75rem;
-          color: #747474;
-          letter-spacing: 0.1em;
-          margin-top: 0.25rem;
-          font-weight: 500;
+        .sidebar-logo-img {
+          width: 100%;
+          max-height: 80px;
+          object-fit: contain;
         }
 
         .sidebar-nav {

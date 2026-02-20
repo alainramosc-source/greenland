@@ -19,10 +19,6 @@ const Sidebar = ({ isOpen, onClose }) => {
       <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <img src="/logo-new.jpg" alt="Greenland Products" className="sidebar-logo" />
-          <div className="logo-text">
-            <span className="brand">GREENLAND</span>
-            <span className="sub">PRODUCTS</span>
-          </div>
         </div>
 
         <nav className="sidebar-nav">
@@ -71,32 +67,15 @@ const Sidebar = ({ isOpen, onClose }) => {
           padding: 2rem 1.5rem;
           display: flex;
           align-items: center;
+          justify-content: center;
           gap: 1rem;
           border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .sidebar-logo {
-          width: 40px;
-          height: auto;
-        }
-
-        .logo-text {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .brand {
-          font-weight: 700;
-          font-size: 1.1rem;
-          color: white;
-          line-height: 1;
-        }
-
-        .sub {
-          font-size: 0.7rem;
-          color: #4ADE80;
-          letter-spacing: 0.15em;
-          font-family: var(--font-mono);
+          width: 100%;
+          max-height: 80px;
+          object-fit: contain;
         }
 
         .sidebar-nav {

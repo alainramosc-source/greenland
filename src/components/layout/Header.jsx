@@ -20,7 +20,7 @@ const Header = () => {
       <div className="header-inner">
         {/* Logo */}
         <Link href="/" className="header-logo">
-          <img src="/logo-transparent.png" alt="Greenland Products" className="logo-image" />
+          <img src="/logo-new.jpg" alt="Greenland Products" className="logo-image" />
         </Link>
 
         {/* Desktop Nav */}
