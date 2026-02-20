@@ -104,10 +104,11 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
           left: 0;
           width: var(--layout-sidebar-width);
           height: 100vh;
-          background: rgba(0, 0, 0, 0.5); /* Glassmorphism Base */
+          background: rgba(20, 20, 20, 0.6); /* Glassmorphism Base from Stitch */
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
-          border-right: 1px solid rgba(116, 116, 116, 0.4);
+          border-right: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
           display: flex;
           flex-direction: column;
           z-index: 50;
@@ -115,24 +116,25 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
         }
 
         .sidebar-header {
-          padding: 2rem 1.5rem;
+          padding: 2.5rem 1.5rem;
           display: flex;
           align-items: center;
-          gap: 0.75rem;
-          border-bottom: 1px solid rgba(116, 116, 116, 0.4);
+          gap: 1rem;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .logo-mark {
-          width: 44px;
-          height: 44px;
-          background: #6a9a04;
+          width: 48px;
+          height: 48px;
+          background: linear-gradient(135deg, #dee24b, #6a9a04); /* gradient-to-br from-primary to-corporate-green */
           color: #000000;
           border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: 900;
-          font-size: 1.4rem;
+          font-size: 1.6rem;
+          box-shadow: 0 10px 15px -3px rgba(222, 226, 75, 0.2);
         }
 
         .logo-text {
@@ -142,43 +144,44 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
 
         .brand {
           font-weight: 800;
-          font-size: 1.1rem;
+          font-size: 1.25rem;
           color: #FFFFFF;
-          letter-spacing: 0.04em;
+          letter-spacing: 0.025em;
           line-height: 1;
         }
 
         .sub {
-          font-size: 0.65rem;
-          color: #dee24b;
-          letter-spacing: 0.15em;
-          font-weight: 600;
+          font-size: 0.75rem;
+          color: #747474;
+          letter-spacing: 0.1em;
+          margin-top: 0.25rem;
+          font-weight: 500;
         }
 
         .sidebar-nav {
           flex: 1;
-          padding: 2rem 1rem;
+          padding: 2.5rem 1rem;
           overflow-y: auto;
         }
 
         .nav-section {
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          gap: 0.75rem;
         }
 
         .admin-section {
-          margin-top: 2rem;
+          margin-top: 3rem;
         }
 
         .nav-label {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          font-size: 0.75rem;
+          gap: 0.75rem;
+          font-size: 0.85rem;
           color: #747474;
-          padding-left: 0.75rem;
-          margin-bottom: 1rem;
+          padding-left: 1rem;
+          margin-bottom: 1.25rem;
           font-weight: 700;
           letter-spacing: 0.1em;
         }
@@ -186,52 +189,74 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
         .nav-link {
           display: flex;
           align-items: center;
-          gap: 1rem;
-          padding: 0.8rem 1rem;
-          color: rgba(255, 255, 255, 0.85);
+          gap: 1.25rem;
+          padding: 1rem 1.25rem;
+          color: #94a3b8; /* text-slate-400 */
           border-radius: 12px;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           font-weight: 500;
-          font-size: 1rem;
+          font-size: 1.05rem;
           background: transparent;
           border: 1px solid transparent;
           width: 100%;
           cursor: pointer;
           text-align: left;
           font-family: inherit;
+          position: relative;
+          overflow: hidden;
         }
 
         .nav-link:hover {
-          background: rgba(116, 116, 116, 0.2);
-          border-color: rgba(116, 116, 116, 0.3);
-          color: #dee24b;
+          background: rgba(255, 255, 255, 0.05); /* hover:bg-white/5 */
+          color: #FFFFFF;
+        }
+
+        .nav-link:hover :global(svg) {
+          color: #dee24b; /* hover:text-primary */
         }
 
         .nav-link.active {
-          background: rgba(106, 154, 4, 0.15);
-          border-color: rgba(106, 154, 4, 0.3);
-          color: #dee24b;
-          font-weight: 600;
+          background: rgba(222, 226, 75, 0.1); /* bg-primary/10 */
+          border-color: rgba(222, 226, 75, 0.2); /* border-primary/20 */
+          color: #dee24b; /* text-primary */
+          font-weight: 700;
+          box-shadow: 0 0 10px rgba(222, 226, 75, 0.3); /* neon-glow */
+        }
+
+        .nav-link.active::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: rgba(222, 226, 75, 0.05);
+          transform: translateX(-100%);
+          transition: transform 0.5s ease;
+        }
+        
+        .nav-link.active:hover::before {
+          transform: translateX(0);
         }
 
         .sidebar-footer {
           padding: 1.5rem;
-          border-top: 1px solid rgba(116, 116, 116, 0.4);
+          border-top: 1px solid rgba(255, 255, 255, 0.08); /* border-glass-border */
         }
 
         .logout-btn {
-          color: #FFFFFF;
+          color: #e2e8f0;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.05);
         }
         .logout-btn:hover {
-          background: rgba(116, 116, 116, 0.2);
-          color: #dee24b;
+          background: rgba(255, 255, 255, 0.08);
+          color: #FFFFFF;
         }
 
         .user-info {
-          margin-top: 0.75rem;
+          margin-top: 1rem;
           text-align: center;
           color: #747474;
-          font-size: 0.75rem;
+          font-size: 0.8rem;
+          font-weight: 500;
         }
 
         @media (max-width: 768px) {

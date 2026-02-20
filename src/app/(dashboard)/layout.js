@@ -61,10 +61,12 @@ export default function DashboardLayout({ children }) {
           min-height: 100vh;
           background-color: #000000;
           background-image: 
-            radial-gradient(circle at 15% 50%, rgba(106, 154, 4, 0.15), transparent 25%),
-            radial-gradient(circle at 85% 30%, rgba(222, 226, 75, 0.15), transparent 25%);
+            radial-gradient(circle at 50% 0%, #2a2a2a 0%, #000000 100%),
+            radial-gradient(circle at top right, rgba(222, 226, 75, 0.05) 0%, transparent 40%),
+            radial-gradient(circle at bottom left, rgba(106, 154, 4, 0.1) 0%, transparent 40%);
           background-attachment: fixed;
-          color: #FFFFFF;
+          color: #f8f8f6;
+          position: relative;
         }
 
         .dashboard-content-wrapper {

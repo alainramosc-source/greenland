@@ -60,11 +60,11 @@ export default function DashboardPage() {
 
       <style jsx>{`
         .glass-panel {
-           background: rgba(116, 116, 116, 0.1);
-           backdrop-filter: blur(12px);
-           -webkit-backdrop-filter: blur(12px);
+           background: rgba(20, 20, 20, 0.6);
+           backdrop-filter: blur(16px);
+           -webkit-backdrop-filter: blur(16px);
            border-radius: 12px;
-           border: 1px solid rgba(116, 116, 116, 0.3);
+           border: 1px solid rgba(255, 255, 255, 0.08);
            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
         }
 

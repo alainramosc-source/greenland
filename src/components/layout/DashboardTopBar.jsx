@@ -37,7 +37,7 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
           background: rgba(0, 0, 0, 0.4);
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
-          border-bottom: 1px solid rgba(116, 116, 116, 0.3);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
           position: sticky;
           top: 0;
           z-index: 40;
@@ -59,7 +59,7 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
           background: transparent;
         }
         .menu-btn:hover {
-          background: rgba(116, 116, 116, 0.2);
+          background: rgba(255, 255, 255, 0.05);
           color: #dee24b;
         }
 
@@ -77,15 +77,18 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
 
         .icon-btn {
           position: relative;
-          color: #FFFFFF;
-          padding: 0.375rem;
+          color: #e2e8f0;
+          padding: 0.5rem;
           border-radius: 8px;
           transition: all 0.2s;
-          border: none;
-          background: transparent;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(255, 255, 255, 0.03);
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .icon-btn:hover {
-          background: rgba(116, 116, 116, 0.2);
+          background: rgba(255, 255, 255, 0.05);
           color: #dee24b;
         }
 
@@ -94,42 +97,38 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
           top: -2px;
           right: -2px;
           background: #dee24b;
-          color: #000000;
-          font-size: 0.6rem;
-          font-weight: 700;
-          width: 16px;
-          height: 16px;
+          color: transparent;
+          font-size: 0;
+          width: 8px;
+          height: 8px;
           border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          box-shadow: 0 0 10px rgba(221, 226, 75, 0.5); /* Neon glow */
         }
 
         .user-profile {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          padding: 0.25rem 0.75rem 0.25rem 0.25rem;
-          border-radius: 100px;
-          background: rgba(116, 116, 116, 0.1);
-          border: 1px solid #747474;
+          padding-left: 1rem;
+          border-left: 1px solid rgba(255, 255, 255, 0.08); /* Divider */
         }
 
         .avatar {
-          width: 32px;
-          height: 32px;
+          width: 38px;
+          height: 38px;
           background: #6a9a04;
           color: #000000;
           border-radius: 50%;
+          border: 1px solid rgba(255, 255, 255, 0.08);
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: 700;
-          font-size: 0.85rem;
+          font-size: 0.9rem;
         }
 
         .user-name {
-          font-size: 0.85rem;
+          font-size: 0.9rem;
           color: #FFFFFF;
           font-weight: 500;
         }

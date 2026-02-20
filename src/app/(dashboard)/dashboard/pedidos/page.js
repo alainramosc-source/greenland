@@ -102,54 +102,56 @@ export default function PedidosPage() {
         ))}
       </div>
 
-      <div className="glass-panel" style={{ padding: '1.5rem' }}>
+      <div className="glass-panel main-panel">
         {loading ? (
           <div className="text-center text-muted">Cargando pedidos...</div>
         ) : filteredOrders.length === 0 ? (
           <div className="empty-state">
             <p>{statusFilter === 'all' ? 'No hay pedidos.' : `No hay pedidos con status "${FILTER_TABS.find(t => t.key === statusFilter)?.label}".`}</p>
             {!isAdmin && statusFilter === 'all' && (
-              <Link href="/dashboard/pedidos/nuevo" className="btn btn-outline-light btn-sm mt-4" style={{ display: 'inline-block', textDecoration: 'none' }}>Crear mi primer pedido</Link>
+              <Link href="/dashboard/pedidos/nuevo" className="btn btn-primary mt-4 py-2 px-4 rounded-lg bg-primary text-black" style={{ display: 'inline-block', textDecoration: 'none' }}>Crear mi primer pedido</Link>
             )}
           </div>
         ) : (
-          <table className="orders-table">
-            <thead>
-              <tr>
-                <th>Pedido</th>
-                <th>Fecha</th>
-                {isAdmin && <th>Distribuidor</th>}
-                {isAdmin && <th>Ciudad</th>}
-                <th>Estado</th>
-                <th>Total</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredOrders.map((order) => {
-                const sc = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
-                return (
-                  <tr key={order.id}>
-                    <td className="order-number">#{order.order_number}</td>
-                    <td>{new Date(order.created_at).toLocaleDateString('es-MX')}</td>
-                    {isAdmin && <td>{order.profiles?.full_name || order.profiles?.email || '—'}</td>}
-                    {isAdmin && <td>{order.profiles?.city || '—'}</td>}
-                    <td>
-                      <span className="status-badge" style={{ background: sc.bg, color: sc.color, border: `1px solid ${sc.color}`, boxShadow: sc.shadow }}>
-                        {sc.label}
-                      </span>
-                    </td>
-                    <td className="amount">${Number(order.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-                    <td>
-                      <Link href={`/dashboard/pedidos/${order.id}`} className="btn-action" title="Ver detalle">
-                        <Eye size={16} /> Ver
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="table-responsive">
+            <table className="orders-table">
+              <thead>
+                <tr>
+                  <th>Pedido</th>
+                  <th>Fecha</th>
+                  {isAdmin && <th>Distribuidor</th>}
+                  {isAdmin && <th>Ciudad</th>}
+                  <th>Estado</th>
+                  <th>Total</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOrders.map((order) => {
+                  const sc = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
+                  return (
+                    <tr key={order.id}>
+                      <td className="order-number">#{order.order_number}</td>
+                      <td>{new Date(order.created_at).toLocaleDateString('es-MX')}</td>
+                      {isAdmin && <td>{order.profiles?.full_name || order.profiles?.email || '—'}</td>}
+                      {isAdmin && <td>{order.profiles?.city || '—'}</td>}
+                      <td>
+                        <span className="status-badge" style={{ background: sc.bg, color: sc.color, border: `1px solid ${sc.color}`, boxShadow: sc.shadow }}>
+                          {sc.label}
+                        </span>
+                      </td>
+                      <td className="amount">${Number(order.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                      <td>
+                        <Link href={`/dashboard/pedidos/${order.id}`} className="btn-action" title="Ver detalle">
+                          <Eye size={16} /> Ver
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
