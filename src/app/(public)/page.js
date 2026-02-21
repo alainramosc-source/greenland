@@ -70,7 +70,7 @@ export default async function HomePage() {
             <div
               className="hero-image-card"
               style={{
-                backgroundImage: `url('${heroBg.media_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuD_EoL7QEGxHvyceQujGyCtx07pkDm2Ja8mzD1hFDGXfcEpIB1IZ7tDBLtSHdjesnDbLYPubBkpg1TkCELr5ZmEehcjBVvzh4cqBEvDMIJI-rnznbMOWTY8kezYjrcj8DSraarAPQ5xNNnqiEdULiE_D0vvASMxXeOwORgBVGX9eXPO6_O4uJvssgekbmnjzZ0gu00OSNTG_jpekwKlOnDo_xuVRqYfhDYTL4pqUYJozmklPFezhls3cHgMW6ulN6PH_q6Ay_H9jjw'}')`
+                backgroundImage: `url('${heroBg.media_url || '/mesa%20black.jpg'}')`
               }}
             ></div>
             <div className="hero-decoration"></div>
