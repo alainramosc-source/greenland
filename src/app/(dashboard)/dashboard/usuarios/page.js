@@ -14,6 +14,7 @@ export default function UsersPage() {
   const [updating, setUpdating] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, isBulk: false, targetId: null });
 
   const supabase = createClient();
 
@@ -85,43 +86,36 @@ export default function UsersPage() {
     }
   };
 
-  const handleDeleteSelected = async () => {
+  const handleDeleteSelected = () => {
     if (selectedUsers.length === 0) return;
+    setDeleteModal({ isOpen: true, isBulk: true, targetId: null });
+  };
 
-    // Fallback confirmation via state/timeout if confirm isn't reliable, but usually confirm blocks.
-    // If confirm is flashing, it might be due to rapid state re-renders overriding the browser prompt, or a bug in the specific webview. 
-    // Using a simple timeout to ensure rendering is complete before the alert.
-    setTimeout(async () => {
-      if (!window.confirm(`¿Estás seguro de eliminar ${selectedUsers.length} usuario(s)? Esta acción no se puede deshacer.`)) return;
+  const handleDeleteSingle = (id) => {
+    setDeleteModal({ isOpen: true, isBulk: false, targetId: id });
+  };
 
-      setLoading(true);
+  const executeDelete = async () => {
+    setLoading(true);
+    if (deleteModal.isBulk) {
       const { error } = await supabase.from('profiles').delete().in('id', selectedUsers);
-
       if (error) {
         alert('Error eliminando usuarios: ' + error.message);
       } else {
         setUsers(users.filter(u => !selectedUsers.includes(u.id)));
         setSelectedUsers([]);
       }
-      setLoading(false);
-    }, 10);
-  };
-
-  const handleDeleteSingle = async (id) => {
-    setTimeout(async () => {
-      if (!window.confirm('¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.')) return;
-
-      setLoading(true);
-      const { error } = await supabase.from('profiles').delete().eq('id', id);
-
+    } else {
+      const { error } = await supabase.from('profiles').delete().eq('id', deleteModal.targetId);
       if (error) {
         alert('Error eliminando usuario: ' + error.message);
       } else {
-        setUsers(users.filter(u => u.id !== id));
-        setSelectedUsers(selectedUsers.filter(userId => userId !== id));
+        setUsers(users.filter(u => u.id !== deleteModal.targetId));
+        setSelectedUsers(selectedUsers.filter(userId => userId !== deleteModal.targetId));
       }
-      setLoading(false);
-    }, 10);
+    }
+    setLoading(false);
+    setDeleteModal({ isOpen: false, isBulk: false, targetId: null });
   };
 
   const userExportStr = (str) => str ? String(str).replace(/"/g, '""') : '';
@@ -487,6 +481,39 @@ export default function UsersPage() {
                 className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#ec5b13] hover:bg-[#ec5b13]/90 shadow-lg shadow-[#ec5b13]/20 cursor-pointer transition-all flex items-center gap-2 border-none"
               >
                 {updating ? 'Guardando...' : <><Save className="w-4 h-4" /> Guardar Cambios</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center px-4">
+          <div className="bg-white/90 backdrop-blur-xl border border-white max-w-[400px] w-full rounded-2xl shadow-2xl overflow-hidden text-center p-8">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-black text-slate-900 mb-2">
+              ¿Eliminar {deleteModal.isBulk ? `${selectedUsers.length} usuario(s)` : 'usuario'}?
+            </h3>
+            <p className="text-slate-500 font-medium mb-8">
+              Esta acción es permanente y no se puede deshacer. Los clientes perderán acceso al portal inmediatamente.
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setDeleteModal({ isOpen: false, isBulk: false, targetId: null })}
+                disabled={loading}
+                className="px-6 py-3 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all flex-1"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={executeDelete}
+                disabled={loading}
+                className="px-6 py-3 rounded-xl text-white font-bold bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/20 cursor-pointer transition-all border-none flex-1"
+              >
+                {loading ? 'Eliminando...' : 'Sí, eliminar'}
               </button>
             </div>
           </div>
