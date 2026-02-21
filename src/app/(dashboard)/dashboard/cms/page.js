@@ -141,6 +141,43 @@ export default function CMSPage() {
               </div>
             </div>
           ))}
+          <div className="bg-white/60 backdrop-blur-md border border-white/50 p-6 rounded-3xl shadow-lg mt-8">
+            <h2 className="text-xl font-bold text-slate-900 mb-6 font-display flex items-center justify-between">
+              <span>Sync Técnico Especial</span>
+              <button
+                onClick={async () => {
+                  const { createClient } = require('@/utils/supabase/client');
+                  const supabase = createClient();
+                  const productsData = [
+                    { sku: 'GL01', name: 'Mesa Plegable 1.80', description: 'TAMAÑO: L180*W74*H74CM\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 25*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA Y CAJA DE CARTÓN\nTAMAÑO CAJA: 90*75*8 CMS\nPESO: 12.5 KGS\nCANT POR TARIMA: 35 PIEZAS' },
+                    { sku: 'GL02', name: 'Mesa Plegable 1.22', description: 'ALTURA AJUSTABLE: 3 NIVELES\nTAMAÑO: L122*W61*H(48/61/74)CM\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 25*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA Y CAJA DE CARTÓN\nTAMAÑO CAJA: 62*62*8 CMS\nPESO: 8.5 KGS\nCANT POR TARIMA: 60 PIEZAS' },
+                    { sku: 'GL03', name: 'Silla Plegable', description: 'TAMAÑO: L51*W45*H85.5 CMS\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 25*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA, 4 PIEZAS POR CAJA\nTAMAÑO CAJA: 116*34*48 CMS\nPESO: 4.5 KGS\nCANT POR TARIMA: 80 PIEZAS' },
+                    { sku: 'GL04', name: 'Mesa Plegable 1.80 Black', description: 'TAMAÑO: L180*W74*H74CM\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 25*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA Y CAJA DE CARTÓN\nTAMAÑO CAJA: 90*75*8 CMS\nPESO NETO: 11 KGS\nCANT POR TARIMA: 35 PIEZAS' },
+                    { sku: 'GL05', name: 'Mesa Plegable 86 × 86 cm', description: 'TAMAÑO: L86*W86*H74CM\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 25*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA Y CAJA DE CARTÓN\nTAMAÑO CAJA: 87*46*10 CMS\nPESO: 10 KGS\nCANT POR TARIMA: 50 PIEZAS' },
+                    { sku: 'GL06', name: 'Mesa Plegable 2.44', description: 'TAMAÑO: L244*W75*H74CM\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 28*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA Y CAJA DE CARTÓN\nTAMAÑO CAJA: 122*76*10 CMS\nPESO NETO: 18.5 KGS\nCANT POR TARIMA: 26 PIEZAS' },
+                    { sku: 'GL07', name: 'Toldo Blanco 3×3', description: 'TAMAÑO: 3 X 3 MTS\nMATERIAL: ACERO CON RECUBRIMIENTO BLANCO\nTELA: POLIÉSTER 800D CON RECUBRIMIENTO PVC (IMPERMEABLE)\nTUBO EXTERIOR DEL PIE: 30 X 30 X 0.7 MM\nTUBO INTERIOR DEL PIE: 25 X 25 X 0.7 MM\nTUBO TRANSVERSAL: 13 X 23 X 0.7 MM\nCONECTORES: PLÁSTICO ABS DE ALTA RESISTENCIA \nADICIONALES: BOTÓN DE SEGURIDAD ANTI-PELLIZCOS, BASE DE PIE SILENCIOSA, INCLUYE MANUAL DE INSTRUCCIONES\nEMPAQUE: TECHO + ESTRUCTURA EN BOLSA DE PE POR PIEZA Y CAJA DE CARTÓN\nTAMAÑO CAJA: 156*22*22 CMS\nPESO: 20.5 KGS\nCANT POR TARIMA: 35 PIEZAS' },
+                    { sku: 'GL08', name: 'Toldo Negro 3×3', description: 'TAMAÑO: 3 X 3 MTS\nMATERIAL: ACERO CON RECUBRIMIENTO NEGRO\nTELA: POLIÉSTER 420D CON RECUBRIMIENTO PVC (IMPERMEABLE)\nTUBO EXTERIOR DEL PIE: 30 X 30 X 0.6 MM\nTUBO INTERIOR DEL PIE: 25 X 25 X 0.6 MM\nTUBO TRANSVERSAL: 13 X 23 X 0.6 MM\nADICIONALES: INCLUYE MANUAL DE INSTRUCCIONES\nEMPAQUE: TECHO + ESTRUCTURA EN CAJA DE CARTÓN\nTAMAÑO CAJA: 148*21*20 CMS\nPESO: 18 KGS\nCANT POR TARIMA: 40 PIEZAS' },
+                    { sku: 'GL09', name: 'Mesa Plegable 1.80 × 70', description: 'TAMAÑO: L180*W70*H74CM\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 22*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA Y CAJA DE CARTÓN\nTAMAÑO CAJA: 90*72*8 CMS\nPESO NETO: 11 KGS\nCANT POR TARIMA: 40 PIEZAS' },
+                    { sku: 'GL14', name: 'Silla Plegable Black', description: 'TAMAÑO: L51*W45*H85.5 CMS\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 25*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA, 4 PIEZAS POR CAJA\nTAMAÑO CAJA: 116*34*48 CMS\nPESO: 4.5 KGS\nCANT POR TARIMA: 80 PIEZAS' },
+                    { sku: 'GL15', name: 'Mesa Plegable 1.80 Premium', description: 'TAMAÑO: L180*W74*H74CM\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 25*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA Y CAJA DE CARTÓN\nTAMAÑO CAJA: 90*75*10 CMS\nPESO NETO: 14 KGS\nCANT POR TARIMA: 32 PIEZAS' },
+                    { sku: 'GL16', name: 'Mesa Plegable 1.80 × 74 Tipo Ratán', description: 'TAMAÑO: L180*W74*H74CM\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 25*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA Y CAJA DE CARTÓN\nTAMAÑO CAJA: 90*75*8 CMS\nPESO: 11 KGS\nCANT POR TARIMA: 35 PIEZAS' },
+                    { sku: 'GL17', name: 'Silla Plegable Tipo Ratán', description: 'TAMAÑO: L51*W45*H85.5 CMS\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 25*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA, 4 PIEZAS POR CAJA\nTAMAÑO CAJA: 116*34*48 CMS\nPESO: 4.5 KGS\nCANT POR TARIMA: 80 PIEZAS' },
+                    { sku: 'GL18', name: 'Mesa Plegable Redonda 1.54', description: 'TAMAÑO: D154*H74CMS\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 28*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA, 1 PIEZAS POR CAJA\nTAMAÑO CAJA: 156*79*10 CMS\nPESO: 21.5 KGS\nCANT POR TARIMA: 20 PIEZAS' },
+                    { sku: 'GL19', name: 'Mesa Plegable Personal 76', description: 'TAMAÑO: L76*W50*(H53.5 – 71.5) CMS\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 19*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA, 1 PIEZA POR CAJA\nTAMAÑO CAJA: 93*51*6 CMS\nPESO: 4.5 KGS\nCANT POR TARIMA: 90 PIEZAS' }
+                  ];
+
+                  for (let d of productsData) {
+                    await supabase.from('products').update({ description: d.description }).eq('sku', d.sku);
+                    await supabase.from('products').update({ description: d.description }).eq('sku', d.sku.replace('GL', 'GL-'));
+                  }
+                  alert('¡INYECCIÓN TÉCNICA EXITOSA! Revisa el catálogo ahora.');
+                }}
+                className="btn-primary text-xs py-2 px-4 whitespace-nowrap bg-black text-white rounded-xl"
+              >
+                Inyectar Fichas Técnicas
+              </button>
+            </h2>
+          </div>
         </div>
       </div>
     </div>
