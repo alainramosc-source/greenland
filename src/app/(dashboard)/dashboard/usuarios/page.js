@@ -81,169 +81,173 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="clientes-theme-override">
-      <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Page Header */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight m-0">Clientes</h1>
-            <p className="text-slate-500 mt-1 m-0">Gestión integral de cartera de clientes y facturación.</p>
-          </div>
-          {/* Placeholder for invite button */}
-        </header>
+    <>
+      {/* Page Header */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight m-0">Clientes</h1>
+          <p className="text-slate-500 mt-1 m-0">Gestión integral de cartera de clientes y facturación.</p>
+        </div>
+      </header>
 
-        {/* Filters & Search */}
-        <section className="glass-panel rounded-2xl p-4 mb-6 flex flex-wrap items-center gap-4">
-          <div className="flex-1 min-w-[300px]">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input
-                className="w-full pl-11 pr-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 placeholder:text-slate-400 outline-none transition-all"
-                placeholder="Buscar por nombre, empresa o correo..."
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+      {/* Filters & Search */}
+      <section className="bg-white/60 backdrop-blur-md shadow-sm border border-white/50 rounded-2xl p-4 mb-6 flex flex-wrap items-center gap-4">
+        <div className="flex-1 min-w-[300px]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              className="w-full pl-11 pr-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 placeholder:text-slate-400 outline-none transition-all shadow-sm"
+              placeholder="Buscar por nombre, empresa o correo..."
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          <div className="flex items-center gap-3">
-            <select
-              className="bg-white/50 border border-slate-200 rounded-xl py-3 pl-4 pr-10 focus:ring-2 focus:ring-[#6a9a04]/30 text-sm font-medium text-slate-700 outline-none"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="all">Todos los Status</option>
-              <option value="active">Activo</option>
-              <option value="inactive">Inactivo</option>
-            </select>
-            <select
-              className="bg-white/50 border border-slate-200 rounded-xl py-3 pl-4 pr-10 focus:ring-2 focus:ring-[#6a9a04]/30 text-sm font-medium text-slate-700 outline-none"
-              value={filterRole}
-              onChange={(e) => setFilterRole(e.target.value)}
-            >
-              <option value="all">Todos los Roles</option>
-              <option value="distributor">Distribuidores</option>
-              <option value="admin">Administradores</option>
-            </select>
-          </div>
-        </section>
+        </div>
+        <div className="flex items-center gap-3">
+          <select
+            className="bg-white/50 border border-slate-200 rounded-xl py-3 pl-4 pr-10 focus:ring-2 focus:ring-[#ec5b13]/30 text-sm font-medium text-slate-700 outline-none shadow-sm"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <option value="all">Todos los Status</option>
+            <option value="active">Activo</option>
+            <option value="inactive">Inactivo</option>
+          </select>
+          <select
+            className="bg-white/50 border border-slate-200 rounded-xl py-3 pl-4 pr-10 focus:ring-2 focus:ring-[#ec5b13]/30 text-sm font-medium text-slate-700 outline-none shadow-sm"
+            value={filterRole}
+            onChange={(e) => setFilterRole(e.target.value)}
+          >
+            <option value="all">Todos los Roles</option>
+            <option value="distributor">Distribuidores</option>
+            <option value="admin">Administradores</option>
+          </select>
+        </div>
+      </section>
 
-        {/* Table */}
-        <div className="glass-panel rounded-2xl overflow-hidden shadow-xl border border-white/40">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-[#6a9a04]/5 border-b border-[#6a9a04]/10">
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">ID</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Cliente</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Ubicación</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Teléfono</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Rol</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-center">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-center">Acciones</th>
+      {/* Table */}
+      <div className="bg-white/60 backdrop-blur-md shadow-sm border border-white/50 rounded-2xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-[#6a9a04]/5 border-b border-[#6a9a04]/10">
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">ID</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Cliente</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Ubicación</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Teléfono</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Rol</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-center">Status</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100/50">
+              {loading ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-12 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <div className="w-8 h-8 border-4 border-slate-200 border-t-[#ec5b13] rounded-full animate-spin"></div>
+                      <p className="font-medium">Cargando clientes...</p>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr><td colSpan="7" className="px-6 py-12 text-center text-slate-400">Cargando clientes...</td></tr>
-                ) : filteredUsers.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" className="px-6 py-12 text-center text-slate-400">
-                      <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      No se encontraron clientes.
+              ) : filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-12 text-center text-slate-400">
+                    <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    No se encontraron clientes.
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((user, idx) => (
+                  <tr key={user.id} className="hover:bg-white/40 transition-colors group">
+                    <td className="px-6 py-5 text-sm font-mono text-slate-400">#{String(idx + 1).padStart(4, '0')}</td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${user.is_active ? 'bg-[#6a9a04]/20 text-[#6a9a04]' : 'bg-slate-200 text-slate-500'}`}>
+                          {getInitials(user)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900 group-hover:text-[#6a9a04] transition-colors m-0">{user.full_name || 'Sin nombre'}</p>
+                          <p className="text-xs text-slate-500 m-0">{user.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-sm text-slate-600">{user.city || '—'}</td>
+                    <td className="px-6 py-5 text-sm text-slate-600">{user.phone || '—'}</td>
+                    <td className="px-6 py-5 text-sm">
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${user.role === 'admin' ? 'bg-[#ec5b13]/10 text-[#ec5b13]' : 'bg-[#6a9a04]/10 text-[#6a9a04]'}`}>
+                        {user.role === 'admin' && <Shield className="w-3 h-3" />}
+                        {user.role === 'admin' ? 'Admin' : 'Distribuidor'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5 text-center">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${user.is_active ? 'bg-[#6a9a04]/10 text-[#6a9a04] border-[#6a9a04]/20' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full mr-2 ${user.is_active ? 'bg-[#6a9a04]' : 'bg-slate-400'}`} />
+                        {user.is_active ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5 text-center">
+                      <button
+                        className="p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-200 bg-transparent cursor-pointer shadow-sm hover:shadow-sm"
+                        onClick={() => handleEditClick(user)}
+                        title="Editar Usuario"
+                      >
+                        <Edit2 className="w-4 h-4 text-slate-500 hover:text-[#ec5b13]" />
+                      </button>
                     </td>
                   </tr>
-                ) : (
-                  filteredUsers.map((user, idx) => (
-                    <tr key={user.id} className="hover:bg-white/40 transition-colors group">
-                      <td className="px-6 py-5 text-sm font-mono text-slate-400">#{String(idx + 1).padStart(4, '0')}</td>
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${user.is_active ? 'bg-[#6a9a04]/20 text-[#6a9a04]' : 'bg-slate-200 text-slate-500'}`}>
-                            {getInitials(user)}
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-900 group-hover:text-[#6a9a04] transition-colors m-0">{user.full_name || 'Sin nombre'}</p>
-                            <p className="text-xs text-slate-500 m-0">{user.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5 text-sm text-slate-600">{user.city || '—'}</td>
-                      <td className="px-6 py-5 text-sm text-slate-600">{user.phone || '—'}</td>
-                      <td className="px-6 py-5 text-sm">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                          {user.role === 'admin' && <Shield className="w-3 h-3" />}
-                          {user.role === 'admin' ? 'Admin' : 'Distribuidor'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5 text-center">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${user.is_active ? 'bg-[#6a9a04]/10 text-[#6a9a04] border-[#6a9a04]/20' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full mr-2 ${user.is_active ? 'bg-[#6a9a04]' : 'bg-slate-400'}`} />
-                          {user.is_active ? 'Activo' : 'Inactivo'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5 text-center">
-                        <button
-                          className="p-2 rounded-lg hover:bg-white transition-colors border-none bg-transparent cursor-pointer"
-                          onClick={() => handleEditClick(user)}
-                          title="Editar Usuario"
-                        >
-                          <Edit2 className="w-4 h-4 text-slate-400 hover:text-[#6a9a04]" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination Footer */}
-          <footer className="px-6 py-4 bg-white/30 border-t border-slate-100 flex items-center justify-between">
-            <p className="text-sm text-slate-500 font-medium m-0">Mostrando {filteredUsers.length} de {users.length} clientes</p>
-          </footer>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
 
-        {/* Stats Overview */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-          <div className="glass-panel p-6 rounded-2xl flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center text-[#6a9a04]">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-tight m-0">Total Clientes</p>
-              <p className="text-2xl font-black text-slate-900 m-0">{totalClients}</p>
-            </div>
-          </div>
-          <div className="glass-panel p-6 rounded-2xl flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#dee24b]/20 flex items-center justify-center text-[#6a9a04]">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-tight m-0">Clientes Activos</p>
-              <p className="text-2xl font-black text-slate-900 m-0">{activeClients}</p>
-            </div>
-          </div>
-          <div className="glass-panel p-6 rounded-2xl flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center text-orange-500">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-tight m-0">Facturación Mes</p>
-              <p className="text-2xl font-black text-slate-900 m-0">{totalRevenue}</p>
-            </div>
-          </div>
-        </section>
+        {/* Pagination Footer */}
+        <footer className="px-6 py-4 bg-white/40 border-t border-slate-100/50 flex items-center justify-between">
+          <p className="text-sm text-slate-500 font-medium m-0">Mostrando {filteredUsers.length} de {users.length} clientes</p>
+        </footer>
       </div>
+
+      {/* Stats Overview */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+        <div className="bg-white/60 backdrop-blur-md shadow-sm border border-white/50 p-6 rounded-2xl flex items-center gap-4 hover:shadow-md transition-shadow">
+          <div className="w-12 h-12 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center text-[#6a9a04]">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-tight m-0">Total Clientes</p>
+            <p className="text-2xl font-black text-slate-900 m-0">{totalClients}</p>
+          </div>
+        </div>
+        <div className="bg-white/60 backdrop-blur-md shadow-sm border border-white/50 p-6 rounded-2xl flex items-center gap-4 hover:shadow-md transition-shadow">
+          <div className="w-12 h-12 rounded-xl bg-[#dee24b]/30 flex items-center justify-center text-[#6a9a04]">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-tight m-0">Clientes Activos</p>
+            <p className="text-2xl font-black text-slate-900 m-0">{activeClients}</p>
+          </div>
+        </div>
+        <div className="bg-white/60 backdrop-blur-md shadow-sm border border-white/50 p-6 rounded-2xl flex items-center gap-4 hover:shadow-md transition-shadow">
+          <div className="w-12 h-12 rounded-xl bg-[#ec5b13]/10 flex items-center justify-center text-[#ec5b13]">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-tight m-0">Facturación Mes</p>
+            <p className="text-2xl font-black text-slate-900 m-0">{totalRevenue}</p>
+          </div>
+        </div>
+      </section>
 
       {/* Edit User Modal */}
       {isModalOpen && selectedUser && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center">
-          <div className="glass-panel w-full max-w-[500px] rounded-2xl shadow-2xl overflow-hidden">
-            <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center px-4">
+          <div className="bg-white/90 backdrop-blur-xl border border-white max-w-[500px] w-full rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-slate-200/50 flex justify-between items-center bg-white/50">
               <h3 className="text-lg font-bold text-slate-900 m-0">Editar Cliente</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 bg-transparent border-none cursor-pointer">
-                <X className="w-5 h-5 text-slate-500" />
+              <button onClick={() => setIsModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 bg-transparent border border-transparent transition-colors cursor-pointer text-slate-500 hover:text-slate-900">
+                <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-6 space-y-4">
@@ -251,7 +255,7 @@ export default function UsersPage() {
                 <label className="block text-sm font-medium text-slate-600 mb-1">Nombre Completo</label>
                 <input type="text" value={selectedUser.full_name || ''}
                   onChange={(e) => setSelectedUser({ ...selectedUser, full_name: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none"
+                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none"
                 />
               </div>
               <div>
@@ -265,7 +269,7 @@ export default function UsersPage() {
                   <label className="block text-sm font-medium text-slate-600 mb-1">Ciudad</label>
                   <input type="text" value={selectedUser.city || ''}
                     onChange={(e) => setSelectedUser({ ...selectedUser, city: e.target.value })}
-                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none"
+                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none"
                     placeholder="Ej. Monterrey, NL"
                   />
                 </div>
@@ -273,7 +277,7 @@ export default function UsersPage() {
                   <label className="block text-sm font-medium text-slate-600 mb-1">Teléfono</label>
                   <input type="tel" value={selectedUser.phone || ''}
                     onChange={(e) => setSelectedUser({ ...selectedUser, phone: e.target.value })}
-                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none"
+                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none"
                     placeholder="81 1234 5678"
                   />
                 </div>
@@ -284,7 +288,7 @@ export default function UsersPage() {
                   <select
                     value={selectedUser.role}
                     onChange={(e) => setSelectedUser({ ...selectedUser, role: e.target.value })}
-                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none"
+                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none"
                   >
                     <option value="distributor">Distribuidor</option>
                     <option value="admin">Administrador</option>
@@ -295,7 +299,7 @@ export default function UsersPage() {
                   <select
                     value={selectedUser.is_active ? 'true' : 'false'}
                     onChange={(e) => setSelectedUser({ ...selectedUser, is_active: e.target.value === 'true' })}
-                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none"
+                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none"
                   >
                     <option value="true">Activo</option>
                     <option value="false">Inactivo</option>
@@ -308,7 +312,7 @@ export default function UsersPage() {
                 className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white/50 border border-slate-200 hover:bg-white cursor-pointer transition-all"
               >Cancelar</button>
               <button onClick={handleSaveUser} disabled={updating}
-                className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#6a9a04] hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/20 cursor-pointer transition-all flex items-center gap-2 border-none"
+                className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#ec5b13] hover:bg-[#ec5b13]/90 shadow-lg shadow-[#ec5b13]/20 cursor-pointer transition-all flex items-center gap-2 border-none"
               >
                 {updating ? 'Guardando...' : <><Save className="w-4 h-4" /> Guardar Cambios</>}
               </button>
@@ -316,32 +320,6 @@ export default function UsersPage() {
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        .clientes-theme-override {
-          position: relative;
-          min-height: calc(100vh - 64px);
-          background-color: #f8f6f6;
-          background-image: url('https://www.transparenttextures.com/patterns/cubes.png');
-          background-attachment: fixed;
-          color: #0f172a;
-          margin: -2rem;
-          padding: 2rem;
-          overflow: hidden;
-          font-family: 'Public Sans', system-ui, sans-serif;
-        }
-
-        .glass-panel {
-          background: rgba(255, 255, 255, 0.7);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        @media (max-width: 768px) {
-          .clientes-theme-override { margin: -1rem; padding: 1rem; }
-        }
-      `}</style>
-    </div>
+    </>
   );
 }

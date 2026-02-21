@@ -171,10 +171,6 @@ export default function EstadisticasPage() {
 
     return (
         <div className="relative">
-            {/* Background Blurs */}
-            <div className="absolute top-[-10%] right-[-10%] w-[40rem] h-[40rem] bg-[#ec5b13]/10 blur-[120px] rounded-full -z-10 pointer-events-none" />
-            <div className="absolute bottom-[-10%] left-[20%] w-[30rem] h-[30rem] bg-[#6a9a04]/10 blur-[100px] rounded-full -z-10 pointer-events-none" />
-
             <div className="relative z-10 max-w-7xl mx-auto">
                 {/* Header */}
                 <header className="flex flex-wrap justify-between items-center gap-6 mb-8">

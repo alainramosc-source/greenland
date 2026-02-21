@@ -103,10 +103,6 @@ export default function InventariosPage() {
 
   return (
     <div className="relative">
-      {/* Background accent */}
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[#6a9a04]/5 blur-[80px] -z-10 pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-[#dee24b]/5 blur-[80px] -z-10 pointer-events-none" />
-
       <div className="relative z-10 max-w-7xl mx-auto">
         {/* Title & Filters */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">

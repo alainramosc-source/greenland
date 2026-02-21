@@ -99,26 +99,20 @@ export default function OrderDetailsPage() {
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="spinner"></div>
-        <p>Cargando detalles del pedido...</p>
-        <style jsx>{`
-          .loading-container { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:50vh; color:var(--color-text-muted); gap:1rem; }
-          .spinner { border:3px solid rgba(255,255,255,0.1); border-left-color:var(--color-primary); border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; }
-          @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
-        `}</style>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500 gap-4">
+        <Loader2 className="w-10 h-10 animate-spin text-[#ec5b13]" />
+        <p className="font-medium">Cargando detalles del pedido...</p>
       </div>
     );
   }
 
   if (!order) {
     return (
-      <div className="error-container">
-        <p>No se encontró el pedido o no tienes permiso para verlo.</p>
-        <Link href="/dashboard/pedidos" className="btn btn-primary">Volver a Pedidos</Link>
-        <style jsx>{`
-          .error-container { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:50vh; color:var(--color-text-muted); gap:1rem; }
-        `}</style>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500 gap-4">
+        <p className="font-medium text-lg">No se encontró el pedido o no tienes permiso para verlo.</p>
+        <Link href="/dashboard/pedidos" className="bg-[#ec5b13] hover:bg-[#ec5b13]/90 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-[#ec5b13]/20 transition-all flex items-center no-underline">
+          Volver a Pedidos
+        </Link>
       </div>
     );
   }
@@ -126,253 +120,222 @@ export default function OrderDetailsPage() {
   const sc = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
 
   return (
-    <div className="details-container">
-      <div className="page-header">
-        <Link href="/dashboard/pedidos" className="back-link">
-          <ArrowLeft size={20} />
-          Volver
-        </Link>
-        <div className="header-title">
-          <h1>Pedido #{order.order_number}</h1>
-          <span className="status-badge" style={{ background: sc.bg, color: sc.color }}>
-            {sc.label}
-          </span>
-        </div>
-      </div>
-
-      <div className="details-grid">
-        {/* Order Items */}
-        <div className="main-content">
-          <div className="glass-panel items-list">
-            <h3>Productos en el Pedido</h3>
-            <table className="items-table">
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th>Precio Unitario</th>
-                  <th>Cantidad</th>
-                  <th>Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {order.order_items.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <div className="product-info">
-                        <div className="product-thumb">
-                          {item.products?.image_url ? (
-                            <img src={item.products.image_url} alt={item.products?.name} />
-                          ) : (
-                            <Package size={24} color="#aaa" />
-                          )}
-                        </div>
-                        <div>
-                          <div className="product-name">{item.products?.name}</div>
-                          <div className="product-sku">SKU: {item.products?.sku}</div>
-                          {isAdmin && (
-                            <div className="product-stock">Stock: {item.products?.stock_quantity} uds</div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td>${Number(item.unit_price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-                    <td>{item.quantity}</td>
-                    <td className="subtotal">${Number(item.subtotal).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    <div className="relative">
+      <div className="relative z-10 max-w-7xl mx-auto">
+        {/* Page Header */}
+        <div className="mb-8">
+          <Link href="/dashboard/pedidos" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors mb-4 text-sm font-medium no-underline">
+            <ArrowLeft size={16} />
+            Volver a pedidos
+          </Link>
+          <div className="flex flex-wrap items-center gap-4">
+            <h1 className="text-3xl lg:text-4xl font-black tracking-tight text-slate-900 m-0">Pedido #{order.order_number}</h1>
+            <span
+              className="px-3 py-1 rounded-full text-sm font-bold tracking-wide uppercase shadow-sm border"
+              style={{ background: sc.bg, color: sc.color, borderColor: `${sc.color}40` }}
+            >
+              {sc.label}
+            </span>
           </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="sidebar-info">
-          {/* Distributor Info (admin only) */}
-          {isAdmin && order.profiles && (
-            <div className="glass-panel summary-card">
-              <h3><User size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />Distribuidor</h3>
-              <div className="dist-info">
-                <div className="dist-name">{order.profiles.full_name || '—'}</div>
-                <div className="dist-detail">{order.profiles.email}</div>
-                {order.profiles.city && <div className="dist-detail">📍 {order.profiles.city}</div>}
-                {order.profiles.phone && <div className="dist-detail">📱 {order.profiles.phone}</div>}
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Main Content (Order Items) */}
+          <div className="flex-1">
+            <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden p-6 mb-8">
+              <h3 className="text-xl font-bold text-slate-900 mb-6 pb-4 border-b border-slate-200">Productos en el Pedido</h3>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Producto</th>
+                      <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Precio Unitario</th>
+                      <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Cantidad</th>
+                      <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {order.order_items.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center overflow-hidden border border-slate-200/50 shrink-0">
+                              {item.products?.image_url ? (
+                                <img src={item.products.image_url} alt={item.products?.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <Package size={20} className="text-slate-400" />
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-900">{item.products?.name}</div>
+                              <div className="text-xs text-slate-500 mt-0.5">SKU: {item.products?.sku}</div>
+                              {isAdmin && (
+                                <div className="text-[11px] font-medium text-[#ec5b13] mt-0.5 bg-[#ec5b13]/10 inline-block px-1.5 py-0.5 rounded">
+                                  Stock: {item.products?.stock_quantity} uds
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 font-medium text-slate-600">
+                          ${Number(item.unit_price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-4 text-center font-medium text-slate-700">
+                          {item.quantity}
+                        </td>
+                        <td className="py-4 text-right">
+                          <span className="font-bold text-[#6a9a04] bg-[#6a9a04]/10 px-2.5 py-1 rounded-lg">
+                            ${Number(item.subtotal).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Order Summary */}
-          <div className="glass-panel summary-card">
-            <h3>Resumen</h3>
-
-            <div className="summary-row date">
-              <div className="icon"><Calendar size={18} /></div>
-              <div>
-                <label>Fecha del Pedido</label>
-                <div>{new Date(order.created_at).toLocaleDateString('es-MX')} {new Date(order.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</div>
-              </div>
-            </div>
-
-            <div className="summary-row total">
-              <div className="icon"><DollarSign size={18} /></div>
-              <div>
-                <label>Total</label>
-                <div className="amount">${Number(order.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
-              </div>
-            </div>
-
-            {order.notes && (
-              <div className="summary-row notes">
-                <div className="icon"><FileText size={18} /></div>
-                <div>
-                  <label>Notas</label>
-                  <div>{order.notes}</div>
+          {/* Sidebar Info */}
+          <div className="w-full lg:w-96 flex flex-col gap-6">
+            {/* Distributor Info (admin only) */}
+            {isAdmin && order.profiles && (
+              <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-6">
+                <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900 mb-4 pb-4 border-b border-slate-200">
+                  <User size={18} className="text-[#ec5b13]" /> Distribuidor
+                </h3>
+                <div className="flex flex-col gap-3">
+                  <div className="font-bold text-slate-900">{order.profiles.full_name || '—'}</div>
+                  <div className="text-sm shadow-sm border border-slate-100 bg-white/50 px-3 py-2 rounded-lg flex items-center gap-2 text-slate-600">
+                    <span className="text-slate-400">@</span> {order.profiles.email}
+                  </div>
+                  {order.profiles.city && (
+                    <div className="text-sm shadow-sm border border-slate-100 bg-white/50 px-3 py-2 rounded-lg flex items-center gap-2 text-slate-600">
+                      <span className="text-slate-400">📍</span> {order.profiles.city}
+                    </div>
+                  )}
+                  {order.profiles.phone && (
+                    <div className="text-sm shadow-sm border border-slate-100 bg-white/50 px-3 py-2 rounded-lg flex items-center gap-2 text-slate-600">
+                      <span className="text-slate-400">📱</span> {order.profiles.phone}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {order.shipping_address && (
-              <div className="summary-row address">
-                <div className="icon"><MapPin size={18} /></div>
+            {/* Order Summary */}
+            <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-6">
+              <h3 className="text-lg font-bold text-slate-900 mb-4 pb-4 border-b border-slate-200">Resumen</h3>
+
+              <div className="flex gap-4 mb-5">
+                <div className="mt-1 text-[#6a9a04] bg-[#6a9a04]/10 p-2 rounded-lg w-fit h-fit"><Calendar size={18} /></div>
                 <div>
-                  <label>Dirección de Envío</label>
-                  <div>{order.shipping_address}</div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Fecha del Pedido</label>
+                  <div className="text-slate-800 font-medium">
+                    {new Date(order.created_at).toLocaleDateString('es-MX')} {new Date(order.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
+              </div>
+
+              <div className="flex gap-4 mb-5">
+                <div className="mt-1 text-[#ec5b13] bg-[#ec5b13]/10 p-2 rounded-lg w-fit h-fit"><DollarSign size={18} /></div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total</label>
+                  <div className="text-3xl font-black tracking-tight text-[#ec5b13]">
+                    ${Number(order.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+
+              {order.notes && (
+                <div className="flex gap-4 mb-5">
+                  <div className="mt-1 text-slate-400 bg-slate-100 p-2 rounded-lg w-fit h-fit"><FileText size={18} /></div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Notas</label>
+                    <div className="text-sm text-slate-700 bg-slate-50/80 p-3 rounded-lg border border-slate-100 italic">
+                      "{order.notes}"
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {order.shipping_address && (
+                <div className="flex gap-4">
+                  <div className="mt-1 text-blue-500 bg-blue-50 p-2 rounded-lg w-fit h-fit"><MapPin size={18} /></div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Dirección de Envío</label>
+                    <div className="text-sm text-slate-700 bg-white/50 p-3 rounded-lg border border-slate-100">
+                      {order.shipping_address}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Admin Actions */}
+            {isAdmin && (
+              <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-6">
+                <h3 className="text-lg font-bold text-slate-900 mb-4 pb-4 border-b border-slate-200">Acciones</h3>
+
+                {order.status === 'pending' && (
+                  <div className="flex flex-col gap-3">
+                    <button
+                      className="w-full flex items-center justify-center gap-2 bg-[#ec5b13] hover:bg-[#ec5b13]/90 text-white px-5 py-3 rounded-xl font-bold font-sm shadow-md shadow-[#ec5b13]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={handleConfirmPayment}
+                      disabled={!!actionLoading}
+                    >
+                      {actionLoading === 'confirm' ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+                      Confirmar Pago
+                    </button>
+                    <button
+                      className="w-full flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-5 py-3 rounded-xl font-bold font-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => handleUpdateStatus('cancelled', 'Cancelado')}
+                      disabled={!!actionLoading}
+                    >
+                      {actionLoading === 'cancelled' ? <Loader2 size={18} className="animate-spin" /> : <XCircle size={18} />}
+                      Cancelar Pedido
+                    </button>
+                    <p className="text-xs text-center text-slate-500 mt-1 font-medium bg-slate-50/50 p-2 rounded-lg border border-slate-100">Al confirmar pago, el inventario se descontará automáticamente.</p>
+                  </div>
+                )}
+
+                {order.status === 'processing' && (
+                  <div className="flex flex-col gap-3">
+                    <button
+                      className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-5 py-3 rounded-xl font-bold font-sm shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => handleUpdateStatus('shipped', 'Enviado')}
+                      disabled={!!actionLoading}
+                    >
+                      {actionLoading === 'shipped' ? <Loader2 size={18} className="animate-spin" /> : <Truck size={18} />}
+                      Marcar como Enviado
+                    </button>
+                  </div>
+                )}
+
+                {order.status === 'shipped' && (
+                  <div className="flex flex-col gap-3">
+                    <button
+                      className="w-full flex items-center justify-center gap-2 bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white px-5 py-3 rounded-xl font-bold font-sm shadow-md shadow-[#6a9a04]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => handleUpdateStatus('delivered', 'Entregado')}
+                      disabled={!!actionLoading}
+                    >
+                      {actionLoading === 'delivered' ? <Loader2 size={18} className="animate-spin" /> : <PackageCheck size={18} />}
+                      Marcar como Entregado
+                    </button>
+                  </div>
+                )}
+
+                {(order.status === 'delivered' || order.status === 'cancelled') && (
+                  <p className="text-sm italic text-center text-slate-500 py-3 bg-slate-50/50 rounded-lg border border-slate-100">
+                    Este pedido ha alcanzado su estado final.
+                  </p>
+                )}
               </div>
             )}
           </div>
-
-          {/* Admin Actions */}
-          {isAdmin && (
-            <div className="glass-panel summary-card actions-card">
-              <h3>Acciones</h3>
-
-              {order.status === 'pending' && (
-                <div className="action-buttons">
-                  <button
-                    className="btn-action-lg confirm"
-                    onClick={handleConfirmPayment}
-                    disabled={!!actionLoading}
-                  >
-                    {actionLoading === 'confirm' ? <Loader2 size={18} className="spin" /> : <CheckCircle size={18} />}
-                    Confirmar Pago
-                  </button>
-                  <button
-                    className="btn-action-lg cancel"
-                    onClick={() => handleUpdateStatus('cancelled', 'Cancelado')}
-                    disabled={!!actionLoading}
-                  >
-                    {actionLoading === 'cancelled' ? <Loader2 size={18} className="spin" /> : <XCircle size={18} />}
-                    Cancelar Pedido
-                  </button>
-                  <p className="action-hint">Al confirmar pago, el inventario se descontará automáticamente.</p>
-                </div>
-              )}
-
-              {order.status === 'processing' && (
-                <div className="action-buttons">
-                  <button
-                    className="btn-action-lg ship"
-                    onClick={() => handleUpdateStatus('shipped', 'Enviado')}
-                    disabled={!!actionLoading}
-                  >
-                    {actionLoading === 'shipped' ? <Loader2 size={18} className="spin" /> : <Truck size={18} />}
-                    Marcar como Enviado
-                  </button>
-                </div>
-              )}
-
-              {order.status === 'shipped' && (
-                <div className="action-buttons">
-                  <button
-                    className="btn-action-lg deliver"
-                    onClick={() => handleUpdateStatus('delivered', 'Entregado')}
-                    disabled={!!actionLoading}
-                  >
-                    {actionLoading === 'delivered' ? <Loader2 size={18} className="spin" /> : <PackageCheck size={18} />}
-                    Marcar como Entregado
-                  </button>
-                </div>
-              )}
-
-              {(order.status === 'delivered' || order.status === 'cancelled') && (
-                <p className="action-hint final">Este pedido ha alcanzado su estado final.</p>
-              )}
-            </div>
-          )}
         </div>
       </div>
-
-      <style jsx>{`
-        .details-container { max-width: 1200px; margin: 0 auto; }
-        .page-header { margin-bottom: 2rem; }
-        .back-link { display:inline-flex; align-items:center; gap:0.5rem; color:#747474; text-decoration:none; margin-bottom:1rem; font-size:0.9rem; transition:color 0.2s; }
-        .back-link:hover { color: #FFFFFF; }
-        .header-title { display:flex; align-items:center; gap:1.5rem; }
-        .header-title h1 { font-size:2rem; margin:0; color:#FFFFFF; }
-        .status-badge { padding:0.3rem 0.85rem; border-radius:99px; font-size:0.85rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; }
-        .details-grid { display:grid; grid-template-columns:1fr 380px; gap:2rem; }
-        .glass-panel { padding:1.5rem; }
-        .items-list h3, .summary-card h3 { margin:0 0 1.5rem; font-size:1.1rem; color:#FFFFFF; border-bottom:1px solid rgba(116, 116, 116, 0.4); padding-bottom:0.75rem; }
-        .items-table { width:100%; border-collapse:collapse; color:#FFFFFF; }
-        .items-table th { text-align:left; padding:0.75rem; color:#747474; font-weight:500; font-size:0.85rem; border-bottom:1px solid rgba(116, 116, 116, 0.4); }
-        .items-table td { padding:1rem 0.75rem; border-bottom:1px solid rgba(116, 116, 116, 0.4); vertical-align:middle; }
-        .product-info { display:flex; align-items:center; gap:1rem; }
-        .product-thumb { width:48px; height:48px; background:rgba(116, 116, 116, 0.2); border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-        .product-thumb img { width:100%; height:100%; object-fit:cover; }
-        .product-name { font-weight:500; color:#FFFFFF; }
-        .product-sku { font-size:0.75rem; color:#747474; }
-        .product-stock { font-size:0.72rem; color:#dee24b; margin-top:2px; }
-        .subtotal { font-weight:600; color:#6a9a04; }
-
-        /* Distributor Info */
-        .dist-info { display:flex; flex-direction:column; gap:0.35rem; }
-        .dist-name { font-weight:600; color:#FFFFFF; font-size:1rem; }
-        .dist-detail { color:#747474; font-size:0.88rem; }
-
-        /* Summary */
-        .summary-card + .summary-card { margin-top: 1rem; }
-        .summary-row { display:flex; gap:1rem; margin-bottom:1.5rem; }
-        .summary-row .icon { color:#6a9a04; margin-top:0.25rem; }
-        .summary-row label { display:block; font-size:0.8rem; color:#747474; margin-bottom:0.25rem; }
-        .summary-row div:last-child { color:#FFFFFF; font-size:0.95rem; }
-        .summary-row.total .amount { font-size:1.5rem; font-weight:700; color:#6a9a04; }
-
-        /* Admin Action Buttons */
-        .actions-card { border-color: rgba(116, 116, 116, 0.4); }
-        .action-buttons { display:flex; flex-direction:column; gap:0.75rem; }
-        .btn-action-lg {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.6rem;
-          padding: 0.85rem 1.2rem;
-          border-radius: 10px;
-          border: none;
-          cursor: pointer;
-          font-size: 0.95rem;
-          font-weight: 600;
-          transition: all 0.2s;
-          width: 100%;
-        }
-        .btn-action-lg:disabled { opacity:0.6; cursor:not-allowed; }
-        .btn-action-lg.confirm { background: #22c55e; color: white; }
-        .btn-action-lg.confirm:hover:not(:disabled) { background: #16a34a; }
-        .btn-action-lg.cancel { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
-        .btn-action-lg.cancel:hover:not(:disabled) { background: rgba(239,68,68,0.25); }
-        .btn-action-lg.ship { background: #3b82f6; color: white; }
-        .btn-action-lg.ship:hover:not(:disabled) { background: #2563eb; }
-        .btn-action-lg.deliver { background: #10b981; color: white; }
-        .btn-action-lg.deliver:hover:not(:disabled) { background: #059669; }
-        .action-hint { font-size:0.8rem; color:var(--color-text-muted); margin:0.5rem 0 0; text-align:center; }
-        .action-hint.final { font-style:italic; padding: 1rem 0; }
-
-        @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
-        :global(.spin) { animation: spin 1s linear infinite; }
-
-        @media (max-width: 900px) {
-          .details-grid { grid-template-columns: 1fr; }
-        }
-      `}</style>
     </div>
   );
 }

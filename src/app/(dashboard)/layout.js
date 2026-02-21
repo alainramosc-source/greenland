@@ -34,24 +34,32 @@ export default function DashboardLayout({ children }) {
   }, []);
 
   if (loading) {
-    return <div className="loading-screen">Cargando...</div>;
+    return <div className="loading-screen">
+      <div className="w-10 h-10 border-4 border-slate-200 border-t-[#6a9a04] rounded-full animate-spin"></div>
+    </div>;
   }
 
   return (
-    <div className="dashboard-layout bg-slate-50 text-slate-900 font-sans">
+    <div className="dashboard-layout text-slate-900 font-sans min-h-screen">
       <DashboardSidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         userRole={userRole}
       />
-      <div className="dashboard-content-wrapper flex flex-col min-h-screen">
+      <div className="dashboard-content-wrapper flex flex-col min-h-screen overflow-hidden relative">
         <DashboardTopBar
           onMenuClick={() => setSidebarOpen(true)}
           userRole={userRole}
           userName={userName}
         />
-        <main className="dashboard-main flex-1 p-4 md:p-8 overflow-x-hidden">
-          {children}
+        <main className="dashboard-main flex-1 p-4 md:p-8 overflow-y-auto relative z-0">
+          {/* Background Accent Blurs */}
+          <div className="absolute top-[-10%] right-[-10%] w-[40rem] h-[40rem] bg-[#ec5b13]/10 blur-[120px] rounded-full -z-10 pointer-events-none"></div>
+          <div className="absolute bottom-[-10%] left-[20%] w-[30rem] h-[30rem] bg-[#6a9a04]/10 blur-[100px] rounded-full -z-10 pointer-events-none"></div>
+
+          <div className="relative z-10 max-w-7xl mx-auto">
+            {children}
+          </div>
         </main>
       </div>
 
@@ -60,16 +68,14 @@ export default function DashboardLayout({ children }) {
           display: flex;
           min-height: 100vh;
           background-color: #f8f6f6;
-          background-image: 
-            radial-gradient(circle at 0% 0%, rgba(106, 154, 4, 0.05) 0%, transparent 50%),
-            radial-gradient(circle at 100% 100%, rgba(222, 226, 75, 0.05) 0%, transparent 50%);
+          background-image: url('https://www.transparenttextures.com/patterns/cubes.png');
           background-attachment: fixed;
           position: relative;
         }
 
         .dashboard-content-wrapper {
           flex: 1;
-          margin-left: 16rem; /* 64 spacing = 256px = 16rem for md+ */
+          margin-left: 18rem; /* 72 spacing = 288px = 18rem for md+ */
           min-width: 0; 
           transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -79,9 +85,7 @@ export default function DashboardLayout({ children }) {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #6a9a04;
           background: #f8f6f6;
-          font-weight: bold;
         }
 
         @media (max-width: 768px) {

@@ -18,72 +18,72 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
   const navItems = [
     { name: 'Tablero', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Pedidos', href: '/dashboard/pedidos', icon: ShoppingCart },
-    { name: 'Inventarios', href: '/dashboard/inventarios', icon: Package },
+    { name: 'Productos', href: '/dashboard/inventarios', icon: Package },
   ];
 
   const adminItems = userRole === 'admin' ? [
     { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: BarChart3 },
-    { name: 'Usuarios', href: '/dashboard/usuarios', icon: Users },
+    { name: 'Clientes', href: '/dashboard/usuarios', icon: Users },
     { name: 'CMS Landing', href: '/dashboard/cms', icon: FileText }
   ] : [];
 
   return (
     <>
-      <aside className={`fixed inset-y-0 left-0 w-64 glass-panel border-r border-slate-200 flex flex-col z-50 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <div className="p-6 flex items-center justify-center border-b border-slate-200/50">
-          <img src="/logo-new.jpg" alt="Greenland" className="w-full max-h-[80px] object-contain" />
-        </div>
-
-        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-          <div className="mb-4 pl-4 flex items-center gap-2">
-            <Grid size={14} className="text-slate-400" />
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Menú Principal</span>
+      <aside className={`fixed inset-y-0 left-0 w-72 bg-white/40 backdrop-blur-xl border-r border-[#6a9a04]/10 flex flex-col z-50 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`} style={{ background: 'rgba(106, 154, 4, 0.05)' }}>
+        <div className="p-6">
+          <div className="flex items-center justify-center mb-10">
+            <img src="/logo-new.jpg" alt="Greenland" className="h-20 w-auto object-contain filter drop-shadow-sm" />
           </div>
 
-          {navItems.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive ? 'bg-green-700/10 border-r-4 border-green-700 text-green-700' : 'text-slate-600 hover:bg-slate-100 hover:text-green-700'}`}
-              >
-                <item.icon size={20} className={isActive ? 'text-green-700 font-bold' : ''} />
-                <span className={isActive ? 'font-bold text-sm' : 'font-medium text-sm'}>{item.name}</span>
-              </Link>
-            );
-          })}
-
-          {adminItems.length > 0 && (
-            <div className="mt-8 mb-4 pl-4 flex items-center gap-2">
-              <Shield size={14} className="text-slate-400" />
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Administración</span>
+          <nav className="space-y-2 overflow-y-auto">
+            <div className="mb-2 px-4 flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Menú Principal</span>
             </div>
-          )}
-          {adminItems.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive ? 'bg-orange-600/10 border-r-4 border-orange-600 text-orange-600' : 'text-slate-600 hover:bg-slate-100 hover:text-orange-600'}`}
-              >
-                <item.icon size={20} className={isActive ? 'text-orange-600 font-bold' : ''} />
-                <span className={isActive ? 'font-bold text-sm' : 'font-medium text-sm'}>{item.name}</span>
-              </Link>
-            );
-          })}
-        </nav>
 
-        <div className="p-4 border-t border-slate-200">
-          <button onClick={handleLogout} className="flex w-full items-center justify-center gap-2 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-colors font-bold text-sm">
-            <LogOut size={18} />
-            Cerrar Sesión
+            {navItems.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive ? 'bg-gradient-to-r from-[#6a9a04]/20 to-[#dee24b]/10 border-l-4 border-[#6a9a04] text-[#6a9a04] font-bold' : 'text-slate-600 hover:bg-[#6a9a04]/10 hover:text-[#6a9a04] font-medium'}`}
+                >
+                  <item.icon size={20} className={isActive ? 'text-[#6a9a04]' : 'text-slate-500'} />
+                  <span className="text-sm">{item.name}</span>
+                </Link>
+              );
+            })}
+
+            {adminItems.length > 0 && (
+              <div className="mt-8 mb-2 px-4 flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Administración</span>
+              </div>
+            )}
+            {adminItems.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive ? 'bg-[#ec5b13] text-white shadow-lg shadow-[#ec5b13]/20 font-bold' : 'text-slate-600 hover:bg-[#ec5b13]/10 hover:text-[#ec5b13] font-medium'}`}
+                >
+                  <item.icon size={20} className={isActive ? 'text-white' : 'text-slate-500'} />
+                  <span className="text-sm">{item.name}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="mt-auto p-6 border-t border-[#6a9a04]/10">
+          <button onClick={handleLogout} className="flex w-full items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl transition-all">
+            <LogOut size={20} />
+            <span className="font-bold text-sm">Cerrar Sesión</span>
           </button>
           <div className="text-center mt-3">
-            <p className="text-xs font-medium text-slate-500">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
               {userRole === 'admin' ? 'Administrador' : 'Distribuidor'}
             </p>
           </div>

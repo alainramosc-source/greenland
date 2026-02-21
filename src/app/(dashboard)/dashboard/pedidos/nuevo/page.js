@@ -137,436 +137,162 @@ export default function NuevoPedidoPage() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-white">Cargando catálogo...</div>;
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500 gap-4">
+      <div className="w-10 h-10 border-4 border-slate-200 border-t-[#ec5b13] rounded-full animate-spin"></div>
+      <p className="font-medium">Cargando catálogo...</p>
+    </div>
+  );
 
   return (
-    <div className="new-order-container">
+    <div className="relative">
       {orderSuccess && (
-        <div className="success-overlay">
-          <div className="success-modal glass-panel">
-            <CheckCircle size={64} className="text-primary mb-4" />
-            <h2>¡Pedido Creado!</h2>
-            <p>Tu pedido ha sido registrado exitosamente.</p>
-            <p className="text-sm text-muted">Redirigiendo...</p>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white p-10 rounded-2xl shadow-2xl text-center max-w-sm w-full mx-4 border border-slate-100 flex flex-col items-center">
+            <CheckCircle size={64} className="text-[#6a9a04] mb-4" />
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">¡Pedido Creado!</h2>
+            <p className="text-slate-600 mb-4">Tu pedido ha sido registrado exitosamente.</p>
+            <p className="text-sm text-slate-400">Redirigiendo...</p>
           </div>
         </div>
       )}
 
-      <div className="catalog-section">
-        <header className="mb-6">
-          <h1 className="text-2xl font-bold text-white mb-4">Nuevo Pedido</h1>
-
-          <div className="filters">
-            <div className="search-box glass-input-wrapper">
-              <Search size={18} className="text-muted" />
-              <input
-                type="text"
-                placeholder="Buscar productos..."
-                className="glass-input"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-8 h-[calc(100vh-120px)]">
+        <div className="overflow-y-auto pr-2 pb-10 xl:pb-0">
+          <header className="mb-8">
+            <div className="mb-6">
+              <Link href="/dashboard/pedidos" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors mb-4 text-sm font-medium no-underline">
+                <ArrowLeft size={16} />
+                Volver a pedidos
+              </Link>
+              <h1 className="text-3xl lg:text-4xl font-black tracking-tight text-slate-900 m-0">Nuevo Pedido</h1>
             </div>
 
-            <div className="category-pills">
-              <button
-                className={`pill ${selectedCategory === 'all' ? 'active' : ''}`}
-                onClick={() => setSelectedCategory('all')}
-              >
-                Todos
-              </button>
-              {categories.map(cat => (
+            <div className="flex flex-col gap-4">
+              <div className="relative flex-1">
+                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar productos..."
+                  className="w-full pl-11 pr-4 py-3 bg-white/60 backdrop-blur-md border border-white/50 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/20 text-slate-800 outline-none transition-all shadow-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-2 flex-wrap">
                 <button
-                  key={cat}
-                  className={`pill ${selectedCategory === cat ? 'active' : ''}`}
-                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-4 py-1.5 rounded-full text-sm transition-all border ${selectedCategory === 'all' ? 'bg-[#ec5b13] text-white border-[#ec5b13] font-bold shadow-md shadow-[#ec5b13]/20' : 'bg-white/60 text-slate-600 border-white/60 hover:bg-white hover:border-slate-200'}`}
+                  onClick={() => setSelectedCategory('all')}
                 >
-                  {cat}
+                  Todos
                 </button>
-              ))}
-            </div>
-          </div>
-        </header>
-
-        <div className="products-grid">
-          {filteredProducts.map(product => (
-            <div key={product.id} className="product-card glass-panel">
-              <div className="product-image">
-                <ProductGallery sku={product.sku} productName={product.name} />
-              </div>
-              <div className="product-info">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-semibold text-white">{product.name}</h3>
-                  <span className="price">${product.price}</span>
-                </div>
-                <p className="text-sm text-muted mb-4 line-clamp-2">{product.description}</p>
-                <div className="flex justify-between items-center mt-auto">
-                  <span className="text-xs text-muted">SKU: {product.sku}</span>
+                {categories.map(cat => (
                   <button
-                    className="btn-add"
-                    onClick={() => addToCart(product)}
+                    key={cat}
+                    className={`px-4 py-1.5 rounded-full text-sm transition-all border ${selectedCategory === cat ? 'bg-[#ec5b13] text-white border-[#ec5b13] font-bold shadow-md shadow-[#ec5b13]/20' : 'bg-white/60 text-slate-600 border-white/60 hover:bg-white hover:border-slate-200'}`}
+                    onClick={() => setSelectedCategory(cat)}
                   >
-                    <Plus size={16} /> Agregar
+                    {cat}
                   </button>
-                </div>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
-      </div>
+          </header>
 
-      <div className="cart-sidebar glass-panel">
-        <div className="cart-header">
-          <ShoppingCart size={20} />
-          <h2>Resumen del Pedido</h2>
-          <span className="badge">{cart.length}</span>
-        </div>
-
-        <div className="cart-items">
-          {cart.length === 0 ? (
-            <div className="empty-cart">
-              <ShoppingCart size={48} className="opacity-20 mb-2" />
-              <p>Tu carrito está vacío</p>
-            </div>
-          ) : (
-            cart.map(item => (
-              <div key={item.id} className="cart-item">
-                <div className="item-details">
-                  <h4>{item.name}</h4>
-                  <span className="item-price">${item.price * item.quantity}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProducts.map(product => (
+              <div key={product.id} className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm hover:shadow-md transition-all p-4 rounded-2xl flex flex-col group">
+                <div className="h-40 bg-slate-100 rounded-xl overflow-hidden mb-4 flex items-center justify-center relative">
+                  <ProductGallery sku={product.sku} productName={product.name} />
                 </div>
-                <div className="qty-controls">
-                  <button onClick={() => item.quantity > 1 ? updateQuantity(item.id, -1) : removeFromCart(item.id)}>
-                    <Minus size={14} />
-                  </button>
-                  <span>{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.id, 1)}>
-                    <Plus size={14} />
-                  </button>
+                <div className="flex flex-col flex-1">
+                  <div className="flex justify-between items-start mb-2 gap-2">
+                    <h3 className="font-bold text-slate-900 leading-tight">{product.name}</h3>
+                    <span className="font-black text-[#ec5b13] bg-[#ec5b13]/10 px-2 py-0.5 rounded-lg text-sm shrink-0">${product.price}</span>
+                  </div>
+                  <p className="text-sm text-slate-500 mb-4 line-clamp-2">{product.description}</p>
+
+                  <div className="flex justify-between items-center mt-auto pt-4 border-t border-slate-200/50">
+                    <span className="text-xs font-mono font-medium text-slate-400 bg-slate-100 px-2 py-1 rounded">SKU: {product.sku}</span>
+                    <button
+                      className="flex items-center gap-2 bg-slate-100 hover:bg-[#ec5b13] hover:text-white text-slate-700 font-bold px-3 py-1.5 rounded-lg transition-colors text-sm"
+                      onClick={() => addToCart(product)}
+                    >
+                      <Plus size={16} /> Agregar
+                    </button>
+                  </div>
                 </div>
               </div>
-            ))
-          )}
-        </div>
-
-        <div className="cart-footer">
-          <div className="total-row">
-            <span>Total Estimado</span>
-            <span className="total-amount">${cartTotal.toFixed(2)}</span>
+            ))}
           </div>
-          <button
-            className="btn-checkout"
-            disabled={cart.length === 0 || isSubmitting}
-            onClick={handleSubmitOrder}
-          >
-            {isSubmitting ? 'Procesando...' : (
-              <>Confirmar Pedido <ArrowRight size={18} /></>
+        </div>
+
+        {/* Cart Sidebar */}
+        <div className="flex flex-col bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden h-[calc(100vh-160px)] sticky top-24">
+          <div className="p-5 border-b border-slate-200/50 flex justify-between items-center bg-white/40">
+            <div className="flex items-center gap-2">
+              <ShoppingCart size={20} className="text-[#ec5b13]" />
+              <h2 className="font-bold text-lg text-slate-900 m-0">Resumen del Pedido</h2>
+            </div>
+            <span className="bg-[#ec5b13] text-white text-xs font-bold px-2.5 py-1 rounded-full">{cart.length}</span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-5">
+            {cart.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3">
+                <ShoppingCart size={48} className="opacity-20" />
+                <p className="font-medium">Tu carrito está vacío</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {cart.map(item => (
+                  <div key={item.id} className="flex flex-col gap-2 pb-4 border-b border-slate-100">
+                    <div className="flex justify-between items-start">
+                      <h4 className="font-bold text-sm text-slate-800 m-0 pr-4 leading-tight">{item.name}</h4>
+                      <span className="font-black text-[#6a9a04] text-sm shrink-0">${item.price * item.quantity}</span>
+                    </div>
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-xs text-slate-500">${item.price} c/u</span>
+                      <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg p-1">
+                        <button
+                          onClick={() => item.quantity > 1 ? updateQuantity(item.id, -1) : removeFromCart(item.id)}
+                          className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#ec5b13] rounded transition-colors"
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <span className="font-bold text-sm text-slate-700 w-4 text-center">{item.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(item.id, 1)}
+                          className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#ec5b13] rounded transition-colors"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
-          </button>
+          </div>
+
+          <div className="p-5 border-t border-slate-200/50 bg-white/60 mt-auto">
+            <div className="flex justify-between items-center mb-4">
+              <span className="font-medium text-slate-600">Total Estimado</span>
+              <span className="text-2xl font-black text-[#ec5b13]">${cartTotal.toFixed(2)}</span>
+            </div>
+            <button
+              className="w-full flex items-center justify-center gap-2 bg-[#ec5b13] hover:bg-[#ec5b13]/90 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-[#ec5b13]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+              disabled={cart.length === 0 || isSubmitting}
+              onClick={handleSubmitOrder}
+            >
+              {isSubmitting ? 'Procesando...' : (
+                <>Confirmar Pedido <ArrowRight size={18} /></>
+              )}
+            </button>
+          </div>
         </div>
       </div>
-
-      <style jsx>{`
-        .new-order-container {
-          display: grid;
-          grid-template-columns: 1fr 340px;
-          gap: 2rem;
-          height: calc(100vh - 120px); /* Adjust based on layout */
-        }
-
-        .catalog-section {
-          overflow-y: auto;
-          padding-right: 1rem;
-        }
-
-        .filters {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .search-box {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.75rem 1rem;
-          background: rgba(255, 255, 255, 0.05);
-          border-radius: var(--radius-md);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .glass-input {
-          background: transparent;
-          border: none;
-          color: white;
-          width: 100%;
-          outline: none;
-        }
-
-        .category-pills {
-          display: flex;
-          gap: 0.5rem;
-          flex-wrap: wrap;
-        }
-
-        .pill {
-          padding: 0.4rem 1rem;
-          border-radius: 20px;
-          background: rgba(255, 255, 255, 0.05);
-          color: var(--color-text-muted);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          cursor: pointer;
-          font-size: 0.85rem;
-          transition: all 0.2s;
-        }
-
-        .pill:hover, .pill.active {
-          background: var(--color-primary);
-          color: black;
-          border-color: var(--color-primary);
-          font-weight: 600;
-        }
-
-        .products-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: 1.5rem;
-        }
-
-        .product-card {
-          overflow: hidden;
-          transition: transform 0.2s;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .product-card:hover {
-          transform: translateY(-4px);
-          border-color: rgba(74, 222, 32, 0.3);
-        }
-
-        .product-image {
-          height: 160px;
-          background: #1a1a2e;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        
-        .product-image img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-        
-        .placeholder-img {
-          opacity: 0.3;
-          color: white;
-        }
-
-        .product-info {
-          padding: 1rem;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .price {
-          color: var(--color-primary);
-          font-weight: 700;
-        }
-
-        .btn-add {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.4rem 0.8rem;
-          background: rgba(255, 255, 255, 0.1);
-          color: white;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          font-size: 0.85rem;
-          transition: background 0.2s;
-        }
-
-        .btn-add:hover {
-          background: var(--color-primary);
-          color: black;
-        }
-
-        /* Cart Sidebar */
-        .cart-sidebar {
-          display: flex;
-          flex-direction: column;
-          height: 100%;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .cart-header {
-          padding: 1.5rem;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          color: white;
-        }
-        
-        .cart-header h2 { font-size: 1.1rem; font-weight: 600; margin: 0; }
-        
-        .badge {
-          background: var(--color-primary);
-          color: black;
-          font-size: 0.75rem;
-          font-weight: 700;
-          padding: 0.1rem 0.5rem;
-          border-radius: 10px;
-        }
-
-        .cart-items {
-          flex: 1;
-          overflow-y: auto;
-          padding: 1rem;
-        }
-
-        .empty-cart {
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          color: var(--color-text-muted);
-          font-size: 0.9rem;
-        }
-
-        .cart-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1rem;
-          padding-bottom: 1rem;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .item-details h4 {
-          margin: 0 0 0.25rem 0;
-          font-size: 0.9rem;
-          color: white;
-        }
-
-        .item-price {
-          color: var(--color-primary);
-          font-size: 0.85rem;
-          font-weight: 600;
-        }
-
-        .qty-controls {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          background: rgba(255, 255, 255, 0.05);
-          padding: 0.25rem;
-          border-radius: 4px;
-        }
-
-        .qty-controls button {
-          background: none;
-          border: none;
-          color: white;
-          cursor: pointer;
-          padding: 0.25rem;
-          display: flex;
-        }
-        
-        .qty-controls button:hover { color: var(--color-primary); }
-        .qty-controls span { font-size: 0.9rem; color: white; min-width: 20px; text-align: center; }
-
-        .cart-footer {
-          padding: 1.5rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.1);
-          background: rgba(0, 0, 0, 0.2);
-        }
-
-        .total-row {
-          display: flex;
-          justify-content: space-between;
-          color: white;
-          margin-bottom: 1rem;
-          font-size: 1.1rem;
-        }
-
-        .total-amount {
-          font-weight: 700;
-          color: var(--color-primary);
-        }
-
-        .btn-checkout {
-          width: 100%;
-          padding: 0.8rem;
-          background: var(--color-primary);
-          color: black;
-          border: none;
-          border-radius: var(--radius-md);
-          font-weight: 700;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          transition: filter 0.2s;
-        }
-        
-        .btn-checkout:disabled {
-          background: #333;
-          color: #666;
-          cursor: not-allowed;
-        }
-
-        .btn-checkout:hover:not(:disabled) {
-          filter: brightness(1.1);
-        }
-
-        /* Success Modal */
-        .success-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.7);
-          backdrop-filter: blur(4px);
-          z-index: 100;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .success-modal {
-          padding: 3rem;
-          text-align: center;
-          border: 1px solid var(--color-primary);
-          box-shadow: 0 0 30px rgba(74, 222, 32, 0.2);
-        }
-        
-        .success-modal h2 { color: white; margin-bottom: 0.5rem; }
-        .success-modal p { color: var(--color-text-muted); }
-
-        @media (max-width: 1024px) {
-          .new-order-container {
-            grid-template-columns: 1fr;
-            height: auto;
-          }
-          .cart-sidebar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: auto;
-            max-height: 50vh;
-            z-index: 50;
-            border-top: 2px solid var(--color-primary);
-            background: #0f0f1a;
-          }
-          .dashboard-main { padding-bottom: 300px; } /* Space for fixed cart */
-        }
-      `}</style>
     </div>
   );
 }
