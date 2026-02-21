@@ -98,7 +98,7 @@ export default function UsersPage() {
   const executeDelete = async () => {
     setLoading(true);
     if (deleteModal.isBulk) {
-      const { error } = await supabase.from('profiles').delete().in('id', selectedUsers);
+      const { error } = await supabase.rpc('delete_users', { user_ids: selectedUsers });
       if (error) {
         alert('Error eliminando usuarios: ' + error.message);
       } else {
@@ -106,7 +106,7 @@ export default function UsersPage() {
         setSelectedUsers([]);
       }
     } else {
-      const { error } = await supabase.from('profiles').delete().eq('id', deleteModal.targetId);
+      const { error } = await supabase.rpc('delete_user', { user_id: deleteModal.targetId });
       if (error) {
         alert('Error eliminando usuario: ' + error.message);
       } else {
