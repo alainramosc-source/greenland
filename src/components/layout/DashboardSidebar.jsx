@@ -29,220 +29,73 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
 
   return (
     <>
-      <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <img src="/logo-new.jpg" alt="Greenland" className="sidebar-logo-img" />
+      <aside className={`fixed inset-y-0 left-0 w-64 glass-panel border-r border-slate-200 flex flex-col z-50 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        <div className="p-6 flex items-center justify-center border-b border-slate-200/50">
+          <img src="/logo-new.jpg" alt="Greenland" className="w-full max-h-[80px] object-contain" />
         </div>
 
-        <nav className="sidebar-nav">
-          <div className="nav-section">
-            <span className="nav-label">
-              <Grid size={15} style={{ opacity: 0.8 }} />
-              MENÚ PRINCIPAL
-            </span>
-            {navItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`nav-link ${isActive ? 'active' : ''}`}
-                  onClick={onClose}
-                >
-                  <item.icon size={18} />
-                  <span>{item.name}</span>
-                </Link>
-              );
-            })}
+        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+          <div className="mb-4 pl-4 flex items-center gap-2">
+            <Grid size={14} className="text-slate-400" />
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Menú Principal</span>
           </div>
 
+          {navItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive ? 'bg-green-700/10 border-r-4 border-green-700 text-green-700' : 'text-slate-600 hover:bg-slate-100 hover:text-green-700'}`}
+              >
+                <item.icon size={20} className={isActive ? 'text-green-700 font-bold' : ''} />
+                <span className={isActive ? 'font-bold text-sm' : 'font-medium text-sm'}>{item.name}</span>
+              </Link>
+            );
+          })}
+
           {adminItems.length > 0 && (
-            <div className="nav-section admin-section">
-              <span className="nav-label">
-                <Shield size={15} style={{ opacity: 0.8 }} />
-                ADMINISTRACIÓN
-              </span>
-              {adminItems.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`nav-link ${isActive ? 'active' : ''}`}
-                    onClick={onClose}
-                  >
-                    <item.icon size={18} />
-                    <span>{item.name}</span>
-                  </Link>
-                );
-              })}
+            <div className="mt-8 mb-4 pl-4 flex items-center gap-2">
+              <Shield size={14} className="text-slate-400" />
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Administración</span>
             </div>
           )}
+          {adminItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive ? 'bg-orange-600/10 border-r-4 border-orange-600 text-orange-600' : 'text-slate-600 hover:bg-slate-100 hover:text-orange-600'}`}
+              >
+                <item.icon size={20} className={isActive ? 'text-orange-600 font-bold' : ''} />
+                <span className={isActive ? 'font-bold text-sm' : 'font-medium text-sm'}>{item.name}</span>
+              </Link>
+            );
+          })}
         </nav>
 
-        <div className="sidebar-footer">
-          <button onClick={handleLogout} className="nav-link logout-btn">
+        <div className="p-4 border-t border-slate-200">
+          <button onClick={handleLogout} className="flex w-full items-center justify-center gap-2 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-colors font-bold text-sm">
             <LogOut size={18} />
-            <span>Cerrar Sesión</span>
+            Cerrar Sesión
           </button>
-          <div className="user-info">
-            <small>{userRole === 'admin' ? 'Administrador' : 'Distribuidor'}</small>
+          <div className="text-center mt-3">
+            <p className="text-xs font-medium text-slate-500">
+              {userRole === 'admin' ? 'Administrador' : 'Distribuidor'}
+            </p>
           </div>
         </div>
       </aside>
 
-      {isOpen && <div className="sidebar-overlay" onClick={onClose}></div>}
-
-      <style jsx>{`
-        .sidebar {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: var(--layout-sidebar-width);
-          height: 100vh;
-          background: rgba(20, 20, 20, 0.6); /* Glassmorphism Base from Stitch */
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          border-right: 1px solid rgba(255, 255, 255, 0.08);
-          box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-          display: flex;
-          flex-direction: column;
-          z-index: 50;
-          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .sidebar-header {
-          padding: 2.5rem 1.5rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 1rem;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .sidebar-logo-img {
-          width: 100%;
-          max-height: 80px;
-          object-fit: contain;
-        }
-
-        .sidebar-nav {
-          flex: 1;
-          padding: 2.5rem 1rem;
-          overflow-y: auto;
-        }
-
-        .nav-section {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .admin-section {
-          margin-top: 3rem;
-        }
-
-        .nav-label {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          font-size: 0.85rem;
-          color: #747474;
-          padding-left: 1rem;
-          margin-bottom: 1.25rem;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-        }
-
-        .nav-link {
-          display: flex;
-          align-items: center;
-          gap: 1.25rem;
-          padding: 1rem 1.25rem;
-          color: #94a3b8; /* text-slate-400 */
-          border-radius: 12px;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          font-weight: 500;
-          font-size: 1.05rem;
-          background: transparent;
-          border: 1px solid transparent;
-          width: 100%;
-          cursor: pointer;
-          text-align: left;
-          font-family: inherit;
-          position: relative;
-          overflow: hidden;
-        }
-
-        .nav-link:hover {
-          background: rgba(255, 255, 255, 0.05); /* hover:bg-white/5 */
-          color: #FFFFFF;
-        }
-
-        .nav-link:hover :global(svg) {
-          color: #dee24b; /* hover:text-primary */
-        }
-
-        .nav-link.active {
-          background: rgba(222, 226, 75, 0.1); /* bg-primary/10 */
-          border-color: rgba(222, 226, 75, 0.2); /* border-primary/20 */
-          color: #dee24b; /* text-primary */
-          font-weight: 700;
-          box-shadow: 0 0 10px rgba(222, 226, 75, 0.3); /* neon-glow */
-        }
-
-        .nav-link.active::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background: rgba(222, 226, 75, 0.05);
-          transform: translateX(-100%);
-          transition: transform 0.5s ease;
-        }
-        
-        .nav-link.active:hover::before {
-          transform: translateX(0);
-        }
-
-        .sidebar-footer {
-          padding: 1.5rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.08); /* border-glass-border */
-        }
-
-        .logout-btn {
-          color: #e2e8f0;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        .logout-btn:hover {
-          background: rgba(255, 255, 255, 0.08);
-          color: #FFFFFF;
-        }
-
-        .user-info {
-          margin-top: 1rem;
-          text-align: center;
-          color: #747474;
-          font-size: 0.8rem;
-          font-weight: 500;
-        }
-
-        @media (max-width: 768px) {
-          .sidebar {
-            transform: translateX(-100%);
-          }
-          .sidebar.open {
-            transform: translateX(0);
-          }
-          .sidebar-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(4px);
-            z-index: 40;
-          }
-        }
-      `}</style>
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+          onClick={onClose}
+        ></div>
+      )}
     </>
   );
 };

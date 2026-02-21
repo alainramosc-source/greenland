@@ -170,10 +170,10 @@ export default function EstadisticasPage() {
     const monthNames = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 
     return (
-        <div className="reportes-theme-override">
+        <div className="relative">
             {/* Background Blurs */}
-            <div className="absolute top-[-10%] right-[-10%] w-[40rem] h-[40rem] bg-[#ec5b13]/10 blur-[120px] rounded-full -z-10" />
-            <div className="absolute bottom-[-10%] left-[20%] w-[30rem] h-[30rem] bg-[#6a9a04]/10 blur-[100px] rounded-full -z-10" />
+            <div className="absolute top-[-10%] right-[-10%] w-[40rem] h-[40rem] bg-[#ec5b13]/10 blur-[120px] rounded-full -z-10 pointer-events-none" />
+            <div className="absolute bottom-[-10%] left-[20%] w-[30rem] h-[30rem] bg-[#6a9a04]/10 blur-[100px] rounded-full -z-10 pointer-events-none" />
 
             <div className="relative z-10 max-w-7xl mx-auto">
                 {/* Header */}
@@ -183,7 +183,7 @@ export default function EstadisticasPage() {
                         <p className="text-slate-500 mt-1 font-medium italic m-0">Visualización del rendimiento comercial en tiempo real</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 glass-card px-4 py-2 rounded-xl">
+                        <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white/50 px-4 py-2 rounded-xl shadow-sm">
                             <Calendar className="w-5 h-5 text-[#ec5b13]" />
                             <span className="text-sm font-semibold text-slate-700">
                                 {dateRange === 'all' ? 'Todo el periodo' : dateRange === 'custom' ? 'Personalizado' : `Último ${dateRange === 'today' ? 'día' : dateRange === 'week' ? 'semana' : dateRange === 'month' ? 'mes' : 'año'}`}
@@ -199,7 +199,7 @@ export default function EstadisticasPage() {
                 </header>
 
                 {/* Date Filters */}
-                <div className="glass-card rounded-2xl p-4 mb-8">
+                <div className="bg-white/60 backdrop-blur-md border border-white/50 rounded-2xl p-4 mb-8 shadow-sm">
                     <div className="flex items-center gap-3 flex-wrap">
                         <Calendar className="w-4 h-4 text-slate-500" />
                         <span className="text-sm font-bold text-slate-700 mr-2">Periodo:</span>
@@ -232,7 +232,7 @@ export default function EstadisticasPage() {
 
                 {/* KPI Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <div className="glass-card p-6 rounded-2xl flex flex-col gap-2">
+                    <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm hover:shadow-md transition-shadow p-6 rounded-2xl flex flex-col gap-2">
                         <div className="flex justify-between items-start">
                             <span className="p-2 bg-[#6a9a04]/10 text-[#6a9a04] rounded-lg"><TrendingUp className="w-5 h-5" /></span>
                             <span className="text-xs font-bold text-[#6a9a04] bg-[#6a9a04]/10 px-2 py-1 rounded-full">+5.2%</span>
@@ -240,7 +240,7 @@ export default function EstadisticasPage() {
                         <p className="text-slate-500 text-sm font-semibold uppercase tracking-wider m-0">Total Pedidos</p>
                         <h3 className="text-3xl font-black text-slate-900 m-0">{kpis.totalOrders}</h3>
                     </div>
-                    <div className="glass-card p-6 rounded-2xl flex flex-col gap-2">
+                    <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm hover:shadow-md transition-shadow p-6 rounded-2xl flex flex-col gap-2">
                         <div className="flex justify-between items-start">
                             <span className="p-2 bg-[#ec5b13]/10 text-[#ec5b13] rounded-lg"><DollarSign className="w-5 h-5" /></span>
                             <span className="text-xs font-bold text-[#6a9a04] bg-[#6a9a04]/10 px-2 py-1 rounded-full">+1.5%</span>
@@ -248,7 +248,7 @@ export default function EstadisticasPage() {
                         <p className="text-slate-500 text-sm font-semibold uppercase tracking-wider m-0">Ingresos</p>
                         <h3 className="text-3xl font-black text-slate-900 m-0">{fmt(kpis.totalRevenue)}</h3>
                     </div>
-                    <div className="glass-card p-6 rounded-2xl flex flex-col gap-2">
+                    <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm hover:shadow-md transition-shadow p-6 rounded-2xl flex flex-col gap-2">
                         <div className="flex justify-between items-start">
                             <span className="p-2 bg-[#dee24b]/10 text-amber-600 rounded-lg"><Users className="w-5 h-5" /></span>
                             <span className="text-xs font-bold text-slate-400 px-2 py-1 rounded-full">Estable</span>
@@ -256,7 +256,7 @@ export default function EstadisticasPage() {
                         <p className="text-slate-500 text-sm font-semibold uppercase tracking-wider m-0">Distribuidores</p>
                         <h3 className="text-3xl font-black text-slate-900 m-0">{kpis.activeDistributors}</h3>
                     </div>
-                    <div className="glass-card p-6 rounded-2xl flex flex-col gap-2">
+                    <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm hover:shadow-md transition-shadow p-6 rounded-2xl flex flex-col gap-2">
                         <div className="flex justify-between items-start">
                             <span className="p-2 bg-[#ec5b13]/10 text-[#ec5b13] rounded-lg"><ShoppingCart className="w-5 h-5" /></span>
                             <span className="text-xs font-bold text-[#6a9a04] bg-[#6a9a04]/10 px-2 py-1 rounded-full">+12%</span>
@@ -269,7 +269,7 @@ export default function EstadisticasPage() {
                 {/* Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                     {/* Bar Chart: Monthly Revenue */}
-                    <div className="lg:col-span-2 glass-card p-8 rounded-2xl">
+                    <div className="lg:col-span-2 bg-white/60 backdrop-blur-md border border-white/50 shadow-sm p-8 rounded-2xl">
                         <div className="flex justify-between items-center mb-10">
                             <h4 className="text-xl font-bold text-slate-900 m-0">Ventas Mensuales</h4>
                             <div className="flex gap-2">
@@ -292,7 +292,7 @@ export default function EstadisticasPage() {
                     </div>
 
                     {/* Status Breakdown */}
-                    <div className="glass-card p-8 rounded-2xl flex flex-col">
+                    <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm p-8 rounded-2xl flex flex-col">
                         <h4 className="text-xl font-bold text-slate-900 mb-6 m-0">Estado de Pedidos</h4>
                         <div className="flex flex-col gap-4 flex-1 justify-center">
                             {Object.entries(statusBreakdown).map(([key, count]) => {
@@ -319,7 +319,7 @@ export default function EstadisticasPage() {
                 </div>
 
                 {/* Recent Activity Table */}
-                <div className="glass-card rounded-2xl overflow-hidden mb-8">
+                <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden mb-8">
                     <div className="p-6 border-b border-slate-200 flex justify-between items-center">
                         <h4 className="font-bold text-slate-900 m-0">Productos Estrella</h4>
                     </div>
@@ -357,7 +357,7 @@ export default function EstadisticasPage() {
                 </div>
 
                 {/* Top Distributors */}
-                <div className="glass-card rounded-2xl overflow-hidden mb-8">
+                <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden mb-8">
                     <div className="p-6 border-b border-slate-200">
                         <h4 className="font-bold text-slate-900 m-0">Top Distribuidores</h4>
                     </div>
@@ -389,7 +389,7 @@ export default function EstadisticasPage() {
                 </div>
 
                 {/* Critical Inventory */}
-                <div className="glass-card rounded-2xl overflow-hidden">
+                <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden">
                     <div className="p-6 border-b border-slate-200">
                         <h4 className="font-bold text-slate-900 m-0 flex items-center gap-2">
                             <Box className="w-5 h-5 text-red-500" /> Inventario en Riesgo
@@ -440,30 +440,6 @@ export default function EstadisticasPage() {
                     )}
                 </div>
             </div>
-
-            <style jsx>{`
-        .reportes-theme-override {
-          position: relative;
-          min-height: calc(100vh - 64px);
-          background-color: #f8f6f6;
-          color: #0f172a;
-          margin: -2rem;
-          padding: 2rem;
-          overflow: hidden;
-          font-family: 'Public Sans', system-ui, sans-serif;
-        }
-
-        .glass-card {
-          background: rgba(255, 255, 255, 0.7);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        @media (max-width: 768px) {
-          .reportes-theme-override { margin: -1rem; padding: 1rem; }
-        }
-      `}</style>
         </div>
     );
 }

@@ -3,145 +3,41 @@ import { Menu, Bell } from 'lucide-react';
 
 const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
   return (
-    <header className="top-bar">
-      <div className="bar-left">
-        <button className="menu-btn" onClick={onMenuClick}>
-          <Menu size={22} />
+    <header className="h-20 glass-panel border-b border-slate-200 flex items-center justify-between px-8 z-10 sticky top-0 md:bg-white/80 md:backdrop-blur-md">
+      <div className="flex-1 flex items-center">
+        <button
+          className="md:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg mr-4"
+          onClick={onMenuClick}
+        >
+          <Menu size={24} />
         </button>
-        <div className="breadcrumb">
-          <span>{userRole === 'admin' ? 'Administrador' : 'Distribuidor'}</span>
+        <div className="hidden md:block text-slate-500 font-medium text-sm">
+          {userRole === 'admin' ? 'Administrador' : 'Distribuidor'}
         </div>
       </div>
 
-      <div className="bar-right">
-        <button className="icon-btn">
-          <Bell size={18} />
-          <span className="badge">3</span>
+      <div className="flex items-center gap-4">
+        <button className="relative p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+          <Bell size={20} />
+          <span className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
         </button>
 
-        <div className="user-profile">
-          <div className="avatar">
-            {userName ? userName.charAt(0).toUpperCase() : 'U'}
+        <div className="h-8 w-[1px] bg-slate-200 mx-2"></div>
+
+        <div className="flex items-center gap-3">
+          <div className="text-right hidden sm:block">
+            <p className="text-sm font-bold text-slate-800 leading-none">{userName || 'Usuario'}</p>
+            <p className="text-[10px] text-slate-500 font-medium">
+              {userRole === 'admin' ? 'Administrador' : 'Distribuidor'}
+            </p>
           </div>
-          <span className="user-name">{userName || 'Usuario'}</span>
+          <div className="w-10 h-10 rounded-full border-2 border-green-500 p-0.5 bg-white">
+            <div className="w-full h-full rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm">
+              {userName ? userName.charAt(0).toUpperCase() : 'U'}
+            </div>
+          </div>
         </div>
       </div>
-
-      <style jsx>{`
-        .top-bar {
-          height: 80px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 2rem;
-          background: rgba(0, 0, 0, 0.4);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-          position: sticky;
-          top: 0;
-          z-index: 40;
-        }
-
-        .bar-left {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .menu-btn {
-          display: none;
-          color: #FFFFFF;
-          padding: 0.375rem;
-          border-radius: 8px;
-          transition: background 0.2s;
-          border: none;
-          background: transparent;
-        }
-        .menu-btn:hover {
-          background: rgba(255, 255, 255, 0.05);
-          color: #dee24b;
-        }
-
-        .breadcrumb {
-          font-size: 0.85rem;
-          color: #747474;
-          font-weight: 500;
-        }
-
-        .bar-right {
-          display: flex;
-          align-items: center;
-          gap: 1.25rem;
-        }
-
-        .icon-btn {
-          position: relative;
-          color: #e2e8f0;
-          padding: 0.5rem;
-          border-radius: 8px;
-          transition: all 0.2s;
-          border: 1px solid rgba(255, 255, 255, 0.05);
-          background: rgba(255, 255, 255, 0.03);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .icon-btn:hover {
-          background: rgba(255, 255, 255, 0.05);
-          color: #dee24b;
-        }
-
-        .badge {
-          position: absolute;
-          top: -2px;
-          right: -2px;
-          background: #dee24b;
-          color: transparent;
-          font-size: 0;
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          box-shadow: 0 0 10px rgba(221, 226, 75, 0.5); /* Neon glow */
-        }
-
-        .user-profile {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding-left: 1rem;
-          border-left: 1px solid rgba(255, 255, 255, 0.08); /* Divider */
-        }
-
-        .avatar {
-          width: 38px;
-          height: 38px;
-          background: #6a9a04;
-          color: #000000;
-          border-radius: 50%;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 700;
-          font-size: 0.9rem;
-        }
-
-        .user-name {
-          font-size: 0.9rem;
-          color: #FFFFFF;
-          font-weight: 500;
-        }
-
-        @media (max-width: 768px) {
-          .menu-btn {
-            display: block;
-          }
-          .user-name {
-            display: none;
-          }
-        }
-      `}</style>
     </header>
   );
 };

@@ -58,10 +58,10 @@ export default function PedidosPage() {
   const totalAmount = orders.reduce((acc, order) => acc + Number(order.total_amount || 0), 0);
 
   return (
-    <div className="pedidos-theme-override">
-      {/* Abstract Background Shapes */}
-      <div className="bg-shape top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[#dee24b]/40" />
-      <div className="bg-shape bottom-[-5%] right-[-5%] w-[600px] h-[600px] rounded-full bg-[#6a9a04]/20" />
+    <div className="relative">
+      {/* Background accent */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[#dee24b]/40 blur-[80px] -z-10 pointer-events-none" />
+      <div className="absolute bottom-[-5%] right-[-5%] w-[600px] h-[600px] rounded-full bg-[#6a9a04]/20 blur-[80px] -z-10 pointer-events-none" />
 
       <div className="relative z-10 max-w-7xl mx-auto">
         {/* Page Header */}
@@ -78,7 +78,7 @@ export default function PedidosPage() {
                 placeholder="Buscar pedidos, clientes..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full glass-panel pl-12 pr-4 py-3 rounded-2xl border-none placeholder:text-slate-400 text-slate-800 focus:ring-2 focus:ring-[#6a9a04]/30"
+                className="w-full bg-white/60 backdrop-blur-md pl-12 pr-4 py-3 rounded-2xl border border-white/50 placeholder:text-slate-400 text-slate-800 focus:ring-2 focus:ring-[#6a9a04]/30 shadow-sm outline-none"
               />
             </div>
           </div>
@@ -87,7 +87,7 @@ export default function PedidosPage() {
         {/* KPI Cards */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {/* Total Pedidos */}
-          <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
+          <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm p-6 rounded-[2rem] hover:shadow-md transition-all hover:-translate-y-1">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 bg-[#dee24b]/20 rounded-2xl">
                 <ShoppingCart className="w-6 h-6 text-[#6a9a04]" />
@@ -101,7 +101,7 @@ export default function PedidosPage() {
           </div>
 
           {/* Ingresos Totales */}
-          <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
+          <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm p-6 rounded-[2rem] hover:shadow-md transition-all hover:-translate-y-1">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 bg-blue-100 rounded-2xl">
                 <DollarSign className="w-6 h-6 text-blue-600" />
@@ -115,7 +115,7 @@ export default function PedidosPage() {
           </div>
 
           {/* En Proceso */}
-          <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
+          <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm p-6 rounded-[2rem] hover:shadow-md transition-all hover:-translate-y-1">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 bg-orange-100 rounded-2xl">
                 <Clock className="w-6 h-6 text-orange-600" />
@@ -127,7 +127,7 @@ export default function PedidosPage() {
           </div>
 
           {/* Completados */}
-          <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
+          <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm p-6 rounded-[2rem] hover:shadow-md transition-all hover:-translate-y-1">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 bg-[#6a9a04]/10 rounded-2xl">
                 <CheckCircle className="w-6 h-6 text-[#6a9a04]" />
@@ -140,7 +140,7 @@ export default function PedidosPage() {
         </section>
 
         {/* Orders Table Section */}
-        <section className="glass-panel rounded-[2.5rem] p-8">
+        <section className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-[2.5rem] p-8">
           <div className="flex flex-wrap items-center justify-between mb-8 gap-4">
             <div>
               <h2 className="text-2xl font-bold text-slate-900">Pedidos Recientes</h2>
@@ -148,12 +148,12 @@ export default function PedidosPage() {
             </div>
             <div className="flex items-center space-x-3">
               <button
-                className="glass-button px-5 py-2.5 rounded-xl text-slate-700 flex items-center text-sm font-semibold"
+                className="bg-white/30 backdrop-blur border border-white/50 hover:bg-white/50 transition-colors px-5 py-2.5 rounded-xl text-slate-700 flex items-center text-sm font-semibold cursor-pointer"
                 onClick={() => setStatusFilter(statusFilter === 'all' ? 'processing' : 'all')}
               >
                 <Filter className="w-4 h-4 mr-2" /> Filtros {statusFilter !== 'all' && '(Activo)'}
               </button>
-              <button className="glass-button px-5 py-2.5 rounded-xl text-slate-700 flex items-center text-sm font-semibold">
+              <button className="bg-white/30 backdrop-blur border border-white/50 hover:bg-white/50 transition-colors px-5 py-2.5 rounded-xl text-slate-700 flex items-center text-sm font-semibold cursor-pointer">
                 <Download className="w-4 h-4 mr-2" /> Exportar
               </button>
               <Link
@@ -194,11 +194,11 @@ export default function PedidosPage() {
                   filteredOrders.map((order) => {
                     const sc = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
                     return (
-                      <tr key={order.id} className="table-row-glass transition-all rounded-2xl group">
-                        <td className="px-6 py-5 bg-white/30 group-hover:bg-white/60 rounded-l-2xl border-y border-l border-transparent group-hover:border-white/50 transition-colors">
+                      <tr key={order.id} className="transition-all rounded-2xl group hover:bg-white/70">
+                        <td className="px-6 py-5 bg-white/30 group-hover:bg-transparent rounded-l-2xl border-y border-l border-transparent transition-colors">
                           <span className="text-[#6a9a04] font-bold">#{order.order_number}</span>
                         </td>
-                        <td className="px-6 py-5 bg-white/30 group-hover:bg-white/60 border-y border-transparent group-hover:border-white/50 transition-colors">
+                        <td className="px-6 py-5 bg-white/30 group-hover:bg-transparent border-y border-transparent transition-colors">
                           <div>
                             <p className="font-bold text-slate-800 m-0">
                               {isAdmin ? (order.profiles?.full_name || order.profiles?.email || 'Desconocido') : 'Mi Pedido de Reposición'}
@@ -208,22 +208,22 @@ export default function PedidosPage() {
                             </p>
                           </div>
                         </td>
-                        <td className="px-6 py-5 bg-white/30 group-hover:bg-white/60 border-y border-transparent group-hover:border-white/50 transition-colors">
+                        <td className="px-6 py-5 bg-white/30 group-hover:bg-transparent border-y border-transparent transition-colors">
                           <span className="text-sm text-slate-600">
                             {new Date(order.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                           </span>
                         </td>
-                        <td className="px-6 py-5 bg-white/30 group-hover:bg-white/60 border-y border-transparent group-hover:border-white/50 transition-colors">
+                        <td className="px-6 py-5 bg-white/30 group-hover:bg-transparent border-y border-transparent transition-colors">
                           <span className="font-bold text-slate-900">
                             ${Number(order.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </td>
-                        <td className="px-6 py-5 bg-white/30 group-hover:bg-white/60 border-y border-transparent group-hover:border-white/50 transition-colors">
+                        <td className="px-6 py-5 bg-white/30 group-hover:bg-transparent border-y border-transparent transition-colors">
                           <span className={`px-3 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider ${sc.className}`}>
                             {sc.label}
                           </span>
                         </td>
-                        <td className="px-6 py-5 bg-white/30 group-hover:bg-white/60 rounded-r-2xl border-y border-r border-transparent group-hover:border-white/50 text-right transition-colors">
+                        <td className="px-6 py-5 bg-white/30 group-hover:bg-transparent rounded-r-2xl border-y border-r border-transparent text-right transition-colors">
                           <Link href={`/dashboard/pedidos/${order.id}`} className="p-2 hover:bg-white rounded-lg transition-colors inline-flex" title="Ver detalle">
                             <Eye className="w-5 h-5 text-slate-400" />
                           </Link>
@@ -237,81 +237,22 @@ export default function PedidosPage() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between mt-8 border-t border-white/30 pt-6">
+          <div className="flex items-center justify-between mt-8 border-t border-white/50 pt-6">
             <p className="text-sm text-slate-500 m-0">
               Mostrando <span className="font-bold text-slate-800">{filteredOrders.length}</span> de <span className="font-bold text-slate-800">{orders.length}</span> pedidos
             </p>
             <div className="flex space-x-2">
-              <button className="glass-button w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white">
+              <button className="bg-white/30 backdrop-blur border border-white/50 hover:bg-white/50 w-10 h-10 flex items-center justify-center rounded-xl cursor-pointer">
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-[#6a9a04] text-white font-bold shadow-md">1</button>
-              <button className="glass-button w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white">
+              <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-[#6a9a04] text-white font-bold shadow-md cursor-pointer border-none">1</button>
+              <button className="bg-white/30 backdrop-blur border border-white/50 hover:bg-white/50 w-10 h-10 flex items-center justify-center rounded-xl cursor-pointer">
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         </section>
       </div>
-
-      <style jsx>{`
-        .pedidos-theme-override {
-          position: relative;
-          min-height: calc(100vh - 64px);
-          background-color: #f8fafc;
-          color: #0f172a;
-          margin: -2rem;
-          padding: 2rem;
-          overflow: hidden;
-          font-family: 'Inter', system-ui, sans-serif;
-        }
-
-        .bg-shape {
-          position: fixed;
-          z-index: 0;
-          filter: blur(80px);
-          opacity: 0.4;
-        }
-
-        .glass-panel {
-          background: rgba(255, 255, 255, 0.45);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.6);
-          box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
-        }
-
-        .glass-card-hover {
-          transition: all 0.3s ease;
-        }
-        .glass-card-hover:hover {
-          background: rgba(255, 255, 255, 0.6);
-          transform: translateY(-2px);
-        }
-
-        .glass-button {
-          background: rgba(255, 255, 255, 0.3);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.5);
-          transition: all 0.2s ease;
-          cursor: pointer;
-        }
-        .glass-button:hover {
-          background: rgba(255, 255, 255, 0.5);
-        }
-
-        .table-row-glass:hover {
-          background: rgba(255, 255, 255, 0.7);
-        }
-
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-
-        @media (max-width: 768px) {
-          .pedidos-theme-override { margin: -1rem; padding: 1rem; }
-        }
-      `}</style>
     </div>
   );
 }

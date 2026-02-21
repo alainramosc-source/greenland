@@ -102,10 +102,10 @@ export default function InventariosPage() {
   }
 
   return (
-    <div className="productos-theme-override">
+    <div className="relative">
       {/* Background accent */}
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[#6a9a04]/5 blur-[80px] -z-10" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-[#dee24b]/5 blur-[80px] -z-10" />
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[#6a9a04]/5 blur-[80px] -z-10 pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-[#dee24b]/5 blur-[80px] -z-10 pointer-events-none" />
 
       <div className="relative z-10 max-w-7xl mx-auto">
         {/* Title & Filters */}
@@ -122,14 +122,14 @@ export default function InventariosPage() {
                 placeholder="Buscar por SKU o nombre..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-12 pr-4 py-2.5 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-[#ec5b13]/20 text-sm placeholder:text-slate-400 text-slate-800 outline-none w-72"
+                className="pl-12 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/20 text-sm placeholder:text-slate-400 text-slate-800 outline-none w-72 shadow-sm"
               />
             </div>
           </div>
         </div>
 
         {/* Products Table */}
-        <div className="glass-panel rounded-2xl border border-white/50 shadow-xl overflow-hidden">
+        <div className="glass-panel bg-white/60 backdrop-blur-md rounded-2xl border border-white/50 shadow-xl overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-200">
@@ -149,11 +149,11 @@ export default function InventariosPage() {
                   const currentStock = inventory[product.id] || 0;
                   const status = getStockStatus(currentStock);
                   return (
-                    <tr key={product.id} className="hover:bg-white/30 transition-colors group">
+                    <tr key={product.id} className="hover:bg-white/50 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-xl glass-card overflow-hidden p-1 flex-shrink-0 ${currentStock <= 0 ? 'opacity-70' : ''}`}>
-                            <div className="w-full h-full bg-slate-200 rounded-lg flex items-center justify-center">
+                          <div className={`w-12 h-12 rounded-xl bg-white/80 border border-slate-100 shadow-sm overflow-hidden p-1 flex-shrink-0 ${currentStock <= 0 ? 'opacity-70' : ''}`}>
+                            <div className="w-full h-full bg-slate-50 rounded-lg flex items-center justify-center">
                               <Package className="w-5 h-5 text-slate-400" />
                             </div>
                           </div>
@@ -203,16 +203,16 @@ export default function InventariosPage() {
 
         {/* Stats Summary */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
-          <div className="glass-card p-6 rounded-2xl flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#6a9a04]/20 flex items-center justify-center text-[#6a9a04]">
-              <Package className="w-6 h-6" />
+          <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-lg p-6 rounded-2xl flex items-center gap-4 hover:bg-white/80 transition-all">
+            <div className="w-12 h-12 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center text-[#6a9a04]">
+              <Package className="w-6 h-6 border-none" />
             </div>
             <div>
               <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 m-0">Total Items</p>
               <p className="text-2xl font-black text-slate-900 m-0">{totalItems.toLocaleString('es-MX')}</p>
             </div>
           </div>
-          <div className="glass-card p-6 rounded-2xl flex items-center gap-4 border-l-4 border-l-[#ec5b13]">
+          <div className="bg-white/60 backdrop-blur-md shadow-lg p-6 rounded-2xl flex items-center gap-4 border-l-4 border-l-[#ec5b13] hover:bg-white/80 transition-all">
             <div className="w-12 h-12 rounded-xl bg-[#ec5b13]/10 flex items-center justify-center text-[#ec5b13]">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
             </div>
@@ -221,17 +221,17 @@ export default function InventariosPage() {
               <p className="text-2xl font-black text-slate-900 m-0">{products.length}</p>
             </div>
           </div>
-          <div className="glass-card p-6 rounded-2xl flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center text-red-500">
-              <AlertTriangle className="w-6 h-6" />
+          <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-lg p-6 rounded-2xl flex items-center gap-4 hover:bg-white/80 transition-all">
+            <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-red-500">
+              <AlertTriangle className="w-6 h-6 border-none" />
             </div>
             <div>
               <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 m-0">Agotados</p>
               <p className="text-2xl font-black text-slate-900 m-0">{outOfStockCount}</p>
             </div>
           </div>
-          <div className="glass-card p-6 rounded-2xl flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center text-amber-500">
+          <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-lg p-6 rounded-2xl flex items-center gap-4 hover:bg-white/80 transition-all">
+            <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
             </div>
             <div>
@@ -245,7 +245,7 @@ export default function InventariosPage() {
       {/* Adjustment Modal */}
       {selectedProduct && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center">
-          <div className="glass-panel w-full max-w-[450px] rounded-2xl shadow-2xl overflow-hidden">
+          <div className="bg-white/90 backdrop-blur-xl w-full max-w-[450px] rounded-2xl shadow-2xl border border-white overflow-hidden">
             <div className="p-6 border-b border-slate-200 flex justify-between items-center">
               <h3 className="text-lg font-bold text-slate-900 m-0">Ajustar Stock: {selectedProduct.name}</h3>
               <button onClick={() => setSelectedProduct(null)} className="p-1 rounded-lg hover:bg-slate-100 bg-transparent border-none cursor-pointer">
@@ -262,7 +262,7 @@ export default function InventariosPage() {
                   placeholder="Ej. 10 o -5"
                   autoFocus
                   required
-                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none text-lg"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none text-lg shadow-sm"
                 />
                 <small className="block mt-1 text-xs text-slate-400">Usa números positivos para agregar stock, negativos para restar.</small>
               </div>
@@ -273,15 +273,15 @@ export default function InventariosPage() {
                   value={adjustmentReason}
                   onChange={(e) => setAdjustmentReason(e.target.value)}
                   placeholder="Ej. Venta local, Compra, Merma..."
-                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none shadow-sm"
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setSelectedProduct(null)}
-                  className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white/50 border border-slate-200 hover:bg-white cursor-pointer transition-all"
+                  className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm"
                 >Cancelar</button>
                 <button type="submit" disabled={submitting}
-                  className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#ec5b13] hover:bg-[#ec5b13]/90 shadow-lg shadow-[#ec5b13]/20 cursor-pointer transition-all border-none"
+                  className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#ec5b13] hover:bg-[#ec5b13]/90 shadow-lg shadow-[#ec5b13]/30 cursor-pointer transition-all border-none"
                 >
                   {submitting ? 'Guardando...' : 'Guardar Movimiento'}
                 </button>
@@ -290,46 +290,6 @@ export default function InventariosPage() {
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        .productos-theme-override {
-          position: relative;
-          min-height: calc(100vh - 64px);
-          background-color: #f8f6f6;
-          background-image:
-            radial-gradient(circle at 0% 0%, rgba(106, 154, 4, 0.05) 0%, transparent 50%),
-            radial-gradient(circle at 100% 100%, rgba(222, 226, 75, 0.05) 0%, transparent 50%);
-          color: #0f172a;
-          margin: -2rem;
-          padding: 2rem;
-          overflow: hidden;
-          font-family: 'Public Sans', system-ui, sans-serif;
-        }
-
-        .glass-panel {
-          background: rgba(255, 255, 255, 0.7);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .glass-card {
-          background: rgba(255, 255, 255, 0.4);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          border: 1px solid rgba(255, 255, 255, 0.5);
-          transition: all 0.3s ease;
-        }
-        .glass-card:hover {
-          background: rgba(255, 255, 255, 0.6);
-          transform: translateY(-2px);
-          box-shadow: 0 10px 25px -5px rgba(106, 154, 4, 0.1);
-        }
-
-        @media (max-width: 768px) {
-          .productos-theme-override { margin: -1rem; padding: 1rem; }
-        }
-      `}</style>
     </div>
   );
 }
