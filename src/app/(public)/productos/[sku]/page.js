@@ -47,7 +47,13 @@ export default async function ProductDetailsPage({ params }) {
         .single();
 
     if (!product) {
-        notFound();
+        return (
+            <div style={{ paddingTop: '10rem', textAlign: 'center' }}>
+                <h1 style={{ color: 'red' }}>DEBUG: PRODUCT NOT FOUND IN SUPABASE DB</h1>
+                <p>SKU Searched: {sku}</p>
+                <Link href="/productos">Devolver</Link>
+            </div>
+        );
     }
 
     return (
