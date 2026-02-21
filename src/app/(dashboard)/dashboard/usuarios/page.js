@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Search, Filter, Edit2, Shield, AlertCircle, X, Save, UserPlus } from 'lucide-react';
+import { Search, Filter, Edit2, Shield, AlertCircle, X, Save, UserPlus, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -12,6 +12,8 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
 
   const supabase = createClient();
 
@@ -54,6 +56,94 @@ export default function UsersPage() {
     setUpdating(false);
   };
 
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 opacity-30" />;
+    return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-[#ec5b13]" /> : <ArrowDown className="w-3 h-3 text-[#ec5b13]" />;
+  };
+
+  const handleSelectAll = (e, usersToSelect) => {
+    if (e.target.checked) {
+      setSelectedUsers(usersToSelect.map(u => u.id));
+    } else {
+      setSelectedUsers([]);
+    }
+  };
+
+  const handleSelectUser = (id) => {
+    if (selectedUsers.includes(id)) {
+      setSelectedUsers(selectedUsers.filter(userId => userId !== id));
+    } else {
+      setSelectedUsers([...selectedUsers, id]);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedUsers.length === 0) return;
+    if (!confirm(`¿Estás seguro de eliminar ${selectedUsers.length} usuario(s)? Esta acción no se puede deshacer.`)) return;
+
+    setLoading(true);
+    const { error } = await supabase.from('profiles').delete().in('id', selectedUsers);
+
+    if (error) {
+      alert('Error eliminando usuarios: ' + error.message);
+    } else {
+      setUsers(users.filter(u => !selectedUsers.includes(u.id)));
+      setSelectedUsers([]);
+    }
+    setLoading(false);
+  };
+
+  const handleDeleteSingle = async (id) => {
+    if (!confirm('¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.')) return;
+
+    setLoading(true);
+    const { error } = await supabase.from('profiles').delete().eq('id', id);
+
+    if (error) {
+      alert('Error eliminando usuario: ' + error.message);
+    } else {
+      setUsers(users.filter(u => u.id !== id));
+      setSelectedUsers(selectedUsers.filter(userId => userId !== id));
+    }
+    setLoading(false);
+  };
+
+  const userExportStr = (str) => str ? String(str).replace(/"/g, '""') : '';
+
+  const exportToCSV = (usersToExport) => {
+    const headers = ['ID', 'Nombre', 'Email', 'Ciudad', 'Telefono', 'Rol', 'Status', 'Fecha Registro'];
+    const csvContent = [
+      headers.join(','),
+      ...usersToExport.map(u => [
+        u.id,
+        `"${userExportStr(u.full_name)}"`,
+        `"${userExportStr(u.email)}"`,
+        `"${userExportStr(u.city)}"`,
+        `"${userExportStr(u.phone)}"`,
+        u.role,
+        u.is_active ? 'Activo' : 'Inactivo',
+        u.created_at
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `clientes_greenland_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const filteredUsers = users.filter(user => {
     const safeSearch = searchTerm?.toLowerCase() || '';
     const matchesSearch =
@@ -64,6 +154,23 @@ export default function UsersPage() {
       (filterStatus === 'active' && user.is_active) ||
       (filterStatus === 'inactive' && !user.is_active);
     return matchesSearch && matchesRole && matchesStatus;
+  });
+
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    let aValue = a[sortConfig.key];
+    let bValue = b[sortConfig.key];
+
+    if (sortConfig.key === 'client') {
+      aValue = (a.full_name || a.email || '').toLowerCase();
+      bValue = (b.full_name || b.email || '').toLowerCase();
+    }
+
+    if (aValue === null || aValue === undefined) aValue = '';
+    if (bValue === null || bValue === undefined) bValue = '';
+
+    if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
   });
 
   const totalClients = users.length;
@@ -87,6 +194,22 @@ export default function UsersPage() {
         <div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tight m-0">Clientes</h1>
           <p className="text-slate-500 mt-1 m-0">Gestión integral de cartera de clientes y facturación.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {selectedUsers.length > 0 && (
+            <button
+              onClick={handleDeleteSelected}
+              className="px-4 py-2.5 rounded-xl text-white font-bold bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all flex items-center gap-2 border-none cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" /> Eliminar ({selectedUsers.length})
+            </button>
+          )}
+          <button
+            onClick={() => exportToCSV(sortedUsers)}
+            className="px-4 py-2.5 rounded-xl text-slate-700 font-bold bg-white/60 hover:bg-white backdrop-blur-md border border-white/50 shadow-sm transition-all flex items-center gap-2 cursor-pointer"
+          >
+            <Download className="w-4 h-4 text-[#ec5b13]" /> Exportar CSV
+          </button>
         </div>
       </header>
 
@@ -132,35 +255,67 @@ export default function UsersPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#6a9a04]/5 border-b border-[#6a9a04]/10">
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">ID</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Cliente</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Ubicación</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Teléfono</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Rol</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-center">Status</th>
+                <th className="px-6 py-4 w-10">
+                  <div className="flex items-center justify-center">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-slate-300 text-[#ec5b13] focus:ring-[#ec5b13] cursor-pointer accent-[#ec5b13]"
+                      checked={selectedUsers.length === sortedUsers.length && sortedUsers.length > 0}
+                      onChange={(e) => handleSelectAll(e, sortedUsers)}
+                    />
+                  </div>
+                </th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:bg-[#6a9a04]/10 transition-colors" onClick={() => handleSort('id')}>
+                  <div className="flex items-center gap-1">ID {getSortIcon('id')}</div>
+                </th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:bg-[#6a9a04]/10 transition-colors" onClick={() => handleSort('client')}>
+                  <div className="flex items-center gap-1">Cliente {getSortIcon('client')}</div>
+                </th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:bg-[#6a9a04]/10 transition-colors" onClick={() => handleSort('city')}>
+                  <div className="flex items-center gap-1">Ubicación {getSortIcon('city')}</div>
+                </th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Teléfono
+                </th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:bg-[#6a9a04]/10 transition-colors" onClick={() => handleSort('role')}>
+                  <div className="flex items-center gap-1">Rol {getSortIcon('role')}</div>
+                </th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-center cursor-pointer select-none hover:bg-[#6a9a04]/10 transition-colors" onClick={() => handleSort('is_active')}>
+                  <div className="flex items-center justify-center gap-1">Status {getSortIcon('is_active')}</div>
+                </th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/50">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan="8" className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <div className="w-8 h-8 border-4 border-slate-200 border-t-[#ec5b13] rounded-full animate-spin"></div>
                       <p className="font-medium">Cargando clientes...</p>
                     </div>
                   </td>
                 </tr>
-              ) : filteredUsers.length === 0 ? (
+              ) : sortedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan="8" className="px-6 py-12 text-center text-slate-400">
                     <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
                     No se encontraron clientes.
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((user, idx) => (
+                sortedUsers.map((user, idx) => (
                   <tr key={user.id} className="hover:bg-white/40 transition-colors group">
+                    <td className="px-6 py-5">
+                      <div className="flex items-center justify-center">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-slate-300 text-[#ec5b13] focus:ring-[#ec5b13] cursor-pointer accent-[#ec5b13]"
+                          checked={selectedUsers.includes(user.id)}
+                          onChange={() => handleSelectUser(user.id)}
+                        />
+                      </div>
+                    </td>
                     <td className="px-6 py-5 text-sm font-mono text-slate-400">#{String(idx + 1).padStart(4, '0')}</td>
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-3">
@@ -188,13 +343,22 @@ export default function UsersPage() {
                       </span>
                     </td>
                     <td className="px-6 py-5 text-center">
-                      <button
-                        className="p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-200 bg-transparent cursor-pointer shadow-sm hover:shadow-sm"
-                        onClick={() => handleEditClick(user)}
-                        title="Editar Usuario"
-                      >
-                        <Edit2 className="w-4 h-4 text-slate-500 hover:text-[#ec5b13]" />
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          className="p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-200 bg-transparent cursor-pointer shadow-sm hover:shadow-sm"
+                          onClick={() => handleEditClick(user)}
+                          title="Editar Usuario"
+                        >
+                          <Edit2 className="w-4 h-4 text-slate-500 hover:text-[#ec5b13]" />
+                        </button>
+                        <button
+                          className="p-2 rounded-lg hover:bg-red-50 transition-colors border border-transparent hover:border-red-200 bg-transparent cursor-pointer shadow-sm hover:shadow-sm"
+                          onClick={() => handleDeleteSingle(user.id)}
+                          title="Eliminar Usuario"
+                        >
+                          <Trash2 className="w-4 h-4 text-slate-500 hover:text-red-500" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -205,7 +369,7 @@ export default function UsersPage() {
 
         {/* Pagination Footer */}
         <footer className="px-6 py-4 bg-white/40 border-t border-slate-100/50 flex items-center justify-between">
-          <p className="text-sm text-slate-500 font-medium m-0">Mostrando {filteredUsers.length} de {users.length} clientes</p>
+          <p className="text-sm text-slate-500 font-medium m-0">Mostrando {sortedUsers.length} de {users.length} clientes</p>
         </footer>
       </div>
 
