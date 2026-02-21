@@ -32,7 +32,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
       <aside className={`fixed inset-y-0 left-0 w-72 bg-white/40 backdrop-blur-xl border-r border-[#6a9a04]/10 flex flex-col z-50 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`} style={{ background: 'rgba(106, 154, 4, 0.05)' }}>
         <div className="p-6">
           <div className="flex items-center justify-center mb-10">
-            <img src="/logo-new.jpg" alt="Greenland" className="h-20 w-auto object-contain filter drop-shadow-sm" />
+            <img src="/logo-pedidos.svg" alt="Greenland" className="h-20 w-auto object-contain filter drop-shadow-sm" />
           </div>
 
           <nav className="space-y-2 overflow-y-auto">
