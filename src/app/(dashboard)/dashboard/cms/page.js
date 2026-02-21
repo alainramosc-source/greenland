@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { Save, Image as ImageIcon, CheckCircle, RefreshCw } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function CMSPage() {
   const [content, setContent] = useState([]);
   const [loading, setLoading] = useState(true);
