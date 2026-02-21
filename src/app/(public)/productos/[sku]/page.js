@@ -72,8 +72,8 @@ export default async function ProductDetailsPage({ params }) {
                         </div>
 
                         <div style={{ marginBottom: '3rem' }}>
-                            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--color-text)' }}>Descripción</h3>
-                            <p style={{ fontSize: '1.05rem', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--color-text)' }}>Descripción Técnica</h3>
+                            <p style={{ fontSize: '1.05rem', color: 'var(--color-text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
                                 {product.description || 'No hay descripción disponible para este producto en este momento.'}
                             </p>
                         </div>
