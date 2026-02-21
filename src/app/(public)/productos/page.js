@@ -115,7 +115,7 @@ export default async function ProductosPage({ searchParams }) {
                     ) : (
                         <div className="catalog-grid">
                             {displayProducts.map(product => (
-                                <Link href={`/productos/${product.sku}`} key={product.id} className="product-card" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column' }}>
+                                <Link href={`/productos/${product.sku}?ref=catalog`} key={product.id} className="product-card" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column' }}>
                                     <div className="product-image">
                                         <ProductGallery sku={product.sku} productName={product.name} />
                                         {product.stock_quantity < 10 && product.stock_quantity > 0 && (
