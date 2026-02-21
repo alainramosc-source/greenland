@@ -118,7 +118,7 @@ export default async function HomePage() {
                 </span>
               </div>
             </Link>
-            <Link href="/productos?cat=deco" className="division-card">
+            <Link href="/deco" className="division-card">
               <div
                 className="division-image-overlay"
                 style={{

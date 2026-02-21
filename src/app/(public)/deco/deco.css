@@ -1,0 +1,230 @@
+.deco-page {
+    background-color: var(--color-background);
+    min-height: 100vh;
+}
+
+/* Hero Section */
+.deco-hero {
+    padding: 6rem 0 4rem;
+    background-color: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.deco-hero-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-text-light);
+    text-decoration: none;
+    font-size: 0.875rem;
+    margin-bottom: 2rem;
+    transition: color 0.2s;
+}
+
+.back-link:hover {
+    color: var(--color-primary);
+}
+
+.deco-tag {
+    display: inline-block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #c98c56;
+    /* A slightly warmer tone for deco */
+    letter-spacing: 0.1em;
+    margin-bottom: 1rem;
+}
+
+.deco-hero-content h1 {
+    font-size: 3rem;
+    line-height: 1.1;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--color-text);
+}
+
+.deco-intro {
+    font-size: 1.25rem;
+    color: var(--color-text);
+    font-weight: 500;
+    margin-bottom: 1rem;
+}
+
+.deco-description {
+    font-size: 1.125rem;
+    color: var(--color-text-light);
+    line-height: 1.6;
+    margin-bottom: 2rem;
+}
+
+.deco-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.deco-image-card {
+    width: 100%;
+    height: 500px;
+    background: linear-gradient(135deg, #f5f0eb 0%, #e2d8ce 100%);
+    /* Warmer gradient */
+    border-radius: 24px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.deco-placeholder span {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #a38c73;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* Materials Catalog */
+.materials-section {
+    padding: 5rem 0;
+    background-color: var(--color-background);
+}
+
+.materials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-top: 3rem;
+}
+
+.material-card {
+    background: var(--color-card);
+    padding: 2.5rem 2rem;
+    border-radius: 16px;
+    border: 1px solid var(--color-border);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.material-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+
+.material-icon {
+    color: #c98c56;
+    /* Warmer tone */
+    margin-bottom: 1.5rem;
+}
+
+.material-card h3 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--color-text);
+}
+
+.material-card p {
+    color: var(--color-text-light);
+    line-height: 1.5;
+}
+
+/* Target Audience */
+.target-section {
+    padding: 5rem 0;
+    background-color: #fcfbf9;
+    /* Super subtle warm tint */
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.target-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.target-content h2 {
+    font-size: 2.25rem;
+    margin-bottom: 1.5rem;
+    color: var(--color-text);
+}
+
+.target-content p {
+    font-size: 1.125rem;
+    color: var(--color-text-light);
+    line-height: 1.6;
+    margin-bottom: 2rem;
+}
+
+.target-list {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.target-list li {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 1.125rem;
+    color: var(--color-text);
+    background: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+}
+
+.list-icon {
+    color: #c98c56;
+}
+
+/* CTA */
+.deco-cta-section {
+    padding: 6rem 0;
+    text-align: center;
+    background-color: white;
+}
+
+.deco-cta-content h2 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--color-text);
+}
+
+.deco-cta-content p {
+    font-size: 1.25rem;
+    color: var(--color-text-light);
+    margin-bottom: 2rem;
+}
+
+.deco-cta-actions {
+    display: flex;
+    justify-content: center;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+    .deco-hero-container {
+        grid-template-columns: 1fr;
+        gap: 3rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .deco-hero-content h1 {
+        font-size: 2.5rem;
+    }
+
+    .materials-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .target-list {
+        grid-template-columns: 1fr;
+    }
+}
