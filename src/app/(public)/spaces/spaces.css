@@ -1,0 +1,236 @@
+.spaces-page {
+    background-color: var(--color-background);
+    min-height: 100vh;
+}
+
+/* Hero Section */
+.spaces-hero {
+    padding: 6rem 0 4rem;
+    background-color: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.spaces-hero-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-text-light);
+    text-decoration: none;
+    font-size: 0.875rem;
+    margin-bottom: 2rem;
+    transition: color 0.2s;
+}
+
+.back-link:hover {
+    color: var(--color-primary);
+}
+
+.spaces-tag {
+    display: inline-block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    letter-spacing: 0.1em;
+    margin-bottom: 1rem;
+}
+
+.spaces-hero-content h1 {
+    font-size: 3rem;
+    line-height: 1.1;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--color-text);
+}
+
+.spaces-intro {
+    font-size: 1.25rem;
+    color: var(--color-text);
+    font-weight: 500;
+    margin-bottom: 1rem;
+}
+
+.spaces-description {
+    font-size: 1.125rem;
+    color: var(--color-text-light);
+    line-height: 1.6;
+    margin-bottom: 2rem;
+}
+
+.spaces-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.spaces-image-card {
+    width: 100%;
+    height: 500px;
+    background: linear-gradient(135deg, rgba(230, 234, 236, 1) 0%, rgba(206, 212, 218, 1) 100%);
+    border-radius: 24px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.spaces-placeholder span {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #6C757D;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* Applications */
+.applications-section {
+    padding: 5rem 0;
+    background-color: var(--color-background);
+}
+
+.applications-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-top: 3rem;
+}
+
+.app-card {
+    background: var(--color-card);
+    padding: 2.5rem 2rem;
+    border-radius: 16px;
+    border: 1px solid var(--color-border);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.app-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+
+.app-icon {
+    color: var(--color-primary);
+    margin-bottom: 1.5rem;
+}
+
+.app-card h3 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--color-text);
+}
+
+.app-card p {
+    color: var(--color-text-light);
+    line-height: 1.5;
+}
+
+/* Modalities */
+.modalities-section {
+    padding: 5rem 0;
+    background-color: #f8f9fa;
+    /* Slight contrast */
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.modalities-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.modalities-content h2 {
+    font-size: 2.5rem;
+    text-align: center;
+    margin-bottom: 3rem;
+    color: var(--color-text);
+}
+
+.modalities-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.modality-item {
+    display: flex;
+    gap: 1.5rem;
+    background: white;
+    padding: 2rem;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    border: 1px solid var(--color-border);
+}
+
+.modality-check {
+    background: rgba(33, 114, 229, 0.1);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.check-icon {
+    color: var(--color-primary);
+    font-weight: bold;
+}
+
+.modality-item h3 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--color-text);
+}
+
+.modality-item p {
+    color: var(--color-text-light);
+    line-height: 1.6;
+}
+
+/* CTA */
+.spaces-cta-section {
+    padding: 6rem 0;
+    text-align: center;
+    background-color: white;
+}
+
+.spaces-cta-content h2 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--color-text);
+}
+
+.spaces-cta-content p {
+    font-size: 1.25rem;
+    color: var(--color-text-light);
+    margin-bottom: 2rem;
+}
+
+.spaces-cta-actions {
+    display: flex;
+    justify-content: center;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+    .spaces-hero-container {
+        grid-template-columns: 1fr;
+        gap: 3rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .spaces-hero-content h1 {
+        font-size: 2.5rem;
+    }
+
+    .applications-grid {
+        grid-template-columns: 1fr;
+    }
+}

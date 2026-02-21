@@ -103,7 +103,7 @@ export default async function HomePage() {
             <h2>Nuestras<br />Divisiones</h2>
           </div>
           <div className="divisions-grid">
-            <Link href="/productos?cat=spaces" className="division-card">
+            <Link href="/spaces" className="division-card">
               <div
                 className="division-image-overlay"
                 style={{
