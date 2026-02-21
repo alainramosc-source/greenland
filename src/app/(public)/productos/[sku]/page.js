@@ -1,7 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
-import ProductGallery from '@/components/ProductGallery';
+import InteractiveGallery from '@/components/InteractiveGallery';
 import { notFound } from 'next/navigation';
 
 export const revalidate = 0;
@@ -45,8 +45,8 @@ export default async function ProductDetailsPage({ params }) {
 
                     {/* Image Gallery */}
                     <div className="pdp-gallery">
-                        <div style={{ position: 'sticky', top: '2rem', background: 'var(--color-bg-alt)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--color-border-light)' }}>
-                            <ProductGallery sku={product.sku} productName={product.name} />
+                        <div style={{ position: 'sticky', top: '2rem' }}>
+                            <InteractiveGallery sku={product.sku} productName={product.name} />
                         </div>
                     </div>
 
