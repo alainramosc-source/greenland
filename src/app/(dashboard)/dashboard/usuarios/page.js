@@ -87,33 +87,41 @@ export default function UsersPage() {
 
   const handleDeleteSelected = async () => {
     if (selectedUsers.length === 0) return;
-    if (!confirm(`¿Estás seguro de eliminar ${selectedUsers.length} usuario(s)? Esta acción no se puede deshacer.`)) return;
 
-    setLoading(true);
-    const { error } = await supabase.from('profiles').delete().in('id', selectedUsers);
+    // Fallback confirmation via state/timeout if confirm isn't reliable, but usually confirm blocks.
+    // If confirm is flashing, it might be due to rapid state re-renders overriding the browser prompt, or a bug in the specific webview. 
+    // Using a simple timeout to ensure rendering is complete before the alert.
+    setTimeout(async () => {
+      if (!window.confirm(`¿Estás seguro de eliminar ${selectedUsers.length} usuario(s)? Esta acción no se puede deshacer.`)) return;
 
-    if (error) {
-      alert('Error eliminando usuarios: ' + error.message);
-    } else {
-      setUsers(users.filter(u => !selectedUsers.includes(u.id)));
-      setSelectedUsers([]);
-    }
-    setLoading(false);
+      setLoading(true);
+      const { error } = await supabase.from('profiles').delete().in('id', selectedUsers);
+
+      if (error) {
+        alert('Error eliminando usuarios: ' + error.message);
+      } else {
+        setUsers(users.filter(u => !selectedUsers.includes(u.id)));
+        setSelectedUsers([]);
+      }
+      setLoading(false);
+    }, 10);
   };
 
   const handleDeleteSingle = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.')) return;
+    setTimeout(async () => {
+      if (!window.confirm('¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.')) return;
 
-    setLoading(true);
-    const { error } = await supabase.from('profiles').delete().eq('id', id);
+      setLoading(true);
+      const { error } = await supabase.from('profiles').delete().eq('id', id);
 
-    if (error) {
-      alert('Error eliminando usuario: ' + error.message);
-    } else {
-      setUsers(users.filter(u => u.id !== id));
-      setSelectedUsers(selectedUsers.filter(userId => userId !== id));
-    }
-    setLoading(false);
+      if (error) {
+        alert('Error eliminando usuario: ' + error.message);
+      } else {
+        setUsers(users.filter(u => u.id !== id));
+        setSelectedUsers(selectedUsers.filter(userId => userId !== id));
+      }
+      setLoading(false);
+    }, 10);
   };
 
   const userExportStr = (str) => str ? String(str).replace(/"/g, '""') : '';
