@@ -45,15 +45,15 @@ const Footer = () => {
             <ul className="contact-list">
               <li>
                 <MapPin size={16} />
-                <span>Oficinas Centrales<br />CDMX, México</span>
+                <span>Oficinas Centrales<br />Saltillo, Coahuila, MX.</span>
               </li>
               <li>
                 <Phone size={16} />
-                <span>+52 (55) 1234 5678</span>
+                <span>+52 (844) 159 5472</span>
               </li>
               <li>
                 <Mail size={16} />
-                <span>contacto@greenland.com.mx</span>
+                <span>ventas@greenland-products.com.mx</span>
               </li>
             </ul>
           </div>
