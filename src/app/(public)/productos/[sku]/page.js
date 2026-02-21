@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function ProductDetailsPage({ params }) {
     const supabase = await createClient();
-    const sku = params.sku;
+    // Sanitize SKU to prevent URL encoding or spacing mismatches
+    const sku = decodeURIComponent(params.sku).trim().toUpperCase();
 
     // Fetch product details
     const { data: product } = await supabase
