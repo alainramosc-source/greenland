@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, Filter, ShoppingBag } from 'lucide-react';
 import ProductGallery from '@/components/ProductGallery';
 import './catalog.css';
 
-export const revalidate = 0;
+export const dynamic = 'force-dynamic';
 
 export default async function ProductosPage({ searchParams }) {
     const supabase = await createClient();

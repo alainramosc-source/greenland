@@ -4,7 +4,7 @@ import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import InteractiveGallery from '@/components/InteractiveGallery';
 import { notFound } from 'next/navigation';
 
-export const revalidate = 0;
+export const dynamic = 'force-dynamic';
 
 export default async function ProductDetailsPage({ params }) {
     const supabase = await createClient();
