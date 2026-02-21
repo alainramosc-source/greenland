@@ -38,8 +38,8 @@ const Header = () => {
 
         {/* Right side */}
         <div className="header-actions">
-          <a href="tel:+525512345678" className="header-phone">
-            +52 (55) 1234 5678
+          <a href="tel:+528441595472" className="header-phone">
+            +52 (844) 159 5472
           </a>
           <Link href="/login" className="btn btn-dark header-cta">
             ACCESO
