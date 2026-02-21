@@ -7,11 +7,16 @@ import { notFound } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 export const dynamicParams = true;
 
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+
 // Define which SKUs Vercel should pre-build or recognize as valid dynamic routes
 export async function generateStaticParams() {
     try {
-        const supabase = await createClient();
-        const { data: products } = await supabase
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        const supabaseAdmin = createSupabaseClient(supabaseUrl, supabaseAnonKey);
+
+        const { data: products } = await supabaseAdmin
             .from('products')
             .select('sku')
             .eq('is_active', true);
