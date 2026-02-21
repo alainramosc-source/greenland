@@ -24,7 +24,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
   const adminItems = userRole === 'admin' ? [
     { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: BarChart3 },
     { name: 'Clientes', href: '/dashboard/usuarios', icon: Users },
-    { name: 'CMS Landing', href: '/dashboard/cms', icon: FileText }
+    { name: 'CMS Landing', href: '/dashboard/cms?v=sync', icon: FileText }
   ] : [];
 
   return (
