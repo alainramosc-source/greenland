@@ -34,9 +34,11 @@ export default function DecoPage() {
                     <div className="deco-hero-visual">
                         <div className="deco-image-card">
                             {/* We will add an image of decorative materials here later */}
-                            <div className="deco-placeholder">
-                                <span>Diseño & Textura</span>
-                            </div>
+                            <img
+                                src="/panel-deco.jpg"
+                                alt="Muestra de Lambrín y Panel Deco"
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }}
+                            />
                         </div>
                     </div>
                 </div>
