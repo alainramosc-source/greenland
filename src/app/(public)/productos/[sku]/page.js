@@ -5,6 +5,25 @@ import InteractiveGallery from '@/components/InteractiveGallery';
 import { notFound } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
+export const dynamicParams = true;
+
+// Define which SKUs Vercel should pre-build or recognize as valid dynamic routes
+export async function generateStaticParams() {
+    try {
+        const supabase = await createClient();
+        const { data: products } = await supabase
+            .from('products')
+            .select('sku')
+            .eq('is_active', true);
+
+        return (products || []).map((product) => ({
+            sku: product.sku,
+        }));
+    } catch (e) {
+        console.error("Error generating static params:", e);
+        return [];
+    }
+}
 
 export default async function ProductDetailsPage({ params }) {
     const supabase = await createClient();
