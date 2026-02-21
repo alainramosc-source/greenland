@@ -32,8 +32,11 @@ export async function generateStaticParams() {
 
 export default async function ProductDetailsPage({ params }) {
     const supabase = await createClient();
+    // In Next.js 15+, params is a Promise. We must await it to get the SKU safely on Vercel Edge.
+    const resolvedParams = await params;
+
     // Sanitize SKU to prevent URL encoding or spacing mismatches
-    const sku = decodeURIComponent(params.sku).trim().toUpperCase();
+    const sku = decodeURIComponent(resolvedParams.sku).trim().toUpperCase();
 
     // Fetch product details
     const { data: product } = await supabase
