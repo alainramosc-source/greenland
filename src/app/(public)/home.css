@@ -651,43 +651,43 @@
 
 /* Computed Coordinates for Mexico Map based on reference image */
 .saltillo {
-    top: 41.02%;
-    left: 49.98%;
+    top: 49.47%;
+    left: 43.01%;
 }
 
 .monterrey {
-    top: 40.22%;
-    left: 51.56%;
+    top: 49.00%;
+    left: 44.16%;
 }
 
 .altamira {
-    top: 50.77%;
-    left: 58.07%;
+    top: 55.25%;
+    left: 48.88%;
 }
 
 .mazatlan {
-    top: 47.65%;
-    left: 37.39%;
+    top: 53.40%;
+    left: 33.85%;
 }
 
 .queretaro {
-    top: 58.46%;
-    left: 52.65%;
+    top: 59.81%;
+    left: 44.94%;
 }
 
 .morelia {
-    top: 62.36%;
-    left: 49.33%;
+    top: 62.12%;
+    left: 42.54%;
 }
 
 .tlalnepantla {
-    top: 62.22%;
-    left: 55.47%;
+    top: 62.04%;
+    left: 46.99%;
 }
 
 .merida {
-    top: 57.91%;
-    left: 79.69%;
+    top: 59.49%;
+    left: 64.61%;
 }
 
 /* Dark mode fallback just in case */
