@@ -225,6 +225,9 @@ const Header = () => {
           visibility: hidden;
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           border: 1px solid var(--color-border-light);
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
         }
 
         .nav-dropdown-wrapper:hover .nav-dropdown-menu {
