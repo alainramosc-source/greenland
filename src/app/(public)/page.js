@@ -188,8 +188,8 @@ export default async function HomePage() {
           <div className="coverage-content">
             <div className="coverage-info">
               <Truck size={40} className="coverage-icon" />
-              <h2>{coverage.title || 'Logística Estratégica'}</h2>
-              <p>{coverage.body || 'Greenland opera desde múltiples puntos estratégicos, desde donde surte a distribuidores y clientes en todo México con máxima velocidad, disponibilidad y confiabilidad logística.'}</p>
+              <h2>Logística Estratégica</h2>
+              <p>Greenland opera desde múltiples puntos estratégicos, desde donde surte a distribuidores y clientes en todo México con máxima velocidad, disponibilidad y confiabilidad logística.</p>
             </div>
             <div className="coverage-map-wrapper">
               <div className="coverage-map-container">
