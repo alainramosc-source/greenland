@@ -173,7 +173,7 @@ export default async function HomePage() {
             </Link>
             <Link href="/categorias/bancas-y-mobiliario" className="product-category-card">
               <div className="category-image-wrapper">
-                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgXBrFf0z3HQw6MUecviGaPLekdosOBBckY-00hNa3GKBGJ9zEoXSn3JCfkhG8bDd0zLHtAro0d3kK-fGosyyUsgXRKy8CKhYNhWhwHglMoWwfDw5wnytoy5UkIf6ZAScMaT91clg81g_9LEZYey5gAOy98eBFBdOHxm_tyNPmt5wJByfXW0JE7K-NsK5wPcoldNYp6pUPOWYZswwAMyd8vvUueiTykHcqW_pfn4XzpI39_qhroVaEwUMuZvy20fc-pOsOVgi_8to" alt="Bancas & Mobiliario" />
+                <img src="/bancas-category.jpg" alt="Bancas & Mobiliario" />
               </div>
               <h3>Bancas y Mobiliario</h3>
               <p>Mobiliario funcional para exteriores y áreas comunes.</p>
