@@ -165,7 +165,7 @@ export default async function HomePage() {
             </Link>
             <Link href="/categorias/toldos-plegables" className="product-category-card">
               <div className="category-image-wrapper">
-                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmplUHMWlumvsOOFf--Rqq5AAAhik84OFOR6vyYbUAHwPOMyiv0MGdPTaLeSNnjqXzWKV2rOdDoNEuvpna2OijmmdfZ-FkvV0wSzpqpnhdhBq8jabToitDDB1Dpg-9dkWDGAaThBuCdUBmW5RHIIiU6CwQHogg5X1eZxnvVj4thB3xLtmmTZLyLfhQDxh_TI2LQtfrckFqtUNQ466mAsPUbmg2xJMUt88j7QnCVLxyPxIpSAqOSOKVvnHGXTR0PVNYbaxMKBx6ZpQ" alt="Toldos Profesionales" />
+                <img src="/toldos-category.jpg" alt="Toldos Profesionales" />
               </div>
               <h3>Toldos Plegables</h3>
               <p>Sombra práctica y estructura confiable para uso frecuente.</p>
