@@ -322,6 +322,37 @@
     gap: 0.75rem;
 }
 
+/* ===== DIVISIONS (FOOTER/QUIET VERSION) ===== */
+.divisions-section-footer {
+    padding: 6rem 0;
+    background: #FFFFFF;
+    /* Pure white to blend gently before CTA */
+    border-top: 1px solid var(--color-border-light);
+}
+
+.divisions-header-quiet {
+    margin-bottom: 2rem;
+}
+
+.divisions-grid-compact {
+    gap: 1.5rem;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.division-card-quiet {
+    aspect-ratio: 21/9;
+    border-radius: var(--radius-lg);
+}
+
+.division-card-quiet .division-content {
+    padding: 1.5rem 2rem;
+}
+
+.division-card-quiet::after {
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.3) 100%);
+}
+
 /* ===== PRODUCT CATEGORIES ===== */
 .essentials-section {
     padding: 8rem 0;

@@ -96,46 +96,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ===== DIVISIONS ===== */}
-      <section className="divisions-section">
-        <div className="container">
-          <div className="divisions-header">
-            <h2>Nuestras<br />Divisiones</h2>
-          </div>
-          <div className="divisions-grid">
-            <Link href="/spaces" className="division-card">
-              <div
-                className="division-image-overlay"
-                style={{
-                  backgroundImage: `url('${spaces.media_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCLz8v4_oFPBMMiqCnrU76QJwnn2PSkxsMf4ylCQzZWd7Cv8ModRb2NMS0IWyOB9z4gpX8_j6GalqUY1J2LXpHsKRjTdwm9UTzkzvGkaX287ySLZHg2fNjGEzRh-ZFdyCT__kUasJORbAsWrKuzDSOONhO1NtwhOKPyKAJJu6MuascVyD4muSzR9OU_8TN-AmlTpuxkFuSVp9cer-n8f7Fdx68oLjrnc-RmS_B51vaRdi4CFxf90wsheDvJmVsvok_gcnbqo_BMp5I'}')`
-                }}
-              ></div>
-              <div className="division-content">
-                <h2>{spaces.title || 'Greenland Spaces'}</h2>
-                <p>{spaces.body || 'Equipamiento robusto para eventos masivos, oficinas corporativas y espacios comerciales de alto tráfico.'}</p>
-                <span className="link-arrow">
-                  Explorar Spaces <ArrowRight size={16} />
-                </span>
-              </div>
-            </Link>
-            <Link href="/deco" className="division-card">
-              <div
-                className="division-image-overlay"
-                style={{
-                  backgroundImage: `url('${deco.media_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAPmn4yrX5vdF1CiFCxBnM8LCkujODoYraLU-YiTAjd8wrVwDFLEec0YoE1JROMS2KSGLg1mr02oZavrXBty020USeV5WHTuhenJm-Wr6ZuDjzpv6zTalWl6RW7jEy43EAMYL6xsG5gjPVYKltu4Qq19POIVzlYZCb60pHkqWuQN3ww5-Q5hDdV4FPv_yN8Wl56cv9Dle019xIqSb2CuTLjAmcFMXf3gMEFkMIfIKPIaD-HnMCFBQ1XQDYrQS_9ocxPEpP_38P90W8'}')`
-                }}
-              ></div>
-              <div className="division-content">
-                <h2>{deco.title || 'Greenland Deco'}</h2>
-                <p>{deco.body || 'Piezas de diseño exclusivo que combinan estética moderna con funcionalidad para el hogar contemporáneo.'}</p>
-                <span className="link-arrow">
-                  Explorar Deco <ArrowRight size={16} />
-                </span>
-              </div>
-            </Link>
-          </div>
-        </div>
-      </section>
 
       {/* ===== PRODUCT CATEGORIES ===== */}
       <section className="essentials-section">
@@ -241,6 +201,49 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ===== DIVISIONS (Moved to bottom as corporate reinforcement) ===== */}
+      <section className="divisions-section divisions-section-footer">
+        <div className="container">
+          <div className="divisions-header-quiet">
+            <span className="section-label text-center block mb-2">CORPORATIVO</span>
+            <h3 className="text-2xl md:text-3xl font-bold text-center text-slate-800 mb-10">Conoce más unidades comerciales del grupo</h3>
+          </div>
+          <div className="divisions-grid divisions-grid-compact">
+            <Link href="/spaces" className="division-card division-card-quiet">
+              <div
+                className="division-image-overlay opacity-60 group-hover:opacity-80 transition-opacity"
+                style={{
+                  backgroundImage: `url('${spaces.media_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCLz8v4_oFPBMMiqCnrU76QJwnn2PSkxsMf4ylCQzZWd7Cv8ModRb2NMS0IWyOB9z4gpX8_j6GalqUY1J2LXpHsKRjTdwm9UTzkzvGkaX287ySLZHg2fNjGEzRh-ZFdyCT__kUasJORbAsWrKuzDSOONhO1NtwhOKPyKAJJu6MuascVyD4muSzR9OU_8TN-AmlTpuxkFuSVp9cer-n8f7Fdx68oLjrnc-RmS_B51vaRdi4CFxf90wsheDvJmVsvok_gcnbqo_BMp5I'}')`
+                }}
+              ></div>
+              <div className="division-content p-6">
+                <h4 className="text-xl font-bold text-white mb-2">{spaces.title || 'Greenland Spaces'}</h4>
+                <p className="text-sm text-slate-200 line-clamp-2">{spaces.body || 'Equipamiento robusto para corporativos y espacios de alto tráfico.'}</p>
+                <span className="link-arrow text-sm mt-4">
+                  Visitar sitio <ArrowRight size={14} />
+                </span>
+              </div>
+            </Link>
+            <Link href="/deco" className="division-card division-card-quiet">
+              <div
+                className="division-image-overlay opacity-60 group-hover:opacity-80 transition-opacity"
+                style={{
+                  backgroundImage: `url('${deco.media_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAPmn4yrX5vdF1CiFCxBnM8LCkujODoYraLU-YiTAjd8wrVwDFLEec0YoE1JROMS2KSGLg1mr02oZavrXBty020USeV5WHTuhenJm-Wr6ZuDjzpv6zTalWl6RW7jEy43EAMYL6xsG5gjPVYKltu4Qq19POIVzlYZCb60pHkqWuQN3ww5-Q5hDdV4FPv_yN8Wl56cv9Dle019xIqSb2CuTLjAmcFMXf3gMEFkMIfIKPIaD-HnMCFBQ1XQDYrQS_9ocxPEpP_38P90W8'}')`
+                }}
+              ></div>
+              <div className="division-content p-6">
+                <h4 className="text-xl font-bold text-white mb-2">{deco.title || 'Greenland Deco'}</h4>
+                <p className="text-sm text-slate-200 line-clamp-2">{deco.body || 'Diseño exclusivo que combina estética moderna con funcionalidad.'}</p>
+                <span className="link-arrow text-sm mt-4">
+                  Visitar sitio <ArrowRight size={14} />
+                </span>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </section>
+
 
       {/* ===== CTA ===== */}
       <section className="cta-section">
