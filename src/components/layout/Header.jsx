@@ -10,7 +10,15 @@ const Header = () => {
 
   const navLinks = [
     { name: 'INICIO', href: '/' },
-    { name: 'CATÁLOGO', href: '/productos' },
+    {
+      name: 'SOLUCIONES GREENLAND',
+      isDropdown: true,
+      items: [
+        { name: 'Mobiliario Funcional', href: '/productos' },
+        { name: 'Greenland Spaces', href: '/spaces' },
+        { name: 'Greenland Deco', href: '/deco' },
+      ]
+    },
     { name: 'DISTRIBUIDORES', href: '/distribuidores' },
     { name: 'NOSOTROS', href: '/nosotros' },
   ];
@@ -26,13 +34,32 @@ const Header = () => {
         {/* Desktop Nav */}
         <nav className="header-nav desktop-nav">
           {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`nav-link ${pathname === link.href ? 'active' : ''}`}
-            >
-              {link.name}
-            </Link>
+            link.isDropdown ? (
+              <div key={link.name} className="nav-dropdown-wrapper">
+                <span className={`nav-link cursor-pointer ${pathname.includes('/productos') || pathname.includes('/spaces') || pathname.includes('/deco') ? 'active' : ''}`}>
+                  {link.name}
+                </span>
+                <div className="nav-dropdown-menu">
+                  {link.items.map(subItem => (
+                    <Link
+                      key={subItem.href}
+                      href={subItem.href}
+                      className={`dropdown-link ${pathname === subItem.href ? 'active' : ''}`}
+                    >
+                      {subItem.name}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`nav-link ${pathname === link.href ? 'active' : ''}`}
+              >
+                {link.name}
+              </Link>
+            )
           ))}
         </nav>
 
@@ -58,14 +85,34 @@ const Header = () => {
       {menuOpen && (
         <div className="mobile-nav">
           {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`mobile-link ${pathname === link.href ? 'active' : ''}`}
-              onClick={() => setMenuOpen(false)}
-            >
-              {link.name}
-            </Link>
+            link.isDropdown ? (
+              <div key={link.name} className="mobile-dropdown-wrapper">
+                <div className="mobile-link text-slate-800 font-bold border-none pb-2">
+                  {link.name}
+                </div>
+                <div className="mobile-dropdown-items pb-4 border-b border-slate-200">
+                  {link.items.map(subItem => (
+                    <Link
+                      key={subItem.href}
+                      href={subItem.href}
+                      className={`mobile-sublink ${pathname === subItem.href ? 'active' : ''}`}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      {subItem.name}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`mobile-link ${pathname === link.href ? 'active' : ''}`}
+                onClick={() => setMenuOpen(false)}
+              >
+                {link.name}
+              </Link>
+            )
           ))}
           <Link
             href="/login"
@@ -157,6 +204,51 @@ const Header = () => {
           color: var(--color-primary);
         }
 
+        /* Dropdown Styles */
+        .nav-dropdown-wrapper {
+          position: relative;
+          display: inline-block;
+          padding: 1rem 0;
+        }
+
+        .nav-dropdown-menu {
+          position: absolute;
+          top: 100%;
+          left: 50%;
+          transform: translateX(-50%) translateY(10px);
+          background: #FFFFFF;
+          min-width: 240px;
+          box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1);
+          border-radius: var(--radius-lg);
+          padding: 0.5rem;
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          border: 1px solid var(--color-border-light);
+        }
+
+        .nav-dropdown-wrapper:hover .nav-dropdown-menu {
+          opacity: 1;
+          visibility: visible;
+          transform: translateX(-50%) translateY(0);
+        }
+
+        .dropdown-link {
+          display: block;
+          padding: 0.75rem 1rem;
+          color: var(--color-text-secondary);
+          font-size: 0.85rem;
+          font-weight: 600;
+          border-radius: var(--radius-md);
+          transition: all 0.2s ease;
+          letter-spacing: 0.03em;
+        }
+
+        .dropdown-link:hover, .dropdown-link.active {
+          background: var(--color-bg-alt);
+          color: var(--color-primary);
+        }
+
         /* Actions */
         .header-actions {
           display: flex;
@@ -215,6 +307,23 @@ const Header = () => {
           color: var(--color-primary);
           border-bottom: none;
           margin-top: 0.5rem;
+        }
+
+        .mobile-dropdown-wrapper {
+          padding-top: 1rem;
+        }
+
+        .mobile-sublink {
+          display: block;
+          padding: 0.75rem 0 0.75rem 1rem;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--color-text-secondary);
+          transition: color 0.2s;
+        }
+
+        .mobile-sublink:hover, .mobile-sublink.active {
+          color: var(--color-primary);
         }
 
         @media (max-width: 768px) {
