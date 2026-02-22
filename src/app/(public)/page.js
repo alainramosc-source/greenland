@@ -218,7 +218,7 @@ export default async function HomePage() {
       <section className="divisions-section">
         <div className="container">
           <div className="divisions-header">
-            <h2>Nuestras<br />Divisiones</h2>
+            <h2>Soluciones Especializadas<br />Greenland</h2>
           </div>
           <div className="divisions-grid">
             <Link href="/spaces" className="division-card">
