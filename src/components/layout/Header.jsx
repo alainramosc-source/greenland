@@ -92,7 +92,7 @@ const Header = () => {
           max-width: 1280px;
           margin: 0 auto;
           padding: 0 2rem;
-          height: 100px;
+          height: 140px;  /* Increased to accommodate larger logo without crowding */
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -111,7 +111,7 @@ const Header = () => {
         }
 
         .logo-image {
-            height: 72px; /* Large, clear branding height */
+            height: 130px; /* Approx 1.8x size to be visually protaganistic and roughly double the CTA button */
             width: auto;
             object-fit: contain;
         }
@@ -220,7 +220,10 @@ const Header = () => {
         @media (max-width: 768px) {
           .header-inner {
             padding: 0 1.25rem;
-            height: 64px;
+            height: 80px;
+          }
+          .logo-image {
+            height: 60px;
           }
           .desktop-nav {
             display: none;
