@@ -157,7 +157,7 @@ export default async function HomePage() {
             </Link>
             <Link href="/categorias/sillas-plegables" className="product-category-card">
               <div className="category-image-wrapper">
-                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAN9X-tB_ZYE7BZLXDlH77Px4LMyF4Ce1dCmHrUEceD-y_vl0qBs1fomoyc0MoWqjBwNRCuESGm8f0eHa-8aoI5zUQMlA9rxaLiEDmkOMO8SASsUB5X18Hwhy_FtACPwvJGn7YseuvZDTgGU-Ec03O3PbBu94yjjYpsB1Cz5tnMCCJ7B2ypbyNBhhxA0dmP2gL5wwXEZ_1ASfBCun0VnbmWGKVt7ci7n8q6RlindORYVlWX9PsXC0H4e3nQcDvoDhvPFkcx3WAbIeg" alt="Sillas de Evento" />
+                <img src="/sillas-category.png" alt="Sillas Plegables" />
               </div>
               <h3>Sillas Plegables</h3>
               <p>Resistentes, funcionales y listas para cualquier ocasión.</p>
