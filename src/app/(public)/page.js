@@ -147,36 +147,36 @@ export default async function HomePage() {
           </div>
 
           <div className="products-grid">
-            <Link href="/productos?cat=mesas" className="product-category-card">
+            <Link href="/categorias/mesas-plegables" className="product-category-card">
               <div className="category-image-wrapper">
                 <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAO2iX306BVU0Y1mwqhVM0TDenOx15Qj_GEB5Z_UkkK0qx7T74fzVgKKURtX_lPZ1xV3Q0C6hG-FJSzsHrrZXqw0MTf3OM0r6-jeT6-mfrVLEtOi_s6TzB5kddIHwiPrUEi7KIrZZnjCHcu9xgsfl0m79XVtFsO3iGMFY5I4vcz_0g0NTy6tLeSdIdiQeEedQ1kCngK1_j8hdd2xA4_8eFjS-trLNHCHALbixcQ0ZNIaHIBMazWC2DL0T_Lae1VlaxLloEs9h-AkjU" alt="Mesas Plegables" />
               </div>
               <h3>Mesas Plegables</h3>
-              <p>Rectangulares y redondas, HDPE alta densidad.</p>
+              <p>Soluciones versátiles en múltiples tamaños y formatos.</p>
               <span className="virtual-btn">Ver Modelos →</span>
             </Link>
-            <Link href="/productos?cat=sillas" className="product-category-card">
+            <Link href="/categorias/sillas-plegables" className="product-category-card">
               <div className="category-image-wrapper">
                 <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAN9X-tB_ZYE7BZLXDlH77Px4LMyF4Ce1dCmHrUEceD-y_vl0qBs1fomoyc0MoWqjBwNRCuESGm8f0eHa-8aoI5zUQMlA9rxaLiEDmkOMO8SASsUB5X18Hwhy_FtACPwvJGn7YseuvZDTgGU-Ec03O3PbBu94yjjYpsB1Cz5tnMCCJ7B2ypbyNBhhxA0dmP2gL5wwXEZ_1ASfBCun0VnbmWGKVt7ci7n8q6RlindORYVlWX9PsXC0H4e3nQcDvoDhvPFkcx3WAbIeg" alt="Sillas de Evento" />
               </div>
-              <h3>Sillas de Evento</h3>
-              <p>Tiffany, Avant y Plegables profesionales.</p>
+              <h3>Sillas Plegables</h3>
+              <p>Resistentes, funcionales y listas para cualquier ocasión.</p>
               <span className="virtual-btn">Ver Modelos →</span>
             </Link>
-            <Link href="/productos?cat=toldos" className="product-category-card">
+            <Link href="/categorias/toldos-plegables" className="product-category-card">
               <div className="category-image-wrapper">
                 <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmplUHMWlumvsOOFf--Rqq5AAAhik84OFOR6vyYbUAHwPOMyiv0MGdPTaLeSNnjqXzWKV2rOdDoNEuvpna2OijmmdfZ-FkvV0wSzpqpnhdhBq8jabToitDDB1Dpg-9dkWDGAaThBuCdUBmW5RHIIiU6CwQHogg5X1eZxnvVj4thB3xLtmmTZLyLfhQDxh_TI2LQtfrckFqtUNQ466mAsPUbmg2xJMUt88j7QnCVLxyPxIpSAqOSOKVvnHGXTR0PVNYbaxMKBx6ZpQ" alt="Toldos Profesionales" />
               </div>
-              <h3>Toldos Profesionales</h3>
-              <p>Carpa y plegables 3x3 de fácil montaje.</p>
+              <h3>Toldos Plegables</h3>
+              <p>Sombra práctica y estructura confiable para uso frecuente.</p>
               <span className="virtual-btn">Ver Modelos →</span>
             </Link>
-            <Link href="/productos?cat=bancas" className="product-category-card">
+            <Link href="/categorias/bancas-y-mobiliario" className="product-category-card">
               <div className="category-image-wrapper">
                 <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgXBrFf0z3HQw6MUecviGaPLekdosOBBckY-00hNa3GKBGJ9zEoXSn3JCfkhG8bDd0zLHtAro0d3kK-fGosyyUsgXRKy8CKhYNhWhwHglMoWwfDw5wnytoy5UkIf6ZAScMaT91clg81g_9LEZYey5gAOy98eBFBdOHxm_tyNPmt5wJByfXW0JE7K-NsK5wPcoldNYp6pUPOWYZswwAMyd8vvUueiTykHcqW_pfn4XzpI39_qhroVaEwUMuZvy20fc-pOsOVgi_8to" alt="Bancas & Mobiliario" />
               </div>
-              <h3>Bancas & Mobiliario</h3>
-              <p>Parques, jardines y complementos versátiles.</p>
+              <h3>Bancas y Mobiliario</h3>
+              <p>Mobiliario funcional para exteriores y áreas comunes.</p>
               <span className="virtual-btn">Ver Modelos →</span>
             </Link>
           </div>
