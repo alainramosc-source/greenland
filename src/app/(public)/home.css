@@ -649,45 +649,45 @@
     bottom: 180%;
 }
 
-/* Calculated Coordinates for Mexico Map on a Square Canvas */
+/* Computed Coordinates for Mexico Map based on reference image */
 .saltillo {
-    top: 42.2%;
-    left: 51.6%;
+    top: 41.02%;
+    left: 49.98%;
 }
 
 .monterrey {
-    top: 41.6%;
-    left: 53.8%;
+    top: 40.22%;
+    left: 51.56%;
 }
 
 .altamira {
-    top: 52.1%;
-    left: 61.6%;
+    top: 50.77%;
+    left: 58.07%;
 }
 
 .mazatlan {
-    top: 49.3%;
-    left: 34.1%;
+    top: 47.65%;
+    left: 37.39%;
 }
 
 .queretaro {
-    top: 57.6%;
-    left: 53.5%;
+    top: 58.46%;
+    left: 52.65%;
 }
 
 .morelia {
-    top: 60.5%;
-    left: 51.2%;
+    top: 62.36%;
+    left: 49.33%;
 }
 
 .tlalnepantla {
-    top: 61.2%;
-    left: 57.4%;
+    top: 62.22%;
+    left: 55.47%;
 }
 
 .merida {
-    top: 56.7%;
-    left: 88.3%;
+    top: 57.91%;
+    left: 79.69%;
 }
 
 /* Dark mode fallback just in case */

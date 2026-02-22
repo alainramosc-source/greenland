@@ -197,7 +197,6 @@ export default async function HomePage() {
                   alt="Mapa de Cobertura Nacional"
                   className="coverage-map-image"
                 />
-
                 {/* Puntos estratégicos */}
                 <div className="map-pin saltillo" title="Saltillo"></div>
                 <div className="map-pin monterrey" title="Monterrey"></div>
