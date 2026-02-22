@@ -188,15 +188,27 @@ export default async function HomePage() {
           <div className="coverage-content">
             <div className="coverage-info">
               <Truck size={40} className="coverage-icon" />
-              <h2>{coverage.title || 'Cobertura Total'}</h2>
-              <p>{coverage.body || 'Nuestra red logística conecta estratégicamente el norte, centro y sur del país.'}</p>
+              <h2>{coverage.title || 'Logística Estratégica'}</h2>
+              <p>{coverage.body || 'Greenland opera desde múltiples puntos estratégicos, desde donde surte a distribuidores y clientes en todo México con máxima velocidad, disponibilidad y confiabilidad logística.'}</p>
             </div>
             <div className="coverage-map-wrapper">
-              <img
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwkgcldJkjfmmaOP9aBPrsgunw4R1EoM0PvGVQjj_uUEK5wHP78cjrTBcvy1OhtOEA2Tp_8pMpzq19R8qu0438FqCeSKUi-WLbv9dUv2138jf3G6euTb6fjfb4s6pntdcGvc0cm0neKjW4MP_EsMkhuJWbEFWgG1-Edw0iY7yREU5kUa31XG0d2erwZOmzEuvbWBpmqIAU7KTGqzCJy2REMZ4Jkif62yL2PVga1g0UAnayGVbqPFBVAEXH5hHv3zVwwP9gZUATDU0"
-                alt="Mapa de Cobertura Nacional"
-                className="coverage-map-image"
-              />
+              <div className="coverage-map-container">
+                <img
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwkgcldJkjfmmaOP9aBPrsgunw4R1EoM0PvGVQjj_uUEK5wHP78cjrTBcvy1OhtOEA2Tp_8pMpzq19R8qu0438FqCeSKUi-WLbv9dUv2138jf3G6euTb6fjfb4s6pntdcGvc0cm0neKjW4MP_EsMkhuJWbEFWgG1-Edw0iY7yREU5kUa31XG0d2erwZOmzEuvbWBpmqIAU7KTGqzCJy2REMZ4Jkif62yL2PVga1g0UAnayGVbqPFBVAEXH5hHv3zVwwP9gZUATDU0"
+                  alt="Mapa de Cobertura Nacional"
+                  className="coverage-map-image"
+                />
+
+                {/* Puntos estratégicos */}
+                <div className="map-pin saltillo" title="Saltillo"></div>
+                <div className="map-pin monterrey" title="Monterrey"></div>
+                <div className="map-pin altamira" title="Altamira"></div>
+                <div className="map-pin mazatlan" title="Mazatlán"></div>
+                <div className="map-pin queretaro" title="Querétaro"></div>
+                <div className="map-pin morelia" title="Morelia"></div>
+                <div className="map-pin tlalnepantla" title="Tlalnepantla"></div>
+                <div className="map-pin merida" title="Mérida"></div>
+              </div>
             </div>
           </div>
         </div>

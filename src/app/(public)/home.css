@@ -599,6 +599,97 @@
     opacity: 1;
 }
 
+.coverage-map-container {
+    position: relative;
+    width: 100%;
+    max-width: 600px;
+}
+
+.map-pin {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background-color: var(--color-primary);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 4px rgba(6, 78, 59, 0.2);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    z-index: 10;
+}
+
+.map-pin:hover {
+    transform: translate(-50%, -50%) scale(1.5);
+    background-color: var(--color-accent);
+    box-shadow: 0 0 0 6px rgba(124, 191, 102, 0.3);
+}
+
+.map-pin::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 150%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-text);
+    color: #FFF;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, bottom 0.2s ease;
+}
+
+.map-pin:hover::after {
+    opacity: 1;
+    bottom: 180%;
+}
+
+/* Approximate Coordinates for Mexico Map */
+.saltillo {
+    top: 32%;
+    left: 51%;
+}
+
+.monterrey {
+    top: 35%;
+    left: 54%;
+}
+
+.altamira {
+    top: 48%;
+    left: 58%;
+}
+
+.mazatlan {
+    top: 46%;
+    left: 35%;
+}
+
+.queretaro {
+    top: 62%;
+    left: 53%;
+}
+
+.morelia {
+    top: 65%;
+    left: 49%;
+}
+
+.tlalnepantla {
+    top: 64%;
+    left: 56%;
+}
+
+.merida {
+    top: 55%;
+    left: 88%;
+}
+
 /* Dark mode fallback just in case */
 /* Dark mode fallback just in case */
 .dark .coverage-map-image {
