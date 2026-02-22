@@ -151,8 +151,7 @@ export default async function HomePage() {
             <h2>{values.title || 'Estándar Industrial.\nSin Complicaciones.'}</h2>
             <ul className="values-list">
               <li>
-                <strong>Calidad de Exportación</strong> — Polietileno de alta densidad (HDPE) y acero con
-                recubrimiento en polvo para máxima durabilidad.
+                <strong>Calidad Industrial Comprobada</strong> — Diseñados para uso intensivo y operación continua, nuestros productos están pensados para resistir el ritmo real del trabajo diario.
               </li>
               <li>
                 <strong>Stock Permanente</strong> — Más de 50,000 unidades listas para envío inmediato
