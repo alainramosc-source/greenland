@@ -316,6 +316,11 @@ const Header = () => {
           padding-top: 1rem;
         }
 
+        .mobile-dropdown-items {
+          display: flex;
+          flex-direction: column;
+        }
+
         .mobile-sublink {
           display: block;
           padding: 0.75rem 0 0.75rem 1rem;
