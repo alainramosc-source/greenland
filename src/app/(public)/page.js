@@ -175,7 +175,7 @@ export default async function HomePage() {
             <div
               className="img-placeholder"
               style={{
-                backgroundImage: `url('${values.media_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCmFVNtzbEMtc8JFc58Qn4MD-sQPX8M-jr2h36vBwe75MX_HHS7r0QtBpOOoKUttUqR7syaVmxndAaar6J4qQGaPrL6T1wvjQzZKlfZkd19IU_CHuSQblZNjQp3F2x8HqRLL2aMGQisNCTuN-Nl_D70OEW1uscNJvATBi0URC4AMGPxIqaCQrZTNZrs7mx2B6W-hkxIyidm_ODgCBY8EYRnAdoawUTfuIkYmJiLTFG47LnOLwQqFUiR6CDGGG8qYt-KOjprhzxU23g'}')`
+                backgroundImage: `url('/calidad-greenland.jpg')`
               }}
             ></div>
           </div>
