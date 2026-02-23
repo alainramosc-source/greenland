@@ -10,10 +10,11 @@ import {
 
 const STATUS_CONFIG = {
   pending: { label: 'Pendiente', className: 'bg-slate-200/60 text-slate-600', dotClass: 'bg-slate-400' },
-  processing: { label: 'Procesando', className: 'border border-[#6a9a04] text-[#6a9a04] bg-transparent', dotClass: 'bg-[#6a9a04]' },
+  processing: { label: 'Pagado', className: 'border border-[#6a9a04] text-[#6a9a04] bg-transparent', dotClass: 'bg-[#6a9a04]' },
   shipped: { label: 'Enviado', className: 'bg-[#dee24b] text-slate-800', dotClass: 'bg-[#dee24b]' },
   delivered: { label: 'Completado', className: 'bg-[#6a9a04] text-white', dotClass: 'bg-[#6a9a04]' },
   cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-600', dotClass: 'bg-red-500' },
+  rejected: { label: 'Rechazado', className: 'bg-orange-100 text-orange-600', dotClass: 'bg-orange-500' },
 };
 
 export default function PedidosPage() {
@@ -64,8 +65,8 @@ export default function PedidosPage() {
         {/* Page Header (Search) */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
           <div>
-            <h1 className="text-4xl font-black text-[#000000] tracking-tight">Pedidos</h1>
-            <p className="text-[#747474] mt-1 font-medium">Gestiona y monitorea las órdenes en tiempo real.</p>
+            <h1 className="text-4xl font-black text-[#000000] tracking-tight">{isAdmin ? 'Pedidos' : 'Mis Pedidos'}</h1>
+            <p className="text-[#747474] mt-1 font-medium">{isAdmin ? 'Gestiona y monitorea las órdenes en tiempo real.' : 'Consulta tus pedidos y realiza nuevos pedidos.'}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative w-80 group">

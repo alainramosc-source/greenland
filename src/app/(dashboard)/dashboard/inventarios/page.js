@@ -1,12 +1,13 @@
 'use client';
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { Package, History, X, Search, AlertTriangle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Package, History, X, Search, AlertTriangle, Shield } from 'lucide-react';
 
 export default function InventariosPage() {
   const [products, setProducts] = useState([]);
-  const [inventory, setInventory] = useState({});
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
@@ -15,11 +16,20 @@ export default function InventariosPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
 
   const supabase = createClient();
+  const router = useRouter();
 
   const fetchData = async () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { router.push('/login'); return; }
+
+    // Admin check
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    if (profile?.role !== 'admin') {
+      router.push('/dashboard/pedidos');
+      return;
+    }
+    setIsAdmin(true);
 
     const { data: productsData } = await supabase
       .from('products')
@@ -27,20 +37,7 @@ export default function InventariosPage() {
       .eq('is_active', true)
       .order('name');
 
-    const { data: logsData } = await supabase
-      .from('inventory_logs')
-      .select('product_id, quantity_change')
-      .eq('user_id', user.id);
-
-    const stockMap = {};
-    if (logsData) {
-      logsData.forEach(log => {
-        stockMap[log.product_id] = (stockMap[log.product_id] || 0) + log.quantity_change;
-      });
-    }
-
     setProducts(productsData || []);
-    setInventory(stockMap);
     setLoading(false);
   };
 
@@ -131,7 +128,9 @@ export default function InventariosPage() {
               <tr className="bg-slate-50/50 border-b border-slate-200">
                 <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Producto</th>
                 <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">SKU</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Stock</th>
+                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Stock Total</th>
+                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Reservado</th>
+                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Disponible</th>
                 <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Precio</th>
                 <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Estado</th>
                 <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 text-right">Acciones</th>
@@ -139,10 +138,12 @@ export default function InventariosPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredProducts.length === 0 ? (
-                <tr><td colSpan="6" className="px-6 py-12 text-center text-slate-400">No se encontraron productos.</td></tr>
+                <tr><td colSpan="8" className="px-6 py-12 text-center text-slate-400">No se encontraron productos.</td></tr>
               ) : (
                 filteredProducts.map(product => {
-                  const currentStock = inventory[product.id] || 0;
+                  const currentStock = product.stock_quantity || 0;
+                  const reservedStock = product.reserved_quantity || 0;
+                  const availableStock = currentStock - reservedStock;
                   const status = getStockStatus(currentStock);
                   return (
                     <tr key={product.id} className="hover:bg-white/50 transition-colors group">
@@ -163,6 +164,16 @@ export default function InventariosPage() {
                       <td className="px-6 py-4">
                         <p className={`text-sm font-bold m-0 ${currentStock <= 0 ? 'text-red-500' : 'text-slate-900'}`}>
                           {currentStock} <span className="text-[10px] text-slate-400">UND</span>
+                        </p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className={`text-sm font-bold m-0 ${reservedStock > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                          {reservedStock} <span className="text-[10px] text-slate-400">UND</span>
+                        </p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className={`text-sm font-bold m-0 ${availableStock <= 0 ? 'text-red-500' : availableStock <= (product.stock_minimum || 5) ? 'text-amber-500' : 'text-[#6a9a04]'}`}>
+                          {availableStock} <span className="text-[10px] text-slate-400">UND</span>
                         </p>
                       </td>
                       <td className="px-6 py-4">

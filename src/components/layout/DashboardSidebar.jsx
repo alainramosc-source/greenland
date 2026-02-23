@@ -15,13 +15,19 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
     router.refresh();
   };
 
-  const navItems = [
-    { name: 'Tablero', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Pedidos', href: '/dashboard/pedidos', icon: ShoppingCart },
-    { name: 'Productos', href: '/dashboard/inventarios', icon: Package },
-  ];
+  // Distributor: only "Mis Pedidos"
+  // Admin: full navigation
+  const navItems = userRole === 'admin'
+    ? [
+      { name: 'Tablero', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'Pedidos', href: '/dashboard/pedidos', icon: ShoppingCart },
+    ]
+    : [
+      { name: 'Mis Pedidos', href: '/dashboard/pedidos', icon: ShoppingCart },
+    ];
 
   const adminItems = userRole === 'admin' ? [
+    { name: 'Inventarios', href: '/dashboard/inventarios', icon: Package },
     { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: BarChart3 },
     { name: 'Clientes', href: '/dashboard/usuarios', icon: Users },
     { name: 'CMS Landing', href: '/dashboard/cms?v=sync', icon: FileText }

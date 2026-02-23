@@ -32,6 +32,13 @@ export default function NuevoPedidoPage() {
         .eq('is_active', true)
         .order('name');
 
+      // Calculate available stock for each product
+      if (productsData) {
+        productsData.forEach(p => {
+          p.available_stock = (p.stock_quantity || 0) - (p.reserved_quantity || 0);
+        });
+      }
+
       if (productsData) setProducts(productsData);
 
       // Unique categories
@@ -120,6 +127,14 @@ export default function NuevoPedidoPage() {
         .insert(orderItems);
 
       if (itemsError) throw itemsError;
+
+      // Reserve inventory for this order
+      const { data: reserveResult, error: reserveError } = await supabase.rpc('reserve_inventory_on_order', { p_order_id: order.id });
+      if (reserveError) {
+        console.error('Error reserving inventory:', reserveError);
+      } else if (reserveResult && !reserveResult.success) {
+        console.warn('Inventory reservation warning:', reserveResult.error);
+      }
 
       setOrderSuccess(true);
       setCart([]);
@@ -211,15 +226,19 @@ export default function NuevoPedidoPage() {
                     <h3 className="font-bold text-slate-900 leading-tight">{product.name}</h3>
                     <span className="font-black text-[#ec5b13] bg-[#ec5b13]/10 px-2 py-0.5 rounded-lg text-sm shrink-0">${product.price}</span>
                   </div>
-                  <p className="text-sm text-slate-500 mb-4 line-clamp-2">{product.description}</p>
+                  <p className="text-sm text-slate-500 mb-2 line-clamp-2">{product.description}</p>
+                  <p className={`text-xs font-bold m-0 mb-3 ${product.available_stock <= 0 ? 'text-red-500' : product.available_stock <= 10 ? 'text-amber-500' : 'text-[#6a9a04]'}`}>
+                    {product.available_stock <= 0 ? 'Sin stock disponible' : `${product.available_stock} disponibles`}
+                  </p>
 
                   <div className="flex justify-between items-center mt-auto pt-4 border-t border-slate-200/50">
                     <span className="text-xs font-mono font-medium text-slate-400 bg-slate-100 px-2 py-1 rounded">SKU: {product.sku}</span>
                     <button
-                      className="flex items-center gap-2 bg-slate-100 hover:bg-[#ec5b13] hover:text-white text-slate-700 font-bold px-3 py-1.5 rounded-lg transition-colors text-sm"
+                      className={`flex items-center gap-2 font-bold px-3 py-1.5 rounded-lg transition-colors text-sm ${product.available_stock <= 0 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-100 hover:bg-[#ec5b13] hover:text-white text-slate-700 cursor-pointer'}`}
                       onClick={() => addToCart(product)}
+                      disabled={product.available_stock <= 0}
                     >
-                      <Plus size={16} /> Agregar
+                      <Plus size={16} /> {product.available_stock <= 0 ? 'Agotado' : 'Agregar'}
                     </button>
                   </div>
                 </div>
