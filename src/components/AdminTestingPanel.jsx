@@ -32,9 +32,12 @@ export default function AdminTestingPanel() {
                         setSelectedDistributor(currentSimulatedId);
                     }
                 }
-                // Load distributors
-                const { data: dists } = await supabase.from('profiles').select('id, full_name, email, role').eq('role', 'distributor');
-                if (dists) setDistributors(dists);
+                // Load distributors (or any non-admin users to allow testing even if no distributors exist)
+                const { data: dists } = await supabase.from('profiles').select('id, full_name, email, role').order('created_at', { ascending: false });
+                if (dists) {
+                    // Show everyone except the current user to allow simulating anyone
+                    setDistributors(dists.filter(d => d.id !== user.id));
+                }
                 // Load order stats
                 await refreshStats();
             }
