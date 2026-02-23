@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { formatCurrency, formatDate } from '@/utils/formatters';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
@@ -100,14 +101,6 @@ export default function DashboardPage() {
       return matchDist && matchStatus && matchDate && matchSearch;
     });
   }, [orders, distributorFilter, statusFilter, dateFrom, dateTo, searchTerm]);
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount || 0);
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' });
-  };
 
   const statusConfig = {
     pending: { label: 'Pendiente', className: 'bg-amber-100/80 text-amber-700 border-amber-200' },

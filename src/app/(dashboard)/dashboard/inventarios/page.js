@@ -78,10 +78,13 @@ export default function InventariosPage() {
       (p.sku && p.sku.toLowerCase().includes(safeSearch));
     return matchSearch;
   });
-
-  const totalItems = Object.values(inventory).reduce((sum, v) => sum + Math.max(v, 0), 0);
-  const outOfStockCount = products.filter(p => (inventory[p.id] || 0) <= 0).length;
-  const lowStockCount = products.filter(p => { const s = inventory[p.id] || 0; return s > 0 && s <= 10; }).length;
+  // Calculate stats based on actual product data
+  const totalItems = products.reduce((sum, p) => sum + Math.max((p.stock_quantity || 0) - (p.reserved_quantity || 0), 0), 0);
+  const outOfStockCount = products.filter(p => ((p.stock_quantity || 0) - (p.reserved_quantity || 0)) <= 0).length;
+  const lowStockCount = products.filter(p => {
+    const s = (p.stock_quantity || 0) - (p.reserved_quantity || 0);
+    return s > 0 && s <= 10;
+  }).length;
 
   const getStockStatus = (stock) => {
     if (stock <= 0) return { label: 'Agotado', dotClass: 'bg-red-500', textClass: 'text-red-500' };
@@ -143,8 +146,8 @@ export default function InventariosPage() {
                 filteredProducts.map(product => {
                   const currentStock = product.stock_quantity || 0;
                   const reservedStock = product.reserved_quantity || 0;
-                  const availableStock = currentStock - reservedStock;
-                  const status = getStockStatus(currentStock);
+                  const availableStock = (product.stock_quantity || 0) - (product.reserved_quantity || 0);
+                  const status = getStockStatus(availableStock);
                   return (
                     <tr key={product.id} className="hover:bg-white/50 transition-colors group">
                       <td className="px-6 py-4">
