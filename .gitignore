@@ -5,3 +5,5 @@ _legacy_site
 .next
 .vercel
 .env*.local
+playwright-report/
+test-results/

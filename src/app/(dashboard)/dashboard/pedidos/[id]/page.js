@@ -37,7 +37,19 @@ export default function OrderDetailsPage() {
       .select('role')
       .eq('id', user.id)
       .single();
-    const admin = profile?.role === 'admin';
+
+    let admin = profile?.role === 'admin';
+    let targetUserId = user.id;
+
+    // Simulation check
+    if (admin && typeof window !== 'undefined' && sessionStorage.getItem('test_view_role') === 'distributor') {
+      const simulatedDistId = sessionStorage.getItem('test_view_distributor_id');
+      if (simulatedDistId) {
+        admin = false;
+        targetUserId = simulatedDistId;
+      }
+    }
+
     setIsAdmin(admin);
 
     const { data, error } = await supabase
@@ -63,7 +75,7 @@ export default function OrderDetailsPage() {
       console.error('Error fetching order:', error);
     } else {
       // If not admin, verify the order belongs to this user
-      if (!admin && data.distributor_id !== user.id) {
+      if (!admin && data.distributor_id !== targetUserId) {
         router.push('/dashboard/pedidos');
         return;
       }

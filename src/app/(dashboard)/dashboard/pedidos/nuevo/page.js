@@ -103,11 +103,22 @@ export default function NuevoPedidoPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No user found");
 
+      let distributorIdToUse = user.id;
+
+      // Check if admin is simulating a distributor
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      if (profile?.role === 'admin' && typeof window !== 'undefined' && sessionStorage.getItem('test_view_role') === 'distributor') {
+        const simulatedDistId = sessionStorage.getItem('test_view_distributor_id');
+        if (simulatedDistId) {
+          distributorIdToUse = simulatedDistId;
+        }
+      }
+
       // 1. Create Order
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
-          distributor_id: user.id,
+          distributor_id: distributorIdToUse,
           order_number: `ORD-${Date.now().toString().slice(-6)}`, // Simple ID gen
           status: 'pending',
           total_amount: cartTotal,

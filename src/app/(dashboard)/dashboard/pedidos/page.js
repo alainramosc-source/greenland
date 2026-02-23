@@ -31,11 +31,25 @@ export default function PedidosPage() {
       if (!user) { setLoading(false); return; }
 
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-      const admin = profile?.role === 'admin';
-      setIsAdmin(admin);
+      const actualRole = profile?.role;
+      let isAdmin = actualRole === 'admin';
+      let targetUserId = user.id;
+
+      // Admin Panel simulation logic
+      if (isAdmin && typeof window !== 'undefined' && sessionStorage.getItem('test_view_role') === 'distributor') {
+        const simulatedDistId = sessionStorage.getItem('test_view_distributor_id');
+        if (simulatedDistId) {
+          isAdmin = false;
+          targetUserId = simulatedDistId;
+        }
+      }
+
+      setIsAdmin(isAdmin);
 
       let query = supabase.from('orders').select('*, profiles:distributor_id(full_name, email, city)').order('created_at', { ascending: false });
-      if (!admin) query = query.eq('distributor_id', user.id);
+      if (!isAdmin) {
+        query = query.eq('distributor_id', targetUserId);
+      }
 
       const { data } = await query;
       if (data) setOrders(data);
