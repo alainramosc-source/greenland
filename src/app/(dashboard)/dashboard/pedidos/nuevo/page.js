@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { Search, ShoppingCart, Plus, Minus, ArrowRight, CheckCircle, Package } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import ProductGallery from '@/components/ProductGallery';
 
 export default function NuevoPedidoPage() {

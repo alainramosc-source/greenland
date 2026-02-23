@@ -63,22 +63,21 @@ export default function AdminTestingPanel() {
         setLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 20));
     };
 
-    // Toggle role simulation
-    const toggleRoleView = () => {
-        const newVal = !viewingAsDistributor;
-        setViewingAsDistributor(newVal);
-        // Store in sessionStorage so other pages can read it
-        if (newVal) {
-            sessionStorage.setItem('test_view_role', 'distributor');
-            sessionStorage.setItem('test_view_distributor_id', selectedDistributor);
-            addLog(`Vista cambiada a DISTRIBUIDOR${selectedDistributor ? ` (${distributors.find(d => d.id === selectedDistributor)?.full_name || selectedDistributor})` : ''}`);
-        } else {
+    // Role simulation switch
+    const handleRoleSwitch = (val) => {
+        if (val === '') {
             sessionStorage.removeItem('test_view_role');
             sessionStorage.removeItem('test_view_distributor_id');
-            addLog('Vista restaurada a ADMINISTRADOR');
+            setViewingAsDistributor(false);
+            setSelectedDistributor('');
+            window.location.reload();
+        } else {
+            sessionStorage.setItem('test_view_role', 'distributor');
+            sessionStorage.setItem('test_view_distributor_id', val);
+            setViewingAsDistributor(true);
+            setSelectedDistributor(val);
+            window.location.reload();
         }
-        // Reload page to apply
-        window.location.reload();
     };
 
     // Reset all reserved_quantity to 0
@@ -202,25 +201,17 @@ export default function AdminTestingPanel() {
                                 <Eye className="w-3 h-3" /> Simulador de Rol
                             </div>
                             <select
-                                className="w-full bg-slate-700 border-none rounded-lg px-3 py-2 text-sm text-white outline-none"
+                                className="w-full bg-slate-700 border-none rounded-lg px-3 py-2 text-sm text-white outline-none cursor-pointer"
                                 value={selectedDistributor}
-                                onChange={(e) => setSelectedDistributor(e.target.value)}
+                                onChange={(e) => handleRoleSwitch(e.target.value)}
                             >
-                                <option value="">Seleccionar distribuidor...</option>
-                                {distributors.map(d => (
-                                    <option key={d.id} value={d.id}>{d.full_name || d.email}</option>
-                                ))}
+                                <option value="">👑 Vista Administrador (Normal)</option>
+                                <optgroup label="Ver como Distribuidor">
+                                    {distributors.map(d => (
+                                        <option key={d.id} value={d.id}>👁 {d.full_name || d.email}</option>
+                                    ))}
+                                </optgroup>
                             </select>
-                            <button
-                                onClick={toggleRoleView}
-                                className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewingAsDistributor ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}
-                            >
-                                {viewingAsDistributor ? (
-                                    <><EyeOff className="w-4 h-4" /> Restaurar Vista Admin</>
-                                ) : (
-                                    <><Eye className="w-4 h-4" /> Ver como Distribuidor</>
-                                )}
-                            </button>
                         </div>
 
                         {/* Order Stats */}
