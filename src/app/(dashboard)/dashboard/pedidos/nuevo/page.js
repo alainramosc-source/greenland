@@ -42,7 +42,7 @@ export default function NuevoPedidoPage() {
         if (productsData) setProducts(productsData);
 
         // Unique categories
-        const uniqueCats = Array.from(new Set(productsData?.map(p => p.categories?.name).filter(Boolean)));
+        const uniqueCats = Array.from(new Set((productsData || []).map(p => p.categories?.name).filter(Boolean)));
         setCategories(uniqueCats);
       } catch (err) {
         console.error('Error fetching products:', err);

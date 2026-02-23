@@ -23,6 +23,15 @@ export default function AdminTestingPanel() {
             const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
             if (profile?.role === 'admin') {
                 setIsAdmin(true);
+                // Check if currently simulating
+                const isSimulating = sessionStorage.getItem('test_view_role') === 'distributor';
+                if (isSimulating) {
+                    setViewingAsDistributor(true);
+                    const currentSimulatedId = sessionStorage.getItem('test_view_distributor_id');
+                    if (currentSimulatedId) {
+                        setSelectedDistributor(currentSimulatedId);
+                    }
+                }
                 // Load distributors
                 const { data: dists } = await supabase.from('profiles').select('id, full_name, email, role').eq('role', 'distributor');
                 if (dists) setDistributors(dists);
