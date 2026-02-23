@@ -2,11 +2,13 @@
 import { useState, useEffect } from 'react';
 import DashboardSidebar from '@/components/layout/DashboardSidebar';
 import DashboardTopBar from '@/components/layout/DashboardTopBar';
+import AdminTestingPanel from '@/components/AdminTestingPanel';
 import { createClient } from '@/utils/supabase/client';
 
 export default function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userRole, setUserRole] = useState(null);
+  const [actualRole, setActualRole] = useState(null);
   const [userName, setUserName] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -24,7 +26,14 @@ export default function DashboardLayout({ children }) {
           .single();
 
         if (profile) {
-          setUserRole(profile.role);
+          setActualRole(profile.role);
+          // Check for admin role simulation
+          const testRole = typeof window !== 'undefined' ? sessionStorage.getItem('test_view_role') : null;
+          if (profile.role === 'admin' && testRole === 'distributor') {
+            setUserRole('distributor');
+          } else {
+            setUserRole(profile.role);
+          }
           setUserName(profile.full_name || user.email.split('@')[0]);
         }
       }
@@ -62,6 +71,9 @@ export default function DashboardLayout({ children }) {
           </div>
         </main>
       </div>
+
+      {/* Admin Testing Panel - only renders for admins */}
+      <AdminTestingPanel />
 
       <style jsx>{`
         .dashboard-layout {

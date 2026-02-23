@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { Search, ShoppingCart, Plus, Minus, ArrowRight, CheckCircle, Package } from 'lucide-react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import ProductGallery from '@/components/ProductGallery';
 
@@ -22,30 +21,34 @@ export default function NuevoPedidoPage() {
   // Load products & categories
   useEffect(() => {
     async function fetchData() {
-      // Products
-      const { data: productsData } = await supabase
-        .from('products')
-        .select(`
-          *,
-          categories:category_id (name, slug)
-        `)
-        .eq('is_active', true)
-        .order('name');
+      try {
+        // Products
+        const { data: productsData } = await supabase
+          .from('products')
+          .select(`
+            *,
+            categories:category_id (name, slug)
+          `)
+          .eq('is_active', true)
+          .order('name');
 
-      // Calculate available stock for each product
-      if (productsData) {
-        productsData.forEach(p => {
-          p.available_stock = (p.stock_quantity || 0) - (p.reserved_quantity || 0);
-        });
+        // Calculate available stock for each product
+        if (productsData) {
+          productsData.forEach(p => {
+            p.available_stock = (p.stock_quantity || 0) - (p.reserved_quantity || 0);
+          });
+        }
+
+        if (productsData) setProducts(productsData);
+
+        // Unique categories
+        const uniqueCats = Array.from(new Set(productsData?.map(p => p.categories?.name).filter(Boolean)));
+        setCategories(uniqueCats);
+      } catch (err) {
+        console.error('Error fetching products:', err);
+      } finally {
+        setLoading(false);
       }
-
-      if (productsData) setProducts(productsData);
-
-      // Unique categories
-      const uniqueCats = Array.from(new Set(productsData?.map(p => p.categories?.name))).filter(Boolean);
-      setCategories(uniqueCats);
-
-      setLoading(false);
     }
     fetchData();
   }, []);
@@ -119,7 +122,8 @@ export default function NuevoPedidoPage() {
         order_id: order.id,
         product_id: item.id,
         quantity: item.quantity,
-        unit_price: item.price
+        unit_price: item.price,
+        subtotal: item.price * item.quantity
       }));
 
       const { error: itemsError } = await supabase
@@ -219,7 +223,8 @@ export default function NuevoPedidoPage() {
             {filteredProducts.map(product => (
               <div key={product.id} className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm hover:shadow-md transition-all p-4 rounded-2xl flex flex-col group">
                 <div className="h-40 bg-slate-100 rounded-xl overflow-hidden mb-4 flex items-center justify-center relative">
-                  <ProductGallery sku={product.sku} productName={product.name} />
+                  {product.sku && <ProductGallery sku={product.sku} productName={product.name} />}
+                  {!product.sku && <Package className="w-8 h-8 text-slate-300" />}
                 </div>
                 <div className="flex flex-col flex-1">
                   <div className="flex justify-between items-start mb-2 gap-2">
