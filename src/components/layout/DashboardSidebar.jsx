@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, MapPin } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
@@ -24,6 +24,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
     ]
     : [
       { name: 'Mis Pedidos', href: '/dashboard/pedidos', icon: ShoppingCart },
+      { name: 'Mis Direcciones', href: '/dashboard/direcciones', icon: MapPin },
     ];
 
   const adminItems = userRole === 'admin' ? [
