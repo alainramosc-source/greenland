@@ -3,10 +3,10 @@ import { NextResponse } from 'next/server';
 
 let _resend;
 function getResend() {
-  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+  if (!_resend) _resend = new Resend((process.env.RESEND_API_KEY || '').trim());
   return _resend;
 }
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').filter(Boolean);
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').trim().split(',').filter(Boolean).map(e => e.trim());
 const FROM_EMAIL = 'Greenland Pedidos <pedidos@greenland-products.com.mx>';
 
 const STATUS_LABELS = {
