@@ -6,7 +6,7 @@ import {
   ArrowLeft, Package, Calendar, DollarSign, MapPin, FileText,
   CheckCircle, XCircle, Truck, PackageCheck, Loader2, User,
   AlertTriangle, X, Plus, Minus, CreditCard, ClipboardCheck,
-  PackageOpen, Lock, Camera, Image, Trash2
+  PackageOpen, Lock, Camera, Image, Trash2, Search
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 
@@ -46,6 +46,9 @@ export default function OrderDetailsPage() {
   const [evidenceTab, setEvidenceTab] = useState('embarque');
   const [uploading, setUploading] = useState(false);
   const [lightboxImg, setLightboxImg] = useState(null);
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  const [availableProducts, setAvailableProducts] = useState([]);
   const supabase = createClient();
 
   const fetchOrderDetails = async () => {
@@ -583,6 +586,76 @@ export default function OrderDetailsPage() {
               </div>
             </div>
 
+            {/* Admin: Add Product to Order */}
+            {isAdmin && order.status === 'pending' && (
+              <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden p-6 mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-slate-900 m-0 flex items-center gap-2">
+                    <Plus size={18} className="text-[#6a9a04]" /> Agregar Producto al Pedido
+                  </h3>
+                </div>
+                <div className="relative mb-4">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={productSearch}
+                    onChange={async (e) => {
+                      const q = e.target.value;
+                      setProductSearch(q);
+                      if (q.length >= 2) {
+                        const { data } = await supabase.from('products').select('id, name, sku, price, stock_quantity, reserved_quantity').or(`name.ilike.%${q}%,sku.ilike.%${q}%`).limit(5);
+                        const existingIds = order.order_items.map(i => i.product_id);
+                        setAvailableProducts((data || []).filter(p => !existingIds.includes(p.id)));
+                      } else {
+                        setAvailableProducts([]);
+                      }
+                    }}
+                    placeholder="Buscar por nombre o SKU..."
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#6a9a04]/30"
+                  />
+                </div>
+                {availableProducts.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    {availableProducts.map(product => (
+                      <div key={product.id} className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-3 hover:border-[#6a9a04]/50 transition-colors">
+                        <div>
+                          <div className="font-semibold text-sm text-slate-900">{product.name}</div>
+                          <div className="text-xs text-slate-500">SKU: {product.sku} · ${product.price} c/u · Stock: {(product.stock_quantity || 0) - (product.reserved_quantity || 0)}</div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            setActionLoading('add-product');
+                            const { data, error } = await supabase.rpc('add_order_item', {
+                              p_order_id: id,
+                              p_product_id: product.id,
+                              p_quantity: 1
+                            });
+                            if (error) {
+                              alert('Error: ' + error.message);
+                            } else if (data && !data.success) {
+                              alert('Error: ' + data.error);
+                            } else {
+                              setProductSearch('');
+                              setAvailableProducts([]);
+                              await fetchOrderDetails();
+                            }
+                            setActionLoading(null);
+                          }}
+                          disabled={actionLoading === 'add-product'}
+                          className="flex items-center gap-1 bg-[#6a9a04] text-white text-xs font-bold px-3 py-2 rounded-lg cursor-pointer border-none hover:bg-[#6a9a04]/90 transition-colors disabled:opacity-50"
+                        >
+                          <Plus size={14} /> Agregar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {productSearch.length >= 2 && availableProducts.length === 0 && (
+                  <p className="text-sm text-slate-400 text-center py-2 m-0">No se encontraron productos</p>
+                )}
+              </div>
+            )}
+
             {/* Rejection reason */}
             {order.status === 'rejected' && order.rejection_reason && (
               <div className="bg-orange-50/80 backdrop-blur-md border border-orange-200 shadow-sm rounded-2xl p-6 mb-8">
@@ -814,6 +887,16 @@ export default function OrderDetailsPage() {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Distributor Notes */}
+            {order.notes && (
+              <div className="bg-amber-50/80 backdrop-blur-md border border-amber-200 shadow-sm rounded-2xl p-5">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-amber-800 mb-2 m-0">
+                  📝 Instrucciones del Distribuidor
+                </h3>
+                <p className="text-sm text-amber-900 m-0 whitespace-pre-wrap leading-relaxed">{order.notes}</p>
               </div>
             )}
 

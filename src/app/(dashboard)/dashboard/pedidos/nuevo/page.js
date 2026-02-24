@@ -17,6 +17,7 @@ export default function NuevoPedidoPage() {
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [addresses, setAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [orderNotes, setOrderNotes] = useState('');
 
   const router = useRouter();
   const supabase = createClient();
@@ -148,7 +149,7 @@ export default function NuevoPedidoPage() {
           payment_status: 'unpaid',
           total_amount: cartTotal,
           shipping_address_id: selectedAddressId === 'pickup' ? null : selectedAddressId,
-          notes: selectedAddressId === 'pickup' ? 'Pedido sugerido — RECOGER EN SITIO' : 'Pedido sugerido desde web'
+          notes: orderNotes || (selectedAddressId === 'pickup' ? 'Recoger en sitio' : 'Pedido sugerido desde web')
         })
         .select()
         .single();
@@ -399,6 +400,20 @@ export default function NuevoPedidoPage() {
                 )}
               </div>
             )}
+
+            {/* Comentarios / Instrucciones */}
+            <div className="mb-4">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                📝 Comentarios / Instrucciones
+              </label>
+              <textarea
+                value={orderNotes}
+                onChange={(e) => setOrderNotes(e.target.value)}
+                placeholder="Ej: Priorizar 20 mesas negras de 1.80, llenar espacio restante con cualquier modelo..."
+                rows={3}
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#ec5b13]/20 resize-none"
+              />
+            </div>
 
             <div className="flex justify-between items-center mb-4">
               <span className="font-medium text-slate-600">Total Estimado</span>
