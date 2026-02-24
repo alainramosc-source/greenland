@@ -172,6 +172,25 @@ export default function NuevoPedidoPage() {
       // Note: Inventory is NOT reserved at this stage.
       // It will be reserved when Admin confirms the order.
 
+      // Send email notification to admins
+      try {
+        const { data: distProfile } = await supabase.from('profiles').select('full_name, email').eq('id', distributorIdToUse).single();
+        await fetch('/api/send-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'new_order',
+            orderNumber: order.order_number,
+            orderId: order.id,
+            status: 'pending',
+            distributorName: distProfile?.full_name || 'Distribuidor',
+            distributorEmail: distProfile?.email,
+            items: cart.map(item => ({ products: { name: item.name }, quantity: item.quantity, subtotal: (Number(item.price) || 0) * item.quantity })),
+            total: cartTotal,
+          }),
+        });
+      } catch (emailErr) { console.error('Email notification error:', emailErr); }
+
       setOrderSuccess(true);
       setCart([]);
 

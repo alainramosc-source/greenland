@@ -126,6 +126,25 @@ export default function OrderDetailsPage() {
   useEffect(() => {
     fetchOrderDetails();
   }, [id]);
+  // --- Helper: Send email after status change ---
+  const sendStatusEmail = async (newStatus) => {
+    if (!order) return;
+    try {
+      await fetch('/api/send-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'status_change',
+          orderNumber: order.order_number,
+          orderId: id,
+          status: newStatus,
+          distributorName: order.profiles?.full_name || 'Distribuidor',
+          distributorEmail: order.profiles?.email,
+          total: order.total_amount,
+        }),
+      });
+    } catch (emailErr) { console.error('Email notification error:', emailErr); }
+  };
 
   // --- Admin: Confirm Order ---
   const handleConfirmOrder = async () => {
@@ -138,6 +157,7 @@ export default function OrderDetailsPage() {
       alert('Error: ' + data.error);
     } else {
       await fetchOrderDetails();
+      sendStatusEmail('confirmed');
     }
     setActionLoading(null);
   };
@@ -156,6 +176,7 @@ export default function OrderDetailsPage() {
       alert('Error: ' + data.error);
     } else {
       await fetchOrderDetails();
+      sendStatusEmail(newStatus);
     }
     setActionLoading(null);
   };
@@ -580,8 +601,8 @@ export default function OrderDetailsPage() {
                   <button
                     onClick={() => setEvidenceTab('embarque')}
                     className={`px-5 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-all border-none ${evidenceTab === 'embarque'
-                        ? 'bg-[#ec5b13] text-white shadow-md shadow-[#ec5b13]/20'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      ? 'bg-[#ec5b13] text-white shadow-md shadow-[#ec5b13]/20'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                   >
                     📦 Embarque ({evidence.filter(e => e.evidence_type === 'embarque').length})
@@ -589,8 +610,8 @@ export default function OrderDetailsPage() {
                   <button
                     onClick={() => setEvidenceTab('guia')}
                     className={`px-5 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-all border-none ${evidenceTab === 'guia'
-                        ? 'bg-[#ec5b13] text-white shadow-md shadow-[#ec5b13]/20'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      ? 'bg-[#ec5b13] text-white shadow-md shadow-[#ec5b13]/20'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                   >
                     📄 Guía / Remisión ({evidence.filter(e => e.evidence_type === 'guia').length})
