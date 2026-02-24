@@ -520,10 +520,11 @@ export default function OrderDetailsPage() {
                                   if (newQty <= 0) {
                                     if (confirm('¿Eliminar este producto del pedido?')) handleUpdateQuantity(item.id, 0);
                                   } else {
-                                    setEditingItems(prev => ({ ...prev, [item.id]: newQty }));
+                                    handleUpdateQuantity(item.id, newQty);
                                   }
                                 }}
-                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#ec5b13] rounded transition-colors cursor-pointer border-none bg-transparent"
+                                disabled={actionLoading === `qty-${item.id}`}
+                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#ec5b13] rounded transition-colors cursor-pointer border-none bg-transparent disabled:opacity-50"
                               >
                                 <Minus size={14} />
                               </button>
@@ -541,19 +542,17 @@ export default function OrderDetailsPage() {
                                 className="font-bold text-sm text-slate-700 w-12 text-center border-none outline-none bg-transparent"
                               />
                               <button
-                                onClick={() => setEditingItems(prev => ({ ...prev, [item.id]: (prev[item.id] ?? item.quantity) + 1 }))}
-                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#ec5b13] rounded transition-colors cursor-pointer border-none bg-transparent"
+                                onClick={() => {
+                                  const newQty = (editingItems[item.id] ?? item.quantity) + 1;
+                                  handleUpdateQuantity(item.id, newQty);
+                                }}
+                                disabled={actionLoading === `qty-${item.id}`}
+                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#ec5b13] rounded transition-colors cursor-pointer border-none bg-transparent disabled:opacity-50"
                               >
                                 <Plus size={14} />
                               </button>
-                              {editingItems[item.id] !== undefined && editingItems[item.id] !== item.quantity && (
-                                <button
-                                  onClick={() => handleUpdateQuantity(item.id, editingItems[item.id])}
-                                  disabled={actionLoading === `qty-${item.id}`}
-                                  className="ml-1 px-2 py-1 bg-[#6a9a04] text-white rounded text-xs font-bold cursor-pointer border-none disabled:opacity-50"
-                                >
-                                  {actionLoading === `qty-${item.id}` ? '...' : '✓'}
-                                </button>
+                              {actionLoading === `qty-${item.id}` && (
+                                <span className="text-xs text-slate-400 animate-pulse">...</span>
                               )}
                             </div>
                           ) : (
@@ -561,8 +560,8 @@ export default function OrderDetailsPage() {
                           )}
                         </td>
                         <td className="py-4 text-right">
-                          <span className="font-bold text-[#6a9a04] bg-[#6a9a04]/10 px-2.5 py-1 rounded-lg">
-                            ${Number(item.subtotal).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                          <span className={`font-bold px-2.5 py-1 rounded-lg ${editingItems[item.id] !== undefined && editingItems[item.id] !== item.quantity ? 'text-[#ec5b13] bg-[#ec5b13]/10' : 'text-[#6a9a04] bg-[#6a9a04]/10'}`}>
+                            ${Number((editingItems[item.id] ?? item.quantity) * item.unit_price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </td>
                       </tr>
