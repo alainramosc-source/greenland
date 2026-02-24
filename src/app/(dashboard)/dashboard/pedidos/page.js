@@ -5,16 +5,23 @@ import Link from 'next/link';
 import {
   ShoppingCart, DollarSign, Clock, CheckCircle,
   TrendingUp, Filter, Download, ChevronLeft, ChevronRight,
-  Eye, Plus, Search, ArrowUp, Bell
+  Eye, Plus, Search, ArrowUp, ClipboardCheck
 } from 'lucide-react';
 
-const STATUS_CONFIG = {
-  pending: { label: 'Pendiente', className: 'bg-slate-200/60 text-slate-600', dotClass: 'bg-slate-400' },
-  processing: { label: 'Pagado', className: 'border border-[#6a9a04] text-[#6a9a04] bg-transparent', dotClass: 'bg-[#6a9a04]' },
-  shipped: { label: 'Enviado', className: 'bg-[#dee24b] text-slate-800', dotClass: 'bg-[#dee24b]' },
-  delivered: { label: 'Completado', className: 'bg-[#6a9a04] text-white', dotClass: 'bg-[#6a9a04]' },
-  cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-600', dotClass: 'bg-red-500' },
-  rejected: { label: 'Rechazado', className: 'bg-orange-100 text-orange-600', dotClass: 'bg-orange-500' },
+const OP_STATUS = {
+  pending: { label: 'Pendiente', className: 'bg-amber-100/60 text-amber-700 border-amber-200' },
+  confirmed: { label: 'Confirmado', className: 'bg-blue-100/60 text-blue-700 border-blue-200' },
+  in_fulfillment: { label: 'En Surtido', className: 'bg-purple-100/60 text-purple-700 border-purple-200' },
+  shipped: { label: 'Enviado', className: 'bg-emerald-100/60 text-emerald-700 border-emerald-200' },
+  closed: { label: 'Cerrado', className: 'bg-slate-100/60 text-slate-600 border-slate-200' },
+  cancelled: { label: 'Cancelado', className: 'bg-red-100/60 text-red-600 border-red-200' },
+  rejected: { label: 'Rechazado', className: 'bg-orange-100/60 text-orange-600 border-orange-200' },
+};
+
+const PAY_STATUS = {
+  unpaid: { label: 'Por Cobrar', className: 'bg-red-50 text-red-600 border-red-200' },
+  partial: { label: 'Parcial', className: 'bg-amber-50 text-amber-600 border-amber-200' },
+  paid: { label: 'Pagado', className: 'bg-green-50 text-green-600 border-green-200' },
 };
 
 export default function PedidosPage() {
@@ -35,7 +42,6 @@ export default function PedidosPage() {
       let isAdmin = actualRole === 'admin';
       let targetUserId = user.id;
 
-      // Admin Panel simulation logic
       if (isAdmin && typeof window !== 'undefined' && sessionStorage.getItem('test_view_role') === 'distributor') {
         const simulatedDistId = sessionStorage.getItem('test_view_distributor_id');
         if (simulatedDistId) {
@@ -71,6 +77,7 @@ export default function PedidosPage() {
   const counts = {};
   orders.forEach(o => { counts[o.status] = (counts[o.status] || 0) + 1; });
   const totalAmount = orders.reduce((acc, order) => acc + Number(order.total_amount || 0), 0);
+  const pendingPayment = orders.filter(o => o.payment_status !== 'paid' && !['cancelled', 'rejected'].includes(o.status)).reduce((acc, o) => acc + Number(o.total_amount || 0), 0);
 
   return (
     <>
@@ -104,9 +111,6 @@ export default function PedidosPage() {
               <div className="p-3 bg-blue-100 rounded-2xl">
                 <ShoppingCart className="w-6 h-6 text-blue-600" />
               </div>
-              <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-lg flex items-center">
-                <ArrowUp className="w-3 h-3 mr-1" /> 12%
-              </span>
             </div>
             <h3 className="text-slate-500 text-sm font-medium">Total Pedidos</h3>
             <p className="text-2xl font-bold text-[#000000] mt-1">{orders.length.toLocaleString('es-MX')}</p>
@@ -118,36 +122,32 @@ export default function PedidosPage() {
               <div className="p-3 bg-purple-100 rounded-2xl">
                 <DollarSign className="w-6 h-6 text-purple-600" />
               </div>
-              <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-lg flex items-center">
-                <ArrowUp className="w-3 h-3 mr-1" /> 8.4%
-              </span>
             </div>
             <h3 className="text-slate-500 text-sm font-medium">Ingresos Totales</h3>
             <p className="text-2xl font-bold text-[#000000] mt-1">${totalAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
 
-          {/* En Proceso */}
+          {/* Pendientes + Confirmados */}
           <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 bg-orange-100 rounded-2xl">
                 <Clock className="w-6 h-6 text-orange-600" />
               </div>
-              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">Hoy</span>
+              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">Activos</span>
             </div>
             <h3 className="text-slate-500 text-sm font-medium">En Proceso</h3>
-            <p className="text-2xl font-bold text-[#000000] mt-1">{counts['processing'] || 0}</p>
+            <p className="text-2xl font-bold text-[#000000] mt-1">{(counts['pending'] || 0) + (counts['confirmed'] || 0) + (counts['in_fulfillment'] || 0)}</p>
           </div>
 
-          {/* Completados */}
+          {/* Cuentas por Cobrar */}
           <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-[#6a9a04]/10 rounded-2xl">
-                <CheckCircle className="w-6 h-6 text-[#6a9a04]" />
+              <div className="p-3 bg-red-100 rounded-2xl">
+                <TrendingUp className="w-6 h-6 text-red-600" />
               </div>
-              <span className="text-xs font-bold text-[#6a9a04] bg-[#dee24b]/30 px-2 py-1 rounded-lg">Meta 95%</span>
             </div>
-            <h3 className="text-slate-500 text-sm font-medium">Completados</h3>
-            <p className="text-2xl font-bold text-[#000000] mt-1">{counts['delivered'] || 0}</p>
+            <h3 className="text-slate-500 text-sm font-medium">{isAdmin ? 'Cuentas por Cobrar' : 'Mi Saldo Pendiente'}</h3>
+            <p className="text-2xl font-bold text-[#000000] mt-1">${pendingPayment.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
         </section>
 
@@ -159,15 +159,21 @@ export default function PedidosPage() {
               <p className="text-[#747474] text-sm mt-1">Gestiona y monitorea las órdenes en tiempo real.</p>
             </div>
             <div className="flex items-center space-x-3">
-              <button
-                className="glass-button px-5 py-2.5 rounded-xl text-slate-700 flex items-center text-sm font-semibold cursor-pointer"
-                onClick={() => setStatusFilter(statusFilter === 'all' ? 'processing' : 'all')}
+              {/* Filter dropdown */}
+              <select
+                className="glass-button px-4 py-2.5 rounded-xl text-slate-700 text-sm font-semibold cursor-pointer border border-white/80 outline-none bg-white/50 backdrop-blur-md"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
               >
-                <Filter className="w-4 h-4 mr-2" /> Filtros {statusFilter !== 'all' && '(Activo)'}
-              </button>
-              <button className="glass-button px-5 py-2.5 rounded-xl text-slate-700 flex items-center text-sm font-semibold cursor-pointer">
-                <Download className="w-4 h-4 mr-2" /> Exportar
-              </button>
+                <option value="all">Todos</option>
+                <option value="pending">Pendientes</option>
+                <option value="confirmed">Confirmados</option>
+                <option value="in_fulfillment">En Surtido</option>
+                <option value="shipped">Enviados</option>
+                <option value="closed">Cerrados</option>
+                <option value="cancelled">Cancelados</option>
+                <option value="rejected">Rechazados</option>
+              </select>
               <Link
                 href="/dashboard/pedidos/nuevo"
                 className="bg-[#ec5b13] hover:bg-[#ec5b13]/90 text-white px-6 py-2.5 rounded-xl flex items-center text-sm font-bold shadow-lg shadow-[#ec5b13]/20 transition-all no-underline"
@@ -186,25 +192,27 @@ export default function PedidosPage() {
                   <th className="px-6 py-2">Fecha</th>
                   <th className="px-6 py-2">Total</th>
                   <th className="px-6 py-2 text-center">Estado</th>
+                  <th className="px-6 py-2 text-center">Pago</th>
                   <th className="px-6 py-2 text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-slate-400 font-medium">
+                    <td colSpan="7" className="px-6 py-12 text-center text-slate-400 font-medium">
                       Cargando pedidos...
                     </td>
                   </tr>
                 ) : filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-slate-400 font-medium">
+                    <td colSpan="7" className="px-6 py-12 text-center text-slate-400 font-medium">
                       No se encontraron pedidos.
                     </td>
                   </tr>
                 ) : (
                   filteredOrders.map((order) => {
-                    const sc = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
+                    const opSc = OP_STATUS[order.status] || OP_STATUS.pending;
+                    const paySc = PAY_STATUS[order.payment_status] || PAY_STATUS.unpaid;
                     return (
                       <tr key={order.id} className="table-row-glass transition-all rounded-2xl group">
                         <td className="px-6 py-5 bg-white/30 group-hover:bg-[#ec5b13]/5 rounded-l-2xl border-y border-l border-transparent group-hover:border-[#ec5b13]/10 first:rounded-l-2xl transition-colors">
@@ -231,9 +239,16 @@ export default function PedidosPage() {
                           </span>
                         </td>
                         <td className="px-6 py-5 bg-white/30 group-hover:bg-[#ec5b13]/5 border-y border-transparent group-hover:border-[#ec5b13]/10 transition-colors text-center">
-                          <span className={`px-3 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border ${order.status === 'processing' ? 'bg-[#ec5b13]/10 text-[#ec5b13] border-[#ec5b13]/20' : order.status === 'delivered' ? 'bg-[#6a9a04]/10 text-[#6a9a04] border-[#6a9a04]/20' : 'bg-slate-100/50 text-slate-600 border-slate-200'}`}>
-                            {sc.label}
+                          <span className={`px-3 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border ${opSc.className}`}>
+                            {opSc.label}
                           </span>
+                        </td>
+                        <td className="px-6 py-5 bg-white/30 group-hover:bg-[#ec5b13]/5 border-y border-transparent group-hover:border-[#ec5b13]/10 transition-colors text-center">
+                          {!['cancelled', 'rejected'].includes(order.status) && (
+                            <span className={`px-3 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border ${paySc.className}`}>
+                              {paySc.label}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-5 bg-white/30 group-hover:bg-[#ec5b13]/5 rounded-r-2xl border-y border-r border-transparent group-hover:border-[#ec5b13]/10 text-center transition-colors">
                           <Link href={`/dashboard/pedidos/${order.id}`} className="p-2 hover:bg-white rounded-lg transition-colors inline-flex cursor-pointer border-none bg-transparent" title="Ver detalle">

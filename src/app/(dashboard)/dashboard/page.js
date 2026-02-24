@@ -62,7 +62,7 @@ export default function DashboardPage() {
         setOrders(ordersData);
         setDistributors(distributorsData);
 
-        const activeOrders = ordersData.filter(o => ['pending', 'processing'].includes(o.status?.toLowerCase())).length;
+        const activeOrders = ordersData.filter(o => ['pending', 'confirmed', 'in_fulfillment'].includes(o.status?.toLowerCase())).length;
         const pendingOrders = ordersData.filter(o => o.status === 'pending').length;
         const totalRevenue = ordersData
           .filter(o => !['cancelled', 'rejected'].includes(o.status?.toLowerCase()))
@@ -104,9 +104,10 @@ export default function DashboardPage() {
 
   const statusConfig = {
     pending: { label: 'Pendiente', className: 'bg-amber-100/80 text-amber-700 border-amber-200' },
-    processing: { label: 'Pagado', className: 'bg-blue-100/80 text-blue-700 border-blue-200' },
-    shipped: { label: 'Enviado', className: 'bg-purple-100/80 text-purple-700 border-purple-200' },
-    delivered: { label: 'Entregado', className: 'bg-green-100/80 text-green-700 border-green-200' },
+    confirmed: { label: 'Confirmado', className: 'bg-blue-100/80 text-blue-700 border-blue-200' },
+    in_fulfillment: { label: 'En Surtido', className: 'bg-purple-100/80 text-purple-700 border-purple-200' },
+    shipped: { label: 'Enviado', className: 'bg-emerald-100/80 text-emerald-700 border-emerald-200' },
+    closed: { label: 'Cerrado', className: 'bg-slate-100/80 text-slate-600 border-slate-200' },
     cancelled: { label: 'Cancelado', className: 'bg-red-100/80 text-red-700 border-red-200' },
     rejected: { label: 'Rechazado', className: 'bg-orange-100/80 text-orange-700 border-orange-200' },
   };
@@ -159,7 +160,7 @@ export default function DashboardPage() {
               <Clock size={28} />
             </div>
             <div>
-              <p className="text-xs font-black uppercase tracking-wider text-slate-500 m-0">Pendientes de Pago</p>
+              <p className="text-xs font-black uppercase tracking-wider text-slate-500 m-0">Pedidos por Revisar</p>
               <h3 className="text-3xl font-black text-slate-900 m-0">{stats.pendingOrders}</h3>
             </div>
           </div>
@@ -201,9 +202,10 @@ export default function DashboardPage() {
             >
               <option value="all">Todos los estados</option>
               <option value="pending">Pendiente</option>
-              <option value="processing">Pagado</option>
+              <option value="confirmed">Confirmado</option>
+              <option value="in_fulfillment">En Surtido</option>
               <option value="shipped">Enviado</option>
-              <option value="delivered">Entregado</option>
+              <option value="closed">Cerrado</option>
               <option value="cancelled">Cancelado</option>
               <option value="rejected">Rechazado</option>
             </select>

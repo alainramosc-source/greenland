@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Search, ShoppingCart, Plus, Minus, ArrowRight, ArrowLeft, CheckCircle, Package } from 'lucide-react';
+import { Search, ShoppingCart, Plus, Minus, ArrowRight, ArrowLeft, CheckCircle, Package, MapPin } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ProductGallery from '@/components/ProductGallery';
@@ -15,6 +15,8 @@ export default function NuevoPedidoPage() {
   const [cart, setCart] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
+  const [addresses, setAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
 
   const router = useRouter();
   const supabase = createClient();
@@ -45,6 +47,28 @@ export default function NuevoPedidoPage() {
         // Unique categories
         const uniqueCats = Array.from(new Set((productsData || []).map(p => p.categories?.name).filter(Boolean)));
         setCategories(uniqueCats);
+
+        // Fetch distributor addresses
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          let addrUserId = user.id;
+          // Check admin simulation
+          const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+          if (prof?.role === 'admin' && typeof window !== 'undefined' && sessionStorage.getItem('test_view_role') === 'distributor') {
+            const simId = sessionStorage.getItem('test_view_distributor_id');
+            if (simId) addrUserId = simId;
+          }
+          const { data: addrData } = await supabase
+            .from('distributor_addresses')
+            .select('*')
+            .eq('distributor_id', addrUserId)
+            .order('is_default', { ascending: false });
+          if (addrData) {
+            setAddresses(addrData);
+            const defaultAddr = addrData.find(a => a.is_default);
+            if (defaultAddr) setSelectedAddressId(defaultAddr.id);
+          }
+        }
       } catch (err) {
         console.error('Error fetching products:', err);
       } finally {
@@ -114,15 +138,17 @@ export default function NuevoPedidoPage() {
         }
       }
 
-      // 1. Create Order
+      // 1. Create Order (as suggested/pending — NO inventory impact)
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
           distributor_id: distributorIdToUse,
-          order_number: `ORD-${Date.now().toString().slice(-6)}`, // Simple ID gen
+          order_number: `ORD-${Date.now().toString().slice(-6)}`,
           status: 'pending',
+          payment_status: 'unpaid',
           total_amount: cartTotal,
-          notes: 'Pedido generado desde web'
+          shipping_address_id: selectedAddressId || null,
+          notes: 'Pedido sugerido desde web'
         })
         .select()
         .single();
@@ -144,13 +170,8 @@ export default function NuevoPedidoPage() {
 
       if (itemsError) throw itemsError;
 
-      // Reserve inventory for this order
-      const { data: reserveResult, error: reserveError } = await supabase.rpc('reserve_inventory_on_order', { p_order_id: order.id });
-      if (reserveError) {
-        console.error('Error reserving inventory:', reserveError);
-      } else if (reserveResult && !reserveResult.success) {
-        console.warn('Inventory reservation warning:', reserveResult.error);
-      }
+      // Note: Inventory is NOT reserved at this stage.
+      // It will be reserved when Admin confirms the order.
 
       setOrderSuccess(true);
       setCart([]);
@@ -181,8 +202,8 @@ export default function NuevoPedidoPage() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-white p-10 rounded-2xl shadow-2xl text-center max-w-sm w-full mx-4 border border-slate-100 flex flex-col items-center">
             <CheckCircle size={64} className="text-[#6a9a04] mb-4" />
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">¡Pedido Creado!</h2>
-            <p className="text-slate-600 mb-4">Tu pedido ha sido registrado exitosamente.</p>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">¡Pedido Enviado!</h2>
+            <p className="text-slate-600 mb-4">Tu pedido sugerido ha sido registrado. Greenland lo revisará y confirmará.</p>
             <p className="text-sm text-slate-400">Redirigiendo...</p>
           </div>
         </div>
@@ -313,6 +334,27 @@ export default function NuevoPedidoPage() {
           </div>
 
           <div className="p-5 border-t border-slate-200/50 bg-white/60 mt-auto">
+            {/* Address Selector */}
+            {addresses.length > 0 && (
+              <div className="mb-4">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                  <MapPin size={12} /> Dirección de envío
+                </label>
+                <select
+                  value={selectedAddressId || ''}
+                  onChange={(e) => setSelectedAddressId(e.target.value || null)}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#ec5b13]/20"
+                >
+                  <option value="">Sin dirección</option>
+                  {addresses.map(addr => (
+                    <option key={addr.id} value={addr.id}>
+                      {addr.label} — {addr.city}, {addr.state}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="flex justify-between items-center mb-4">
               <span className="font-medium text-slate-600">Total Estimado</span>
               <span className="text-2xl font-black text-[#ec5b13]">${cartTotal.toFixed(2)}</span>
@@ -322,10 +364,11 @@ export default function NuevoPedidoPage() {
               disabled={cart.length === 0 || isSubmitting}
               onClick={handleSubmitOrder}
             >
-              {isSubmitting ? 'Procesando...' : (
-                <>Confirmar Pedido <ArrowRight size={18} /></>
+              {isSubmitting ? 'Enviando pedido...' : (
+                <>Enviar Pedido Sugerido <ArrowRight size={18} /></>
               )}
             </button>
+            <p className="text-[10px] text-center text-slate-400 mt-2 m-0">Las cantidades pueden ser ajustadas por Greenland antes de la confirmación.</p>
           </div>
         </div>
       </div>
