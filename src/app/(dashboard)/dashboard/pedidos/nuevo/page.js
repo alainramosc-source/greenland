@@ -329,14 +329,25 @@ export default function NuevoPedidoPage() {
                     </div>
                     <div className="flex justify-between items-center mt-1">
                       <span className="text-xs text-slate-500">${item.price} c/u</span>
-                      <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg p-1">
+                      <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1">
                         <button
                           onClick={() => item.quantity > 1 ? updateQuantity(item.id, -1) : removeFromCart(item.id)}
                           className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#ec5b13] rounded transition-colors"
                         >
                           <Minus size={14} />
                         </button>
-                        <span className="font-bold text-sm text-slate-700 w-4 text-center">{item.quantity}</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            if (val > 0) {
+                              setCart(prev => prev.map(ci => ci.id === item.id ? { ...ci, quantity: val } : ci));
+                            }
+                          }}
+                          className="font-bold text-sm text-slate-700 w-14 text-center border-none outline-none bg-transparent"
+                        />
                         <button
                           onClick={() => updateQuantity(item.id, 1)}
                           className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#ec5b13] rounded transition-colors"
