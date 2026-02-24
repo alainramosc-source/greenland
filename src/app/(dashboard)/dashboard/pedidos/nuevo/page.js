@@ -337,11 +337,13 @@ export default function NuevoPedidoPage() {
                           <Minus size={14} />
                         </button>
                         <input
-                          type="number"
-                          min="1"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           value={item.quantity}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value);
+                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                            const val = raw === '' ? 1 : parseInt(raw);
                             if (val > 0) {
                               setCart(prev => prev.map(ci => ci.id === item.id ? { ...ci, quantity: val } : ci));
                             }

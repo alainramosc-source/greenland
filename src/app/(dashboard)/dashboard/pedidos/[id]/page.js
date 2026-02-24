@@ -219,7 +219,7 @@ export default function OrderDetailsPage() {
         const unitPrice = currentItem?.unit_price || 0;
         const { error } = await supabase
           .from('order_items')
-          .update({ quantity: newQuantity, subtotal: unitPrice * newQuantity })
+          .update({ quantity: newQuantity })
           .eq('id', itemId)
           .eq('order_id', id);
         if (error) throw error;
@@ -553,17 +553,26 @@ export default function OrderDetailsPage() {
                                 <Minus size={14} />
                               </button>
                               <input
-                                type="number"
-                                min="1"
-                                value={editingItems[item.id] ?? item.quantity}
-                                onChange={(e) => setEditingItems(prev => ({ ...prev, [item.id]: Math.max(1, parseInt(e.target.value) || 1) }))}
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={editingItems[item.id] !== undefined ? editingItems[item.id] : item.quantity}
+                                onChange={(e) => {
+                                  const raw = e.target.value.replace(/[^0-9]/g, '');
+                                  setEditingItems(prev => ({ ...prev, [item.id]: raw === '' ? '' : parseInt(raw) }));
+                                }}
                                 onBlur={() => {
-                                  const newQty = editingItems[item.id];
-                                  if (newQty !== undefined && newQty !== item.quantity) {
+                                  const raw = editingItems[item.id];
+                                  const newQty = parseInt(raw) || item.quantity;
+                                  setEditingItems(prev => { const next = { ...prev }; delete next[item.id]; return next; });
+                                  if (newQty !== item.quantity && newQty > 0) {
                                     handleUpdateQuantity(item.id, newQty);
                                   }
                                 }}
-                                className="font-bold text-sm text-slate-700 w-12 text-center border-none outline-none bg-transparent"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') e.target.blur();
+                                }}
+                                className="font-bold text-sm text-slate-700 w-14 text-center border-none outline-none bg-transparent"
                               />
                               <button
                                 onClick={() => {
