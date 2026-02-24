@@ -160,8 +160,7 @@ export default function NuevoPedidoPage() {
         order_id: order.id,
         product_id: item.id,
         quantity: item.quantity,
-        unit_price: Number(item.price) || 0,
-        subtotal: (Number(item.price) || 0) * item.quantity
+        unit_price: Number(item.price) || 0
       }));
 
       const { error: itemsError } = await supabase
