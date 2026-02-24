@@ -147,8 +147,8 @@ export default function NuevoPedidoPage() {
           status: 'pending',
           payment_status: 'unpaid',
           total_amount: cartTotal,
-          shipping_address_id: selectedAddressId || null,
-          notes: 'Pedido sugerido desde web'
+          shipping_address_id: selectedAddressId === 'pickup' ? null : selectedAddressId,
+          notes: selectedAddressId === 'pickup' ? 'Pedido sugerido — RECOGER EN SITIO' : 'Pedido sugerido desde web'
         })
         .select()
         .single();
@@ -353,23 +353,37 @@ export default function NuevoPedidoPage() {
 
           <div className="p-5 border-t border-slate-200/50 bg-white/60 mt-auto">
             {/* Address Selector */}
-            {addresses.length > 0 && (
+            {addresses.length === 0 ? (
+              <div className="mb-4 bg-orange-50 border border-orange-200 rounded-xl p-4 text-center">
+                <MapPin size={24} className="mx-auto mb-2 text-orange-400" />
+                <p className="text-sm font-bold text-orange-700 m-0 mb-1">Sin direcciones registradas</p>
+                <p className="text-xs text-orange-600 m-0 mb-3">Debes registrar al menos una dirección de envío antes de crear un pedido.</p>
+                <Link href="/dashboard/direcciones" className="inline-flex items-center gap-1.5 bg-[#ec5b13] text-white text-sm font-bold px-4 py-2 rounded-lg no-underline hover:bg-[#ec5b13]/90 transition-colors">
+                  <MapPin size={14} /> Registrar Dirección
+                </Link>
+              </div>
+            ) : (
               <div className="mb-4">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                  <MapPin size={12} /> Dirección de envío
+                  <MapPin size={12} /> Dirección de envío *
                 </label>
                 <select
                   value={selectedAddressId || ''}
                   onChange={(e) => setSelectedAddressId(e.target.value || null)}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#ec5b13]/20"
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#ec5b13]/20 ${!selectedAddressId ? 'border-orange-300 bg-orange-50/50' : 'border-slate-200'
+                    }`}
                 >
-                  <option value="">Sin dirección</option>
+                  <option value="">— Selecciona una dirección —</option>
                   {addresses.map(addr => (
                     <option key={addr.id} value={addr.id}>
                       {addr.label} — {addr.city}, {addr.state}
                     </option>
                   ))}
+                  <option value="pickup">🏭 Recoger en sitio (sin envío)</option>
                 </select>
+                {!selectedAddressId && (
+                  <p className="text-[11px] text-orange-500 font-medium mt-1 m-0">Selecciona una dirección para continuar</p>
+                )}
               </div>
             )}
 
@@ -379,7 +393,7 @@ export default function NuevoPedidoPage() {
             </div>
             <button
               className="w-full flex items-center justify-center gap-2 bg-[#ec5b13] hover:bg-[#ec5b13]/90 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-[#ec5b13]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
-              disabled={cart.length === 0 || isSubmitting}
+              disabled={cart.length === 0 || isSubmitting || !selectedAddressId || addresses.length === 0}
               onClick={handleSubmitOrder}
             >
               {isSubmitting ? 'Enviando pedido...' : (
