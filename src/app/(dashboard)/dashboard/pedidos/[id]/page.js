@@ -100,6 +100,9 @@ export default function OrderDetailsPage() {
         router.push('/dashboard/pedidos');
         return;
       }
+      if (data.order_items) {
+        data.order_items.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+      }
       setOrder(data);
     }
 
