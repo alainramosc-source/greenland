@@ -45,6 +45,8 @@ export default function UsersPage() {
         full_name: selectedUser.full_name,
         city: selectedUser.city,
         phone: selectedUser.phone,
+        company_name: selectedUser.company_name,
+        address: selectedUser.address,
       })
       .eq('id', selectedUser.id);
 
@@ -121,14 +123,16 @@ export default function UsersPage() {
   const userExportStr = (str) => str ? String(str).replace(/"/g, '""') : '';
 
   const exportToCSV = (usersToExport) => {
-    const headers = ['ID', 'Nombre', 'Email', 'Ciudad', 'Telefono', 'Rol', 'Status', 'Fecha Registro'];
+    const headers = ['ID', 'Nombre', 'Empresa', 'Email', 'Ciudad', 'Domicilio', 'Telefono', 'Rol', 'Status', 'Fecha Registro'];
     const csvContent = [
       headers.join(','),
       ...usersToExport.map(u => [
         u.id,
         `"${userExportStr(u.full_name)}"`,
+        `"${userExportStr(u.company_name)}"`,
         `"${userExportStr(u.email)}"`,
         `"${userExportStr(u.city)}"`,
+        `"${userExportStr(u.address)}"`,
         `"${userExportStr(u.phone)}"`,
         u.role,
         u.is_active ? 'Activo' : 'Inactivo',
@@ -150,7 +154,8 @@ export default function UsersPage() {
     const safeSearch = searchTerm?.toLowerCase() || '';
     const matchesSearch =
       (user.email && user.email.toLowerCase().includes(safeSearch)) ||
-      (user.full_name && user.full_name.toLowerCase().includes(safeSearch));
+      (user.full_name && user.full_name.toLowerCase().includes(safeSearch)) ||
+      (user.company_name && user.company_name.toLowerCase().includes(safeSearch));
     const matchesRole = filterRole === 'all' || user.role === filterRole;
     const matchesStatus = filterStatus === 'all' ||
       (filterStatus === 'active' && user.is_active) ||
@@ -326,7 +331,7 @@ export default function UsersPage() {
                         </div>
                         <div>
                           <p className="font-bold text-slate-900 group-hover:text-[#6a9a04] transition-colors m-0">{user.full_name || 'Sin nombre'}</p>
-                          <p className="text-xs text-slate-500 m-0">{user.email}</p>
+                          <p className="text-xs text-slate-500 m-0">{user.company_name ? `${user.company_name} • ${user.email}` : user.email}</p>
                         </div>
                       </div>
                     </td>
@@ -430,6 +435,14 @@ export default function UsersPage() {
                   className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 cursor-not-allowed"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Nombre de la Empresa</label>
+                <input type="text" value={selectedUser.company_name || ''}
+                  onChange={(e) => setSelectedUser({ ...selectedUser, company_name: e.target.value })}
+                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none"
+                  placeholder="Ej. Mi Empresa S.A."
+                />
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-600 mb-1">Ciudad</label>
@@ -447,6 +460,14 @@ export default function UsersPage() {
                     placeholder="81 1234 5678"
                   />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Domicilio</label>
+                <input type="text" value={selectedUser.address || ''}
+                  onChange={(e) => setSelectedUser({ ...selectedUser, address: e.target.value })}
+                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none"
+                  placeholder="Ej. Calle Falsa 123"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

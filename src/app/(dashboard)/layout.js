@@ -4,6 +4,7 @@ import DashboardSidebar from '@/components/layout/DashboardSidebar';
 import DashboardTopBar from '@/components/layout/DashboardTopBar';
 import AdminTestingPanel from '@/components/AdminTestingPanel';
 import { createClient } from '@/utils/supabase/client';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -11,6 +12,7 @@ export default function DashboardLayout({ children }) {
   const [actualRole, setActualRole] = useState(null);
   const [userName, setUserName] = useState(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   const supabase = createClient();
 
@@ -21,11 +23,16 @@ export default function DashboardLayout({ children }) {
         // Fetch role from profiles
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role, full_name')
+          .select('role, full_name, is_active')
           .eq('id', user.id)
           .single();
 
         if (profile) {
+          if (profile.is_active === false) {
+            router.push('/pending-approval');
+            return; // Stop rendering dashboard
+          }
+
           setActualRole(profile.role);
           // Check for admin role simulation
           const testRole = typeof window !== 'undefined' ? sessionStorage.getItem('test_view_role') : null;
