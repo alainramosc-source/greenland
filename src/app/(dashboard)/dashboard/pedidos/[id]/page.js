@@ -208,17 +208,41 @@ export default function OrderDetailsPage() {
   // --- Admin: Edit Item Quantity ---
   const handleUpdateQuantity = async (itemId, newQuantity) => {
     setActionLoading(`qty-${itemId}`);
-    const { data, error } = await supabase.rpc('update_order_item_quantity', {
-      p_order_id: id,
-      p_item_id: itemId,
-      p_new_quantity: newQuantity
-    });
-    if (error) {
-      alert('Error: ' + error.message);
-    } else if (data && !data.success) {
-      alert('Error: ' + data.error);
-    } else {
+    try {
+      if (newQuantity <= 0) {
+        // Delete item
+        const { error } = await supabase.from('order_items').delete().eq('id', itemId).eq('order_id', id);
+        if (error) throw error;
+      } else {
+        // Get current item to calculate new subtotal
+        const currentItem = order.order_items.find(i => i.id === itemId);
+        const unitPrice = currentItem?.unit_price || 0;
+        const { error } = await supabase
+          .from('order_items')
+          .update({ quantity: newQuantity, subtotal: unitPrice * newQuantity })
+          .eq('id', itemId)
+          .eq('order_id', id);
+        if (error) throw error;
+      }
+
+      // Recalculate order total
+      const { data: items, error: fetchErr } = await supabase
+        .from('order_items')
+        .select('quantity, unit_price')
+        .eq('order_id', id);
+      if (fetchErr) throw fetchErr;
+
+      const newTotal = items.reduce((sum, i) => sum + (i.quantity * (i.unit_price || 0)), 0);
+      const { error: totalErr } = await supabase
+        .from('orders')
+        .update({ total_amount: newTotal })
+        .eq('id', id);
+      if (totalErr) throw totalErr;
+
       await fetchOrderDetails();
+    } catch (err) {
+      alert('Error al actualizar cantidad: ' + err.message);
+      console.error('Quantity update error:', err);
     }
     setEditingItems(prev => { const next = { ...prev }; delete next[itemId]; return next; });
     setActionLoading(null);
