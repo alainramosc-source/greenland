@@ -1,27 +1,31 @@
 import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let _resend;
+function getResend() {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+  return _resend;
+}
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').filter(Boolean);
 const FROM_EMAIL = 'Greenland Pedidos <pedidos@greenland-products.com.mx>';
 
 const STATUS_LABELS = {
-    pending: 'Pendiente',
-    confirmed: 'Confirmado',
-    in_fulfillment: 'En Surtido',
-    shipped: 'Enviado',
-    closed: 'Cerrado',
-    cancelled: 'Cancelado',
-    rejected: 'Rechazado',
+  pending: 'Pendiente',
+  confirmed: 'Confirmado',
+  in_fulfillment: 'En Surtido',
+  shipped: 'Enviado',
+  closed: 'Cerrado',
+  cancelled: 'Cancelado',
+  rejected: 'Rechazado',
 };
 
 function buildOrderEmailHtml({ title, subtitle, orderNumber, status, items, total, ctaUrl, ctaText, footerNote }) {
-    const statusColor = {
-        pending: '#fbbf24', confirmed: '#3b82f6', in_fulfillment: '#8b5cf6',
-        shipped: '#10b981', closed: '#6b7280', cancelled: '#ef4444', rejected: '#f97316',
-    }[status] || '#6b7280';
+  const statusColor = {
+    pending: '#fbbf24', confirmed: '#3b82f6', in_fulfillment: '#8b5cf6',
+    shipped: '#10b981', closed: '#6b7280', cancelled: '#ef4444', rejected: '#f97316',
+  }[status] || '#6b7280';
 
-    return `
+  return `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -90,77 +94,77 @@ function buildOrderEmailHtml({ title, subtitle, orderNumber, status, items, tota
 }
 
 export async function POST(request) {
-    try {
-        const body = await request.json();
-        const { type, orderNumber, orderId, status, distributorName, distributorEmail, items, total } = body;
+  try {
+    const body = await request.json();
+    const { type, orderNumber, orderId, status, distributorName, distributorEmail, items, total } = body;
 
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://greenland-zeta.vercel.app';
-        const orderUrl = `${appUrl}/dashboard/pedidos/${orderId}`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://greenland-zeta.vercel.app';
+    const orderUrl = `${appUrl}/dashboard/pedidos/${orderId}`;
 
-        let emails = [];
+    let emails = [];
 
-        if (type === 'new_order') {
-            // Distributor created a new order → notify admins
-            emails.push({
-                from: FROM_EMAIL,
-                to: ADMIN_EMAILS,
-                subject: `📦 Nuevo Pedido #${orderNumber} — ${distributorName}`,
-                html: buildOrderEmailHtml({
-                    title: `Nuevo Pedido de ${distributorName}`,
-                    subtitle: 'Un distribuidor ha enviado un pedido sugerido. Revisa las cantidades y confirma.',
-                    orderNumber,
-                    status: 'pending',
-                    items,
-                    total,
-                    ctaUrl: orderUrl,
-                    ctaText: 'Revisar Pedido',
-                }),
-            });
-        } else if (type === 'status_change') {
-            // Admin changed order status → notify distributor
-            const statusMessages = {
-                confirmed: 'Tu pedido ha sido confirmado y el inventario fue reservado.',
-                in_fulfillment: 'Tu pedido está siendo surtido en nuestro almacén.',
-                shipped: '¡Tu pedido ha sido enviado! Pronto lo recibirás.',
-                closed: 'Tu pedido ha sido cerrado operativamente. ¡Gracias por tu compra!',
-                cancelled: 'Tu pedido ha sido cancelado. Si tienes dudas, contacta a tu ejecutivo.',
-                rejected: 'Tu pedido fue rechazado. Contacta a tu ejecutivo para más información.',
-            };
+    if (type === 'new_order') {
+      // Distributor created a new order → notify admins
+      emails.push({
+        from: FROM_EMAIL,
+        to: ADMIN_EMAILS,
+        subject: `📦 Nuevo Pedido #${orderNumber} — ${distributorName}`,
+        html: buildOrderEmailHtml({
+          title: `Nuevo Pedido de ${distributorName}`,
+          subtitle: 'Un distribuidor ha enviado un pedido sugerido. Revisa las cantidades y confirma.',
+          orderNumber,
+          status: 'pending',
+          items,
+          total,
+          ctaUrl: orderUrl,
+          ctaText: 'Revisar Pedido',
+        }),
+      });
+    } else if (type === 'status_change') {
+      // Admin changed order status → notify distributor
+      const statusMessages = {
+        confirmed: 'Tu pedido ha sido confirmado y el inventario fue reservado.',
+        in_fulfillment: 'Tu pedido está siendo surtido en nuestro almacén.',
+        shipped: '¡Tu pedido ha sido enviado! Pronto lo recibirás.',
+        closed: 'Tu pedido ha sido cerrado operativamente. ¡Gracias por tu compra!',
+        cancelled: 'Tu pedido ha sido cancelado. Si tienes dudas, contacta a tu ejecutivo.',
+        rejected: 'Tu pedido fue rechazado. Contacta a tu ejecutivo para más información.',
+      };
 
-            if (distributorEmail) {
-                emails.push({
-                    from: FROM_EMAIL,
-                    to: [distributorEmail],
-                    subject: `🔔 Pedido #${orderNumber} — ${STATUS_LABELS[status] || status}`,
-                    html: buildOrderEmailHtml({
-                        title: `Pedido #${orderNumber} — ${STATUS_LABELS[status] || status}`,
-                        subtitle: statusMessages[status] || `El estado de tu pedido cambió a: ${STATUS_LABELS[status] || status}`,
-                        orderNumber,
-                        status,
-                        total,
-                        ctaUrl: orderUrl,
-                        ctaText: 'Ver Detalles del Pedido',
-                        footerNote: status === 'shipped' ? 'Te contactaremos con los detalles de envío.' : null,
-                    }),
-                });
-            }
-        }
-
-        // Send all emails
-        const results = [];
-        for (const email of emails) {
-            const { data, error } = await resend.emails.send(email);
-            if (error) {
-                console.error('Resend error:', error);
-                results.push({ error: error.message });
-            } else {
-                results.push({ id: data?.id });
-            }
-        }
-
-        return NextResponse.json({ success: true, results });
-    } catch (error) {
-        console.error('Email API error:', error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      if (distributorEmail) {
+        emails.push({
+          from: FROM_EMAIL,
+          to: [distributorEmail],
+          subject: `🔔 Pedido #${orderNumber} — ${STATUS_LABELS[status] || status}`,
+          html: buildOrderEmailHtml({
+            title: `Pedido #${orderNumber} — ${STATUS_LABELS[status] || status}`,
+            subtitle: statusMessages[status] || `El estado de tu pedido cambió a: ${STATUS_LABELS[status] || status}`,
+            orderNumber,
+            status,
+            total,
+            ctaUrl: orderUrl,
+            ctaText: 'Ver Detalles del Pedido',
+            footerNote: status === 'shipped' ? 'Te contactaremos con los detalles de envío.' : null,
+          }),
+        });
+      }
     }
+
+    // Send all emails
+    const results = [];
+    for (const email of emails) {
+      const { data, error } = await getResend().emails.send(email);
+      if (error) {
+        console.error('Resend error:', error);
+        results.push({ error: error.message });
+      } else {
+        results.push({ id: data?.id });
+      }
+    }
+
+    return NextResponse.json({ success: true, results });
+  } catch (error) {
+    console.error('Email API error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
 }
