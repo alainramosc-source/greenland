@@ -10,7 +10,7 @@ export default function DireccionesPage() {
     const [editingId, setEditingId] = useState(null);
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(null);
-    const [form, setForm] = useState({ label: '', street: '', city: '', state: '', zip_code: '', is_default: false });
+    const [form, setForm] = useState({ label: '', street: '', neighborhood: '', city: '', state: '', zip_code: '', is_default: false });
 
     const supabase = createClient();
 
@@ -42,13 +42,13 @@ export default function DireccionesPage() {
     useEffect(() => { fetchAddresses(); }, []);
 
     const resetForm = () => {
-        setForm({ label: '', street: '', city: '', state: '', zip_code: '', is_default: false });
+        setForm({ label: '', street: '', neighborhood: '', city: '', state: '', zip_code: '', is_default: false });
         setEditingId(null);
         setShowForm(false);
     };
 
     const handleEdit = (addr) => {
-        setForm({ label: addr.label, street: addr.street, city: addr.city, state: addr.state, zip_code: addr.zip_code || '', is_default: addr.is_default });
+        setForm({ label: addr.label, street: addr.street, neighborhood: addr.neighborhood || '', city: addr.city, state: addr.state, zip_code: addr.zip_code || '', is_default: addr.is_default });
         setEditingId(addr.id);
         setShowForm(true);
     };
@@ -68,14 +68,15 @@ export default function DireccionesPage() {
 
         if (editingId) {
             const { error } = await supabase.from('distributor_addresses').update({
-                label: form.label.trim(), street: form.street.trim(), city: form.city.trim(),
-                state: form.state.trim(), zip_code: form.zip_code.trim(), is_default: form.is_default
+                label: form.label.trim(), street: form.street.trim(), neighborhood: form.neighborhood.trim(),
+                city: form.city.trim(), state: form.state.trim(), zip_code: form.zip_code.trim(), is_default: form.is_default
             }).eq('id', editingId);
             if (error) alert('Error: ' + error.message);
         } else {
             const { error } = await supabase.from('distributor_addresses').insert({
                 distributor_id: uid, label: form.label.trim(), street: form.street.trim(),
-                city: form.city.trim(), state: form.state.trim(), zip_code: form.zip_code.trim(), is_default: form.is_default
+                neighborhood: form.neighborhood.trim(), city: form.city.trim(), state: form.state.trim(),
+                zip_code: form.zip_code.trim(), is_default: form.is_default
             });
             if (error) alert('Error: ' + error.message);
         }
@@ -148,7 +149,13 @@ export default function DireccionesPage() {
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium text-slate-600 mb-1">Calle y Número *</label>
                             <input type="text" value={form.street} onChange={e => setForm(f => ({ ...f, street: e.target.value }))}
-                                placeholder="Av. Constitución #456, Col. Centro"
+                                placeholder="Av. Constitución #456"
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20 shadow-sm" />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-slate-600 mb-1">Colonia</label>
+                            <input type="text" value={form.neighborhood} onChange={e => setForm(f => ({ ...f, neighborhood: e.target.value }))}
+                                placeholder="Col. Centro"
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20 shadow-sm" />
                         </div>
                         <div>
@@ -212,7 +219,7 @@ export default function DireccionesPage() {
                                             </span>
                                         )}
                                     </div>
-                                    <p className="text-sm text-slate-600 m-0">{addr.street}</p>
+                                    <p className="text-sm text-slate-600 m-0">{addr.street}{addr.neighborhood ? `, ${addr.neighborhood}` : ''}</p>
                                     <p className="text-sm text-slate-500 m-0 mt-0.5">
                                         {addr.city}, {addr.state} {addr.zip_code && `C.P. ${addr.zip_code}`}
                                     </p>
