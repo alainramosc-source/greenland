@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [phone, setPhone] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [address, setAddress] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -46,8 +47,8 @@ export default function LoginPage() {
         setError(error.message);
         setLoading(false);
       } else {
-        router.push('/dashboard');
-        router.refresh();
+        setLoading(false);
+        setShowSuccessModal(true);
       }
     } else if (viewState === 'login') {
       const { error } = await supabase.auth.signInWithPassword({
@@ -287,6 +288,34 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center px-4">
+          <div className="bg-white/90 backdrop-blur-xl border border-white max-w-[400px] w-full rounded-2xl shadow-2xl overflow-hidden text-center p-8">
+            <div className="w-16 h-16 bg-green-100 text-[#6a9a04] rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h3 className="text-xl font-black text-slate-900 mb-2">
+              ¡Registro Exitoso!
+            </h3>
+            <p className="text-slate-500 font-medium mb-8">
+              Tu información ha sido enviada correctamente. Se encuentra en revisión por un administrador, una vez aprobada podrás acceder a la plataforma.
+            </p>
+            <div className="flex justify-center">
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  setViewState('login');
+                }}
+                className="px-6 py-3 rounded-xl text-white font-bold bg-[#ec5b13] hover:bg-[#ec5b13]/90 shadow-lg shadow-[#ec5b13]/20 cursor-pointer transition-all border-none w-full"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
