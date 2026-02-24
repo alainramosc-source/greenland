@@ -6,7 +6,7 @@ import {
   ArrowLeft, Package, Calendar, DollarSign, MapPin, FileText,
   CheckCircle, XCircle, Truck, PackageCheck, Loader2, User,
   AlertTriangle, X, Plus, Minus, CreditCard, ClipboardCheck,
-  PackageOpen, Lock
+  PackageOpen, Lock, Camera, Image, Trash2
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 
@@ -42,6 +42,10 @@ export default function OrderDetailsPage() {
     payment_date: new Date().toISOString().split('T')[0], notes: ''
   });
   const [editingItems, setEditingItems] = useState({});
+  const [evidence, setEvidence] = useState([]);
+  const [evidenceTab, setEvidenceTab] = useState('embarque');
+  const [uploading, setUploading] = useState(false);
+  const [lightboxImg, setLightboxImg] = useState(null);
   const supabase = createClient();
 
   const fetchOrderDetails = async () => {
@@ -107,6 +111,14 @@ export default function OrderDetailsPage() {
       .order('payment_date', { ascending: false });
 
     if (paymentsData) setPayments(paymentsData);
+
+    // Fetch evidence
+    const { data: evidenceData } = await supabase
+      .from('order_evidence')
+      .select('*')
+      .eq('order_id', id)
+      .order('created_at', { ascending: false });
+    if (evidenceData) setEvidence(evidenceData);
 
     setLoading(false);
   };
@@ -216,6 +228,45 @@ export default function OrderDetailsPage() {
       await fetchOrderDetails();
     }
     setActionLoading(null);
+  };
+
+  // --- Evidence Upload ---
+  const handleEvidenceUpload = async (files, type) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    try {
+      for (const file of files) {
+        const timestamp = Date.now();
+        const ext = file.name.split('.').pop() || 'jpg';
+        const path = `${id}/${type}/${timestamp}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('order-evidence')
+          .upload(path, file, { contentType: file.type });
+        if (uploadError) { alert('Error al subir: ' + uploadError.message); continue; }
+        const fileUrl = `${SUPABASE_URL}/storage/v1/object/public/order-evidence/${path}`;
+        await supabase.from('order_evidence').insert({
+          order_id: id, evidence_type: type, file_url: fileUrl,
+          file_name: file.name, uploaded_by: user?.id
+        });
+      }
+      await fetchOrderDetails();
+    } catch (err) {
+      alert('Error: ' + err.message);
+    }
+    setUploading(false);
+  };
+
+  const handleDeleteEvidence = async (ev) => {
+    if (!confirm('¿Eliminar esta foto?')) return;
+    // Extract path from URL
+    const urlParts = ev.file_url.split('/order-evidence/');
+    if (urlParts.length > 1) {
+      await supabase.storage.from('order-evidence').remove([urlParts[1]]);
+    }
+    await supabase.from('order_evidence').delete().eq('id', ev.id);
+    await fetchOrderDetails();
   };
 
   if (loading) {
@@ -510,6 +561,130 @@ export default function OrderDetailsPage() {
               </div>
             )}
 
+            {/* Evidence Section — visible when in_fulfillment, shipped, or closed */}
+            {['in_fulfillment', 'shipped', 'closed'].includes(order.status) && (
+              <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden p-6 mb-8">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
+                  <h3 className="text-xl font-bold text-slate-900 m-0 flex items-center gap-2">
+                    <Camera size={20} className="text-[#ec5b13]" /> Evidencias Fotográficas
+                  </h3>
+                  {evidence.filter(e => e.evidence_type === 'embarque').length >= 2 ? (
+                    <span className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-200">✓ Requisito cumplido</span>
+                  ) : (
+                    <span className="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200">Mín. 2 fotos de embarque</span>
+                  )}
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-2 mb-6">
+                  <button
+                    onClick={() => setEvidenceTab('embarque')}
+                    className={`px-5 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-all border-none ${evidenceTab === 'embarque'
+                        ? 'bg-[#ec5b13] text-white shadow-md shadow-[#ec5b13]/20'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                  >
+                    📦 Embarque ({evidence.filter(e => e.evidence_type === 'embarque').length})
+                  </button>
+                  <button
+                    onClick={() => setEvidenceTab('guia')}
+                    className={`px-5 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-all border-none ${evidenceTab === 'guia'
+                        ? 'bg-[#ec5b13] text-white shadow-md shadow-[#ec5b13]/20'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                  >
+                    📄 Guía / Remisión ({evidence.filter(e => e.evidence_type === 'guia').length})
+                  </button>
+                </div>
+
+                {/* Upload buttons — only when order is in_fulfillment (still in warehouse) */}
+                {isAdmin && order.status === 'in_fulfillment' && (
+                  <div className="flex gap-3 mb-6">
+                    {/* Camera capture button — works on mobile/tablet */}
+                    <label className="flex-1 flex items-center justify-center gap-3 bg-[#ec5b13] hover:bg-[#ec5b13]/90 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-[#ec5b13]/20 transition-all cursor-pointer border-none min-h-[60px]">
+                      <Camera size={24} />
+                      {uploading ? 'Subiendo...' : 'Tomar Foto'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        disabled={uploading}
+                        onChange={(e) => handleEvidenceUpload(e.target.files, evidenceTab)}
+                      />
+                    </label>
+                    {/* Gallery upload button */}
+                    <label className="flex-1 flex items-center justify-center gap-3 bg-white hover:bg-slate-50 text-slate-700 py-4 rounded-2xl font-bold text-base shadow-sm border border-slate-200 transition-all cursor-pointer min-h-[60px]">
+                      <Image size={24} />
+                      Subir de Galería
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        disabled={uploading}
+                        onChange={(e) => handleEvidenceUpload(e.target.files, evidenceTab)}
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {/* Photo Grid */}
+                {(() => {
+                  const filtered = evidence.filter(e => e.evidence_type === evidenceTab);
+                  if (filtered.length === 0) return (
+                    <div className="text-center py-10 text-slate-400">
+                      <Camera size={40} className="mx-auto mb-3 opacity-30" />
+                      <p className="font-medium m-0">
+                        {evidenceTab === 'embarque' ? 'No hay fotos de embarque' : 'No hay fotos de guía / remisión'}
+                      </p>
+                      {isAdmin && order.status === 'in_fulfillment' && (
+                        <p className="text-sm m-0 mt-1">Usa los botones de arriba para tomar o subir fotos.</p>
+                      )}
+                    </div>
+                  );
+                  return (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {filtered.map(ev => (
+                        <div key={ev.id} className="relative group rounded-xl overflow-hidden border border-slate-200 shadow-sm aspect-square bg-slate-100">
+                          <img
+                            src={ev.file_url}
+                            alt={ev.file_name || 'Evidencia'}
+                            className="w-full h-full object-cover cursor-pointer"
+                            onClick={() => setLightboxImg(ev.file_url)}
+                          />
+                          {isAdmin && order.status === 'in_fulfillment' && (
+                            <button
+                              onClick={() => handleDeleteEvidence(ev)}
+                              className="absolute top-2 right-2 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border-none shadow-lg"
+                              title="Eliminar"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2">
+                            <p className="text-[10px] text-white font-medium m-0 truncate">
+                              {new Date(ev.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Lightbox */}
+            {lightboxImg && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={() => setLightboxImg(null)}>
+                <button onClick={() => setLightboxImg(null)} className="absolute top-4 right-4 w-10 h-10 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center cursor-pointer border-none z-10">
+                  <X size={24} />
+                </button>
+                <img src={lightboxImg} alt="Evidencia" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
+              </div>
+            )}
+
             {/* Payments Section (visible to all) */}
             <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden p-6">
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
@@ -768,18 +943,28 @@ export default function OrderDetailsPage() {
                   </div>
                 )}
 
-                {order.status === 'in_fulfillment' && (
-                  <div className="flex flex-col gap-3">
-                    <button
-                      className="w-full flex items-center justify-center gap-2 bg-[#10b981] hover:bg-[#10b981]/90 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-md shadow-[#10b981]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer"
-                      onClick={() => handleUpdateStatus('shipped', 'Enviado')}
-                      disabled={!!actionLoading}
-                    >
-                      {actionLoading === 'shipped' ? <Loader2 size={18} className="animate-spin" /> : <Truck size={18} />}
-                      Marcar como Enviado
-                    </button>
-                  </div>
-                )}
+                {order.status === 'in_fulfillment' && (() => {
+                  const embarqueCount = evidence.filter(e => e.evidence_type === 'embarque').length;
+                  const canShip = embarqueCount >= 2;
+                  return (
+                    <div className="flex flex-col gap-3">
+                      <button
+                        className={`w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer ${canShip ? 'bg-[#10b981] hover:bg-[#10b981]/90 text-white shadow-[#10b981]/20' : 'bg-slate-300 text-slate-500 shadow-none cursor-not-allowed'
+                          }`}
+                        onClick={() => canShip && handleUpdateStatus('shipped', 'Enviado')}
+                        disabled={!!actionLoading || !canShip}
+                      >
+                        {actionLoading === 'shipped' ? <Loader2 size={18} className="animate-spin" /> : <Truck size={18} />}
+                        Marcar como Enviado
+                      </button>
+                      {!canShip && (
+                        <p className="text-xs text-center text-orange-600 font-medium bg-orange-50 p-2 rounded-lg border border-orange-200 m-0">
+                          📸 Sube mín. 2 fotos de embarque para habilitar ({embarqueCount}/2)
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {order.status === 'shipped' && (
                   <div className="flex flex-col gap-3">
