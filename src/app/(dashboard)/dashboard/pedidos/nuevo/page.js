@@ -116,7 +116,7 @@ export default function NuevoPedidoPage() {
     }));
   };
 
-  const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const cartTotal = cart.reduce((acc, item) => acc + ((Number(item.price) || 0) * item.quantity), 0);
 
   // Submit Order
   const handleSubmitOrder = async () => {
@@ -160,8 +160,8 @@ export default function NuevoPedidoPage() {
         order_id: order.id,
         product_id: item.id,
         quantity: item.quantity,
-        unit_price: item.price,
-        subtotal: item.price * item.quantity
+        unit_price: Number(item.price) || 0,
+        subtotal: (Number(item.price) || 0) * item.quantity
       }));
 
       const { error: itemsError } = await supabase
@@ -183,7 +183,7 @@ export default function NuevoPedidoPage() {
 
     } catch (error) {
       console.error('Error creating order:', error);
-      alert('Error al crear el pedido. Intente nuevamente.');
+      alert('Error al crear el pedido: ' + (error.message || error));
     } finally {
       setIsSubmitting(false);
     }
