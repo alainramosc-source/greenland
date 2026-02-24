@@ -228,8 +228,8 @@ export default function NuevoPedidoPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-8 h-[calc(100vh-120px)]">
-        <div className="overflow-y-auto pr-2 pb-10 xl:pb-0">
+      <div className="flex flex-col xl:grid xl:grid-cols-[1fr_360px] gap-8 xl:h-[calc(100vh-120px)]">
+        <div className="overflow-y-auto pr-2 pb-10 xl:pb-0 order-2 xl:order-1">
           <header className="mb-8">
             <div className="mb-6">
               <Link href="/dashboard/pedidos" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors mb-4 text-sm font-medium no-underline">
@@ -305,7 +305,7 @@ export default function NuevoPedidoPage() {
         </div>
 
         {/* Cart Sidebar */}
-        <div className="flex flex-col bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden h-[calc(100vh-160px)] sticky top-24">
+        <div className="flex flex-col bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden max-h-[50vh] xl:max-h-none xl:h-[calc(100vh-160px)] xl:sticky xl:top-24 order-1 xl:order-2">
           <div className="p-5 border-b border-slate-200/50 flex justify-between items-center bg-white/40">
             <div className="flex items-center gap-2">
               <ShoppingCart size={20} className="text-[#ec5b13]" />
