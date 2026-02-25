@@ -228,40 +228,8 @@ export default function NuevoPedidoPage() {
         </div>
       )}
 
-      <style jsx>{`
-        .nuevo-pedido-grid {
-          display: block;
-        }
-        .nuevo-pedido-products {
-          display: block;
-          padding-bottom: 2rem;
-        }
-        .nuevo-pedido-cart {
-          display: flex;
-          flex-direction: column;
-        }
-        @media (min-width: 1280px) {
-          .nuevo-pedido-grid {
-            display: grid;
-            grid-template-columns: 1fr 360px;
-            gap: 2rem;
-            height: calc(100vh - 120px);
-          }
-          .nuevo-pedido-products {
-            overflow-y: auto;
-            padding-right: 0.5rem;
-            padding-bottom: 0;
-          }
-          .nuevo-pedido-cart {
-            height: calc(100vh - 160px);
-            position: sticky;
-            top: 6rem;
-            overflow: hidden;
-          }
-        }
-      `}</style>
-      <div className="nuevo-pedido-grid">
-        <div className="nuevo-pedido-products">
+      <div>
+        <div style={{ paddingBottom: '2rem' }}>
           <header className="mb-8">
             <div className="mb-6">
               <Link href="/dashboard/pedidos" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors mb-4 text-sm font-medium no-underline">
@@ -337,7 +305,7 @@ export default function NuevoPedidoPage() {
         </div>
 
         {/* Cart Sidebar */}
-        <div className="nuevo-pedido-cart bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden">
+        <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="p-5 border-b border-slate-200/50 flex justify-between items-center bg-white/40">
             <div className="flex items-center gap-2">
               <ShoppingCart size={20} className="text-[#ec5b13]" />
