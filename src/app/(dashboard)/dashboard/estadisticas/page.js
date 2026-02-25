@@ -317,7 +317,7 @@ export default function EstadisticasPage() {
                 {/* Header */}
                 <header className="flex flex-wrap justify-between items-center gap-6 mb-8">
                     <div>
-                        <h2 className="text-4xl font-black tracking-tight text-slate-900 m-0">Centro de Inteligencia</h2>
+                        <h2 className="text-4xl font-black tracking-tight text-slate-900 m-0">Centro de Inteligencia GreenLand</h2>
                         <p className="text-slate-500 mt-1 font-medium m-0">KPIs, eficiencia operativa y análisis geográfico en tiempo real</p>
                     </div>
                     <div className="flex items-center gap-3">
