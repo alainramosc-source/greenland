@@ -2,18 +2,26 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Package, History, X, Search, AlertTriangle, Shield } from 'lucide-react';
+import { Package, History, X, Search, AlertTriangle, Shield, ArrowRightLeft, Warehouse } from 'lucide-react';
 
 export default function InventariosPage() {
   const [products, setProducts] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [warehouseStock, setWarehouseStock] = useState({});
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedWarehouse, setSelectedWarehouse] = useState('');
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  // Transfer modal
+  const [showTransfer, setShowTransfer] = useState(null); // product obj
+  const [transferFrom, setTransferFrom] = useState('');
+  const [transferTo, setTransferTo] = useState('');
+  const [transferQty, setTransferQty] = useState('');
+  const [transferring, setTransferring] = useState(false);
 
   const supabase = createClient();
   const router = useRouter();
@@ -23,21 +31,33 @@ export default function InventariosPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push('/login'); return; }
 
-    // Admin check
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    if (profile?.role !== 'admin') {
-      router.push('/dashboard/pedidos');
-      return;
-    }
+    if (profile?.role !== 'admin') { router.push('/dashboard/pedidos'); return; }
     setIsAdmin(true);
 
+    // Fetch products
     const { data: productsData } = await supabase
       .from('products')
       .select('*')
       .eq('is_active', true)
       .order('name');
-
     setProducts(productsData || []);
+
+    // Fetch warehouses
+    const { data: whData } = await supabase.from('warehouses').select('*').eq('is_active', true).order('name');
+    setWarehouses(whData || []);
+
+    // Fetch all warehouse stock
+    const { data: wsData } = await supabase.from('warehouse_stock').select('*');
+    if (wsData) {
+      const stockMap = {};
+      wsData.forEach(ws => {
+        if (!stockMap[ws.product_id]) stockMap[ws.product_id] = {};
+        stockMap[ws.product_id][ws.warehouse_id] = ws;
+      });
+      setWarehouseStock(stockMap);
+    }
+
     setLoading(false);
   };
 
@@ -45,40 +65,62 @@ export default function InventariosPage() {
 
   const handleAdjustStock = async (e) => {
     e.preventDefault();
-    if (!selectedProduct || !adjustmentAmount) return;
+    if (!selectedProduct || !adjustmentAmount || !selectedWarehouse) return;
 
     setSubmitting(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    const qty = parseInt(adjustmentAmount);
-
-    const { error } = await supabase
-      .from('inventory_logs')
-      .insert({
-        user_id: user.id,
-        product_id: selectedProduct.id,
-        quantity_change: qty,
-        reason: adjustmentReason || 'Manual adjustment'
-      });
+    const { data, error } = await supabase.rpc('adjust_warehouse_stock', {
+      p_product_id: selectedProduct.id,
+      p_warehouse_id: selectedWarehouse,
+      p_quantity_change: parseInt(adjustmentAmount),
+      p_reason: adjustmentReason || 'Ajuste manual'
+    });
 
     if (error) {
-      alert('Error adjusting stock: ' + error.message);
+      alert('Error: ' + error.message);
     } else {
       await fetchData();
       setSelectedProduct(null);
       setAdjustmentAmount('');
       setAdjustmentReason('');
+      setSelectedWarehouse('');
     }
     setSubmitting(false);
   };
 
+  const handleTransfer = async (e) => {
+    e.preventDefault();
+    if (!showTransfer || !transferFrom || !transferTo || !transferQty) return;
+    if (transferFrom === transferTo) { alert('Las bodegas deben ser diferentes.'); return; }
+
+    setTransferring(true);
+    const { data, error } = await supabase.rpc('transfer_stock', {
+      p_product_id: showTransfer.id,
+      p_from_warehouse_id: transferFrom,
+      p_to_warehouse_id: transferTo,
+      p_quantity: parseInt(transferQty)
+    });
+
+    if (error) {
+      alert('Error: ' + error.message);
+    } else if (data && !data.success) {
+      alert(data.error);
+    } else {
+      await fetchData();
+      setShowTransfer(null);
+      setTransferFrom('');
+      setTransferTo('');
+      setTransferQty('');
+    }
+    setTransferring(false);
+  };
+
   const filteredProducts = products.filter(p => {
     const safeSearch = searchTerm?.toLowerCase() || '';
-    const matchSearch = !safeSearch ||
+    return !safeSearch ||
       (p.name && p.name.toLowerCase().includes(safeSearch)) ||
       (p.sku && p.sku.toLowerCase().includes(safeSearch));
-    return matchSearch;
   });
-  // Calculate stats based on actual product data
+
   const totalItems = products.reduce((sum, p) => sum + Math.max((p.stock_quantity || 0) - (p.reserved_quantity || 0), 0), 0);
   const outOfStockCount = products.filter(p => ((p.stock_quantity || 0) - (p.reserved_quantity || 0)) <= 0).length;
   const lowStockCount = products.filter(p => {
@@ -90,6 +132,11 @@ export default function InventariosPage() {
     if (stock <= 0) return { label: 'Agotado', dotClass: 'bg-red-500', textClass: 'text-red-500' };
     if (stock <= 10) return { label: 'Stock Bajo', dotClass: 'bg-amber-500 animate-pulse', textClass: 'text-amber-500' };
     return { label: 'Disponible', dotClass: 'bg-[#6a9a04]', textClass: 'text-[#6a9a04]' };
+  };
+
+  const getWhStock = (productId, warehouseId) => {
+    const ws = warehouseStock[productId]?.[warehouseId];
+    return ws ? { stock: ws.stock_quantity || 0, reserved: ws.reserved_quantity || 0 } : { stock: 0, reserved: 0 };
   };
 
   if (loading) {
@@ -107,8 +154,8 @@ export default function InventariosPage() {
         {/* Title & Filters */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 m-0">Catálogo de Productos</h1>
-            <p className="text-slate-500 mt-1 font-medium m-0">Gestión integral de inventario agrícola de alta precisión.</p>
+            <h1 className="text-3xl font-black tracking-tight text-slate-900 m-0">Inventario por Bodegas</h1>
+            <p className="text-slate-500 mt-1 font-medium m-0">Gestión de stock separado por bodega con transferencias.</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -124,86 +171,107 @@ export default function InventariosPage() {
           </div>
         </div>
 
-        {/* Products Table */}
+        {/* Products Table with Warehouse Columns */}
         <div className="glass-panel bg-white/60 backdrop-blur-md rounded-2xl border border-white/50 shadow-xl overflow-hidden">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-200">
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Producto</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">SKU</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Stock Total</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Reservado</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Disponible</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Precio</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Estado</th>
-                <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredProducts.length === 0 ? (
-                <tr><td colSpan="8" className="px-6 py-12 text-center text-slate-400">No se encontraron productos.</td></tr>
-              ) : (
-                filteredProducts.map(product => {
-                  const currentStock = product.stock_quantity || 0;
-                  const reservedStock = product.reserved_quantity || 0;
-                  const availableStock = (product.stock_quantity || 0) - (product.reserved_quantity || 0);
-                  const status = getStockStatus(availableStock);
-                  return (
-                    <tr key={product.id} className="hover:bg-white/50 transition-colors group">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-xl bg-white/80 border border-slate-100 shadow-sm overflow-hidden p-1 flex-shrink-0 ${currentStock <= 0 ? 'opacity-70' : ''}`}>
-                            <div className="w-full h-full bg-slate-50 rounded-lg flex items-center justify-center">
-                              <Package className="w-5 h-5 text-slate-400" />
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50 border-b border-slate-200">
+                  <th className="px-5 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Producto</th>
+                  <th className="px-3 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">SKU</th>
+                  {warehouses.map(wh => (
+                    <th key={wh.id} className="px-3 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center" style={{ minWidth: 120 }}>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <Warehouse className="w-3.5 h-3.5 text-[#6a9a04]" />
+                        <span>{wh.name.replace('Bodega ', '')}</span>
+                      </div>
+                    </th>
+                  ))}
+                  <th className="px-3 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center">Total</th>
+                  <th className="px-3 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center">Estado</th>
+                  <th className="px-3 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredProducts.length === 0 ? (
+                  <tr><td colSpan={6 + warehouses.length} className="px-6 py-12 text-center text-slate-400">No se encontraron productos.</td></tr>
+                ) : (
+                  filteredProducts.map(product => {
+                    const totalStock = product.stock_quantity || 0;
+                    const totalReserved = product.reserved_quantity || 0;
+                    const available = totalStock - totalReserved;
+                    const status = getStockStatus(available);
+                    return (
+                      <tr key={product.id} className="hover:bg-white/50 transition-colors group">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl bg-white/80 border border-slate-100 shadow-sm overflow-hidden p-0.5 flex-shrink-0 ${totalStock <= 0 ? 'opacity-70' : ''}`}>
+                              <div className="w-full h-full bg-slate-50 rounded-lg flex items-center justify-center">
+                                <Package className="w-4 h-4 text-slate-400" />
+                              </div>
+                            </div>
+                            <div>
+                              <p className="font-bold text-sm text-slate-900 m-0">{product.name}</p>
+                              <p className="text-[11px] text-[#6a9a04] font-bold m-0">${Number(product.price || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
                             </div>
                           </div>
-                          <div>
-                            <p className="font-bold text-sm text-slate-900 m-0">{product.name}</p>
-                            {product.description && <p className="text-[11px] text-[#6a9a04] font-bold m-0">{product.description.substring(0, 30)}</p>}
+                        </td>
+                        <td className="px-3 py-3 font-mono text-xs text-slate-500">{product.sku || '—'}</td>
+                        {warehouses.map(wh => {
+                          const ws = getWhStock(product.id, wh.id);
+                          const whAvail = ws.stock - ws.reserved;
+                          return (
+                            <td key={wh.id} className="px-3 py-3 text-center">
+                              <div className="flex flex-col items-center">
+                                <span className={`text-sm font-black ${whAvail <= 0 ? 'text-red-400' : whAvail <= 10 ? 'text-amber-500' : 'text-slate-900'}`}>
+                                  {whAvail}
+                                </span>
+                                {ws.reserved > 0 && (
+                                  <span className="text-[10px] text-amber-500 font-bold">
+                                    ({ws.reserved} res.)
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
+                        <td className="px-3 py-3 text-center">
+                          <span className={`text-sm font-black ${available <= 0 ? 'text-red-500' : 'text-slate-900'}`}>
+                            {available}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block">de {totalStock}</span>
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <span className={`flex items-center justify-center gap-1.5 text-[11px] font-bold ${status.textClass}`}>
+                            <span className={`w-2 h-2 rounded-full ${status.dotClass}`} />
+                            {status.label}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <div className="flex items-center gap-1.5 justify-end">
+                            <button
+                              className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-white hover:text-[#6a9a04] transition-all cursor-pointer bg-transparent flex items-center gap-1"
+                              onClick={() => setSelectedProduct(product)}
+                              title="Ajustar stock"
+                            >
+                              <History className="w-3 h-3" /> Ajustar
+                            </button>
+                            <button
+                              className="px-2.5 py-1.5 rounded-lg border border-[#6a9a04]/30 text-[11px] font-bold text-[#6a9a04] hover:bg-[#6a9a04]/10 transition-all cursor-pointer bg-transparent flex items-center gap-1"
+                              onClick={() => setShowTransfer(product)}
+                              title="Transferir entre bodegas"
+                            >
+                              <ArrowRightLeft className="w-3 h-3" /> Transferir
+                            </button>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 font-mono text-xs text-slate-500">{product.sku || '—'}</td>
-                      <td className="px-6 py-4">
-                        <p className={`text-sm font-bold m-0 ${currentStock <= 0 ? 'text-red-500' : 'text-slate-900'}`}>
-                          {currentStock} <span className="text-[10px] text-slate-400">UND</span>
-                        </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className={`text-sm font-bold m-0 ${reservedStock > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
-                          {reservedStock} <span className="text-[10px] text-slate-400">UND</span>
-                        </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className={`text-sm font-bold m-0 ${availableStock <= 0 ? 'text-red-500' : availableStock <= (product.stock_minimum || 5) ? 'text-amber-500' : 'text-[#6a9a04]'}`}>
-                          {availableStock} <span className="text-[10px] text-slate-400">UND</span>
-                        </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-black text-[#6a9a04] m-0">
-                          ${Number(product.price || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`flex items-center gap-1.5 text-xs font-bold ${status.textClass}`}>
-                          <span className={`w-2 h-2 rounded-full ${status.dotClass}`} />
-                          {status.label}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-white hover:text-[#6a9a04] transition-all cursor-pointer bg-transparent flex items-center gap-1 ml-auto"
-                          onClick={() => setSelectedProduct(product)}
-                        >
-                          <History className="w-3.5 h-3.5" /> Ajustar
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
 
           {/* Footer */}
           <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-200 flex items-center justify-between">
@@ -212,41 +280,40 @@ export default function InventariosPage() {
         </div>
 
         {/* Stats Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
-          <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-lg p-6 rounded-2xl flex items-center gap-4 hover:bg-white/80 transition-all">
-            <div className="w-12 h-12 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center text-[#6a9a04]">
-              <Package className="w-6 h-6 border-none" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+          <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-lg p-5 rounded-2xl flex items-center gap-3 hover:bg-white/80 transition-all">
+            <div className="w-10 h-10 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center text-[#6a9a04]">
+              <Package className="w-5 h-5 border-none" />
             </div>
             <div>
-              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 m-0">Total Items</p>
-              <p className="text-2xl font-black text-slate-900 m-0">{totalItems.toLocaleString('es-MX')}</p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 m-0">Disponible Total</p>
+              <p className="text-xl font-black text-slate-900 m-0">{totalItems.toLocaleString('es-MX')}</p>
             </div>
           </div>
-          <div className="bg-white/60 backdrop-blur-md shadow-lg p-6 rounded-2xl flex items-center gap-4 border-l-4 border-l-[#6a9a04] hover:bg-white/80 transition-all">
-            <div className="w-12 h-12 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center text-[#6a9a04]">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
+          {warehouses.map(wh => {
+            const whTotal = products.reduce((sum, p) => {
+              const ws = getWhStock(p.id, wh.id);
+              return sum + Math.max(ws.stock - ws.reserved, 0);
+            }, 0);
+            return (
+              <div key={wh.id} className="bg-white/60 backdrop-blur-md shadow-lg p-5 rounded-2xl flex items-center gap-3 border-l-4 border-l-[#6a9a04] hover:bg-white/80 transition-all">
+                <div className="w-10 h-10 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center text-[#6a9a04]">
+                  <Warehouse className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 m-0">{wh.name.replace('Bodega ', '')}</p>
+                  <p className="text-xl font-black text-slate-900 m-0">{whTotal.toLocaleString('es-MX')}</p>
+                </div>
+              </div>
+            );
+          })}
+          <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-lg p-5 rounded-2xl flex items-center gap-3 hover:bg-white/80 transition-all">
+            <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500">
+              <AlertTriangle className="w-5 h-5 border-none" />
             </div>
             <div>
-              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 m-0">Productos</p>
-              <p className="text-2xl font-black text-slate-900 m-0">{products.length}</p>
-            </div>
-          </div>
-          <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-lg p-6 rounded-2xl flex items-center gap-4 hover:bg-white/80 transition-all">
-            <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-red-500">
-              <AlertTriangle className="w-6 h-6 border-none" />
-            </div>
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 m-0">Agotados</p>
-              <p className="text-2xl font-black text-slate-900 m-0">{outOfStockCount}</p>
-            </div>
-          </div>
-          <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-lg p-6 rounded-2xl flex items-center gap-4 hover:bg-white/80 transition-all">
-            <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-            </div>
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 m-0">Stock Bajo</p>
-              <p className="text-2xl font-black text-slate-900 m-0">{lowStockCount}</p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 m-0">Agotados</p>
+              <p className="text-xl font-black text-slate-900 m-0">{outOfStockCount}</p>
             </div>
           </div>
         </div>
@@ -258,13 +325,32 @@ export default function InventariosPage() {
           <div className="bg-white/90 backdrop-blur-xl w-full max-w-[450px] rounded-2xl shadow-2xl border border-white overflow-hidden">
             <div className="p-6 border-b border-slate-200 flex justify-between items-center">
               <h3 className="text-lg font-bold text-slate-900 m-0">Ajustar Stock: {selectedProduct.name}</h3>
-              <button onClick={() => setSelectedProduct(null)} className="p-1 rounded-lg hover:bg-slate-100 bg-transparent border-none cursor-pointer">
+              <button onClick={() => { setSelectedProduct(null); setSelectedWarehouse(''); }} className="p-1 rounded-lg hover:bg-slate-100 bg-transparent border-none cursor-pointer">
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
             <form onSubmit={handleAdjustStock} className="p-6 space-y-5">
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Cantidad a AJUSTAR (+ comprar, - vender)</label>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Bodega *</label>
+                <select
+                  value={selectedWarehouse}
+                  onChange={(e) => setSelectedWarehouse(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none shadow-sm"
+                >
+                  <option value="">— Seleccionar bodega —</option>
+                  {warehouses.map(wh => {
+                    const ws = getWhStock(selectedProduct.id, wh.id);
+                    return (
+                      <option key={wh.id} value={wh.id}>
+                        {wh.name} (actual: {ws.stock - ws.reserved} disp.)
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Cantidad a AJUSTAR (+ agregar, - restar)</label>
                 <input
                   type="number"
                   value={adjustmentAmount}
@@ -274,7 +360,7 @@ export default function InventariosPage() {
                   required
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none text-lg shadow-sm"
                 />
-                <small className="block mt-1 text-xs text-slate-400">Usa números positivos para agregar stock, negativos para restar.</small>
+                <small className="block mt-1 text-xs text-slate-400">Positivos para agregar stock, negativos para restar.</small>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-600 mb-1">Motivo</label>
@@ -287,13 +373,99 @@ export default function InventariosPage() {
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setSelectedProduct(null)}
+                <button type="button" onClick={() => { setSelectedProduct(null); setSelectedWarehouse(''); }}
                   className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm"
                 >Cancelar</button>
-                <button type="submit" disabled={submitting}
-                  className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#6a9a04] hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/30 cursor-pointer transition-all border-none"
+                <button type="submit" disabled={submitting || !selectedWarehouse}
+                  className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#6a9a04] hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/30 cursor-pointer transition-all border-none disabled:opacity-50"
                 >
                   {submitting ? 'Guardando...' : 'Guardar Movimiento'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Modal */}
+      {showTransfer && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center">
+          <div className="bg-white/90 backdrop-blur-xl w-full max-w-[450px] rounded-2xl shadow-2xl border border-white overflow-hidden">
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-slate-900 m-0 flex items-center gap-2">
+                <ArrowRightLeft className="w-5 h-5 text-[#6a9a04]" />
+                Transferir: {showTransfer.name}
+              </h3>
+              <button onClick={() => { setShowTransfer(null); setTransferFrom(''); setTransferTo(''); setTransferQty(''); }}
+                className="p-1 rounded-lg hover:bg-slate-100 bg-transparent border-none cursor-pointer">
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+            <form onSubmit={handleTransfer} className="p-6 space-y-5">
+              {/* Current stock summary */}
+              <div className="grid grid-cols-2 gap-3">
+                {warehouses.map(wh => {
+                  const ws = getWhStock(showTransfer.id, wh.id);
+                  return (
+                    <div key={wh.id} className="bg-slate-50 rounded-xl p-3 text-center">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase m-0">{wh.name.replace('Bodega ', '')}</p>
+                      <p className="text-xl font-black text-slate-900 m-0">{ws.stock - ws.reserved}</p>
+                      <p className="text-[10px] text-slate-400 m-0">disponibles</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">De bodega *</label>
+                <select
+                  value={transferFrom}
+                  onChange={(e) => setTransferFrom(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none shadow-sm"
+                >
+                  <option value="">— Origen —</option>
+                  {warehouses.map(wh => {
+                    const ws = getWhStock(showTransfer.id, wh.id);
+                    return <option key={wh.id} value={wh.id}>{wh.name} ({ws.stock - ws.reserved} disp.)</option>;
+                  })}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">A bodega *</label>
+                <select
+                  value={transferTo}
+                  onChange={(e) => setTransferTo(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none shadow-sm"
+                >
+                  <option value="">— Destino —</option>
+                  {warehouses.filter(wh => wh.id !== transferFrom).map(wh => (
+                    <option key={wh.id} value={wh.id}>{wh.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Cantidad a transferir *</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={transferQty}
+                  onChange={(e) => setTransferQty(e.target.value)}
+                  placeholder="Ej. 10"
+                  required
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none text-lg shadow-sm"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => { setShowTransfer(null); setTransferFrom(''); setTransferTo(''); setTransferQty(''); }}
+                  className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm"
+                >Cancelar</button>
+                <button type="submit" disabled={transferring || !transferFrom || !transferTo || !transferQty}
+                  className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#6a9a04] hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/30 cursor-pointer transition-all border-none disabled:opacity-50 flex items-center gap-2"
+                >
+                  <ArrowRightLeft className="w-4 h-4" />
+                  {transferring ? 'Transfiriendo...' : 'Transferir Stock'}
                 </button>
               </div>
             </form>

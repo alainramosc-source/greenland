@@ -6,7 +6,7 @@ import {
   ArrowLeft, Package, Calendar, DollarSign, MapPin, FileText,
   CheckCircle, XCircle, Truck, PackageCheck, Loader2, User,
   AlertTriangle, X, Plus, Minus, CreditCard, ClipboardCheck,
-  PackageOpen, Lock, Camera, Image, Trash2, Search
+  PackageOpen, Lock, Camera, Image, Trash2, Search, Warehouse
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 
@@ -49,6 +49,8 @@ export default function OrderDetailsPage() {
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [availableProducts, setAvailableProducts] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [warehouseStock, setWarehouseStock] = useState({});
   const supabase = createClient();
 
   const fetchOrderDetails = async () => {
@@ -107,6 +109,27 @@ export default function OrderDetailsPage() {
         data.order_items.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
       }
       setOrder(data);
+
+      // Fetch warehouses
+      const { data: whData } = await supabase.from('warehouses').select('*').eq('is_active', true).order('name');
+      if (whData) setWarehouses(whData);
+
+      // Fetch warehouse stock for products in this order
+      if (data.order_items?.length) {
+        const productIds = data.order_items.map(i => i.product_id);
+        const { data: wsData } = await supabase
+          .from('warehouse_stock')
+          .select('warehouse_id, product_id, stock_quantity, reserved_quantity')
+          .in('product_id', productIds);
+        if (wsData) {
+          const stockMap = {};
+          wsData.forEach(ws => {
+            if (!stockMap[ws.product_id]) stockMap[ws.product_id] = {};
+            stockMap[ws.product_id][ws.warehouse_id] = ws;
+          });
+          setWarehouseStock(stockMap);
+        }
+      }
     }
 
     // Fetch payments
@@ -152,8 +175,34 @@ export default function OrderDetailsPage() {
     } catch (emailErr) { console.error('Email notification error:', emailErr); }
   };
 
+  // --- Admin: Assign warehouse to item ---
+  const handleAssignWarehouse = async (itemId, warehouseId) => {
+    const { data, error } = await supabase.rpc('assign_item_warehouse', {
+      p_item_id: itemId,
+      p_warehouse_id: warehouseId || null
+    });
+    if (error) {
+      alert('Error al asignar bodega: ' + error.message);
+    } else {
+      // Update locally
+      setOrder(prev => ({
+        ...prev,
+        order_items: prev.order_items.map(i =>
+          i.id === itemId ? { ...i, warehouse_id: warehouseId || null } : i
+        )
+      }));
+    }
+  };
+
+  // Check if all items have warehouse assigned
+  const allItemsHaveWarehouse = order?.order_items?.every(item => item.warehouse_id) ?? false;
+
   // --- Admin: Confirm Order ---
   const handleConfirmOrder = async () => {
+    if (!allItemsHaveWarehouse) {
+      alert('Debes asignar una bodega de salida a todos los productos antes de confirmar.');
+      return;
+    }
     if (!confirm('¿Confirmar este pedido? Se reservará el inventario para los productos incluidos.')) return;
     setActionLoading('confirm');
     const { data, error } = await supabase.rpc('confirm_order', { p_order_id: id });
@@ -486,8 +535,9 @@ export default function OrderDetailsPage() {
                   <thead>
                     <tr>
                       <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Producto</th>
-                      <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Precio Unit.</th>
+                      <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Precio</th>
                       <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Cantidad</th>
+                      {isAdmin && <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Bodega</th>}
                       <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Subtotal</th>
                     </tr>
                   </thead>
@@ -574,6 +624,39 @@ export default function OrderDetailsPage() {
                             <span className="font-medium text-slate-700">{item.quantity}</span>
                           )}
                         </td>
+                        {/* Warehouse Assignment (Admin only) */}
+                        {isAdmin && (
+                          <td className="py-4">
+                            {order.status === 'pending' ? (
+                              <select
+                                value={item.warehouse_id || ''}
+                                onChange={(e) => handleAssignWarehouse(item.id, e.target.value)}
+                                className={`w-full text-xs px-2 py-1.5 rounded-lg border outline-none cursor-pointer transition-all ${!item.warehouse_id
+                                    ? 'border-amber-300 bg-amber-50 text-amber-700 font-bold'
+                                    : 'border-slate-200 bg-white text-slate-700'
+                                  }`}
+                              >
+                                <option value="">— Seleccionar —</option>
+                                {warehouses.map(wh => {
+                                  const ws = warehouseStock[item.product_id]?.[wh.id];
+                                  const avail = ws ? (ws.stock_quantity - ws.reserved_quantity) : 0;
+                                  return (
+                                    <option key={wh.id} value={wh.id}>
+                                      {wh.name} ({avail} disp.)
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            ) : (
+                              <span className="text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded-lg">
+                                {item.warehouse_id
+                                  ? warehouses.find(w => w.id === item.warehouse_id)?.name || '—'
+                                  : <span className="text-slate-400 italic">Sin asignar</span>
+                                }
+                              </span>
+                            )}
+                          </td>
+                        )}
                         <td className="py-4 text-right">
                           <span className={`font-bold px-2.5 py-1 rounded-lg ${editingItems[item.id] !== undefined && editingItems[item.id] !== item.quantity ? 'text-[#6a9a04] bg-[#6a9a04]/10' : 'text-[#6a9a04] bg-[#6a9a04]/10'}`}>
                             ${Number((editingItems[item.id] ?? item.quantity) * item.unit_price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
@@ -1002,13 +1085,21 @@ export default function OrderDetailsPage() {
                 {order.status === 'pending' && (
                   <div className="flex flex-col gap-3">
                     <button
-                      className="w-full flex items-center justify-center gap-2 bg-[#3b82f6] hover:bg-[#3b82f6]/90 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-md shadow-[#3b82f6]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer"
+                      className={`w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer ${allItemsHaveWarehouse
+                          ? 'bg-[#3b82f6] hover:bg-[#3b82f6]/90 text-white shadow-[#3b82f6]/20'
+                          : 'bg-slate-200 text-slate-400 shadow-none cursor-not-allowed'
+                        }`}
                       onClick={handleConfirmOrder}
-                      disabled={!!actionLoading}
+                      disabled={!!actionLoading || !allItemsHaveWarehouse}
                     >
                       {actionLoading === 'confirm' ? <Loader2 size={18} className="animate-spin" /> : <ClipboardCheck size={18} />}
                       Confirmar Pedido
                     </button>
+                    {!allItemsHaveWarehouse && (
+                      <p className="text-xs text-center text-amber-600 font-medium bg-amber-50 p-2 rounded-lg border border-amber-200 m-0">
+                        ⚠️ Asigna una bodega de salida a todos los productos para confirmar
+                      </p>
+                    )}
                     <button
                       className="w-full flex items-center justify-center gap-2 bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 px-5 py-3 rounded-xl font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                       onClick={() => setShowRejectModal(true)}
