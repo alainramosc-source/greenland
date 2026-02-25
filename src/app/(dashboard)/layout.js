@@ -70,7 +70,7 @@ export default function DashboardLayout({ children }) {
         />
         <main className="dashboard-main flex-1 p-4 md:p-8 overflow-y-auto relative z-0">
           {/* Background Accent Blurs */}
-          <div className="absolute top-[-10%] right-[-10%] w-[40rem] h-[40rem] bg-[#ec5b13]/10 blur-[120px] rounded-full -z-10 pointer-events-none"></div>
+          <div className="absolute top-[-10%] right-[-10%] w-[40rem] h-[40rem] bg-[#dee24b]/10 blur-[120px] rounded-full -z-10 pointer-events-none"></div>
           <div className="absolute bottom-[-10%] left-[20%] w-[30rem] h-[30rem] bg-[#6a9a04]/10 blur-[100px] rounded-full -z-10 pointer-events-none"></div>
 
           <div className="relative z-10 max-w-7xl mx-auto">

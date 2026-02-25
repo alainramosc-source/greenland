@@ -82,11 +82,11 @@ export default function CMSPage() {
           {content.map(item => (
             <div key={item.id} className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm hover:shadow-md transition-shadow p-6 rounded-2xl flex flex-col gap-4">
               <div className="flex justify-between items-center pb-4 border-b border-slate-200/50">
-                <span className="bg-[#ec5b13]/10 text-[#ec5b13] px-3 py-1 rounded-lg font-mono text-xs font-bold">
+                <span className="bg-[#6a9a04]/10 text-[#6a9a04] px-3 py-1 rounded-lg font-mono text-xs font-bold">
                   {item.section_key}
                 </span>
                 <button
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors cursor-pointer border-none ${saving[item.id] ? 'bg-slate-100 text-slate-400' : 'bg-slate-100 text-slate-600 hover:bg-[#ec5b13] hover:text-white'}`}
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors cursor-pointer border-none ${saving[item.id] ? 'bg-slate-100 text-slate-400' : 'bg-slate-100 text-slate-600 hover:bg-[#6a9a04] hover:text-white'}`}
                   onClick={() => handleSave(item)}
                   disabled={saving[item.id]}
                 >
@@ -103,7 +103,7 @@ export default function CMSPage() {
                     value={item.title || ''}
                     onChange={(e) => handleUpdate(item.id, 'title', e.target.value)}
                     placeholder="Sin título"
-                    className="w-full px-4 py-2 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/20 text-sm text-slate-800 outline-none transition-all shadow-sm"
+                    className="w-full px-4 py-2 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm text-slate-800 outline-none transition-all shadow-sm"
                   />
                 </div>
 
@@ -114,7 +114,7 @@ export default function CMSPage() {
                     value={item.body || ''}
                     onChange={(e) => handleUpdate(item.id, 'body', e.target.value)}
                     placeholder="Sin descripción"
-                    className="w-full px-4 py-2 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/20 text-sm text-slate-800 outline-none transition-all shadow-sm resize-y"
+                    className="w-full px-4 py-2 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm text-slate-800 outline-none transition-all shadow-sm resize-y"
                     rows={4}
                   />
                 </div>
@@ -129,7 +129,7 @@ export default function CMSPage() {
                       value={item.media_url || ''}
                       onChange={(e) => handleUpdate(item.id, 'media_url', e.target.value)}
                       placeholder="https://..."
-                      className="w-full pl-9 pr-4 py-2 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/20 text-sm text-slate-800 outline-none transition-all shadow-sm"
+                      className="w-full pl-9 pr-4 py-2 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm text-slate-800 outline-none transition-all shadow-sm"
                     />
                   </div>
                 </div>

@@ -69,7 +69,7 @@ export default function UsersPage() {
 
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 opacity-30" />;
-    return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-[#ec5b13]" /> : <ArrowDown className="w-3 h-3 text-[#ec5b13]" />;
+    return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-[#6a9a04]" /> : <ArrowDown className="w-3 h-3 text-[#6a9a04]" />;
   };
 
   const handleSelectAll = (e, usersToSelect) => {
@@ -215,7 +215,7 @@ export default function UsersPage() {
             onClick={() => exportToCSV(sortedUsers)}
             className="px-4 py-2.5 rounded-xl text-slate-700 font-bold bg-white/60 hover:bg-white backdrop-blur-md border border-white/50 shadow-sm transition-all flex items-center gap-2 cursor-pointer"
           >
-            <Download className="w-4 h-4 text-[#ec5b13]" /> Exportar CSV
+            <Download className="w-4 h-4 text-[#6a9a04]" /> Exportar CSV
           </button>
         </div>
       </header>
@@ -226,7 +226,7 @@ export default function UsersPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
-              className="w-full pl-11 pr-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 placeholder:text-slate-400 outline-none transition-all shadow-sm"
+              className="w-full pl-11 pr-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 placeholder:text-slate-400 outline-none transition-all shadow-sm"
               placeholder="Buscar por nombre, empresa o correo..."
               type="text"
               value={searchTerm}
@@ -236,7 +236,7 @@ export default function UsersPage() {
         </div>
         <div className="flex items-center gap-3">
           <select
-            className="bg-white/50 border border-slate-200 rounded-xl py-3 pl-4 pr-10 focus:ring-2 focus:ring-[#ec5b13]/30 text-sm font-medium text-slate-700 outline-none shadow-sm"
+            className="bg-white/50 border border-slate-200 rounded-xl py-3 pl-4 pr-10 focus:ring-2 focus:ring-[#6a9a04]/30 text-sm font-medium text-slate-700 outline-none shadow-sm"
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
           >
@@ -245,7 +245,7 @@ export default function UsersPage() {
             <option value="inactive">Inactivo</option>
           </select>
           <select
-            className="bg-white/50 border border-slate-200 rounded-xl py-3 pl-4 pr-10 focus:ring-2 focus:ring-[#ec5b13]/30 text-sm font-medium text-slate-700 outline-none shadow-sm"
+            className="bg-white/50 border border-slate-200 rounded-xl py-3 pl-4 pr-10 focus:ring-2 focus:ring-[#6a9a04]/30 text-sm font-medium text-slate-700 outline-none shadow-sm"
             value={filterRole}
             onChange={(e) => setFilterRole(e.target.value)}
           >
@@ -266,7 +266,7 @@ export default function UsersPage() {
                   <div className="flex items-center justify-center">
                     <input
                       type="checkbox"
-                      className="w-4 h-4 rounded border-slate-300 text-[#ec5b13] focus:ring-[#ec5b13] cursor-pointer accent-[#ec5b13]"
+                      className="w-4 h-4 rounded border-slate-300 text-[#6a9a04] focus:ring-[#6a9a04] cursor-pointer accent-[#6a9a04]"
                       checked={selectedUsers.length === sortedUsers.length && sortedUsers.length > 0}
                       onChange={(e) => handleSelectAll(e, sortedUsers)}
                     />
@@ -298,7 +298,7 @@ export default function UsersPage() {
                 <tr>
                   <td colSpan="8" className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-3">
-                      <div className="w-8 h-8 border-4 border-slate-200 border-t-[#ec5b13] rounded-full animate-spin"></div>
+                      <div className="w-8 h-8 border-4 border-slate-200 border-t-[#6a9a04] rounded-full animate-spin"></div>
                       <p className="font-medium">Cargando clientes...</p>
                     </div>
                   </td>
@@ -317,7 +317,7 @@ export default function UsersPage() {
                       <div className="flex items-center justify-center">
                         <input
                           type="checkbox"
-                          className="w-4 h-4 rounded border-slate-300 text-[#ec5b13] focus:ring-[#ec5b13] cursor-pointer accent-[#ec5b13]"
+                          className="w-4 h-4 rounded border-slate-300 text-[#6a9a04] focus:ring-[#6a9a04] cursor-pointer accent-[#6a9a04]"
                           checked={selectedUsers.includes(user.id)}
                           onChange={() => handleSelectUser(user.id)}
                         />
@@ -338,7 +338,7 @@ export default function UsersPage() {
                     <td className="px-6 py-5 text-sm text-slate-600">{user.city || '—'}</td>
                     <td className="px-6 py-5 text-sm text-slate-600">{user.phone || '—'}</td>
                     <td className="px-6 py-5 text-sm">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${user.role === 'admin' ? 'bg-[#ec5b13]/10 text-[#ec5b13]' : 'bg-[#6a9a04]/10 text-[#6a9a04]'}`}>
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${user.role === 'admin' ? 'bg-[#6a9a04]/10 text-[#6a9a04]' : 'bg-[#6a9a04]/10 text-[#6a9a04]'}`}>
                         {user.role === 'admin' && <Shield className="w-3 h-3" />}
                         {user.role === 'admin' ? 'Admin' : 'Distribuidor'}
                       </span>
@@ -356,7 +356,7 @@ export default function UsersPage() {
                           onClick={() => handleEditClick(user)}
                           title="Editar Usuario"
                         >
-                          <Edit2 className="w-4 h-4 text-slate-500 hover:text-[#ec5b13]" />
+                          <Edit2 className="w-4 h-4 text-slate-500 hover:text-[#6a9a04]" />
                         </button>
                         <button
                           className="p-2 rounded-lg hover:bg-red-50 transition-colors border border-transparent hover:border-red-200 bg-transparent cursor-pointer shadow-sm hover:shadow-sm"
@@ -401,7 +401,7 @@ export default function UsersPage() {
           </div>
         </div>
         <div className="bg-white/60 backdrop-blur-md shadow-sm border border-white/50 p-6 rounded-2xl flex items-center gap-4 hover:shadow-md transition-shadow">
-          <div className="w-12 h-12 rounded-xl bg-[#ec5b13]/10 flex items-center justify-center text-[#ec5b13]">
+          <div className="w-12 h-12 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center text-[#6a9a04]">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
           </div>
           <div>
@@ -426,7 +426,7 @@ export default function UsersPage() {
                 <label className="block text-sm font-medium text-slate-600 mb-1">Nombre Completo</label>
                 <input type="text" value={selectedUser.full_name || ''}
                   onChange={(e) => setSelectedUser({ ...selectedUser, full_name: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none"
+                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
                 />
               </div>
               <div>
@@ -439,7 +439,7 @@ export default function UsersPage() {
                 <label className="block text-sm font-medium text-slate-600 mb-1">Nombre de la Empresa</label>
                 <input type="text" value={selectedUser.company_name || ''}
                   onChange={(e) => setSelectedUser({ ...selectedUser, company_name: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none"
+                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
                   placeholder="Ej. Mi Empresa S.A."
                 />
               </div>
@@ -448,7 +448,7 @@ export default function UsersPage() {
                   <label className="block text-sm font-medium text-slate-600 mb-1">Ciudad</label>
                   <input type="text" value={selectedUser.city || ''}
                     onChange={(e) => setSelectedUser({ ...selectedUser, city: e.target.value })}
-                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none"
+                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
                     placeholder="Ej. Monterrey, NL"
                   />
                 </div>
@@ -456,7 +456,7 @@ export default function UsersPage() {
                   <label className="block text-sm font-medium text-slate-600 mb-1">Teléfono</label>
                   <input type="tel" value={selectedUser.phone || ''}
                     onChange={(e) => setSelectedUser({ ...selectedUser, phone: e.target.value })}
-                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none"
+                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
                     placeholder="81 1234 5678"
                   />
                 </div>
@@ -465,7 +465,7 @@ export default function UsersPage() {
                 <label className="block text-sm font-medium text-slate-600 mb-1">Domicilio</label>
                 <input type="text" value={selectedUser.address || ''}
                   onChange={(e) => setSelectedUser({ ...selectedUser, address: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none"
+                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
                   placeholder="Ej. Calle Falsa 123"
                 />
               </div>
@@ -475,7 +475,7 @@ export default function UsersPage() {
                   <select
                     value={selectedUser.role}
                     onChange={(e) => setSelectedUser({ ...selectedUser, role: e.target.value })}
-                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none"
+                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
                   >
                     <option value="distributor">Distribuidor</option>
                     <option value="admin">Administrador</option>
@@ -486,7 +486,7 @@ export default function UsersPage() {
                   <select
                     value={selectedUser.is_active ? 'true' : 'false'}
                     onChange={(e) => setSelectedUser({ ...selectedUser, is_active: e.target.value === 'true' })}
-                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none"
+                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
                   >
                     <option value="true">Activo</option>
                     <option value="false">Inactivo</option>
@@ -499,7 +499,7 @@ export default function UsersPage() {
                 className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white/50 border border-slate-200 hover:bg-white cursor-pointer transition-all"
               >Cancelar</button>
               <button onClick={handleSaveUser} disabled={updating}
-                className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#ec5b13] hover:bg-[#ec5b13]/90 shadow-lg shadow-[#ec5b13]/20 cursor-pointer transition-all flex items-center gap-2 border-none"
+                className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#6a9a04] hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/20 cursor-pointer transition-all flex items-center gap-2 border-none"
               >
                 {updating ? 'Guardando...' : <><Save className="w-4 h-4" /> Guardar Cambios</>}
               </button>

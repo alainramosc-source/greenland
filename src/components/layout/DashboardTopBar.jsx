@@ -89,11 +89,12 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
     <header className="h-20 flex items-center justify-between px-8 z-10 sticky top-0" style={{ background: 'rgba(255,255,255,0.4)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.5)' }}>
       <div className="flex-1 flex items-center">
         <button
-          className="md:hidden p-2 text-slate-500 hover:bg-white/50 rounded-lg mr-4 transition-colors"
+          className="md:hidden p-2 text-slate-500 hover:bg-white/50 rounded-lg mr-3 transition-colors"
           onClick={onMenuClick}
         >
           <Menu size={24} />
         </button>
+        <img src="/logo-new.jpg" alt="Greenland" className="md:hidden h-8 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
       </div>
 
       <div className="flex items-center space-x-4">
@@ -105,7 +106,7 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
           >
             <Bell size={20} />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 min-w-[18px] h-[18px] bg-[#ec5b13] text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 ring-2 ring-white">
+              <span className="absolute top-1 right-1 min-w-[18px] h-[18px] bg-[#6a9a04] text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 ring-2 ring-white">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -120,7 +121,7 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
                   {unreadCount > 0 && (
                     <button
                       onClick={handleMarkAllRead}
-                      className="text-xs font-semibold text-[#ec5b13] hover:text-[#ec5b13]/80 bg-transparent border-none cursor-pointer"
+                      className="text-xs font-semibold text-[#6a9a04] hover:text-[#6a9a04]/80 bg-transparent border-none cursor-pointer"
                     >
                       Marcar todo leído
                     </button>
@@ -142,11 +143,11 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
                     <div
                       key={notif.id}
                       onClick={() => handleNotificationClick(notif)}
-                      className={`px-4 py-3 border-b border-slate-50 cursor-pointer transition-colors hover:bg-slate-50 ${!notif.is_read ? 'bg-[#ec5b13]/[0.03]' : ''
+                      className={`px-4 py-3 border-b border-slate-50 cursor-pointer transition-colors hover:bg-slate-50 ${!notif.is_read ? 'bg-[#6a9a04]/[0.03]' : ''
                         }`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${!notif.is_read ? 'bg-[#ec5b13]' : 'bg-transparent'}`} />
+                        <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${!notif.is_read ? 'bg-[#6a9a04]' : 'bg-transparent'}`} />
                         <div className="flex-1 min-w-0">
                           <p className={`text-sm m-0 leading-snug ${!notif.is_read ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>
                             {notif.title}
@@ -178,7 +179,7 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
           </div>
           <div className="text-right hidden sm:block">
             <p className="text-sm font-bold text-slate-800 leading-none">{userName || 'Usuario'}</p>
-            <p className="text-[10px] uppercase tracking-widest text-[#ec5b13] font-black mt-1">
+            <p className="text-[10px] uppercase tracking-widest text-[#6a9a04] font-black mt-1">
               {userRole === 'admin' ? 'Administrador' : 'Distribuidor'}
             </p>
           </div>

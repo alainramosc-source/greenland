@@ -38,8 +38,9 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
     <>
       <aside className={`fixed inset-y-0 left-0 w-72 bg-white/40 backdrop-blur-xl border-r border-[#6a9a04]/10 flex flex-col z-50 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`} style={{ background: 'rgba(106, 154, 4, 0.05)' }}>
         <div className="p-6">
-          <div className="flex items-center justify-center mb-10">
-            <img src="/logo-pedidos.svg" alt="Greenland" className="h-20 w-auto object-contain filter drop-shadow-sm" />
+          <div className="flex flex-col items-center justify-center mb-8">
+            <img src="/logo-new.jpg" alt="GreenLand Products" className="h-16 w-auto object-contain mb-2" style={{ mixBlendMode: 'multiply' }} />
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6a9a04]">Portal de Distribuidores</span>
           </div>
 
           <nav className="space-y-2 overflow-y-auto">
@@ -74,7 +75,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
                   key={item.href}
                   href={item.href}
                   onClick={onClose}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive ? 'bg-[#ec5b13] text-white shadow-lg shadow-[#ec5b13]/20 font-bold' : 'text-slate-600 hover:bg-[#ec5b13]/10 hover:text-[#ec5b13] font-medium'}`}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive ? 'bg-slate-800 text-white shadow-lg shadow-slate-800/20 font-bold' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800 font-medium'}`}
                 >
                   <item.icon size={20} className={isActive ? 'text-white' : 'text-slate-500'} />
                   <span className="text-sm">{item.name}</span>

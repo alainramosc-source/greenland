@@ -180,14 +180,14 @@ export default function EstadisticasPage() {
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white/50 px-4 py-2 rounded-xl shadow-sm">
-                            <Calendar className="w-5 h-5 text-[#ec5b13]" />
+                            <Calendar className="w-5 h-5 text-[#6a9a04]" />
                             <span className="text-sm font-semibold text-slate-700">
                                 {dateRange === 'all' ? 'Todo el periodo' : dateRange === 'custom' ? 'Personalizado' : `Último ${dateRange === 'today' ? 'día' : dateRange === 'week' ? 'semana' : dateRange === 'month' ? 'mes' : 'año'}`}
                             </span>
                         </div>
                         <button
                             onClick={fetchAllData}
-                            className="bg-[#ec5b13] text-white flex items-center gap-2 px-6 py-2 rounded-xl font-bold shadow-lg shadow-[#ec5b13]/20 hover:scale-[1.02] transition-transform cursor-pointer border-none"
+                            className="bg-[#6a9a04] text-white flex items-center gap-2 px-6 py-2 rounded-xl font-bold shadow-lg shadow-[#6a9a04]/20 hover:scale-[1.02] transition-transform cursor-pointer border-none"
                         >
                             <RefreshCw className="w-4 h-4" /> Actualizar
                         </button>
@@ -215,11 +215,11 @@ export default function EstadisticasPage() {
                         {dateRange === 'custom' && (
                             <div className="flex items-center gap-2 ml-4">
                                 <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
-                                    className="px-3 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20"
+                                    className="px-3 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20"
                                 />
                                 <span className="text-slate-400">—</span>
                                 <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
-                                    className="px-3 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20"
+                                    className="px-3 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20"
                                 />
                             </div>
                         )}
@@ -238,7 +238,7 @@ export default function EstadisticasPage() {
                     </div>
                     <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm hover:shadow-md transition-shadow p-6 rounded-2xl flex flex-col gap-2">
                         <div className="flex justify-between items-start">
-                            <span className="p-2 bg-[#ec5b13]/10 text-[#ec5b13] rounded-lg"><DollarSign className="w-5 h-5" /></span>
+                            <span className="p-2 bg-[#6a9a04]/10 text-[#6a9a04] rounded-lg"><DollarSign className="w-5 h-5" /></span>
                             <span className="text-xs font-bold text-[#6a9a04] bg-[#6a9a04]/10 px-2 py-1 rounded-full">+1.5%</span>
                         </div>
                         <p className="text-slate-500 text-sm font-semibold uppercase tracking-wider m-0">Ingresos</p>
@@ -254,7 +254,7 @@ export default function EstadisticasPage() {
                     </div>
                     <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm hover:shadow-md transition-shadow p-6 rounded-2xl flex flex-col gap-2">
                         <div className="flex justify-between items-start">
-                            <span className="p-2 bg-[#ec5b13]/10 text-[#ec5b13] rounded-lg"><ShoppingCart className="w-5 h-5" /></span>
+                            <span className="p-2 bg-[#6a9a04]/10 text-[#6a9a04] rounded-lg"><ShoppingCart className="w-5 h-5" /></span>
                             <span className="text-xs font-bold text-[#6a9a04] bg-[#6a9a04]/10 px-2 py-1 rounded-full">+12%</span>
                         </div>
                         <p className="text-slate-500 text-sm font-semibold uppercase tracking-wider m-0">Ticket Prom.</p>
@@ -269,19 +269,19 @@ export default function EstadisticasPage() {
                         <div className="flex justify-between items-center mb-10">
                             <h4 className="text-xl font-bold text-slate-900 m-0">Ventas Mensuales</h4>
                             <div className="flex gap-2">
-                                <span className="flex items-center gap-1 text-xs font-bold"><span className="w-3 h-3 rounded-full bg-[#ec5b13]" /> {new Date().getFullYear()}</span>
+                                <span className="flex items-center gap-1 text-xs font-bold"><span className="w-3 h-3 rounded-full bg-[#6a9a04]" /> {new Date().getFullYear()}</span>
                             </div>
                         </div>
                         <div className="flex items-end justify-between h-64 gap-2">
                             {monthlyRevenue.map((rev, i) => (
                                 <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                                    <div className="w-full bg-[#ec5b13]/20 rounded-t-lg relative group" style={{ height: `${Math.max((rev / maxMonthly) * 100, 5)}%` }}>
+                                    <div className="w-full bg-[#6a9a04]/20 rounded-t-lg relative group" style={{ height: `${Math.max((rev / maxMonthly) * 100, 5)}%` }}>
                                         <div
-                                            className="absolute bottom-0 w-full bg-[#ec5b13] rounded-t-lg transition-all group-hover:brightness-110"
+                                            className="absolute bottom-0 w-full bg-[#6a9a04] rounded-t-lg transition-all group-hover:brightness-110"
                                             style={{ height: '100%', boxShadow: rev === maxMonthly ? '0 0 15px rgba(236,91,19,0.3)' : 'none' }}
                                         />
                                     </div>
-                                    <span className={`text-[10px] font-bold ${rev === maxMonthly ? 'text-[#ec5b13]' : 'text-slate-500'}`}>{monthNames[i]}</span>
+                                    <span className={`text-[10px] font-bold ${rev === maxMonthly ? 'text-[#6a9a04]' : 'text-slate-500'}`}>{monthNames[i]}</span>
                                 </div>
                             ))}
                         </div>
@@ -332,7 +332,7 @@ export default function EstadisticasPage() {
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {topProducts.length > 0 ? topProducts.map((row, i) => (
-                                    <tr key={i} className="hover:bg-[#ec5b13]/5 transition-colors">
+                                    <tr key={i} className="hover:bg-[#6a9a04]/5 transition-colors">
                                         <td className="px-6 py-4 font-bold text-slate-900">{row.name}</td>
                                         <td className="px-6 py-4 text-slate-500 font-mono text-xs">{row.sku}</td>
                                         <td className="px-6 py-4 font-medium text-slate-700">{row.qty} unid.</td>
@@ -368,7 +368,7 @@ export default function EstadisticasPage() {
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {topDistributors.length > 0 ? topDistributors.map((row, i) => (
-                                    <tr key={i} className="hover:bg-[#ec5b13]/5 transition-colors">
+                                    <tr key={i} className="hover:bg-[#6a9a04]/5 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="font-bold text-slate-900">{row.name}</div>
                                             <div className="text-xs text-slate-400">{row.city}</div>

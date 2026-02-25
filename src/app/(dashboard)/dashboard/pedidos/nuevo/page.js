@@ -210,7 +210,7 @@ export default function NuevoPedidoPage() {
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500 gap-4">
-      <div className="w-10 h-10 border-4 border-slate-200 border-t-[#ec5b13] rounded-full animate-spin"></div>
+      <div className="w-10 h-10 border-4 border-slate-200 border-t-[#6a9a04] rounded-full animate-spin"></div>
       <p className="font-medium">Cargando catálogo...</p>
     </div>
   );
@@ -245,7 +245,7 @@ export default function NuevoPedidoPage() {
                 <input
                   type="text"
                   placeholder="Buscar productos..."
-                  className="w-full pl-11 pr-4 py-3 bg-white/60 backdrop-blur-md border border-white/50 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/20 text-slate-800 outline-none transition-all shadow-sm"
+                  className="w-full pl-11 pr-4 py-3 bg-white/60 backdrop-blur-md border border-white/50 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-slate-800 outline-none transition-all shadow-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -253,7 +253,7 @@ export default function NuevoPedidoPage() {
 
               <div className="flex gap-2 flex-wrap">
                 <button
-                  className={`px-4 py-1.5 rounded-full text-sm transition-all border ${selectedCategory === 'all' ? 'bg-[#ec5b13] text-white border-[#ec5b13] font-bold shadow-md shadow-[#ec5b13]/20' : 'bg-white/60 text-slate-600 border-white/60 hover:bg-white hover:border-slate-200'}`}
+                  className={`px-4 py-1.5 rounded-full text-sm transition-all border ${selectedCategory === 'all' ? 'bg-[#6a9a04] text-white border-[#6a9a04] font-bold shadow-md shadow-[#6a9a04]/20' : 'bg-white/60 text-slate-600 border-white/60 hover:bg-white hover:border-slate-200'}`}
                   onClick={() => setSelectedCategory('all')}
                 >
                   Todos
@@ -261,7 +261,7 @@ export default function NuevoPedidoPage() {
                 {categories.map(cat => (
                   <button
                     key={cat}
-                    className={`px-4 py-1.5 rounded-full text-sm transition-all border ${selectedCategory === cat ? 'bg-[#ec5b13] text-white border-[#ec5b13] font-bold shadow-md shadow-[#ec5b13]/20' : 'bg-white/60 text-slate-600 border-white/60 hover:bg-white hover:border-slate-200'}`}
+                    className={`px-4 py-1.5 rounded-full text-sm transition-all border ${selectedCategory === cat ? 'bg-[#6a9a04] text-white border-[#6a9a04] font-bold shadow-md shadow-[#6a9a04]/20' : 'bg-white/60 text-slate-600 border-white/60 hover:bg-white hover:border-slate-200'}`}
                     onClick={() => setSelectedCategory(cat)}
                   >
                     {cat}
@@ -281,7 +281,7 @@ export default function NuevoPedidoPage() {
                 <div className="flex flex-col flex-1">
                   <div className="flex justify-between items-start mb-2 gap-2">
                     <h3 className="font-bold text-slate-900 leading-tight">{product.name}</h3>
-                    <span className="font-black text-[#ec5b13] bg-[#ec5b13]/10 px-2 py-0.5 rounded-lg text-sm shrink-0">${product.price}</span>
+                    <span className="font-black text-[#6a9a04] bg-[#6a9a04]/10 px-2 py-0.5 rounded-lg text-sm shrink-0">${product.price}</span>
                   </div>
                   <p className="text-sm text-slate-500 mb-2 line-clamp-2">{product.description}</p>
                   <p className={`text-xs font-bold m-0 mb-3 ${product.available_stock <= 0 ? 'text-red-500' : product.available_stock <= 10 ? 'text-amber-500' : 'text-[#6a9a04]'}`}>
@@ -291,7 +291,7 @@ export default function NuevoPedidoPage() {
                   <div className="flex justify-between items-center mt-auto pt-4 border-t border-slate-200/50">
                     <span className="text-xs font-mono font-medium text-slate-400 bg-slate-100 px-2 py-1 rounded">SKU: {product.sku}</span>
                     <button
-                      className={`flex items-center gap-2 font-bold px-3 py-1.5 rounded-lg transition-colors text-sm ${product.available_stock <= 0 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-100 hover:bg-[#ec5b13] hover:text-white text-slate-700 cursor-pointer'}`}
+                      className={`flex items-center gap-2 font-bold px-3 py-1.5 rounded-lg transition-colors text-sm ${product.available_stock <= 0 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-100 hover:bg-[#6a9a04] hover:text-white text-slate-700 cursor-pointer'}`}
                       onClick={() => addToCart(product)}
                       disabled={product.available_stock <= 0}
                     >
@@ -308,10 +308,10 @@ export default function NuevoPedidoPage() {
         <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="p-5 border-b border-slate-200/50 flex justify-between items-center bg-white/40">
             <div className="flex items-center gap-2">
-              <ShoppingCart size={20} className="text-[#ec5b13]" />
+              <ShoppingCart size={20} className="text-[#6a9a04]" />
               <h2 className="font-bold text-lg text-slate-900 m-0">Resumen del Pedido</h2>
             </div>
-            <span className="bg-[#ec5b13] text-white text-xs font-bold px-2.5 py-1 rounded-full">{cart.length}</span>
+            <span className="bg-[#6a9a04] text-white text-xs font-bold px-2.5 py-1 rounded-full">{cart.length}</span>
           </div>
 
           <div className="flex-1 overflow-y-auto p-5">
@@ -333,7 +333,7 @@ export default function NuevoPedidoPage() {
                       <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1">
                         <button
                           onClick={() => item.quantity > 1 ? updateQuantity(item.id, -1) : removeFromCart(item.id)}
-                          className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#ec5b13] rounded transition-colors"
+                          className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#6a9a04] rounded transition-colors"
                         >
                           <Minus size={14} />
                         </button>
@@ -353,7 +353,7 @@ export default function NuevoPedidoPage() {
                         />
                         <button
                           onClick={() => updateQuantity(item.id, 1)}
-                          className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#ec5b13] rounded transition-colors"
+                          className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#6a9a04] rounded transition-colors"
                         >
                           <Plus size={14} />
                         </button>
@@ -372,7 +372,7 @@ export default function NuevoPedidoPage() {
                 <MapPin size={24} className="mx-auto mb-2 text-orange-400" />
                 <p className="text-sm font-bold text-orange-700 m-0 mb-1">Sin direcciones registradas</p>
                 <p className="text-xs text-orange-600 m-0 mb-3">Debes registrar al menos una dirección de envío antes de crear un pedido.</p>
-                <Link href="/dashboard/direcciones" className="inline-flex items-center gap-1.5 bg-[#ec5b13] text-white text-sm font-bold px-4 py-2 rounded-lg no-underline hover:bg-[#ec5b13]/90 transition-colors">
+                <Link href="/dashboard/direcciones" className="inline-flex items-center gap-1.5 bg-[#6a9a04] text-white text-sm font-bold px-4 py-2 rounded-lg no-underline hover:bg-[#6a9a04]/90 transition-colors">
                   <MapPin size={14} /> Registrar Dirección
                 </Link>
               </div>
@@ -384,7 +384,7 @@ export default function NuevoPedidoPage() {
                 <select
                   value={selectedAddressId || ''}
                   onChange={(e) => setSelectedAddressId(e.target.value || null)}
-                  className={`w-full px-3 py-2 bg-white border rounded-lg text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#ec5b13]/20 ${!selectedAddressId ? 'border-orange-300 bg-orange-50/50' : 'border-slate-200'
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 ${!selectedAddressId ? 'border-orange-300 bg-orange-50/50' : 'border-slate-200'
                     }`}
                 >
                   <option value="">— Selecciona una dirección —</option>
@@ -411,16 +411,16 @@ export default function NuevoPedidoPage() {
                 onChange={(e) => setOrderNotes(e.target.value)}
                 placeholder="Ej: Priorizar 20 mesas negras de 1.80, llenar espacio restante con cualquier modelo..."
                 rows={3}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#ec5b13]/20 resize-none"
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 resize-none"
               />
             </div>
 
             <div className="flex justify-between items-center mb-4">
               <span className="font-medium text-slate-600">Total Estimado</span>
-              <span className="text-2xl font-black text-[#ec5b13]">${cartTotal.toFixed(2)}</span>
+              <span className="text-2xl font-black text-[#6a9a04]">${cartTotal.toFixed(2)}</span>
             </div>
             <button
-              className="w-full flex items-center justify-center gap-2 bg-[#ec5b13] hover:bg-[#ec5b13]/90 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-[#ec5b13]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+              className="w-full flex items-center justify-center gap-2 bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-[#6a9a04]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
               disabled={cart.length === 0 || isSubmitting || !selectedAddressId || addresses.length === 0}
               onClick={handleSubmitOrder}
             >

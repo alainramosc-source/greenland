@@ -134,7 +134,7 @@ export default async function CategoryPage({ params }) {
                                     <div className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded inline-block w-max mb-3">
                                         SKU: {product.sku}
                                     </div>
-                                    <div className="mt-auto pt-4 border-t border-slate-100 flex items-center text-sm font-bold text-[#ec5b13] group-hover:gap-2 transition-all">
+                                    <div className="mt-auto pt-4 border-t border-slate-100 flex items-center text-sm font-bold text-[#6a9a04] group-hover:gap-2 transition-all">
                                         Ver ficha técnica <ArrowRight size={16} className="ml-1 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                                     </div>
                                 </div>

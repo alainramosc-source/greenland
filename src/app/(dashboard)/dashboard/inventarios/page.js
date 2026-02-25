@@ -118,7 +118,7 @@ export default function InventariosPage() {
                 placeholder="Buscar por SKU o nombre..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-12 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/20 text-sm placeholder:text-slate-400 text-slate-800 outline-none w-72 shadow-sm"
+                className="pl-12 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm placeholder:text-slate-400 text-slate-800 outline-none w-72 shadow-sm"
               />
             </div>
           </div>
@@ -180,7 +180,7 @@ export default function InventariosPage() {
                         </p>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm font-black text-[#ec5b13] m-0">
+                        <p className="text-sm font-black text-[#6a9a04] m-0">
                           ${Number(product.price || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                         </p>
                       </td>
@@ -192,7 +192,7 @@ export default function InventariosPage() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button
-                          className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-white hover:text-[#ec5b13] transition-all cursor-pointer bg-transparent flex items-center gap-1 ml-auto"
+                          className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-white hover:text-[#6a9a04] transition-all cursor-pointer bg-transparent flex items-center gap-1 ml-auto"
                           onClick={() => setSelectedProduct(product)}
                         >
                           <History className="w-3.5 h-3.5" /> Ajustar
@@ -222,8 +222,8 @@ export default function InventariosPage() {
               <p className="text-2xl font-black text-slate-900 m-0">{totalItems.toLocaleString('es-MX')}</p>
             </div>
           </div>
-          <div className="bg-white/60 backdrop-blur-md shadow-lg p-6 rounded-2xl flex items-center gap-4 border-l-4 border-l-[#ec5b13] hover:bg-white/80 transition-all">
-            <div className="w-12 h-12 rounded-xl bg-[#ec5b13]/10 flex items-center justify-center text-[#ec5b13]">
+          <div className="bg-white/60 backdrop-blur-md shadow-lg p-6 rounded-2xl flex items-center gap-4 border-l-4 border-l-[#6a9a04] hover:bg-white/80 transition-all">
+            <div className="w-12 h-12 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center text-[#6a9a04]">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
             </div>
             <div>
@@ -291,7 +291,7 @@ export default function InventariosPage() {
                   className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm"
                 >Cancelar</button>
                 <button type="submit" disabled={submitting}
-                  className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#ec5b13] hover:bg-[#ec5b13]/90 shadow-lg shadow-[#ec5b13]/30 cursor-pointer transition-all border-none"
+                  className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#6a9a04] hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/30 cursor-pointer transition-all border-none"
                 >
                   {submitting ? 'Guardando...' : 'Guardar Movimiento'}
                 </button>

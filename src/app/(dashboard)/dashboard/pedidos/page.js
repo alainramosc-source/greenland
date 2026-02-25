@@ -91,13 +91,13 @@ export default function PedidosPage() {
           </div>
           <div className="flex items-center gap-3">
             <div className="relative w-80 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#ec5b13] transition-colors" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#6a9a04] transition-colors" />
               <input
                 type="text"
                 placeholder="Buscar pedidos, clientes..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full glass-panel pl-12 pr-4 py-3 rounded-2xl focus:ring-2 focus:ring-[#ec5b13]/30 border-none placeholder:text-slate-400 outline-none"
+                className="w-full glass-panel pl-12 pr-4 py-3 rounded-2xl focus:ring-2 focus:ring-[#6a9a04]/30 border-none placeholder:text-slate-400 outline-none"
               />
             </div>
           </div>
@@ -176,7 +176,7 @@ export default function PedidosPage() {
               </select>
               <Link
                 href="/dashboard/pedidos/nuevo"
-                className="bg-[#ec5b13] hover:bg-[#ec5b13]/90 text-white px-6 py-2.5 rounded-xl flex items-center text-sm font-bold shadow-lg shadow-[#ec5b13]/20 transition-all no-underline"
+                className="bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white px-6 py-2.5 rounded-xl flex items-center text-sm font-bold shadow-lg shadow-[#6a9a04]/20 transition-all no-underline"
               >
                 <Plus className="w-5 h-5 mr-2" /> Crear Pedido
               </Link>
@@ -215,10 +215,10 @@ export default function PedidosPage() {
                     const paySc = PAY_STATUS[order.payment_status] || PAY_STATUS.unpaid;
                     return (
                       <tr key={order.id} className="table-row-glass transition-all rounded-2xl group">
-                        <td className="px-6 py-5 bg-white/30 group-hover:bg-[#ec5b13]/5 rounded-l-2xl border-y border-l border-transparent group-hover:border-[#ec5b13]/10 first:rounded-l-2xl transition-colors">
+                        <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 rounded-l-2xl border-y border-l border-transparent group-hover:border-[#6a9a04]/10 first:rounded-l-2xl transition-colors">
                           <span className="text-slate-800 font-bold">#{order.order_number}</span>
                         </td>
-                        <td className="px-6 py-5 bg-white/30 group-hover:bg-[#ec5b13]/5 border-y border-transparent group-hover:border-[#ec5b13]/10 transition-colors">
+                        <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
                           <div>
                             <p className="font-bold text-slate-800 m-0">
                               {isAdmin ? (order.profiles?.full_name || order.profiles?.email || 'Desconocido') : 'Mi Pedido de Reposición'}
@@ -228,31 +228,31 @@ export default function PedidosPage() {
                             </p>
                           </div>
                         </td>
-                        <td className="px-6 py-5 bg-white/30 group-hover:bg-[#ec5b13]/5 border-y border-transparent group-hover:border-[#ec5b13]/10 transition-colors">
+                        <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
                           <span className="text-sm font-medium text-slate-600">
                             {new Date(order.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                           </span>
                         </td>
-                        <td className="px-6 py-5 bg-white/30 group-hover:bg-[#ec5b13]/5 border-y border-transparent group-hover:border-[#ec5b13]/10 transition-colors">
+                        <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
                           <span className="font-black text-[#000000]">
                             ${Number(order.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </td>
-                        <td className="px-6 py-5 bg-white/30 group-hover:bg-[#ec5b13]/5 border-y border-transparent group-hover:border-[#ec5b13]/10 transition-colors text-center">
+                        <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center">
                           <span className={`px-3 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border ${opSc.className}`}>
                             {opSc.label}
                           </span>
                         </td>
-                        <td className="px-6 py-5 bg-white/30 group-hover:bg-[#ec5b13]/5 border-y border-transparent group-hover:border-[#ec5b13]/10 transition-colors text-center">
+                        <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center">
                           {!['cancelled', 'rejected'].includes(order.status) && (
                             <span className={`px-3 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border ${paySc.className}`}>
                               {paySc.label}
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-5 bg-white/30 group-hover:bg-[#ec5b13]/5 rounded-r-2xl border-y border-r border-transparent group-hover:border-[#ec5b13]/10 text-center transition-colors">
+                        <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 rounded-r-2xl border-y border-r border-transparent group-hover:border-[#6a9a04]/10 text-center transition-colors">
                           <Link href={`/dashboard/pedidos/${order.id}`} className="p-2 hover:bg-white rounded-lg transition-colors inline-flex cursor-pointer border-none bg-transparent" title="Ver detalle">
-                            <Eye className="w-5 h-5 text-slate-400 hover:text-[#ec5b13]" />
+                            <Eye className="w-5 h-5 text-slate-400 hover:text-[#6a9a04]" />
                           </Link>
                         </td>
                       </tr>
@@ -272,7 +272,7 @@ export default function PedidosPage() {
               <button className="glass-button w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white cursor-pointer shadow-sm border-none bg-white/50 text-slate-600">
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-[#ec5b13] text-white font-bold shadow-md cursor-pointer border-none">1</button>
+              <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-[#6a9a04] text-white font-bold shadow-md cursor-pointer border-none">1</button>
               <button className="glass-button w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white cursor-pointer shadow-sm border-none bg-white/50 text-slate-600">
                 <ChevronRight className="w-4 h-4" />
               </button>

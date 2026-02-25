@@ -104,7 +104,7 @@ export default function DireccionesPage() {
 
     if (loading) return (
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500 gap-4">
-            <Loader2 className="w-10 h-10 animate-spin text-[#ec5b13]" />
+            <Loader2 className="w-10 h-10 animate-spin text-[#6a9a04]" />
             <p className="font-medium">Cargando direcciones...</p>
         </div>
     );
@@ -120,7 +120,7 @@ export default function DireccionesPage() {
             {!showForm && (
                 <button
                     onClick={() => setShowForm(true)}
-                    className="mb-6 flex items-center gap-2 bg-[#ec5b13] hover:bg-[#ec5b13]/90 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-lg shadow-[#ec5b13]/20 transition-all border-none cursor-pointer"
+                    className="mb-6 flex items-center gap-2 bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-lg shadow-[#6a9a04]/20 transition-all border-none cursor-pointer"
                 >
                     <Plus size={18} /> Agregar Dirección
                 </button>
@@ -131,7 +131,7 @@ export default function DireccionesPage() {
                 <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-6 mb-6">
                     <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-200">
                         <h3 className="text-lg font-bold text-slate-900 m-0 flex items-center gap-2">
-                            <MapPin size={18} className="text-[#ec5b13]" />
+                            <MapPin size={18} className="text-[#6a9a04]" />
                             {editingId ? 'Editar Dirección' : 'Nueva Dirección'}
                         </h3>
                         <button onClick={resetForm} className="p-1 rounded-lg hover:bg-slate-100 bg-transparent border-none cursor-pointer">
@@ -144,42 +144,42 @@ export default function DireccionesPage() {
                             <label className="block text-sm font-medium text-slate-600 mb-1">Nombre / Etiqueta *</label>
                             <input type="text" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
                                 placeholder="Ej: Bodega Principal, Sucursal Norte"
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20 shadow-sm" />
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm" />
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium text-slate-600 mb-1">Calle y Número *</label>
                             <input type="text" value={form.street} onChange={e => setForm(f => ({ ...f, street: e.target.value }))}
                                 placeholder="Av. Constitución #456"
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20 shadow-sm" />
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm" />
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium text-slate-600 mb-1">Colonia</label>
                             <input type="text" value={form.neighborhood} onChange={e => setForm(f => ({ ...f, neighborhood: e.target.value }))}
                                 placeholder="Col. Centro"
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20 shadow-sm" />
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-600 mb-1">Ciudad *</label>
                             <input type="text" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
                                 placeholder="Saltillo"
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20 shadow-sm" />
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-600 mb-1">Estado *</label>
                             <input type="text" value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
                                 placeholder="Coahuila"
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20 shadow-sm" />
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-600 mb-1">Código Postal</label>
                             <input type="text" value={form.zip_code} onChange={e => setForm(f => ({ ...f, zip_code: e.target.value }))}
                                 placeholder="25000"
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20 shadow-sm" />
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm" />
                         </div>
                         <div className="flex items-end pb-1">
                             <label className="flex items-center gap-2 cursor-pointer select-none">
                                 <input type="checkbox" checked={form.is_default} onChange={e => setForm(f => ({ ...f, is_default: e.target.checked }))}
-                                    className="w-4 h-4 rounded border-slate-300 text-[#ec5b13] focus:ring-[#ec5b13]/20 cursor-pointer" />
+                                    className="w-4 h-4 rounded border-slate-300 text-[#6a9a04] focus:ring-[#6a9a04]/20 cursor-pointer" />
                                 <span className="text-sm font-medium text-slate-700">Dirección predeterminada</span>
                             </label>
                         </div>
@@ -190,7 +190,7 @@ export default function DireccionesPage() {
                             className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm mt-4"
                         >Cancelar</button>
                         <button onClick={handleSave} disabled={saving}
-                            className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#ec5b13] hover:bg-[#ec5b13]/90 shadow-lg shadow-[#ec5b13]/20 cursor-pointer transition-all border-none disabled:opacity-50 mt-4"
+                            className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#6a9a04] hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/20 cursor-pointer transition-all border-none disabled:opacity-50 mt-4"
                         >
                             {saving ? <Loader2 size={18} className="animate-spin" /> : (editingId ? 'Guardar Cambios' : 'Agregar')}
                         </button>
@@ -208,13 +208,13 @@ export default function DireccionesPage() {
             ) : (
                 <div className="flex flex-col gap-4">
                     {addresses.map(addr => (
-                        <div key={addr.id} className={`bg-white/60 backdrop-blur-md border shadow-sm rounded-2xl p-5 transition-all hover:shadow-md ${addr.is_default ? 'border-[#ec5b13]/30 ring-1 ring-[#ec5b13]/10' : 'border-white/50'}`}>
+                        <div key={addr.id} className={`bg-white/60 backdrop-blur-md border shadow-sm rounded-2xl p-5 transition-all hover:shadow-md ${addr.is_default ? 'border-[#6a9a04]/30 ring-1 ring-[#6a9a04]/10' : 'border-white/50'}`}>
                             <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1">
                                     <div className="flex items-center gap-2 mb-2">
                                         <h4 className="font-bold text-slate-900 m-0">{addr.label}</h4>
                                         {addr.is_default && (
-                                            <span className="flex items-center gap-1 text-[10px] font-bold text-[#ec5b13] bg-[#ec5b13]/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                            <span className="flex items-center gap-1 text-[10px] font-bold text-[#6a9a04] bg-[#6a9a04]/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
                                                 <Star size={10} /> Predeterminada
                                             </span>
                                         )}

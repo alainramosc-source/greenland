@@ -65,7 +65,7 @@ export default function LoginPage() {
       }
     } else if (viewState === 'recover') {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/dashboard` // Redirigiremos de vuelta a dashboard u otra URL validada
+        redirectTo: `${window.location.origin}/dashboard`
       });
       if (error) {
         setError(error.message);
@@ -78,50 +78,68 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#f8f6f6] flex items-center justify-center relative overflow-hidden">
-      {/* Background Blurs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#ec5b13]/20 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#6a9a04]/20 rounded-full blur-[120px] pointer-events-none" />
+      {/* Background Blurs - Brand Colors */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#6a9a04]/15 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#dee24b]/20 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-[50%] left-[50%] w-[30%] h-[30%] bg-[#6a9a04]/8 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="w-full max-w-5xl bg-white/60 backdrop-blur-xl border border-white flex shadow-2xl overflow-hidden rounded-3xl m-4 relative z-10 w-full">
 
         {/* Left Side (Branding Info) */}
-        <div className="hidden md:flex w-1/2 bg-[#6a9a04]/5 relative p-12 flex-col justify-between border-r border-[#6a9a04]/10">
+        <div className="hidden md:flex w-1/2 relative p-12 flex-col justify-between border-r border-[#6a9a04]/15" style={{ background: 'linear-gradient(135deg, rgba(106,154,4,0.08) 0%, rgba(222,226,75,0.06) 100%)' }}>
           <div>
-            <Link href="/" className="inline-flex items-center text-sm font-bold text-slate-500 hover:text-[#ec5b13] transition-colors mb-12">
+            <Link href="/" className="inline-flex items-center text-sm font-bold text-slate-500 hover:text-[#6a9a04] transition-colors mb-10">
               ← Volver al inicio
             </Link>
-            <div className="w-16 h-16 bg-white/80 backdrop-blur-sm border border-white text-[#ec5b13] flex items-center justify-center text-3xl font-black rounded-2xl shadow-sm mb-8">
-              G
+
+            {/* Real Greenland Logo */}
+            <div className="mb-8">
+              <img
+                src="/logo-new.jpg"
+                alt="GreenLand Products"
+                className="h-28 w-auto object-contain"
+                style={{ mixBlendMode: 'multiply' }}
+              />
             </div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight leading-tight mb-2">
-              GREENLAND<br />
-              <span className="text-lg font-bold tracking-widest text-[#ec5b13] uppercase">Products</span>
-            </h1>
-            <p className="text-slate-600 font-medium leading-relaxed mt-4 max-w-sm">
-              Portal exclusivo para distribuidores autorizados. Gestiona pedidos, inventarios y seguimiento en tiempo real con nuestra nueva plataforma.
+
+            <h2 className="text-lg font-bold text-[#6a9a04] tracking-wide uppercase mb-3">
+              Portal de Distribuidores
+            </h2>
+            <p className="text-slate-600 font-medium leading-relaxed max-w-sm">
+              Acceso exclusivo para distribuidores autorizados. Gestiona pedidos, inventarios y seguimiento en tiempo real con nuestra plataforma.
             </p>
           </div>
 
-          <div className="flex gap-8 pt-8 border-t border-slate-200/50 mt-12">
+          <div className="flex gap-8 pt-8 border-t border-[#6a9a04]/15 mt-12">
             <div>
               <strong className="block text-2xl font-black text-slate-900">500+</strong>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Clientes B2B</span>
+              <span className="text-xs font-bold text-[#747474] uppercase tracking-wider">Clientes B2B</span>
             </div>
             <div>
               <strong className="block text-2xl font-black text-slate-900">50K+</strong>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Unidades</span>
+              <span className="text-xs font-bold text-[#747474] uppercase tracking-wider">Unidades</span>
             </div>
           </div>
         </div>
 
         {/* Right Side (Auth Form) */}
         <div className="w-full md:w-1/2 p-8 md:p-12 lg:p-16 flex flex-col justify-center bg-white/80">
+          {/* Mobile Logo */}
+          <div className="md:hidden mb-6 flex justify-center">
+            <img
+              src="/logo-new.jpg"
+              alt="GreenLand Products"
+              className="h-20 w-auto object-contain"
+              style={{ mixBlendMode: 'multiply' }}
+            />
+          </div>
+
           <div className="mb-8">
             <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">
               {viewState === 'register' ? 'Crear Cuenta' : viewState === 'recover' ? 'Recuperar Contraseña' : 'Iniciar Sesión'}
             </h2>
-            <p className="text-slate-500 font-medium">
-              {viewState === 'register' ? 'Regístrate para comenzar' : viewState === 'recover' ? 'Ingresa tu correo para recibir un enlace de acceso' : 'Accede a tu portal de distribuidor'}
+            <p className="text-[#747474] font-medium">
+              {viewState === 'register' ? 'Regístrate como distribuidor Greenland' : viewState === 'recover' ? 'Ingresa tu correo para recibir un enlace de acceso' : 'Accede al Portal Oficial de Distribuidores Greenland'}
             </p>
           </div>
 
@@ -131,7 +149,7 @@ export default function LoginPage() {
             </div>
           )}
           {message && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl mb-6 text-sm font-medium">
+            <div className="bg-[#6a9a04]/10 border border-[#6a9a04]/20 text-[#6a9a04] px-4 py-3 rounded-xl mb-6 text-sm font-medium">
               {message}
             </div>
           )}
@@ -150,7 +168,7 @@ export default function LoginPage() {
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         required
-                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none transition-all shadow-sm"
+                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none transition-all shadow-sm"
                       />
                     </div>
                   </div>
@@ -164,7 +182,7 @@ export default function LoginPage() {
                         value={companyName}
                         onChange={(e) => setCompanyName(e.target.value)}
                         required
-                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none transition-all shadow-sm"
+                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none transition-all shadow-sm"
                       />
                     </div>
                   </div>
@@ -180,7 +198,7 @@ export default function LoginPage() {
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
                         required
-                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none transition-all shadow-sm"
+                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none transition-all shadow-sm"
                       />
                     </div>
                   </div>
@@ -194,7 +212,7 @@ export default function LoginPage() {
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         required
-                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none transition-all shadow-sm"
+                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none transition-all shadow-sm"
                       />
                     </div>
                   </div>
@@ -209,7 +227,7 @@ export default function LoginPage() {
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       required
-                      className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none transition-all shadow-sm"
+                      className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none transition-all shadow-sm"
                     />
                   </div>
                 </div>
@@ -226,7 +244,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none transition-all shadow-sm"
+                  className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none transition-all shadow-sm"
                 />
               </div>
             </div>
@@ -236,7 +254,7 @@ export default function LoginPage() {
                 <div className="flex justify-between items-center mb-1.5">
                   <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Contraseña</label>
                   {viewState === 'login' && (
-                    <button type="button" onClick={() => { setViewState('recover'); setError(null); setMessage(null); }} className="text-xs font-bold text-[#ec5b13] hover:underline cursor-pointer bg-transparent border-none">
+                    <button type="button" onClick={() => { setViewState('recover'); setError(null); setMessage(null); }} className="text-xs font-bold text-[#6a9a04] hover:underline cursor-pointer bg-transparent border-none">
                       ¿Olvidaste tu contraseña?
                     </button>
                   )}
@@ -249,7 +267,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="w-full pl-11 pr-11 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ec5b13]/30 focus:border-[#ec5b13] text-slate-800 outline-none transition-all shadow-sm"
+                    className="w-full pl-11 pr-11 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none transition-all shadow-sm"
                   />
                   <button
                     type="button"
@@ -265,7 +283,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 flex items-center justify-center gap-2 py-3.5 bg-[#ec5b13] hover:bg-[#ec5b13]/90 text-white rounded-xl font-bold shadow-lg shadow-[#ec5b13]/20 transition-all cursor-pointer border-none disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full mt-2 flex items-center justify-center gap-2 py-3.5 bg-[#6a9a04] hover:bg-[#5a8503] text-white rounded-xl font-bold shadow-lg shadow-[#6a9a04]/20 transition-all cursor-pointer border-none disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {loading ? 'Procesando...' : (viewState === 'register' ? 'REGISTRARSE' : viewState === 'recover' ? 'ENVIAR ENLACE' : 'INGRESAR')}
               {!loading && viewState !== 'recover' && <ArrowRight className="w-5 h-5" />}
@@ -273,7 +291,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-8 text-center text-sm text-slate-500 font-medium">
+          <div className="mt-8 text-center text-sm text-[#747474] font-medium">
             {viewState === 'register' ? '¿Ya tienes cuenta?' : viewState === 'recover' ? '¿Ya la recordaste?' : '¿No tienes cuenta?'}
             <button
               onClick={() => {
@@ -281,7 +299,7 @@ export default function LoginPage() {
                 setError(null);
                 setMessage(null);
               }}
-              className="ml-2 text-[#ec5b13] font-bold hover:underline bg-transparent border-none cursor-pointer"
+              className="ml-2 text-[#6a9a04] font-bold hover:underline bg-transparent border-none cursor-pointer"
             >
               {viewState === 'register' ? 'Inicia Sesión' : viewState === 'recover' ? 'Inicia Sesión' : 'Solicita acceso'}
             </button>
@@ -293,14 +311,14 @@ export default function LoginPage() {
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center px-4">
           <div className="bg-white/90 backdrop-blur-xl border border-white max-w-[400px] w-full rounded-2xl shadow-2xl overflow-hidden text-center p-8">
-            <div className="w-16 h-16 bg-green-100 text-[#6a9a04] rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-[#6a9a04]/10 text-[#6a9a04] rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
             </div>
             <h3 className="text-xl font-black text-slate-900 mb-2">
               ¡Registro Exitoso!
             </h3>
-            <p className="text-slate-500 font-medium mb-8">
-              Tu información ha sido enviada correctamente. Se encuentra en revisión por un administrador, una vez aprobada podrás acceder a la plataforma.
+            <p className="text-[#747474] font-medium mb-8">
+              Tu solicitud ha sido recibida por Greenland. Se encuentra en revisión por nuestro equipo, una vez aprobada podrás acceder a la plataforma.
             </p>
             <div className="flex justify-center">
               <button
@@ -308,7 +326,7 @@ export default function LoginPage() {
                   setShowSuccessModal(false);
                   setViewState('login');
                 }}
-                className="px-6 py-3 rounded-xl text-white font-bold bg-[#ec5b13] hover:bg-[#ec5b13]/90 shadow-lg shadow-[#ec5b13]/20 cursor-pointer transition-all border-none w-full"
+                className="px-6 py-3 rounded-xl text-white font-bold bg-[#6a9a04] hover:bg-[#5a8503] shadow-lg shadow-[#6a9a04]/20 cursor-pointer transition-all border-none w-full"
               >
                 Entendido
               </button>

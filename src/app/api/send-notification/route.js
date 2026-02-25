@@ -57,7 +57,7 @@ function buildOrderEmailHtml({ title, subtitle, orderNumber, status, items, tota
           ${total ? `
           <div style="margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;">
             <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Total</p>
-            <p style="margin:0;font-size:20px;color:#ec5b13;font-weight:800;">$${Number(total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+            <p style="margin:0;font-size:20px;color:#6a9a04;font-weight:800;">$${Number(total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
           </div>` : ''}
         </div>
 
@@ -75,7 +75,7 @@ function buildOrderEmailHtml({ title, subtitle, orderNumber, status, items, tota
 
         ${ctaUrl ? `
         <div style="text-align:center;margin:24px 0;">
-          <a href="${ctaUrl}" style="display:inline-block;background:#ec5b13;color:#fff;font-size:14px;font-weight:700;padding:12px 28px;border-radius:12px;text-decoration:none;">
+          <a href="${ctaUrl}" style="display:inline-block;background:#6a9a04;color:#fff;font-size:14px;font-weight:700;padding:12px 28px;border-radius:12px;text-decoration:none;">
             ${ctaText || 'Ver Pedido'}
           </a>
         </div>` : ''}

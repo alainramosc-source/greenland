@@ -136,7 +136,7 @@ export default function DashboardPage() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm hover:shadow-md transition-shadow p-6 rounded-2xl flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-[#ec5b13]/10 flex items-center justify-center text-[#ec5b13]">
+            <div className="w-14 h-14 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center text-[#6a9a04]">
               <ShoppingCart size={28} />
             </div>
             <div>
@@ -186,7 +186,7 @@ export default function DashboardPage() {
             <select
               value={distributorFilter}
               onChange={(e) => setDistributorFilter(e.target.value)}
-              className="px-3 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20 cursor-pointer"
+              className="px-3 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 cursor-pointer"
             >
               <option value="all">Todos los distribuidores</option>
               {distributors.map(d => (
@@ -198,7 +198,7 @@ export default function DashboardPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20 cursor-pointer"
+              className="px-3 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 cursor-pointer"
             >
               <option value="all">Todos los estados</option>
               <option value="pending">Pendiente</option>
@@ -213,12 +213,12 @@ export default function DashboardPage() {
             {/* Date range */}
             <div className="flex items-center gap-2">
               <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                className="px-3 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20"
+                className="px-3 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20"
                 placeholder="Desde"
               />
               <span className="text-slate-400">—</span>
               <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                className="px-3 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20"
+                className="px-3 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20"
                 placeholder="Hasta"
               />
             </div>
@@ -231,7 +231,7 @@ export default function DashboardPage() {
                 placeholder="Buscar folio, distribuidor..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#ec5b13]/20 placeholder:text-slate-400"
+                className="w-full pl-10 pr-4 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 placeholder:text-slate-400"
               />
             </div>
 
@@ -284,7 +284,7 @@ export default function DashboardPage() {
                     return (
                       <tr key={order.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors">
                         <td className="p-4">
-                          <Link href={`/dashboard/pedidos/${order.id}`} className="font-bold text-slate-700 hover:text-[#ec5b13] transition-colors">
+                          <Link href={`/dashboard/pedidos/${order.id}`} className="font-bold text-slate-700 hover:text-[#6a9a04] transition-colors">
                             #{order.order_number}
                           </Link>
                         </td>
@@ -310,7 +310,7 @@ export default function DashboardPage() {
                         </td>
                         <td className="p-4 text-center">
                           <Link href={`/dashboard/pedidos/${order.id}`} className="p-2 hover:bg-white rounded-lg transition-colors inline-flex cursor-pointer" title="Ver detalle">
-                            <Eye className="w-5 h-5 text-slate-400 hover:text-[#ec5b13]" />
+                            <Eye className="w-5 h-5 text-slate-400 hover:text-[#6a9a04]" />
                           </Link>
                         </td>
                       </tr>

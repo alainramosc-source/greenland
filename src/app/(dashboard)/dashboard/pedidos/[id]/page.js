@@ -299,7 +299,7 @@ export default function OrderDetailsPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500 gap-4">
-        <Loader2 className="w-10 h-10 animate-spin text-[#ec5b13]" />
+        <Loader2 className="w-10 h-10 animate-spin text-[#6a9a04]" />
         <p className="font-medium">Cargando detalles del pedido...</p>
       </div>
     );
@@ -309,7 +309,7 @@ export default function OrderDetailsPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500 gap-4">
         <p className="font-medium text-lg">No se encontró el pedido o no tienes permiso para verlo.</p>
-        <Link href="/dashboard/pedidos" className="bg-[#ec5b13] hover:bg-[#ec5b13]/90 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-[#ec5b13]/20 transition-all flex items-center no-underline">
+        <Link href="/dashboard/pedidos" className="bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-[#6a9a04]/20 transition-all flex items-center no-underline">
           Volver a Pedidos
         </Link>
       </div>
@@ -377,7 +377,7 @@ export default function OrderDetailsPage() {
             </div>
             <div className="p-6 space-y-4">
               <p className="text-sm text-slate-600">
-                Saldo pendiente: <strong className="text-[#ec5b13]">${balance.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong>
+                Saldo pendiente: <strong className="text-[#6a9a04]">${balance.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong>
               </p>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -475,7 +475,7 @@ export default function OrderDetailsPage() {
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
                 <h3 className="text-xl font-bold text-slate-900 m-0">Productos en el Pedido</h3>
                 {isAdmin && order.status === 'pending' && (
-                  <span className="text-xs font-bold text-[#ec5b13] bg-[#ec5b13]/10 px-3 py-1 rounded-full">
+                  <span className="text-xs font-bold text-[#6a9a04] bg-[#6a9a04]/10 px-3 py-1 rounded-full">
                     ✏️ Cantidades editables
                   </span>
                 )}
@@ -507,7 +507,7 @@ export default function OrderDetailsPage() {
                               <div className="font-semibold text-slate-900">{item.products?.name}</div>
                               <div className="text-xs text-slate-500 mt-0.5">SKU: {item.products?.sku}</div>
                               {isAdmin && (
-                                <div className="text-[11px] font-medium text-[#ec5b13] mt-0.5 bg-[#ec5b13]/10 inline-block px-1.5 py-0.5 rounded">
+                                <div className="text-[11px] font-medium text-[#6a9a04] mt-0.5 bg-[#6a9a04]/10 inline-block px-1.5 py-0.5 rounded">
                                   Stock: {item.products?.stock_quantity} | Reservado: {item.products?.reserved_quantity || 0}
                                 </div>
                               )}
@@ -530,7 +530,7 @@ export default function OrderDetailsPage() {
                                   }
                                 }}
                                 disabled={actionLoading === `qty-${item.id}`}
-                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#ec5b13] rounded transition-colors cursor-pointer border-none bg-transparent disabled:opacity-50"
+                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#6a9a04] rounded transition-colors cursor-pointer border-none bg-transparent disabled:opacity-50"
                               >
                                 <Minus size={14} />
                               </button>
@@ -562,7 +562,7 @@ export default function OrderDetailsPage() {
                                   handleUpdateQuantity(item.id, newQty);
                                 }}
                                 disabled={actionLoading === `qty-${item.id}`}
-                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#ec5b13] rounded transition-colors cursor-pointer border-none bg-transparent disabled:opacity-50"
+                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#6a9a04] rounded transition-colors cursor-pointer border-none bg-transparent disabled:opacity-50"
                               >
                                 <Plus size={14} />
                               </button>
@@ -575,7 +575,7 @@ export default function OrderDetailsPage() {
                           )}
                         </td>
                         <td className="py-4 text-right">
-                          <span className={`font-bold px-2.5 py-1 rounded-lg ${editingItems[item.id] !== undefined && editingItems[item.id] !== item.quantity ? 'text-[#ec5b13] bg-[#ec5b13]/10' : 'text-[#6a9a04] bg-[#6a9a04]/10'}`}>
+                          <span className={`font-bold px-2.5 py-1 rounded-lg ${editingItems[item.id] !== undefined && editingItems[item.id] !== item.quantity ? 'text-[#6a9a04] bg-[#6a9a04]/10' : 'text-[#6a9a04] bg-[#6a9a04]/10'}`}>
                             ${Number((editingItems[item.id] ?? item.quantity) * item.unit_price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </td>
@@ -671,7 +671,7 @@ export default function OrderDetailsPage() {
               <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden p-6 mb-8">
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
                   <h3 className="text-xl font-bold text-slate-900 m-0 flex items-center gap-2">
-                    <Camera size={20} className="text-[#ec5b13]" /> Evidencias Fotográficas
+                    <Camera size={20} className="text-[#6a9a04]" /> Evidencias Fotográficas
                   </h3>
                   {evidence.filter(e => e.evidence_type === 'embarque').length >= 2 ? (
                     <span className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-200">✓ Requisito cumplido</span>
@@ -685,7 +685,7 @@ export default function OrderDetailsPage() {
                   <button
                     onClick={() => setEvidenceTab('embarque')}
                     className={`px-5 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-all border-none ${evidenceTab === 'embarque'
-                      ? 'bg-[#ec5b13] text-white shadow-md shadow-[#ec5b13]/20'
+                      ? 'bg-[#6a9a04] text-white shadow-md shadow-[#6a9a04]/20'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                   >
@@ -694,7 +694,7 @@ export default function OrderDetailsPage() {
                   <button
                     onClick={() => setEvidenceTab('guia')}
                     className={`px-5 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-all border-none ${evidenceTab === 'guia'
-                      ? 'bg-[#ec5b13] text-white shadow-md shadow-[#ec5b13]/20'
+                      ? 'bg-[#6a9a04] text-white shadow-md shadow-[#6a9a04]/20'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                   >
@@ -706,7 +706,7 @@ export default function OrderDetailsPage() {
                 {isAdmin && order.status === 'in_fulfillment' && (
                   <div className="flex gap-3 mb-6">
                     {/* Camera capture button — works on mobile/tablet */}
-                    <label className="flex-1 flex items-center justify-center gap-3 bg-[#ec5b13] hover:bg-[#ec5b13]/90 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-[#ec5b13]/20 transition-all cursor-pointer border-none min-h-[60px]">
+                    <label className="flex-1 flex items-center justify-center gap-3 bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-[#6a9a04]/20 transition-all cursor-pointer border-none min-h-[60px]">
                       <Camera size={24} />
                       {uploading ? 'Subiendo...' : 'Tomar Foto'}
                       <input
@@ -869,7 +869,7 @@ export default function OrderDetailsPage() {
             {isAdmin && order.profiles && (
               <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-6">
                 <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900 mb-4 pb-4 border-b border-slate-200">
-                  <User size={18} className="text-[#ec5b13]" /> Distribuidor
+                  <User size={18} className="text-[#6a9a04]" /> Distribuidor
                 </h3>
                 <div className="flex flex-col gap-3">
                   <div className="font-bold text-slate-900">{order.profiles.full_name || '—'}</div>
@@ -951,10 +951,10 @@ export default function OrderDetailsPage() {
               )}
 
               <div className="flex gap-4 mb-5">
-                <div className="mt-1 text-[#ec5b13] bg-[#ec5b13]/10 p-2 rounded-lg w-fit h-fit"><DollarSign size={18} /></div>
+                <div className="mt-1 text-[#6a9a04] bg-[#6a9a04]/10 p-2 rounded-lg w-fit h-fit"><DollarSign size={18} /></div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total</label>
-                  <div className="text-3xl font-black tracking-tight text-[#ec5b13]">
+                  <div className="text-3xl font-black tracking-tight text-[#6a9a04]">
                     ${Number(order.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                   </div>
                 </div>
