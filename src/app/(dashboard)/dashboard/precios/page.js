@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     DollarSign, Search, Save, Upload, Percent, X, Check,
-    AlertTriangle, Package, ArrowUpDown, Download, FileSpreadsheet
+    AlertTriangle, Package, ArrowUpDown, Download, FileSpreadsheet, History, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 export default function PreciosPage() {
@@ -27,6 +27,9 @@ export default function PreciosPage() {
     // Sort
     const [sortBy, setSortBy] = useState('name');
     const [sortDir, setSortDir] = useState('asc');
+    // Price history
+    const [priceHistory, setPriceHistory] = useState([]);
+    const [showHistory, setShowHistory] = useState(false);
 
     const supabase = createClient();
     const router = useRouter();
@@ -38,14 +41,23 @@ export default function PreciosPage() {
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
         if (profile?.role !== 'admin') { router.push('/dashboard/pedidos'); return; }
 
-        const { data } = await supabase
-            .from('products')
-            .select('id, name, sku, price, category_id, categories:category_id(name)')
-            .eq('is_active', true)
-            .order('name');
+        const [productsRes, historyRes] = await Promise.all([
+            supabase
+                .from('products')
+                .select('id, name, sku, price, category_id, categories:category_id(name)')
+                .eq('is_active', true)
+                .order('name'),
+            supabase
+                .from('price_history')
+                .select('*')
+                .order('changed_at', { ascending: false })
+                .limit(100)
+        ]);
 
-        setProducts(data || []);
-        const cats = [...new Set((data || []).map(p => p.categories?.name).filter(Boolean))];
+        const data = productsRes.data || [];
+        setProducts(data);
+        setPriceHistory(historyRes.data || []);
+        const cats = [...new Set(data.map(p => p.categories?.name).filter(Boolean))];
         setCategories(cats);
         setLoading(false);
     };
@@ -253,8 +265,8 @@ export default function PreciosPage() {
                         <button
                             onClick={() => setSelectedCategory('all')}
                             className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap ${selectedCategory === 'all'
-                                    ? 'bg-[#6a9a04] text-white border-[#6a9a04] shadow-md shadow-[#6a9a04]/20'
-                                    : 'bg-white/60 text-slate-600 border-slate-200 hover:bg-white cursor-pointer'
+                                ? 'bg-[#6a9a04] text-white border-[#6a9a04] shadow-md shadow-[#6a9a04]/20'
+                                : 'bg-white/60 text-slate-600 border-slate-200 hover:bg-white cursor-pointer'
                                 }`}
                         >
                             Todos
@@ -264,8 +276,8 @@ export default function PreciosPage() {
                                 key={cat}
                                 onClick={() => setSelectedCategory(cat)}
                                 className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap cursor-pointer ${selectedCategory === cat
-                                        ? 'bg-[#6a9a04] text-white border-[#6a9a04] shadow-md shadow-[#6a9a04]/20'
-                                        : 'bg-white/60 text-slate-600 border-slate-200 hover:bg-white'
+                                    ? 'bg-[#6a9a04] text-white border-[#6a9a04] shadow-md shadow-[#6a9a04]/20'
+                                    : 'bg-white/60 text-slate-600 border-slate-200 hover:bg-white'
                                     }`}
                             >
                                 {cat}
@@ -369,8 +381,8 @@ export default function PreciosPage() {
                                                                 }
                                                             }}
                                                             className={`w-32 pl-7 pr-3 py-1.5 text-sm font-bold rounded-lg border outline-none transition-all ${hasEdit
-                                                                    ? 'border-[#6a9a04] bg-white text-[#6a9a04] ring-2 ring-[#6a9a04]/20'
-                                                                    : 'border-slate-200 bg-white/50 text-slate-700 focus:border-[#6a9a04] focus:ring-2 focus:ring-[#6a9a04]/20'
+                                                                ? 'border-[#6a9a04] bg-white text-[#6a9a04] ring-2 ring-[#6a9a04]/20'
+                                                                : 'border-slate-200 bg-white/50 text-slate-700 focus:border-[#6a9a04] focus:ring-2 focus:ring-[#6a9a04]/20'
                                                                 }`}
                                                         />
                                                     </div>
@@ -402,6 +414,75 @@ export default function PreciosPage() {
                             {filteredProducts.length} productos · {editCount} modificados
                         </p>
                     </div>
+                </div>
+
+                {/* Price History Section */}
+                <div className="bg-white/60 backdrop-blur-md rounded-2xl border border-white/50 shadow-sm overflow-hidden mt-6">
+                    <button
+                        onClick={() => setShowHistory(!showHistory)}
+                        className="w-full px-6 py-4 flex items-center justify-between bg-transparent border-none cursor-pointer hover:bg-white/30 transition-colors"
+                    >
+                        <h4 className="font-bold text-slate-900 m-0 flex items-center gap-2 text-sm">
+                            <History className="w-4 h-4 text-[#6a9a04]" /> Historial de Cambios de Precio
+                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{priceHistory.length}</span>
+                        </h4>
+                        {showHistory ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                    </button>
+                    {showHistory && (
+                        <div className="border-t border-slate-200">
+                            {priceHistory.length > 0 ? (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-slate-50/50">
+                                                <th className="px-5 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Producto</th>
+                                                <th className="px-3 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Precio Anterior</th>
+                                                <th className="px-3 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">→</th>
+                                                <th className="px-3 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Precio Nuevo</th>
+                                                <th className="px-3 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">Cambio</th>
+                                                <th className="px-3 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Fecha</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {priceHistory.map(h => {
+                                                const product = products.find(p => p.id === h.product_id);
+                                                const diff = (h.new_price || 0) - (h.old_price || 0);
+                                                const pct = h.old_price > 0 ? ((diff / h.old_price) * 100).toFixed(1) : '—';
+                                                return (
+                                                    <tr key={h.id} className="hover:bg-white/50 transition-colors">
+                                                        <td className="px-5 py-2.5">
+                                                            <span className="font-bold text-sm text-slate-900">{product?.name || 'Producto eliminado'}</span>
+                                                            <span className="text-[10px] text-slate-400 ml-2 font-mono">{product?.sku || ''}</span>
+                                                        </td>
+                                                        <td className="px-3 py-2.5 text-right text-sm font-bold text-slate-500">
+                                                            ${Number(h.old_price || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                        <td className="px-3 py-2.5 text-center text-slate-300">→</td>
+                                                        <td className="px-3 py-2.5 text-sm font-black text-slate-900">
+                                                            ${Number(h.new_price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                        <td className="px-3 py-2.5 text-center">
+                                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${diff > 0 ? 'bg-green-50 text-green-600' : diff < 0 ? 'bg-red-50 text-red-500' : 'bg-slate-50 text-slate-400'
+                                                                }`}>
+                                                                {diff > 0 ? '+' : ''}{pct}%
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-3 py-2.5 text-right text-[11px] text-slate-400">
+                                                            {new Date(h.changed_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="p-8 text-center text-sm text-slate-400">
+                                    No hay cambios de precios registrados aún. Los cambios se registrarán automáticamente al guardar.
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
