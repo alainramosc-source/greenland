@@ -108,17 +108,11 @@ export default async function CategoryPage({ params }) {
                         {products.map((product) => (
                             <Link href={`/productos/${product.sku}?ref=cat`} key={product.id} className="group bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col">
                                 <div className="aspect-[4/3] bg-slate-50 relative overflow-hidden group-hover:bg-slate-100 transition-colors">
-                                    {product.image_url ? (
-                                        <img
-                                            src={product.image_url}
-                                            alt={product.name}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                        />
-                                    ) : (
-                                        <div className="absolute inset-0 flex items-center justify-center text-slate-300">
-                                            <Box size={32} />
-                                        </div>
-                                    )}
+                                    <img
+                                        src={product.image_url || `/productos/${product.sku}-P1.png`}
+                                        alt={product.name}
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                    />
                                     {product.is_featured && (
                                         <div className="absolute top-3 left-3 bg-[#6a9a04] text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow-md">
                                             Destacado
