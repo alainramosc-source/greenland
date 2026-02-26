@@ -1227,14 +1227,16 @@ export default function OrderDetailsPage() {
               </div>
             )}
 
-            {/* Distributor: Receive Order Button */}
-            {!isAdmin && order.status === 'shipped' && (
+            {/* Receive Order Button — shown for shipped orders */}
+            {order.status === 'shipped' && (
               <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-6">
                 <h3 className="text-lg font-bold text-slate-900 mb-3 pb-3 border-b border-slate-200 flex items-center gap-2">
                   <Package className="w-5 h-5 text-[#6a9a04]" /> Recepción de Pedido
                 </h3>
                 <p className="text-sm text-slate-600 mb-4">
-                  Tu pedido fue enviado por GreenLand. Cuando lo recibas físicamente, verifica que todo esté completo y haz clic en el botón:
+                  {isAdmin
+                    ? 'Confirma que el distribuidor recibió este pedido. Los productos se agregarán a su inventario automáticamente.'
+                    : 'Tu pedido fue enviado por GreenLand. Cuando lo recibas físicamente, verifica que todo esté completo y haz clic en el botón:'}
                 </p>
                 <button
                   onClick={handleReceiveOrder}
@@ -1245,7 +1247,7 @@ export default function OrderDetailsPage() {
                   {receivingOrder ? 'Procesando...' : '📦 Recibir Pedido'}
                 </button>
                 <p className="text-[11px] text-center text-slate-400 mt-2 m-0">
-                  Los productos se agregarán automáticamente a tu inventario
+                  Los productos se agregarán automáticamente al inventario del distribuidor
                 </p>
               </div>
             )}
