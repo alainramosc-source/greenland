@@ -78,11 +78,11 @@ export default async function ProductosPage({ searchParams }) {
                     <div className="sidebar-section">
                         <h3>Divisiones</h3>
                         <nav className="nav-vertical">
-                            <Link href="/productos?cat=spaces" className={`nav-item ${categoryFilter === 'spaces' ? 'active' : ''}`}>
-                                Spaces (Eventos)
+                            <Link href="/spaces" className="nav-item">
+                                Spaces (Soluciones Modulares)
                             </Link>
-                            <Link href="/productos?cat=deco" className={`nav-item ${categoryFilter === 'deco' ? 'active' : ''}`}>
-                                Deco (Hogar & Jardín)
+                            <Link href="/deco" className="nav-item">
+                                Deco (Recubrimientos Decorativos)
                             </Link>
                         </nav>
                     </div>
