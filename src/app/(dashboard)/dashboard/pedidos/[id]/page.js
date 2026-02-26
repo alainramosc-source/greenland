@@ -142,13 +142,30 @@ export default function OrderDetailsPage() {
 
     if (paymentsData) setPayments(paymentsData);
 
-    // Fetch evidence
+    // Fetch evidence with signed URLs
     const { data: evidenceData } = await supabase
       .from('order_evidence')
       .select('*')
       .eq('order_id', id)
       .order('created_at', { ascending: false });
-    if (evidenceData) setEvidence(evidenceData);
+    if (evidenceData && evidenceData.length > 0) {
+      // Generate signed URLs for each evidence file
+      const withSignedUrls = await Promise.all(evidenceData.map(async (ev) => {
+        // Extract storage path from the file_url
+        const match = ev.file_url?.match(/order-evidence\/(.+)$/);
+        if (match) {
+          const storagePath = match[1];
+          const { data: signedData } = await supabase.storage
+            .from('order-evidence')
+            .createSignedUrl(storagePath, 3600); // 1 hour
+          return { ...ev, file_url: signedData?.signedUrl || ev.file_url };
+        }
+        return ev;
+      }));
+      setEvidence(withSignedUrls);
+    } else {
+      setEvidence([]);
+    }
 
     setLoading(false);
   };
