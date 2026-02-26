@@ -296,17 +296,20 @@ export default function DashboardPage() {
         if (!user) { router.push('/login'); return; }
         setUserId(user.id);
 
-        // Check role
+        // Check role (respect test simulation from Admin Testing Panel)
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         setUserProfile(profile);
 
-        if (profile?.role === 'distributor') {
+        const testRole = typeof window !== 'undefined' ? sessionStorage.getItem('test_view_role') : null;
+        const effectiveRole = (profile?.role === 'admin' && testRole === 'distributor') ? 'distributor' : profile?.role;
+
+        if (effectiveRole === 'distributor') {
           setIsDistributor(true);
           setLoading(false);
           return;
         }
 
-        if (profile?.role !== 'admin') {
+        if (effectiveRole !== 'admin') {
           router.push('/dashboard/pedidos');
           return;
         }
