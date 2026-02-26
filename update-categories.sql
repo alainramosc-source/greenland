@@ -3,6 +3,9 @@
 -- Ejecutar en Supabase SQL Editor
 -- ===================================================
 
+-- PASO 0: Crear columna category si no existe
+ALTER TABLE products ADD COLUMN IF NOT EXISTS category TEXT;
+
 -- MESAS PLEGABLES
 UPDATE products SET category = 'Mesas' WHERE sku IN (
     'GL01',  -- Mesa Plegable 1.80

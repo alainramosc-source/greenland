@@ -9,7 +9,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function ProductosPage({ searchParams }) {
     const supabase = await createClient();
-    const categoryFilter = searchParams?.cat;
+    const resolvedParams = await searchParams;
+    const categoryFilter = resolvedParams?.cat;
 
     // Fetch categories
     const { data: categories } = await supabase
