@@ -6,7 +6,7 @@ import {
   ArrowLeft, Package, Calendar, DollarSign, MapPin, FileText,
   CheckCircle, XCircle, Truck, PackageCheck, Loader2, User,
   AlertTriangle, X, Plus, Minus, CreditCard, ClipboardCheck,
-  PackageOpen, Lock, Camera, Image, Trash2, Search, Warehouse
+  PackageOpen, Lock, Camera, Image, Trash2, Search, Warehouse, PackageCheck as BoxCheck
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 
@@ -51,6 +51,7 @@ export default function OrderDetailsPage() {
   const [availableProducts, setAvailableProducts] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [warehouseStock, setWarehouseStock] = useState({});
+  const [receivingOrder, setReceivingOrder] = useState(false);
   const supabase = createClient();
 
   const fetchOrderDetails = async () => {
@@ -192,6 +193,22 @@ export default function OrderDetailsPage() {
         )
       }));
     }
+  };
+
+  // --- Distributor: Receive Order ---
+  const handleReceiveOrder = async () => {
+    if (!confirm('¿Confirmas que recibiste físicamente este pedido? Se agregará a tu inventario.')) return;
+    setReceivingOrder(true);
+    const { data, error } = await supabase.rpc('receive_order', { p_order_id: id });
+    if (error) {
+      alert('Error al recibir pedido: ' + error.message);
+    } else if (data && !data.success) {
+      alert(data.error || 'Error al recibir pedido');
+    } else {
+      alert('✅ ¡Pedido recibido! Los productos se agregaron a tu inventario.');
+      await fetchOrderDetails();
+    }
+    setReceivingOrder(false);
   };
 
   // Check if all items have warehouse assigned
@@ -632,8 +649,8 @@ export default function OrderDetailsPage() {
                                 value={item.warehouse_id || ''}
                                 onChange={(e) => handleAssignWarehouse(item.id, e.target.value)}
                                 className={`w-full text-xs px-2 py-1.5 rounded-lg border outline-none cursor-pointer transition-all ${!item.warehouse_id
-                                    ? 'border-amber-300 bg-amber-50 text-amber-700 font-bold'
-                                    : 'border-slate-200 bg-white text-slate-700'
+                                  ? 'border-amber-300 bg-amber-50 text-amber-700 font-bold'
+                                  : 'border-slate-200 bg-white text-slate-700'
                                   }`}
                               >
                                 <option value="">— Seleccionar —</option>
@@ -1086,8 +1103,8 @@ export default function OrderDetailsPage() {
                   <div className="flex flex-col gap-3">
                     <button
                       className={`w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer ${allItemsHaveWarehouse
-                          ? 'bg-[#3b82f6] hover:bg-[#3b82f6]/90 text-white shadow-[#3b82f6]/20'
-                          : 'bg-slate-200 text-slate-400 shadow-none cursor-not-allowed'
+                        ? 'bg-[#3b82f6] hover:bg-[#3b82f6]/90 text-white shadow-[#3b82f6]/20'
+                        : 'bg-slate-200 text-slate-400 shadow-none cursor-not-allowed'
                         }`}
                       onClick={handleConfirmOrder}
                       disabled={!!actionLoading || !allItemsHaveWarehouse}
@@ -1190,6 +1207,29 @@ export default function OrderDetailsPage() {
                     Este pedido ha alcanzado su estado final.
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* Distributor: Receive Order Button */}
+            {!isAdmin && order.status === 'shipped' && (
+              <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-6">
+                <h3 className="text-lg font-bold text-slate-900 mb-3 pb-3 border-b border-slate-200 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-[#6a9a04]" /> Recepción de Pedido
+                </h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  Tu pedido fue enviado por GreenLand. Cuando lo recibas físicamente, verifica que todo esté completo y haz clic en el botón:
+                </p>
+                <button
+                  onClick={handleReceiveOrder}
+                  disabled={receivingOrder}
+                  className="w-full flex items-center justify-center gap-2 bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white px-5 py-4 rounded-xl font-bold text-base shadow-lg shadow-[#6a9a04]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer"
+                >
+                  {receivingOrder ? <Loader2 size={20} className="animate-spin" /> : <PackageCheck size={20} />}
+                  {receivingOrder ? 'Procesando...' : '📦 Recibir Pedido'}
+                </button>
+                <p className="text-[11px] text-center text-slate-400 mt-2 m-0">
+                  Los productos se agregarán automáticamente a tu inventario
+                </p>
               </div>
             )}
           </div>
