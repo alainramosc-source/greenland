@@ -23,6 +23,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
       { name: 'Pedidos', href: '/dashboard/pedidos', icon: ShoppingCart },
     ]
     : [
+      { name: 'Tablero', href: '/dashboard', icon: LayoutDashboard },
       { name: 'Mis Pedidos', href: '/dashboard/pedidos', icon: ShoppingCart },
       { name: 'Mis Direcciones', href: '/dashboard/direcciones', icon: MapPin },
     ];
