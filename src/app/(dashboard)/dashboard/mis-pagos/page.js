@@ -52,7 +52,7 @@ export default function MisPagosPage() {
     // Orders for dropdown
     const { data: ordData } = await supabase
       .from('orders')
-      .select('id, total, status, created_at')
+      .select('id, total_amount, status, created_at')
       .eq('distributor_id', user.id)
       .not('status', 'in', '("cancelled","rejected")')
       .order('created_at', { ascending: false });
@@ -60,7 +60,7 @@ export default function MisPagosPage() {
 
     // Calculate balance
     const approved = (payData || []).filter(p => p.status === 'approved').reduce((s, p) => s + Number(p.amount), 0);
-    const totalOrders = (ordData || []).reduce((s, o) => s + Number(o.total), 0);
+    const totalOrders = (ordData || []).reduce((s, o) => s + Number(o.total_amount), 0);
     setBalance({ total_orders: totalOrders, total_paid: approved, balance: totalOrders - approved });
 
     setLoading(false);
@@ -246,7 +246,7 @@ export default function MisPagosPage() {
                   <option value="">Saldo General</option>
                   {orders.map(o => (
                     <option key={o.id} value={o.id}>
-                      Pedido {new Date(o.created_at).toLocaleDateString('es-MX')} — ${Number(o.total).toLocaleString()}
+                      Pedido {new Date(o.created_at).toLocaleDateString('es-MX')} — ${Number(o.total_amount).toLocaleString()}
                     </option>
                   ))}
                 </select>

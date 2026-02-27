@@ -45,12 +45,12 @@ export default function AdminPagosPage() {
     if (distribs && payData) {
       const { data: ordersData } = await supabase
         .from('orders')
-        .select('distributor_id, total, status')
+        .select('distributor_id, total_amount, status')
         .not('status', 'in', '("cancelled","rejected")');
 
       const bals = distribs.map(d => {
         const dOrders = (ordersData || []).filter(o => o.distributor_id === d.id);
-        const totalOrders = dOrders.reduce((s, o) => s + Number(o.total), 0);
+        const totalOrders = dOrders.reduce((s, o) => s + Number(o.total_amount), 0);
         const totalPaid = payData.filter(p => p.distributor_id === d.id && p.status === 'approved').reduce((s, p) => s + Number(p.amount), 0);
         return { ...d, total_orders: totalOrders, total_paid: totalPaid, balance: totalOrders - totalPaid };
       });

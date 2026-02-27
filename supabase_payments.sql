@@ -167,9 +167,9 @@ SELECT
     p.id as distributor_id,
     p.full_name,
     p.client_number,
-    COALESCE(SUM(CASE WHEN o.status NOT IN ('cancelled', 'rejected') THEN o.total ELSE 0 END), 0) as total_orders,
+    COALESCE(SUM(CASE WHEN o.status NOT IN ('cancelled', 'rejected') THEN o.total_amount ELSE 0 END), 0) as total_orders,
     COALESCE(SUM(CASE WHEN dp.status = 'approved' THEN dp.amount ELSE 0 END), 0) as total_paid,
-    COALESCE(SUM(CASE WHEN o.status NOT IN ('cancelled', 'rejected') THEN o.total ELSE 0 END), 0) -
+    COALESCE(SUM(CASE WHEN o.status NOT IN ('cancelled', 'rejected') THEN o.total_amount ELSE 0 END), 0) -
     COALESCE(SUM(CASE WHEN dp.status = 'approved' THEN dp.amount ELSE 0 END), 0) as balance
 FROM profiles p
 LEFT JOIN orders o ON o.distributor_id = p.id
