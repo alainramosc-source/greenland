@@ -44,7 +44,7 @@ export default function MisPagosPage() {
     // Payments
     const { data: payData } = await supabase
       .from('distributor_payments')
-      .select('*, orders(id, total)')
+      .select('*, orders(id, total_amount)')
       .eq('distributor_id', user.id)
       .order('created_at', { ascending: false });
     if (payData) setPayments(payData);

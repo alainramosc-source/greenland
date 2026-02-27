@@ -32,7 +32,7 @@ export default function AdminPagosPage() {
     // All payments with distributor info
     const { data: payData } = await supabase
       .from('distributor_payments')
-      .select('*, profiles!distributor_id(full_name, client_number), orders(id, total)')
+      .select('*, profiles!distributor_id(full_name, client_number), orders(id, total_amount)')
       .order('created_at', { ascending: false });
     if (payData) setPayments(payData);
 
