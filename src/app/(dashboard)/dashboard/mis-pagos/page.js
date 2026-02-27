@@ -24,6 +24,7 @@ export default function MisPagosPage() {
   const [lightboxImg, setLightboxImg] = useState(null);
   const [balance, setBalance] = useState({ total_orders: 0, total_paid: 0, balance: 0 });
   const [clientNumber, setClientNumber] = useState('');
+  const [isSimulating, setIsSimulating] = useState(false);
   const [form, setForm] = useState({
     amount: '', payment_method: 'transferencia', reference: '',
     payment_date: new Date().toISOString().split('T')[0],
@@ -37,15 +38,28 @@ export default function MisPagosPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Profile
-    const { data: profile } = await supabase.from('profiles').select('client_number').eq('id', user.id).single();
-    if (profile?.client_number) setClientNumber(profile.client_number);
+    // Check Vista Distribuidor mode
+    let targetUserId = user.id;
+    if (typeof window !== 'undefined') {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      if (profile?.role === 'admin' && sessionStorage.getItem('test_view_role') === 'distributor') {
+        const simId = sessionStorage.getItem('test_view_distributor_id');
+        if (simId) {
+          targetUserId = simId;
+          setIsSimulating(true);
+        }
+      }
+    }
+
+    // Profile of target user
+    const { data: targetProfile } = await supabase.from('profiles').select('client_number, full_name').eq('id', targetUserId).single();
+    if (targetProfile?.client_number) setClientNumber(targetProfile.client_number);
 
     // Payments
     const { data: payData } = await supabase
       .from('distributor_payments')
       .select('*, orders(id, total_amount)')
-      .eq('distributor_id', user.id)
+      .eq('distributor_id', targetUserId)
       .order('created_at', { ascending: false });
     if (payData) setPayments(payData);
 
@@ -53,7 +67,7 @@ export default function MisPagosPage() {
     const { data: ordData } = await supabase
       .from('orders')
       .select('id, total_amount, status, created_at')
-      .eq('distributor_id', user.id)
+      .eq('distributor_id', targetUserId)
       .not('status', 'in', '("cancelled","rejected")')
       .order('created_at', { ascending: false });
     if (ordData) setOrders(ordData);
