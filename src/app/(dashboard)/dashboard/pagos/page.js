@@ -7,6 +7,7 @@ import {
   Upload, FileSpreadsheet, Zap, ArrowRight, X
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { AlertCircle, Link2 } from 'lucide-react';
 
 const STATUS_MAP = {
   pending: { label: 'Pendiente', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: Clock },
@@ -33,6 +34,9 @@ export default function AdminPagosPage() {
   const [reconciling, setReconciling] = useState(false);
   const [approving, setApproving] = useState(false);
   const [uploadFileName, setUploadFileName] = useState('');
+  const [unmatchedFromDB, setUnmatchedFromDB] = useState([]);
+  const [manualMatchModal, setManualMatchModal] = useState(null);
+  const [manualMatchPaymentId, setManualMatchPaymentId] = useState('');
 
   useEffect(() => { fetchData(); }, []);
 
@@ -63,6 +67,15 @@ export default function AdminPagosPage() {
       });
       setBalances(bals);
     }
+
+    // Fetch unmatched bank movements
+    const { data: unmatchedData } = await supabase
+      .from('bank_movements')
+      .select('*')
+      .eq('match_status', 'unmatched')
+      .order('uploaded_at', { ascending: false });
+    if (unmatchedData) setUnmatchedFromDB(unmatchedData);
+
     setLoading(false);
   };
 
@@ -599,7 +612,7 @@ export default function AdminPagosPage() {
           )}
 
           {/* Empty State */}
-          {!uploadFileName && (
+          {!uploadFileName && matchResults.length === 0 && parsedMovements.length === 0 && (
             <div className="text-center py-12 text-slate-400">
               <FileSpreadsheet size={48} className="mx-auto mb-4 opacity-20" />
               <p className="font-medium text-lg">Conciliación Bancaria</p>
@@ -608,6 +621,96 @@ export default function AdminPagosPage() {
               </p>
             </div>
           )}
+
+          {/* Unmatched Movements from DB */}
+          {unmatchedFromDB.length > 0 && (
+            <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-200">
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-amber-500" /> Movimientos Pendientes de Revisión
+                  <span className="text-xs font-normal text-slate-400 ml-2">({unmatchedFromDB.length})</span>
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">Depósitos bancarios que no tuvieron match automático. Vincúlalos manualmente a un pago pendiente o ignóralos.</p>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {unmatchedFromDB.map(mov => (
+                  <div key={mov.id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-900">
+                        ${Number(mov.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        <span className="text-xs text-slate-400 font-normal ml-2">{mov.operation_date}</span>
+                      </p>
+                      <p className="text-xs text-slate-400 truncate max-w-[300px]">{mov.description?.substring(0, 80) || '—'}</p>
+                      {mov.reference_extracted && (
+                        <span className="text-xs font-mono font-bold text-[#6a9a04]">{mov.reference_extracted}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => { setManualMatchModal(mov); setManualMatchPaymentId(''); }}
+                        className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#6a9a04] text-white text-xs font-bold border-none cursor-pointer hover:bg-[#6a9a04]/90 transition-colors">
+                        <Link2 size={14} /> Vincular
+                      </button>
+                      <button onClick={async () => {
+                        await supabase.from('bank_movements').update({ match_status: 'ignored' }).eq('id', mov.id);
+                        setUnmatchedFromDB(prev => prev.filter(m => m.id !== mov.id));
+                      }}
+                        className="flex items-center gap-1 px-3 py-2 rounded-lg bg-slate-100 text-slate-500 text-xs font-bold border-none cursor-pointer hover:bg-slate-200 transition-colors">
+                        <X size={14} /> Ignorar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Manual Match Modal */}
+      {manualMatchModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setManualMatchModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Vincular Movimiento</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              Depósito: <span className="font-bold text-slate-900">${Number(manualMatchModal.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+              <span className="ml-2 text-xs">{manualMatchModal.operation_date}</span>
+            </p>
+            <label className="block text-sm font-bold text-slate-700 mb-1">Selecciona el pago pendiente</label>
+            <select value={manualMatchPaymentId} onChange={e => setManualMatchPaymentId(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#6a9a04] outline-none mb-4">
+              <option value="">— Selecciona un pago —</option>
+              {payments.filter(p => p.status === 'pending').map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.profiles?.full_name} · ${Number(p.amount).toLocaleString()} · {p.profiles?.client_number || '—'} · {p.payment_method}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-3">
+              <button onClick={() => setManualMatchModal(null)} className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm cursor-pointer bg-white">Cancelar</button>
+              <button disabled={!manualMatchPaymentId || approving} onClick={async () => {
+                setApproving(true);
+                // Update bank_movement to matched
+                await supabase.from('bank_movements').update({
+                  match_status: 'matched',
+                  matched_payment_id: manualMatchPaymentId
+                }).eq('id', manualMatchModal.id);
+                // Approve the payment via existing RPC
+                const { data, error } = await supabase.rpc('review_distributor_payment', {
+                  p_payment_id: manualMatchPaymentId, p_action: 'approve'
+                });
+                setApproving(false);
+                if (error) { alert('Error: ' + error.message); return; }
+                if (data && !data.success) { alert(data.error); return; }
+                setManualMatchModal(null);
+                setManualMatchPaymentId('');
+                setUnmatchedFromDB(prev => prev.filter(m => m.id !== manualMatchModal.id));
+                fetchData();
+              }}
+                className="flex-1 py-3 rounded-xl bg-[#6a9a04] text-white font-bold text-sm border-none cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
+                {approving ? <Loader2 size={16} className="animate-spin" /> : <Link2 size={16} />} Vincular y Aprobar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
