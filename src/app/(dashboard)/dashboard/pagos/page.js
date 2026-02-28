@@ -208,14 +208,17 @@ export default function AdminPagosPage() {
 
   const approveMatches = async () => {
     const toApprove = matchResults.filter(r => r.selected && r.matchedPayment);
-    if (toApprove.length === 0) { alert('No hay matches seleccionados'); return; }
+    const unmatched = matchResults.filter(r => r.matchType === 'unmatched');
+
+    if (toApprove.length === 0 && unmatched.length === 0) { alert('No hay movimientos para procesar'); return; }
 
     setApproving(true);
     const batchId = `batch_${Date.now()}`;
+    const userId = (await supabase.auth.getUser()).data.user?.id;
 
-    // Insert bank movements
+    // Insert matched bank movements
     for (const match of toApprove) {
-      const { error: insertErr } = await supabase.from('bank_movements').insert({
+      await supabase.from('bank_movements').insert({
         bank_name: 'banorte',
         operation_date: match.operation_date,
         amount: match.amount,
@@ -225,25 +228,39 @@ export default function AdminPagosPage() {
         match_status: 'matched',
         matched_payment_id: match.matchedPayment.id,
         batch_id: batchId,
-        uploaded_by: (await supabase.auth.getUser()).data.user?.id
+        uploaded_by: userId
       });
-      if (insertErr) {
-        console.error('Insert error:', insertErr);
-        continue;
-      }
+    }
+
+    // Insert unmatched bank movements for later review
+    for (const mov of unmatched) {
+      await supabase.from('bank_movements').insert({
+        bank_name: 'banorte',
+        operation_date: mov.operation_date,
+        amount: mov.amount,
+        description: mov.description_full?.substring(0, 500),
+        reference_extracted: mov.reference_extracted,
+        raw_data: mov.raw_row,
+        match_status: 'unmatched',
+        batch_id: batchId,
+        uploaded_by: userId
+      });
     }
 
     // Auto-approve all matched payments via RPC
-    const { data, error } = await supabase.rpc('approve_matched_payments', { p_batch_id: batchId });
-
-    setApproving(false);
-
-    if (error) {
-      alert('Error en aprobación: ' + error.message);
-      return;
+    let approvedCount = 0;
+    if (toApprove.length > 0) {
+      const { data, error } = await supabase.rpc('approve_matched_payments', { p_batch_id: batchId });
+      if (error) {
+        alert('Error en aprobación: ' + error.message);
+        setApproving(false);
+        return;
+      }
+      approvedCount = data?.approved_count || 0;
     }
 
-    alert(`✅ ${data?.approved_count || 0} pagos aprobados automáticamente`);
+    setApproving(false);
+    alert(`✅ ${approvedCount} pagos aprobados\n⚠️ ${unmatched.length} movimientos sin match guardados para revisión`);
     setParsedMovements([]);
     setMatchResults([]);
     setUploadFileName('');
@@ -568,8 +585,8 @@ export default function AdminPagosPage() {
 
                     {/* Match Badge */}
                     <span className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${r.matchType === 'exact' ? 'bg-green-100 text-green-700' :
-                        r.matchType === 'amount_only' ? 'bg-amber-100 text-amber-700' :
-                          'bg-slate-100 text-slate-500'
+                      r.matchType === 'amount_only' ? 'bg-amber-100 text-amber-700' :
+                        'bg-slate-100 text-slate-500'
                       }`}>
                       {r.matchType === 'exact' ? '✓ Match Exacto' :
                         r.matchType === 'amount_only' ? '~ Solo Monto' :

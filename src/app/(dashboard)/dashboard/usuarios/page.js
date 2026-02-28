@@ -323,7 +323,7 @@ export default function UsersPage() {
                         />
                       </div>
                     </td>
-                    <td className="px-6 py-5 text-sm font-mono text-slate-400">#{String(idx + 1).padStart(4, '0')}</td>
+                    <td className="px-6 py-5 text-sm font-mono text-[#6a9a04] font-bold">{user.client_number || '—'}</td>
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${user.is_active ? 'bg-[#6a9a04]/20 text-[#6a9a04]' : 'bg-slate-200 text-slate-500'}`}>

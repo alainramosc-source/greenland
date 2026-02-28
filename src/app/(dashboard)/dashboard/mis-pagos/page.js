@@ -171,6 +171,22 @@ export default function MisPagosPage() {
         </div>
       </div>
 
+      {/* Reference Banner */}
+      {clientNumber && !isSimulating && (
+        <div className="bg-[#6a9a04]/10 border border-[#6a9a04]/20 rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#6a9a04]/20 flex items-center justify-center shrink-0">
+            <CreditCard size={20} className="text-[#6a9a04]" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-900 m-0">Tu referencia para pagos:</p>
+            <p className="text-lg font-black text-[#6a9a04] font-mono m-0">{clientNumber}</p>
+          </div>
+          <p className="text-xs text-slate-500 ml-auto max-w-[250px] m-0">
+            Usa este código como CONCEPTO al hacer transferencias para que tu pago se identifique automáticamente.
+          </p>
+        </div>
+      )}
+
       {/* Payments List */}
       <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden">
         <div className="p-5 border-b border-slate-200">
