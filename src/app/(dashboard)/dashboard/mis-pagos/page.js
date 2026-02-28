@@ -99,6 +99,7 @@ export default function MisPagosPage() {
 
   const handleSubmit = async () => {
     if (!form.amount || Number(form.amount) <= 0) { alert('Ingresa un monto válido'); return; }
+    if (!form.order_id) { alert('Selecciona un pedido para aplicar el pago'); return; }
     setSubmitting(true);
     const { data, error } = await supabase.rpc('submit_distributor_payment', {
       p_amount: Number(form.amount),
@@ -254,16 +255,21 @@ export default function MisPagosPage() {
 
               {/* Apply to */}
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Aplicar a</label>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Aplicar a Pedido *</label>
                 <select value={form.order_id} onChange={e => setForm(f => ({ ...f, order_id: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#6a9a04] outline-none">
-                  <option value="">Saldo General</option>
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#6a9a04] outline-none" required>
+                  <option value="">— Selecciona un pedido —</option>
                   {orders.map(o => (
                     <option key={o.id} value={o.id}>
                       Pedido {new Date(o.created_at).toLocaleDateString('es-MX')} — ${Number(o.total_amount).toLocaleString()}
                     </option>
                   ))}
                 </select>
+                {orders.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                    <AlertTriangle size={12} /> No tienes pedidos activos
+                  </p>
+                )}
               </div>
 
               {/* Receipt Upload */}
@@ -313,15 +319,18 @@ export default function MisPagosPage() {
             </div>
           </div>
         </div>
-      )}
+      )
+      }
 
       {/* Lightbox */}
-      {lightboxImg && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setLightboxImg(null)}>
-          <img src={lightboxImg} alt="Comprobante" className="max-w-full max-h-full rounded-xl shadow-2xl" />
-        </div>
-      )}
-    </div>
+      {
+        lightboxImg && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setLightboxImg(null)}>
+            <img src={lightboxImg} alt="Comprobante" className="max-w-full max-h-full rounded-xl shadow-2xl" />
+          </div>
+        )
+      }
+    </div >
   );
 }
 
