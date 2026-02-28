@@ -23,7 +23,7 @@ export default function DashboardLayout({ children }) {
         // Fetch role from profiles
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role, full_name, is_active')
+          .select('role, full_name, is_active, client_number')
           .eq('id', user.id)
           .single();
 
@@ -31,6 +31,11 @@ export default function DashboardLayout({ children }) {
           if (profile.is_active === false) {
             router.push('/pending-approval');
             return; // Stop rendering dashboard
+          }
+
+          // Auto-assign client_number if missing
+          if (profile.role === 'distributor' && !profile.client_number) {
+            supabase.rpc('assign_client_number_to_user', { p_user_id: user.id }).catch(() => { });
           }
 
           setActualRole(profile.role);
