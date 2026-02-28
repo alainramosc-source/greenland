@@ -25,6 +25,11 @@ function ConfirmContent() {
                     console.error('Verification error:', error.message);
                     setStatus('error');
                 } else {
+                    // Assign client_number to new distributor
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        await supabase.rpc('assign_client_number_to_user', { p_user_id: user.id });
+                    }
                     setStatus('success');
                     setTimeout(() => router.push('/dashboard'), 3000);
                 }
