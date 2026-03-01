@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import {
     ArrowLeft, ClipboardList, Save, Loader2, Search, Upload, Download,
-    Package, AlertTriangle, CheckCircle, FileSpreadsheet, X, Clock
+    Package, AlertTriangle, CheckCircle, FileSpreadsheet, X, Clock,
+    Send, ShieldCheck, Zap, ChevronRight
 } from 'lucide-react';
 
 const STATUS_LABELS = {
@@ -30,6 +31,7 @@ export default function ConteoDetailPage() {
     const [filterDiff, setFilterDiff] = useState('all'); // all, differences, uncounted
     const [skuInput, setSkuInput] = useState('');
     const [userId, setUserId] = useState(null);
+    const [advancing, setAdvancing] = useState(false);
 
     useEffect(() => { fetchSession(); }, [id]);
 
@@ -41,7 +43,7 @@ export default function ConteoDetailPage() {
 
         const { data: sessionData } = await supabase
             .from('inventory_count_sessions')
-            .select('*, warehouse:warehouses(name), responsible:profiles!inventory_count_sessions_responsible_user_id_fkey(full_name)')
+            .select('*, warehouse:warehouses(name), responsible:profiles!inventory_count_sessions_responsible_user_id_fkey(full_name), submitter:profiles!inventory_count_sessions_submitted_by_fkey(full_name), approver:profiles!inventory_count_sessions_approved_by_fkey(full_name), poster:profiles!inventory_count_sessions_posted_by_fkey(full_name)')
             .eq('id', id)
             .single();
         setSession(sessionData);
@@ -189,6 +191,30 @@ export default function ConteoDetailPage() {
         XLSX.writeFile(wb, `${session.session_code}.xlsx`);
     };
 
+    // Workflow advance
+    const handleAdvanceWorkflow = async (action) => {
+        const labels = {
+            submit: { title: 'Enviar para revisión', msg: `¿Enviar ${session.session_code} para aprobación? Ya no podrás editar las cantidades.`, btn: 'Enviar' },
+            approve: { title: 'Aprobar conteo', msg: `¿Aprobar ${session.session_code}? Confirmas que las diferencias son correctas.`, btn: 'Aprobar' },
+            post: { title: 'Aplicar ajustes al inventario', msg: `¿Aplicar ${session.session_code}? Esto AJUSTARÁ el stock real de la bodega según las diferencias encontradas. Esta acción es IRREVERSIBLE.`, btn: 'Aplicar Ajustes' },
+        };
+        const l = labels[action];
+        if (!confirm(`${l.title}\n\n${l.msg}`)) return;
+
+        setAdvancing(true);
+        const { data, error } = await supabase.rpc('advance_count_session', {
+            p_session_id: id,
+            p_action: action
+        });
+        setAdvancing(false);
+
+        if (error) { alert('Error: ' + error.message); return; }
+        if (data && !data.success) { alert(data.error); return; }
+
+        alert(`✅ ${l.title} completado`);
+        fetchSession();
+    };
+
     // Filter lines
     const filteredLines = lines.filter(l => {
         const matchesSearch = !searchTerm ||
@@ -242,7 +268,7 @@ export default function ConteoDetailPage() {
                             {session.notes && <span className="ml-3 text-slate-400">— {session.notes}</span>}
                         </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <button onClick={handleExportExcel}
                             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer hover:bg-slate-50 transition-all shadow-sm">
                             <Download size={16} /> Excel
@@ -252,6 +278,25 @@ export default function ConteoDetailPage() {
                                 className="flex items-center gap-2 px-5 py-2.5 bg-[#6a9a04] text-white font-bold text-sm rounded-xl border-none cursor-pointer hover:bg-[#6a9a04]/90 transition-all shadow-lg shadow-[#6a9a04]/20 disabled:opacity-50">
                                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                                 Guardar {dirtyCount > 0 ? `(${dirtyCount})` : ''}
+                            </button>
+                        )}
+                        {/* Workflow buttons */}
+                        {canEdit && dirtyCount === 0 && countedLines > 0 && (
+                            <button onClick={() => handleAdvanceWorkflow('submit')} disabled={advancing}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50">
+                                {advancing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Enviar
+                            </button>
+                        )}
+                        {session.status === 'submitted' && (
+                            <button onClick={() => handleAdvanceWorkflow('approve')} disabled={advancing}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-[#6a9a04] text-white font-bold text-sm rounded-xl border-none cursor-pointer hover:bg-[#6a9a04]/90 transition-all shadow-lg shadow-[#6a9a04]/20 disabled:opacity-50">
+                                {advancing ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />} Aprobar
+                            </button>
+                        )}
+                        {session.status === 'approved' && (
+                            <button onClick={() => handleAdvanceWorkflow('post')} disabled={advancing}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50">
+                                {advancing ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />} Aplicar
                             </button>
                         )}
                     </div>
@@ -279,6 +324,47 @@ export default function ConteoDetailPage() {
                         </div>
                     </div>
                 </div>
+
+                {/* Workflow Timeline */}
+                {(session.submitted_at || session.approved_at || session.posted_at) && (
+                    <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5 mb-6">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 m-0">Historial del Conteo</p>
+                        <div className="flex flex-wrap gap-6">
+                            <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center"><ClipboardList size={12} className="text-slate-400" /></div>
+                                <div><p className="text-[11px] font-bold text-slate-500 m-0">Creado</p><p className="text-[10px] text-slate-400 m-0">{new Date(session.created_at).toLocaleString('es-MX')}</p></div>
+                            </div>
+                            {session.started_at && (
+                                <><ChevronRight size={14} className="text-slate-300 self-center" />
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center"><Clock size={12} className="text-blue-500" /></div>
+                                        <div><p className="text-[11px] font-bold text-blue-600 m-0">Iniciado</p><p className="text-[10px] text-slate-400 m-0">{new Date(session.started_at).toLocaleString('es-MX')}</p></div>
+                                    </div></>
+                            )}
+                            {session.submitted_at && (
+                                <><ChevronRight size={14} className="text-slate-300 self-center" />
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-full bg-amber-50 flex items-center justify-center"><Send size={12} className="text-amber-500" /></div>
+                                        <div><p className="text-[11px] font-bold text-amber-600 m-0">Enviado</p><p className="text-[10px] text-slate-400 m-0">{session.submitter?.full_name} · {new Date(session.submitted_at).toLocaleString('es-MX')}</p></div>
+                                    </div></>
+                            )}
+                            {session.approved_at && (
+                                <><ChevronRight size={14} className="text-slate-300 self-center" />
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-full bg-green-50 flex items-center justify-center"><ShieldCheck size={12} className="text-[#6a9a04]" /></div>
+                                        <div><p className="text-[11px] font-bold text-[#6a9a04] m-0">Aprobado</p><p className="text-[10px] text-slate-400 m-0">{session.approver?.full_name} · {new Date(session.approved_at).toLocaleString('es-MX')}</p></div>
+                                    </div></>
+                            )}
+                            {session.posted_at && (
+                                <><ChevronRight size={14} className="text-slate-300 self-center" />
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-full bg-emerald-50 flex items-center justify-center"><Zap size={12} className="text-emerald-600" /></div>
+                                        <div><p className="text-[11px] font-bold text-emerald-600 m-0">Aplicado</p><p className="text-[10px] text-slate-400 m-0">{session.poster?.full_name} · {new Date(session.posted_at).toLocaleString('es-MX')}</p></div>
+                                    </div></>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Quick SKU Input + Search + Filters + CSV Import */}
                 {canEdit && (
