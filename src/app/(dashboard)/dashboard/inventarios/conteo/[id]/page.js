@@ -4,8 +4,8 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import {
-    ArrowLeft, ClipboardList, Save, Loader2, Search, Upload,
-    Package, AlertTriangle, CheckCircle, FileSpreadsheet, X
+    ArrowLeft, ClipboardList, Save, Loader2, Search, Upload, Download,
+    Package, AlertTriangle, CheckCircle, FileSpreadsheet, X, Clock
 } from 'lucide-react';
 
 const STATUS_LABELS = {
@@ -154,6 +154,41 @@ export default function ConteoDetailPage() {
         e.target.value = '';
     };
 
+    // Excel Export
+    const handleExportExcel = () => {
+        const rows = lines.map(l => ({
+            SKU: l.sku || l.product?.sku || '',
+            Producto: l.product?.name || '',
+            'Stock Sistema': l.qty_system_snapshot,
+            'Contado': l.qty_counted ?? '',
+            'Diferencia': l.qty_counted !== null ? l.qty_counted - l.qty_system_snapshot : '',
+            'Motivo': l.reason || '',
+            'Fecha Conteo': l.counted_at ? new Date(l.counted_at).toLocaleString('es-MX') : '',
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [{ wch: 10 }, { wch: 35 }, { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 25 }, { wch: 20 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Conteo');
+
+        // Summary sheet
+        const summary = [
+            { Campo: 'Código', Valor: session.session_code },
+            { Campo: 'Bodega', Valor: session.warehouse?.name || '' },
+            { Campo: 'Status', Valor: STATUS_LABELS[session.status]?.label || session.status },
+            { Campo: 'Responsable', Valor: session.responsible?.full_name || '' },
+            { Campo: 'Fecha Creación', Valor: new Date(session.created_at).toLocaleString('es-MX') },
+            { Campo: 'Total SKUs', Valor: totalLines },
+            { Campo: 'Contados', Valor: countedLines },
+            { Campo: 'Con Diferencia', Valor: diffLines },
+            { Campo: 'Notas', Valor: session.notes || '' },
+        ];
+        const ws2 = XLSX.utils.json_to_sheet(summary);
+        ws2['!cols'] = [{ wch: 18 }, { wch: 40 }];
+        XLSX.utils.book_append_sheet(wb, ws2, 'Resumen');
+
+        XLSX.writeFile(wb, `${session.session_code}.xlsx`);
+    };
+
     // Filter lines
     const filteredLines = lines.filter(l => {
         const matchesSearch = !searchTerm ||
@@ -207,13 +242,19 @@ export default function ConteoDetailPage() {
                             {session.notes && <span className="ml-3 text-slate-400">— {session.notes}</span>}
                         </p>
                     </div>
-                    {canEdit && (
-                        <button onClick={saveLines} disabled={saving || dirtyCount === 0}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-[#6a9a04] text-white font-bold text-sm rounded-xl border-none cursor-pointer hover:bg-[#6a9a04]/90 transition-all shadow-lg shadow-[#6a9a04]/20 disabled:opacity-50">
-                            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                            Guardar {dirtyCount > 0 ? `(${dirtyCount})` : ''}
+                    <div className="flex items-center gap-2">
+                        <button onClick={handleExportExcel}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer hover:bg-slate-50 transition-all shadow-sm">
+                            <Download size={16} /> Excel
                         </button>
-                    )}
+                        {canEdit && (
+                            <button onClick={saveLines} disabled={saving || dirtyCount === 0}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-[#6a9a04] text-white font-bold text-sm rounded-xl border-none cursor-pointer hover:bg-[#6a9a04]/90 transition-all shadow-lg shadow-[#6a9a04]/20 disabled:opacity-50">
+                                {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                Guardar {dirtyCount > 0 ? `(${dirtyCount})` : ''}
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Stats */}
@@ -296,11 +337,12 @@ export default function ConteoDetailPage() {
                                     <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center w-28">Contado</th>
                                     <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center w-24">Diferencia</th>
                                     <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 w-44">Motivo</th>
+                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center w-32">Fecha</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredLines.length === 0 ? (
-                                    <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400">No hay líneas que mostrar.</td></tr>
+                                    <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400">No hay líneas que mostrar.</td></tr>
                                 ) : (
                                     filteredLines.map(line => {
                                         const diff = line.qty_counted !== null ? line.qty_counted - line.qty_system_snapshot : null;
@@ -343,6 +385,16 @@ export default function ConteoDetailPage() {
                                                             className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none focus:ring-2 focus:ring-[#6a9a04]/20" />
                                                     ) : (
                                                         <span className="text-sm text-slate-500">{line.reason || '—'}</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    {line.counted_at ? (
+                                                        <div className="flex flex-col items-center">
+                                                            <span className="text-[11px] text-slate-500 font-medium">{new Date(line.counted_at).toLocaleDateString('es-MX')}</span>
+                                                            <span className="text-[10px] text-slate-400">{new Date(line.counted_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-[10px] text-slate-300">—</span>
                                                     )}
                                                 </td>
                                             </tr>
