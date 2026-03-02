@@ -51,6 +51,14 @@ export default function ExpedienteDetailPage() {
 
     useEffect(() => { fetchAll(); }, [id]);
 
+    // Generate signed URL for private bucket files
+    const getSignedUrl = async (storagePath) => {
+        if (!storagePath) return '#';
+        const { data, error } = await supabase.storage.from('onboarding-docs').createSignedUrl(storagePath, 3600);
+        if (error || !data?.signedUrl) return '#';
+        return data.signedUrl;
+    };
+
     const handleDocAction = async (docId, action, reason = '') => {
         setActionLoading(docId);
         const { data: { user } } = await supabase.auth.getUser();
@@ -216,13 +224,14 @@ export default function ExpedienteDetailPage() {
                                                     }`}>
                                                     {doc.status === 'approved' ? '✓ Aprobado' : doc.status === 'rejected' ? '✗ Rechazado' : '⏳ Pendiente'}
                                                 </span>
-                                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
-                                                    className="p-1.5 hover:bg-white rounded-lg transition-colors" title="Ver">
+                                                <button onClick={async () => { const url = await getSignedUrl(doc.file_url); window.open(url, '_blank'); }}
+                                                    className="p-1.5 hover:bg-white rounded-lg transition-colors border-none bg-transparent cursor-pointer" title="Ver">
                                                     <Eye size={16} className="text-slate-500" />
-                                                </a>
-                                                <a href={doc.file_url} download className="p-1.5 hover:bg-white rounded-lg transition-colors" title="Descargar">
+                                                </button>
+                                                <button onClick={async () => { const url = await getSignedUrl(doc.file_url); window.open(url, '_blank'); }}
+                                                    className="p-1.5 hover:bg-white rounded-lg transition-colors border-none bg-transparent cursor-pointer" title="Descargar">
                                                     <Download size={16} className="text-slate-500" />
-                                                </a>
+                                                </button>
                                                 {doc.status === 'pending' && (
                                                     <>
                                                         <button onClick={() => handleDocAction(doc.id, 'approved')} disabled={actionLoading === doc.id}
@@ -271,16 +280,16 @@ export default function ExpedienteDetailPage() {
                                                     {c.status === 'signed' ? '✅ Firmado' : '📄 Generado'}
                                                 </span>
                                                 {c.contract_signed_pdf_url && (
-                                                    <a href={c.contract_signed_pdf_url} target="_blank" rel="noopener noreferrer"
-                                                        className="flex items-center gap-1 bg-green-600 text-white px-3 py-1 rounded-lg text-xs font-bold no-underline hover:bg-green-700 transition-all">
+                                                    <button onClick={async () => { const url = await getSignedUrl(c.contract_signed_pdf_url); window.open(url, '_blank'); }}
+                                                        className="flex items-center gap-1 bg-green-600 text-white px-3 py-1 rounded-lg text-xs font-bold border-none cursor-pointer hover:bg-green-700 transition-all">
                                                         <Download size={14} /> Firmado
-                                                    </a>
+                                                    </button>
                                                 )}
                                                 {c.contract_pdf_url && (
-                                                    <a href={c.contract_pdf_url} target="_blank" rel="noopener noreferrer"
-                                                        className="flex items-center gap-1 bg-blue-500 text-white px-3 py-1 rounded-lg text-xs font-bold no-underline hover:bg-blue-600 transition-all">
+                                                    <button onClick={async () => { const url = await getSignedUrl(c.contract_pdf_url); window.open(url, '_blank'); }}
+                                                        className="flex items-center gap-1 bg-blue-500 text-white px-3 py-1 rounded-lg text-xs font-bold border-none cursor-pointer hover:bg-blue-600 transition-all">
                                                         <Download size={14} /> Original
-                                                    </a>
+                                                    </button>
                                                 )}
                                             </div>
                                         </div>

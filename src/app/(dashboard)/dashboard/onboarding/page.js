@@ -151,6 +151,14 @@ export default function OnboardingPage() {
         } catch { return 'unknown'; }
     };
 
+    // Generate signed URL for private bucket files (valid 1 hour)
+    const getSignedUrl = async (storagePath) => {
+        if (!storagePath) return '#';
+        const { data, error } = await supabase.storage.from('onboarding-docs').createSignedUrl(storagePath, 3600);
+        if (error || !data?.signedUrl) return '#';
+        return data.signedUrl;
+    };
+
     const auditLog = async (action, details = {}, profileId = null) => {
         const ip = await getIp();
         await supabase.from('onboarding_audit_log').insert({
@@ -227,7 +235,6 @@ export default function OnboardingPage() {
             return;
         }
 
-        const { data: urlData } = supabase.storage.from('onboarding-docs').getPublicUrl(path);
         const ip = await getIp();
 
         // Delete existing doc of same type
@@ -241,7 +248,7 @@ export default function OnboardingPage() {
             user_id: userId,
             document_type: docType,
             file_name: file.name,
-            file_url: urlData.publicUrl || path,
+            file_url: path,
             file_size: file.size,
             mime_type: file.type,
             upload_ip: ip,
@@ -394,12 +401,11 @@ export default function OnboardingPage() {
             // Upload PDF
             const path = `${userId}/contrato_v1_${Date.now()}.pdf`;
             await supabase.storage.from('onboarding-docs').upload(path, pdfBlob, { contentType: 'application/pdf', upsert: true });
-            const { data: urlData } = supabase.storage.from('onboarding-docs').getPublicUrl(path);
 
-            // Save contract record
+            // Save contract record (store path, not public URL)
             const { data: cont } = await supabase.from('distributor_contracts').insert({
                 distributor_profile_id: profile.id, user_id: userId,
-                contract_pdf_url: urlData.publicUrl || path,
+                contract_pdf_url: path,
                 status: 'generated',
             }).select().single();
 
@@ -494,20 +500,18 @@ export default function OnboardingPage() {
             // Upload signed PDF
             const path = `${userId}/contrato_firmado_${Date.now()}.pdf`;
             await supabase.storage.from('onboarding-docs').upload(path, pdfBlob, { contentType: 'application/pdf', upsert: true });
-            const { data: urlData } = supabase.storage.from('onboarding-docs').getPublicUrl(path);
 
             // Upload signature image
             const sigBlob = await (await fetch(sigDataUrl)).blob();
             const sigPath = `${userId}/firma_${Date.now()}.png`;
             await supabase.storage.from('onboarding-docs').upload(sigPath, sigBlob, { contentType: 'image/png', upsert: true });
-            const { data: sigUrl } = supabase.storage.from('onboarding-docs').getPublicUrl(sigPath);
 
             const ip = await getIp();
 
-            // Update contract
+            // Update contract (store paths, not public URLs)
             await supabase.from('distributor_contracts').update({
-                contract_signed_pdf_url: urlData.publicUrl || path,
-                signature_image_url: sigUrl.publicUrl || sigPath,
+                contract_signed_pdf_url: path,
+                signature_image_url: sigPath,
                 signed_at: new Date().toISOString(),
                 signer_ip: ip,
                 document_hash: hashHex,
@@ -522,7 +526,7 @@ export default function OnboardingPage() {
 
             await auditLog('contract_signed', { contract_id: contract.id, hash: hashHex, ip });
 
-            setContract({ ...contract, status: 'signed', contract_signed_pdf_url: urlData.publicUrl || path, document_hash: hashHex });
+            setContract({ ...contract, status: 'signed', contract_signed_pdf_url: path, document_hash: hashHex });
             setProfile({ ...profile, onboarding_status: 'contract_signed' });
             alert('✅ ¡Contrato firmado exitosamente! Tu expediente está completo.');
         } catch (err) {
@@ -760,10 +764,10 @@ export default function OnboardingPage() {
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 {doc && (
-                                                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
-                                                        className="p-2 hover:bg-white rounded-lg transition-colors" title="Ver documento">
+                                                    <button onClick={async () => { const url = await getSignedUrl(doc.file_url); window.open(url, '_blank'); }}
+                                                        className="p-2 hover:bg-white rounded-lg transition-colors border-none bg-transparent cursor-pointer" title="Ver documento">
                                                         <Eye size={16} className="text-slate-500" />
-                                                    </a>
+                                                    </button>
                                                 )}
                                                 <label className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${uploading[rd.type] ? 'bg-slate-200 text-slate-500' : 'bg-[#6a9a04] text-white hover:bg-[#6a9a04]/90 shadow-sm'
                                                     }`}>
@@ -868,10 +872,10 @@ export default function OnboardingPage() {
                                                 <p className="text-xs text-slate-500">Revísalo antes de firmar</p>
                                             </div>
                                         </div>
-                                        <a href={contract.contract_pdf_url} target="_blank" rel="noopener noreferrer"
-                                            className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-600 transition-all no-underline">
+                                        <button onClick={async () => { const url = await getSignedUrl(contract.contract_pdf_url); window.open(url, '_blank'); }}
+                                            className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-600 transition-all border-none cursor-pointer">
                                             <Download size={16} /> Ver / Descargar
-                                        </a>
+                                        </button>
                                     </div>
                                 </div>
 
@@ -933,10 +937,10 @@ export default function OnboardingPage() {
                                     </div>
                                 </div>
                                 <div className="flex gap-3">
-                                    <a href={contract.contract_signed_pdf_url} target="_blank" rel="noopener noreferrer"
-                                        className="flex items-center gap-2 bg-[#6a9a04] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-[#6a9a04]/90 transition-all no-underline">
+                                    <button onClick={async () => { const url = await getSignedUrl(contract.contract_signed_pdf_url); window.open(url, '_blank'); }}
+                                        className="flex items-center gap-2 bg-[#6a9a04] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-[#6a9a04]/90 transition-all border-none cursor-pointer">
                                         <Download size={16} /> Descargar Contrato Firmado
-                                    </a>
+                                    </button>
                                 </div>
                             </div>
                         )}
