@@ -338,7 +338,7 @@ export default function OrderDetailsPage() {
     body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: 13px; line-height: 1.5; }
     .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #6a9a04; padding-bottom:16px; margin-bottom:20px; }
     .company { display:flex; align-items:center; gap:12px; }
-    .company img { height:50px; width:auto; }
+    .company img { height:70px; width:auto; }
     .company small { display:block; font-size:11px; color:#64748b; font-weight:600; letter-spacing:1px; text-transform:uppercase; margin-top:4px; }
     .meta { text-align:right; }
     .meta .order-num { font-size:22px; font-weight:900; color:#1e293b; }
@@ -369,7 +369,7 @@ export default function OrderDetailsPage() {
   <div class="header">
     <div>
       <div class="company">
-        <img src="${appUrl}/logo-transparent.png" alt="Greenland Products" />
+        <img src="${appUrl}/logo-new.jpg" alt="GreenLand Products" />
         <small>Hoja de Carga / Orden de Surtido</small>
       </div>
     </div>
