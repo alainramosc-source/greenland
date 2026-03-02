@@ -91,10 +91,27 @@ export default function MisPagosPage() {
       setUploadingReceipt(false);
       return;
     }
-    // Generate signed URL
-    const { data: signedData } = await supabase.storage.from('payment-receipts').createSignedUrl(path, 86400 * 365);
-    setForm(f => ({ ...f, receipt_url: signedData?.signedUrl || '' }));
+    // Store just the path — signed URLs will be generated on-the-fly when viewing
+    setForm(f => ({ ...f, receipt_url: path }));
     setUploadingReceipt(false);
+  };
+
+  // Generate signed URL for receipt viewing (handles both old signed URLs and new paths)
+  const handleViewReceipt = async (receiptUrl) => {
+    if (!receiptUrl) return;
+    // If it's already a signed URL (old data) or a full URL, extract path
+    let storagePath = receiptUrl;
+    const match = receiptUrl.match(/payment-receipts\/([^?]+)/);
+    if (match) {
+      storagePath = match[1];
+    }
+    const { data } = await supabase.storage.from('payment-receipts').createSignedUrl(storagePath, 3600);
+    if (data?.signedUrl) {
+      setLightboxImg(data.signedUrl);
+    } else {
+      // Fallback: try opening the URL directly
+      setLightboxImg(receiptUrl);
+    }
   };
 
   const handleSubmit = async () => {
@@ -203,7 +220,7 @@ export default function MisPagosPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {recentPayments.map(p => <PaymentRow key={p.id} p={p} onViewReceipt={setLightboxImg} />)}
+            {recentPayments.map(p => <PaymentRow key={p.id} p={p} onViewReceipt={handleViewReceipt} />)}
           </div>
         )}
 
@@ -216,7 +233,7 @@ export default function MisPagosPage() {
             </button>
             {showHistory && (
               <div className="divide-y divide-slate-100 border-t border-slate-100">
-                {olderPayments.map(p => <PaymentRow key={p.id} p={p} onViewReceipt={setLightboxImg} />)}
+                {olderPayments.map(p => <PaymentRow key={p.id} p={p} onViewReceipt={handleViewReceipt} />)}
               </div>
             )}
           </>

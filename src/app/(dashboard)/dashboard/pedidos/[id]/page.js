@@ -155,10 +155,13 @@ export default function OrderDetailsPage() {
     if (evidenceData && evidenceData.length > 0) {
       // Generate signed URLs for each evidence file
       const withSignedUrls = await Promise.all(evidenceData.map(async (ev) => {
-        // Extract storage path from the file_url
+        // Extract storage path - handle both old public URLs and new path format
+        let storagePath = ev.file_url;
         const match = ev.file_url?.match(/order-evidence\/(.+)$/);
         if (match) {
-          const storagePath = match[1];
+          storagePath = match[1];
+        }
+        if (storagePath) {
           const { data: signedData } = await supabase.storage
             .from('order-evidence')
             .createSignedUrl(storagePath, 3600); // 1 hour
@@ -567,7 +570,6 @@ export default function OrderDetailsPage() {
     if (!files || files.length === 0) return;
     setUploading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
     try {
       for (const file of files) {
         const timestamp = Date.now();
@@ -577,9 +579,9 @@ export default function OrderDetailsPage() {
           .from('order-evidence')
           .upload(path, file, { contentType: file.type });
         if (uploadError) { alert('Error al subir: ' + uploadError.message); continue; }
-        const fileUrl = `${SUPABASE_URL}/storage/v1/object/public/order-evidence/${path}`;
+        // Store just the storage path, not a public URL
         await supabase.from('order_evidence').insert({
-          order_id: id, evidence_type: type, file_url: fileUrl,
+          order_id: id, evidence_type: type, file_url: path,
           file_name: file.name, uploaded_by: user?.id
         });
       }
@@ -592,11 +594,13 @@ export default function OrderDetailsPage() {
 
   const handleDeleteEvidence = async (ev) => {
     if (!confirm('¿Eliminar esta foto?')) return;
-    // Extract path from URL
+    // Extract storage path - handle both old public URLs and new path format
+    let storagePath = ev.file_url;
     const urlParts = ev.file_url.split('/order-evidence/');
     if (urlParts.length > 1) {
-      await supabase.storage.from('order-evidence').remove([urlParts[1]]);
+      storagePath = urlParts[1];
     }
+    await supabase.storage.from('order-evidence').remove([storagePath]);
     await supabase.from('order_evidence').delete().eq('id', ev.id);
     await fetchOrderDetails();
   };

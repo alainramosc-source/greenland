@@ -38,6 +38,22 @@ export default function AdminPagosPage() {
   const [manualMatchModal, setManualMatchModal] = useState(null);
   const [manualMatchPaymentId, setManualMatchPaymentId] = useState('');
 
+  // Generate signed URL for receipt viewing
+  const handleViewReceipt = async (receiptUrl) => {
+    if (!receiptUrl) return;
+    let storagePath = receiptUrl;
+    const match = receiptUrl.match(/payment-receipts\/([^?]+)/);
+    if (match) {
+      storagePath = match[1];
+    }
+    const { data } = await supabase.storage.from('payment-receipts').createSignedUrl(storagePath, 3600);
+    if (data?.signedUrl) {
+      setLightboxImg(data.signedUrl);
+    } else {
+      setLightboxImg(receiptUrl);
+    }
+  };
+
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
@@ -429,7 +445,7 @@ export default function AdminPagosPage() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {p.receipt_url && (
-                            <button onClick={() => setLightboxImg(p.receipt_url)}
+                            <button onClick={() => handleViewReceipt(p.receipt_url)}
                               className="w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center border-none cursor-pointer transition-colors"
                               title="Ver comprobante">
                               <Eye size={16} className="text-slate-500" />
