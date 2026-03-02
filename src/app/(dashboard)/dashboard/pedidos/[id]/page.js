@@ -304,6 +304,157 @@ export default function OrderDetailsPage() {
     setActionLoading(null);
   };
 
+  // --- Print Loading Sheet (Hoja de Carga) ---
+  const printLoadingSheet = () => {
+    const addr = order.shipping_address;
+    const addrText = addr && typeof addr === 'object'
+      ? `${addr.label || ''} — ${addr.street || ''}, ${addr.city || ''}, ${addr.state || ''} ${addr.zip_code || ''}`
+      : addr || 'Recoger en sitio';
+    const distributor = order.profiles || {};
+    const totalPieces = order.order_items.reduce((sum, i) => sum + i.quantity, 0);
+    const today = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    const itemsHtml = order.order_items.map((item, idx) => `
+      <tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:600;">${idx + 1}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#64748b;font-family:monospace;">${item.products?.sku || '—'}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;">${item.products?.name || 'Producto'}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:700;font-size:18px;">${item.quantity}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#64748b;">${item.warehouse_id ? (warehouses.find(w => w.id === item.warehouse_id)?.name || '—') : 'Sin asignar'}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">☐</td>
+      </tr>
+    `).join('');
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Hoja de Carga — Pedido #${order.order_number}</title>
+  <style>
+    @page { size: letter; margin: 15mm; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: 13px; line-height: 1.5; }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #6a9a04; padding-bottom:16px; margin-bottom:20px; }
+    .company { font-size:28px; font-weight:900; color:#6a9a04; letter-spacing:-0.5px; }
+    .company small { display:block; font-size:11px; color:#64748b; font-weight:600; letter-spacing:1px; text-transform:uppercase; }
+    .meta { text-align:right; }
+    .meta .order-num { font-size:22px; font-weight:900; color:#1e293b; }
+    .meta .date { font-size:12px; color:#64748b; margin-top:4px; }
+    .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+    .info-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; }
+    .info-box h4 { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:#94a3b8; font-weight:700; margin-bottom:6px; }
+    .info-box p { font-size:13px; color:#1e293b; font-weight:500; }
+    .info-box .big { font-size:15px; font-weight:700; }
+    table { width:100%; border-collapse:collapse; margin-bottom:16px; }
+    thead th { background:#f1f5f9; padding:10px 12px; text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#64748b; font-weight:700; border-bottom:2px solid #cbd5e1; }
+    .totals { display:flex; justify-content:flex-end; gap:24px; padding:12px 0; border-top:2px solid #1e293b; margin-bottom:20px; }
+    .totals div { text-align:center; }
+    .totals .label { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#64748b; font-weight:700; }
+    .totals .value { font-size:22px; font-weight:900; color:#1e293b; }
+    .notes { background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:14px; margin-bottom:20px; }
+    .notes h4 { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:#92400e; font-weight:700; margin-bottom:6px; }
+    .notes p { font-size:12px; color:#78350f; white-space:pre-wrap; }
+    .signatures { display:grid; grid-template-columns:1fr 1fr 1fr; gap:24px; margin-top:40px; }
+    .sig-box { text-align:center; padding-top:50px; border-top:1px solid #94a3b8; }
+    .sig-box .name { font-size:11px; font-weight:700; color:#1e293b; }
+    .sig-box .role { font-size:10px; color:#64748b; }
+    .footer { margin-top:30px; text-align:center; font-size:10px; color:#94a3b8; border-top:1px solid #e2e8f0; padding-top:10px; }
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="company">🌿 Greenland<small>Hoja de Carga / Orden de Surtido</small></div>
+    </div>
+    <div class="meta">
+      <div class="order-num">Pedido #${order.order_number}</div>
+      <div class="date">${today}</div>
+      <div class="date">Impreso: ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-box">
+      <h4>Distribuidor</h4>
+      <p class="big">${distributor.full_name || '—'}</p>
+      <p>${distributor.email || ''}</p>
+      <p>${distributor.phone || ''} ${distributor.city ? '· ' + distributor.city : ''}</p>
+    </div>
+    <div class="info-box">
+      <h4>Dirección de Envío</h4>
+      <p class="big">${addrText}</p>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:40px;text-align:center;">#</th>
+        <th style="width:100px;">SKU</th>
+        <th>Producto / Modelo</th>
+        <th style="width:80px;text-align:center;">Cantidad</th>
+        <th style="width:120px;">Bodega</th>
+        <th style="width:60px;text-align:center;">✓</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemsHtml}
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div>
+      <div class="label">Total Piezas</div>
+      <div class="value">${totalPieces}</div>
+    </div>
+    <div>
+      <div class="label">Total Modelos</div>
+      <div class="value">${order.order_items.length}</div>
+    </div>
+    <div>
+      <div class="label">Monto Total</div>
+      <div class="value" style="color:#6a9a04;">$${Number(order.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
+    </div>
+  </div>
+
+  ${order.notes ? `
+  <div class="notes">
+    <h4>📝 Instrucciones / Comentarios</h4>
+    <p>${order.notes}</p>
+  </div>` : ''}
+
+  <div class="signatures">
+    <div class="sig-box">
+      <div class="name">___________________</div>
+      <div class="role">Coordinador de Almacén</div>
+    </div>
+    <div class="sig-box">
+      <div class="name">___________________</div>
+      <div class="role">Armador / Cargador</div>
+    </div>
+    <div class="sig-box">
+      <div class="name">___________________</div>
+      <div class="role">Entrega / Transporte</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Greenland Products — greenland-products.com.mx — Documento generado automáticamente
+  </div>
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
+  };
+
   // --- Admin: Update Status ---
   const handleUpdateStatus = async (newStatus, label) => {
     if (!confirm(`¿Cambiar estado a "${label}"?`)) return;
@@ -319,6 +470,10 @@ export default function OrderDetailsPage() {
     } else {
       await fetchOrderDetails();
       sendStatusEmail(newStatus);
+      // Auto-print loading sheet when moving to "En Surtido"
+      if (newStatus === 'in_fulfillment') {
+        printLoadingSheet();
+      }
     }
     setActionLoading(null);
   };
