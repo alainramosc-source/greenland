@@ -325,6 +325,8 @@ export default function OrderDetailsPage() {
       </tr>
     `).join('');
 
+    const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://greenland-app.vercel.app';
+
     const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -335,8 +337,9 @@ export default function OrderDetailsPage() {
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: 13px; line-height: 1.5; }
     .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #6a9a04; padding-bottom:16px; margin-bottom:20px; }
-    .company { font-size:28px; font-weight:900; color:#6a9a04; letter-spacing:-0.5px; }
-    .company small { display:block; font-size:11px; color:#64748b; font-weight:600; letter-spacing:1px; text-transform:uppercase; }
+    .company { display:flex; align-items:center; gap:12px; }
+    .company img { height:50px; width:auto; }
+    .company small { display:block; font-size:11px; color:#64748b; font-weight:600; letter-spacing:1px; text-transform:uppercase; margin-top:4px; }
     .meta { text-align:right; }
     .meta .order-num { font-size:22px; font-weight:900; color:#1e293b; }
     .meta .date { font-size:12px; color:#64748b; margin-top:4px; }
@@ -365,7 +368,10 @@ export default function OrderDetailsPage() {
 <body>
   <div class="header">
     <div>
-      <div class="company">🌿 Greenland<small>Hoja de Carga / Orden de Surtido</small></div>
+      <div class="company">
+        <img src="${appUrl}/logo-transparent.png" alt="Greenland Products" />
+        <small>Hoja de Carga / Orden de Surtido</small>
+      </div>
     </div>
     <div class="meta">
       <div class="order-num">Pedido #${order.order_number}</div>
