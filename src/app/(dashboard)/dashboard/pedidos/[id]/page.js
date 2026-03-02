@@ -305,7 +305,7 @@ export default function OrderDetailsPage() {
   };
 
   // --- Print Loading Sheet (Hoja de Carga) ---
-  const printLoadingSheet = () => {
+  const printLoadingSheet = (printWindow) => {
     const addr = order.shipping_address;
     const addrText = addr && typeof addr === 'object'
       ? `${addr.label || ''} — ${addr.street || ''}, ${addr.city || ''}, ${addr.state || ''} ${addr.zip_code || ''}`
@@ -445,19 +445,25 @@ export default function OrderDetailsPage() {
 </body>
 </html>`;
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.onload = () => {
-        printWindow.print();
-      };
-    }
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    setTimeout(() => { printWindow.print(); }, 300);
   };
 
   // --- Admin: Update Status ---
   const handleUpdateStatus = async (newStatus, label) => {
     if (!confirm(`¿Cambiar estado a "${label}"?`)) return;
+
+    // Open print window IMMEDIATELY on user gesture (before async) to avoid popup blockers
+    let printWindow = null;
+    if (newStatus === 'in_fulfillment') {
+      printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write('<html><head><title>Preparando Hoja de Carga...</title></head><body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#64748b;"><h2>⏳ Preparando hoja de carga...</h2></body></html>');
+      }
+    }
+
     setActionLoading(newStatus);
     const { data, error } = await supabase.rpc('update_order_status', {
       p_order_id: id,
@@ -465,14 +471,16 @@ export default function OrderDetailsPage() {
     });
     if (error) {
       alert('Error: ' + error.message);
+      if (printWindow) printWindow.close();
     } else if (data && !data.success) {
       alert('Error: ' + data.error);
+      if (printWindow) printWindow.close();
     } else {
       await fetchOrderDetails();
       sendStatusEmail(newStatus);
-      // Auto-print loading sheet when moving to "En Surtido"
-      if (newStatus === 'in_fulfillment') {
-        printLoadingSheet();
+      // Write loading sheet to the already-opened window
+      if (newStatus === 'in_fulfillment' && printWindow) {
+        printLoadingSheet(printWindow);
       }
     }
     setActionLoading(null);
