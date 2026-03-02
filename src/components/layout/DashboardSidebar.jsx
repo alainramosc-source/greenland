@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, MapPin, DollarSign, CreditCard, ScrollText } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 const DashboardSidebar = ({ isOpen, onClose, userRole, subRole }) => {
@@ -28,6 +28,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, subRole }) => {
       { name: 'Mis Pagos', href: '/dashboard/mis-pagos', icon: CreditCard },
       { name: 'Mi Inventario', href: '/dashboard/mi-inventario', icon: Package },
       { name: 'Mis Direcciones', href: '/dashboard/direcciones', icon: MapPin },
+      { name: 'Mi Expediente', href: '/dashboard/onboarding', icon: ClipboardCheck },
     ];
 
   const allAdminItems = [
@@ -37,6 +38,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, subRole }) => {
     { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: BarChart3, roles: ['super_admin', 'accountant'] },
     { name: 'Clientes', href: '/dashboard/usuarios', icon: Users, roles: ['super_admin'] },
     { name: 'CMS Landing', href: '/dashboard/cms?v=sync', icon: FileText, roles: ['super_admin'] },
+    { name: 'Expedientes', href: '/dashboard/expedientes', icon: ClipboardCheck, roles: ['super_admin'] },
     { name: 'Auditoría', href: '/dashboard/auditoria', icon: ScrollText, roles: ['super_admin'] },
   ];
 
