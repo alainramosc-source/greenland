@@ -781,6 +781,7 @@ export default function OrderDetailsPage() {
                       <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Cantidad</th>
                       {isAdmin && <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Bodega</th>}
                       <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Subtotal</th>
+                      {isAdmin && order.status === 'pending' && <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center" style={{ width: '50px' }}></th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -904,6 +905,22 @@ export default function OrderDetailsPage() {
                             ${Number((editingItems[item.id] ?? item.quantity) * item.unit_price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </td>
+                        {isAdmin && order.status === 'pending' && (
+                          <td className="py-4 text-center">
+                            <button
+                              onClick={() => {
+                                if (confirm(`¿Eliminar "${item.products?.name}" del pedido?`)) {
+                                  handleUpdateQuantity(item.id, 0);
+                                }
+                              }}
+                              disabled={actionLoading === `qty-${item.id}`}
+                              className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer bg-transparent border-none disabled:opacity-50"
+                              title="Eliminar producto del pedido"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
