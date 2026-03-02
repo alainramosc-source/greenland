@@ -195,8 +195,8 @@ export default function ExpedienteDetailPage() {
                             <div className="space-y-3">
                                 {documents.map(doc => (
                                     <div key={doc.id} className={`p-4 rounded-xl border ${doc.status === 'approved' ? 'border-green-200 bg-green-50/50' :
-                                            doc.status === 'rejected' ? 'border-red-200 bg-red-50/50' :
-                                                'border-slate-200 bg-slate-50/50'
+                                        doc.status === 'rejected' ? 'border-red-200 bg-red-50/50' :
+                                            'border-slate-200 bg-slate-50/50'
                                         }`}>
                                         <div className="flex items-center justify-between">
                                             <div className="flex-1">
@@ -211,8 +211,8 @@ export default function ExpedienteDetailPage() {
                                             </div>
                                             <div className="flex items-center gap-2 shrink-0">
                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${doc.status === 'approved' ? 'bg-green-100 text-green-700' :
-                                                        doc.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                                                            'bg-amber-100 text-amber-700'
+                                                    doc.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                                        'bg-amber-100 text-amber-700'
                                                     }`}>
                                                     {doc.status === 'approved' ? '✓ Aprobado' : doc.status === 'rejected' ? '✗ Rechazado' : '⏳ Pendiente'}
                                                 </span>
@@ -296,7 +296,7 @@ export default function ExpedienteDetailPage() {
                     {/* Declarations */}
                     <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
                         <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-                            <CheckCircle size={16} className="text-[#6a9a04]" /> Declaraciones
+                            <CheckCircle size={16} className="text-[#6a9a04]" /> Consentimiento
                         </h3>
                         {profile.declarations_accepted_at ? (
                             <div className="space-y-2 text-sm">

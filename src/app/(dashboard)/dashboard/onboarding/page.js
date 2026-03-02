@@ -48,7 +48,7 @@ const STEPS = [
     { num: 1, label: 'Tipo de Persona', icon: User },
     { num: 2, label: 'Datos Generales', icon: FileText },
     { num: 3, label: 'Documentos', icon: Upload },
-    { num: 4, label: 'Declaraciones', icon: CheckSquare },
+    { num: 4, label: 'Consentimiento', icon: CheckSquare },
     { num: 5, label: 'Contrato y Firma', icon: PenLine },
 ];
 
@@ -282,7 +282,7 @@ export default function OnboardingPage() {
             updated_at: new Date().toISOString(),
         }).eq('id', profile.id);
 
-        await auditLog('declarations_accepted', { ip, declarations });
+        await auditLog('consent_accepted', { ip, declarations });
         setProfile({ ...profile, onboarding_status: 'contract_generated', declarations_accepted_at: new Date().toISOString() });
         setSaving(false);
         setStep(5);
@@ -559,8 +559,8 @@ export default function OnboardingPage() {
                                 if (s.num <= step || (profile && s.num <= step)) setStep(s.num);
                             }}
                             className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer border-none ${step === s.num ? 'bg-[#6a9a04] text-white shadow-lg shadow-[#6a9a04]/30' :
-                                    s.num < step ? 'bg-[#6a9a04]/10 text-[#6a9a04]' :
-                                        'bg-slate-100 text-slate-400'
+                                s.num < step ? 'bg-[#6a9a04]/10 text-[#6a9a04]' :
+                                    'bg-slate-100 text-slate-400'
                                 }`}
                         >
                             {s.num < step ? <Check size={16} /> : <s.icon size={16} />}
@@ -795,8 +795,8 @@ export default function OnboardingPage() {
                 {/* STEP 4: Declarations */}
                 {step === 4 && (
                     <div>
-                        <h2 className="text-xl font-bold text-slate-900 mb-2">Declaraciones y Aceptación</h2>
-                        <p className="text-sm text-slate-500 mb-6">Lee y acepta las siguientes declaraciones para continuar con la firma del contrato.</p>
+                        <h2 className="text-xl font-bold text-slate-900 mb-2">Consentimiento y Aceptación</h2>
+                        <p className="text-sm text-slate-500 mb-6">Lee y acepta los siguientes puntos para continuar con la firma del contrato.</p>
 
                         <div className="space-y-4 mb-8">
                             {[
