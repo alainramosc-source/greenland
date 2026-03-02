@@ -98,7 +98,7 @@ export async function POST(request) {
     const body = await request.json();
     const { type, orderNumber, orderId, status, distributorName, distributorEmail, items, total } = body;
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://greenland-zeta.vercel.app';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://greenland-app.vercel.app';
     const orderUrl = `${appUrl}/dashboard/pedidos/${orderId}`;
 
     let emails = [];

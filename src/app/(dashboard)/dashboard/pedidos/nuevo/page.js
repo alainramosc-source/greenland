@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Search, ShoppingCart, Plus, Minus, ArrowRight, ArrowLeft, CheckCircle, Package, MapPin } from 'lucide-react';
+import { Search, ShoppingCart, Plus, Minus, ArrowRight, ArrowLeft, CheckCircle, Package, MapPin, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ProductGallery from '@/components/ProductGallery';
@@ -326,7 +326,16 @@ export default function NuevoPedidoPage() {
                   <div key={item.id} className="flex flex-col gap-2 pb-4 border-b border-slate-100">
                     <div className="flex justify-between items-start">
                       <h4 className="font-bold text-sm text-slate-800 m-0 pr-4 leading-tight">{item.name}</h4>
-                      <span className="font-black text-[#6a9a04] text-sm shrink-0">${item.price * item.quantity}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-black text-[#6a9a04] text-sm">${item.price * item.quantity}</span>
+                        <button
+                          onClick={() => removeFromCart(item.id)}
+                          className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors cursor-pointer bg-transparent border-none"
+                          title="Eliminar producto"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex justify-between items-center mt-1">
                       <span className="text-xs text-slate-500">${item.price} c/u</span>
@@ -344,10 +353,11 @@ export default function NuevoPedidoPage() {
                           value={item.quantity}
                           onChange={(e) => {
                             const raw = e.target.value.replace(/[^0-9]/g, '');
-                            const val = raw === '' ? 1 : parseInt(raw);
-                            if (val > 0) {
-                              setCart(prev => prev.map(ci => ci.id === item.id ? { ...ci, quantity: val } : ci));
-                            }
+                            const val = raw === '' ? '' : parseInt(raw);
+                            setCart(prev => prev.map(ci => ci.id === item.id ? { ...ci, quantity: val } : ci));
+                          }}
+                          onBlur={() => {
+                            setCart(prev => prev.map(ci => ci.id === item.id ? { ...ci, quantity: ci.quantity || 1 } : ci));
                           }}
                           className="font-bold text-sm text-slate-700 w-14 text-center border-none outline-none bg-transparent"
                         />

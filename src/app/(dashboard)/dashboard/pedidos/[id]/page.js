@@ -6,7 +6,8 @@ import {
   ArrowLeft, Package, Calendar, DollarSign, MapPin, FileText,
   CheckCircle, XCircle, Truck, PackageCheck, Loader2, User,
   AlertTriangle, X, Plus, Minus, CreditCard, ClipboardCheck,
-  PackageOpen, Lock, Camera, Image, Trash2, Search, Warehouse, PackageCheck as BoxCheck
+  PackageOpen, Lock, Camera, Image, Trash2, Search, Warehouse, PackageCheck as BoxCheck,
+  MessageCircleWarning
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 
@@ -52,6 +53,9 @@ export default function OrderDetailsPage() {
   const [warehouses, setWarehouses] = useState([]);
   const [warehouseStock, setWarehouseStock] = useState({});
   const [receivingOrder, setReceivingOrder] = useState(false);
+  const [showIncidentModal, setShowIncidentModal] = useState(false);
+  const [incidentForm, setIncidentForm] = useState({ type: 'discrepancia', description: '' });
+  const [submittingIncident, setSubmittingIncident] = useState(false);
   const supabase = createClient();
 
   const fetchOrderDetails = async () => {
@@ -226,6 +230,54 @@ export default function OrderDetailsPage() {
       await fetchOrderDetails();
     }
     setReceivingOrder(false);
+  };
+
+  // --- Distributor: Report Incident ---
+  const handleReportIncident = async () => {
+    if (!incidentForm.description.trim()) {
+      alert('Por favor describe la incidencia.');
+      return;
+    }
+    setSubmittingIncident(true);
+    try {
+      // Try to insert into order_incidents table, fallback to order notes
+      const incidentData = {
+        order_id: id,
+        incident_type: incidentForm.type,
+        description: incidentForm.description.trim(),
+        reported_at: new Date().toISOString(),
+        status: 'open'
+      };
+      const { error } = await supabase.from('order_incidents').insert(incidentData);
+      if (error) {
+        // Fallback: append to order notes
+        const incNote = `\n\n⚠️ INCIDENCIA (${incidentForm.type}): ${incidentForm.description.trim()} — ${new Date().toLocaleDateString('es-MX')}`;
+        await supabase.from('orders').update({ notes: (order.notes || '') + incNote }).eq('id', id);
+      }
+      // Send email to admins
+      try {
+        await fetch('/api/send-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'status_change',
+            orderNumber: order.order_number,
+            orderId: id,
+            status: 'shipped',
+            distributorName: order.profiles?.full_name || 'Distribuidor',
+            distributorEmail: null,
+            total: order.total_amount,
+          }),
+        });
+      } catch (e) { console.error(e); }
+      alert('✅ Incidencia reportada exitosamente. El equipo de Greenland la revisará.');
+      setShowIncidentModal(false);
+      setIncidentForm({ type: 'discrepancia', description: '' });
+      await fetchOrderDetails();
+    } catch (err) {
+      alert('Error al reportar incidencia: ' + err.message);
+    }
+    setSubmittingIncident(false);
   };
 
   // Check if all items have warehouse assigned
@@ -1246,9 +1298,73 @@ export default function OrderDetailsPage() {
                   {receivingOrder ? <Loader2 size={20} className="animate-spin" /> : <PackageCheck size={20} />}
                   {receivingOrder ? 'Procesando...' : '📦 Recibir Pedido'}
                 </button>
+                <button
+                  onClick={() => setShowIncidentModal(true)}
+                  className="w-full flex items-center justify-center gap-2 bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 px-5 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer"
+                >
+                  <MessageCircleWarning size={18} /> Reportar Incidencia
+                </button>
                 <p className="text-[11px] text-center text-slate-400 mt-2 m-0">
                   Los productos se agregarán automáticamente al inventario del distribuidor
                 </p>
+              </div>
+            )}
+
+            {/* Incident Report Modal */}
+            {showIncidentModal && (
+              <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center">
+                <div className="bg-white/95 backdrop-blur-xl w-full max-w-[500px] rounded-2xl shadow-2xl border border-white overflow-hidden mx-4">
+                  <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+                    <h3 className="text-lg font-bold text-slate-900 m-0 flex items-center gap-2">
+                      <MessageCircleWarning className="w-5 h-5 text-orange-500" /> Reportar Incidencia
+                    </h3>
+                    <button onClick={() => setShowIncidentModal(false)} className="p-1 rounded-lg hover:bg-slate-100 bg-transparent border-none cursor-pointer">
+                      <X className="w-5 h-5 text-slate-500" />
+                    </button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    <p className="text-sm text-slate-600 m-0">
+                      Reporta cualquier problema con tu pedido <strong>#{order.order_number}</strong>.
+                    </p>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-600 mb-1">Tipo de Incidencia *</label>
+                      <select
+                        value={incidentForm.type}
+                        onChange={(e) => setIncidentForm(f => ({ ...f, type: e.target.value }))}
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500/30 text-slate-800 outline-none shadow-sm"
+                      >
+                        <option value="discrepancia">Discrepancia en cantidades</option>
+                        <option value="faltante">Producto faltante</option>
+                        <option value="dano">Producto dañado</option>
+                        <option value="error">Producto equivocado</option>
+                        <option value="otro">Otro</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-600 mb-1">Descripción *</label>
+                      <textarea
+                        value={incidentForm.description}
+                        onChange={(e) => setIncidentForm(f => ({ ...f, description: e.target.value }))}
+                        placeholder="Describe detalladamente la incidencia: qué productos tienen problema, cantidades incorrectas, daños observados, etc."
+                        rows={4}
+                        autoFocus
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500/30 text-slate-800 outline-none resize-none shadow-sm"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-3 pt-2">
+                      <button onClick={() => setShowIncidentModal(false)}
+                        className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm"
+                      >Cancelar</button>
+                      <button
+                        onClick={handleReportIncident}
+                        disabled={submittingIncident || !incidentForm.description.trim()}
+                        className="px-5 py-2.5 rounded-xl text-white font-bold bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/30 cursor-pointer transition-all border-none disabled:opacity-50"
+                      >
+                        {submittingIncident ? <Loader2 size={18} className="animate-spin" /> : 'Enviar Reporte'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
