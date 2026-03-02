@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 export default function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userRole, setUserRole] = useState(null);
+  const [subRole, setSubRole] = useState(null);
   const [actualRole, setActualRole] = useState(null);
   const [userName, setUserName] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -23,7 +24,7 @@ export default function DashboardLayout({ children }) {
         // Fetch role from profiles
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role, full_name, is_active, client_number')
+          .select('role, sub_role, full_name, is_active, client_number')
           .eq('id', user.id)
           .single();
 
@@ -39,6 +40,7 @@ export default function DashboardLayout({ children }) {
           }
 
           setActualRole(profile.role);
+          setSubRole(profile.sub_role);
           // Check for admin role simulation
           const testRole = typeof window !== 'undefined' ? sessionStorage.getItem('test_view_role') : null;
           if (profile.role === 'admin' && testRole === 'distributor') {
@@ -66,6 +68,7 @@ export default function DashboardLayout({ children }) {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         userRole={userRole}
+        subRole={subRole}
       />
       <div className="dashboard-content-wrapper flex flex-col min-h-screen overflow-hidden relative">
         <DashboardTopBar

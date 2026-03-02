@@ -1,10 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, MapPin, DollarSign, CreditCard } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, MapPin, DollarSign, CreditCard, ScrollText } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
-const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
+const DashboardSidebar = ({ isOpen, onClose, userRole, subRole }) => {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -30,14 +30,19 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
       { name: 'Mis Direcciones', href: '/dashboard/direcciones', icon: MapPin },
     ];
 
-  const adminItems = userRole === 'admin' ? [
-    { name: 'Inventarios', href: '/dashboard/inventarios', icon: Package },
-    { name: 'Precios', href: '/dashboard/precios', icon: DollarSign },
-    { name: 'Pagos', href: '/dashboard/pagos', icon: CreditCard },
-    { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: BarChart3 },
-    { name: 'Clientes', href: '/dashboard/usuarios', icon: Users },
-    { name: 'CMS Landing', href: '/dashboard/cms?v=sync', icon: FileText }
-  ] : [];
+  const allAdminItems = [
+    { name: 'Inventarios', href: '/dashboard/inventarios', icon: Package, roles: ['super_admin', 'warehouse_admin'] },
+    { name: 'Precios', href: '/dashboard/precios', icon: DollarSign, roles: ['super_admin', 'accountant'] },
+    { name: 'Pagos', href: '/dashboard/pagos', icon: CreditCard, roles: ['super_admin', 'accountant'] },
+    { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: BarChart3, roles: ['super_admin', 'accountant'] },
+    { name: 'Clientes', href: '/dashboard/usuarios', icon: Users, roles: ['super_admin'] },
+    { name: 'CMS Landing', href: '/dashboard/cms?v=sync', icon: FileText, roles: ['super_admin'] },
+    { name: 'Auditoría', href: '/dashboard/auditoria', icon: ScrollText, roles: ['super_admin'] },
+  ];
+
+  const adminItems = userRole === 'admin'
+    ? allAdminItems.filter(item => !subRole || item.roles.includes(subRole))
+    : [];
 
   return (
     <>
@@ -97,7 +102,13 @@ const DashboardSidebar = ({ isOpen, onClose, userRole }) => {
           </button>
           <div className="text-center mt-3">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              {userRole === 'admin' ? 'Administrador' : 'Distribuidor'}
+              {userRole === 'admin'
+                ? (subRole === 'super_admin' ? 'Super Admin'
+                  : subRole === 'warehouse_admin' ? 'Admin Bodega'
+                    : subRole === 'accountant' ? 'Contabilidad'
+                      : subRole === 'viewer' ? 'Solo Lectura'
+                        : 'Administrador')
+                : 'Distribuidor'}
             </p>
           </div>
         </div>

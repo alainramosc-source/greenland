@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Search, Filter, Edit2, Shield, AlertCircle, X, Save, UserPlus, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, Filter, Edit2, Shield, AlertCircle, X, Save, UserPlus, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from 'lucide-react';
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -15,6 +15,11 @@ export default function UsersPage() {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, isBulk: false, targetId: null });
+  // Collaborator creation
+  const [showNewCollab, setShowNewCollab] = useState(false);
+  const [newCollab, setNewCollab] = useState({ full_name: '', email: '', password: '', sub_role: 'viewer' });
+  const [creatingCollab, setCreatingCollab] = useState(false);
+  const [currentUserSubRole, setCurrentUserSubRole] = useState(null);
 
   const supabase = createClient();
 
@@ -27,6 +32,13 @@ export default function UsersPage() {
       .select('*')
       .order('created_at', { ascending: false });
     if (!error && data) setUsers(data);
+
+    // Get current user's sub_role
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase.from('profiles').select('sub_role').eq('id', user.id).single();
+      setCurrentUserSubRole(profile?.sub_role);
+    }
     setLoading(false);
   };
 
@@ -47,6 +59,7 @@ export default function UsersPage() {
         phone: selectedUser.phone,
         company_name: selectedUser.company_name,
         address: selectedUser.address,
+        sub_role: selectedUser.role === 'admin' ? (selectedUser.sub_role || 'viewer') : null,
       })
       .eq('id', selectedUser.id);
 
@@ -217,6 +230,14 @@ export default function UsersPage() {
           >
             <Download className="w-4 h-4 text-[#6a9a04]" /> Exportar CSV
           </button>
+          {currentUserSubRole === 'super_admin' && (
+            <button
+              onClick={() => setShowNewCollab(true)}
+              className="px-4 py-2.5 rounded-xl text-white font-bold bg-[#6a9a04] hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/20 transition-all flex items-center gap-2 cursor-pointer border-none"
+            >
+              <UserPlus className="w-4 h-4" /> Crear Colaborador
+            </button>
+          )}
         </div>
       </header>
 
@@ -494,6 +515,21 @@ export default function UsersPage() {
                 </div>
               </div>
             </div>
+            {selectedUser.role === 'admin' && (
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Sub-Rol Admin</label>
+                <select
+                  value={selectedUser.sub_role || 'viewer'}
+                  onChange={(e) => setSelectedUser({ ...selectedUser, sub_role: e.target.value })}
+                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
+                >
+                  <option value="super_admin">Super Admin (acceso total)</option>
+                  <option value="warehouse_admin">Admin Bodega (inventarios)</option>
+                  <option value="accountant">Contabilidad (pagos/precios)</option>
+                  <option value="viewer">Solo Lectura</option>
+                </select>
+              </div>
+            )}
             <div className="p-6 border-t border-slate-200 flex justify-end gap-3">
               <button onClick={() => setIsModalOpen(false)} disabled={updating}
                 className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white/50 border border-slate-200 hover:bg-white cursor-pointer transition-all"
@@ -522,20 +558,90 @@ export default function UsersPage() {
               Esta acción es permanente y no se puede deshacer. Los clientes perderán acceso al portal inmediatamente.
             </p>
             <div className="flex justify-center gap-3">
-              <button
-                onClick={() => setDeleteModal({ isOpen: false, isBulk: false, targetId: null })}
-                disabled={loading}
-                className="px-6 py-3 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all flex-1"
-              >
+              <button onClick={() => setDeleteModal({ isOpen: false, isBulk: false, targetId: null })} disabled={loading}
+                className="px-6 py-3 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all flex-1">
                 Cancelar
               </button>
-              <button
-                onClick={executeDelete}
-                disabled={loading}
-                className="px-6 py-3 rounded-xl text-white font-bold bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/20 cursor-pointer transition-all border-none flex-1"
-              >
+              <button onClick={executeDelete} disabled={loading}
+                className="px-6 py-3 rounded-xl text-white font-bold bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/20 cursor-pointer transition-all border-none flex-1">
                 {loading ? 'Eliminando...' : 'Sí, eliminar'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Collaborator Modal */}
+      {showNewCollab && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center px-4" onClick={() => setShowNewCollab(false)}>
+          <div className="bg-white/90 backdrop-blur-xl border border-white max-w-[500px] w-full rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-200/50 flex justify-between items-center bg-white/50">
+              <h3 className="text-lg font-bold text-slate-900 m-0 flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-[#6a9a04]" /> Crear Colaborador
+              </h3>
+              <button onClick={() => setShowNewCollab(false)} className="p-1.5 rounded-lg hover:bg-slate-100 bg-transparent border-none cursor-pointer text-slate-500">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Nombre Completo *</label>
+                <input type="text" value={newCollab.full_name} onChange={e => setNewCollab(p => ({ ...p, full_name: e.target.value }))}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm outline-none shadow-sm" placeholder="Ej. Andrea López" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Correo *</label>
+                <input type="email" value={newCollab.email} onChange={e => setNewCollab(p => ({ ...p, email: e.target.value }))}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm outline-none shadow-sm" placeholder="andrea@greenland-products.com.mx" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Contraseña *</label>
+                <input type="password" value={newCollab.password} onChange={e => setNewCollab(p => ({ ...p, password: e.target.value }))}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm outline-none shadow-sm" placeholder="Mínimo 6 caracteres" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Rol</label>
+                <select value={newCollab.sub_role} onChange={e => setNewCollab(p => ({ ...p, sub_role: e.target.value }))}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm outline-none shadow-sm">
+                  <option value="super_admin">Super Admin (acceso total)</option>
+                  <option value="warehouse_admin">Admin Bodega (inventarios)</option>
+                  <option value="accountant">Contabilidad (pagos/precios)</option>
+                  <option value="viewer">Solo Lectura</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button onClick={() => setShowNewCollab(false)}
+                  className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm">
+                  Cancelar</button>
+                <button disabled={creatingCollab || !newCollab.full_name || !newCollab.email || !newCollab.password}
+                  onClick={async () => {
+                    if (newCollab.password.length < 6) { alert('La contraseña debe tener mínimo 6 caracteres'); return; }
+                    setCreatingCollab(true);
+                    const { data, error } = await supabase.auth.signUp({
+                      email: newCollab.email,
+                      password: newCollab.password,
+                      options: { data: { full_name: newCollab.full_name } }
+                    });
+                    if (error) { alert('Error: ' + error.message); setCreatingCollab(false); return; }
+                    if (data.user) {
+                      await supabase.from('profiles').update({
+                        role: 'admin',
+                        sub_role: newCollab.sub_role,
+                        full_name: newCollab.full_name,
+                        is_active: true
+                      }).eq('id', data.user.id);
+                    }
+                    setCreatingCollab(false);
+                    setShowNewCollab(false);
+                    setNewCollab({ full_name: '', email: '', password: '', sub_role: 'viewer' });
+                    alert('✅ Colaborador creado. Debe confirmar su email para iniciar sesión.');
+                    fetchUsers();
+                  }}
+                  className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#6a9a04] hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/30 cursor-pointer transition-all border-none disabled:opacity-50 flex items-center gap-2">
+                  {creatingCollab ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
+                  {creatingCollab ? 'Creando...' : 'Crear Colaborador'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
