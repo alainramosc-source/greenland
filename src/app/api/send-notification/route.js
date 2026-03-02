@@ -148,6 +148,31 @@ export async function POST(request) {
           }),
         });
       }
+    } else if (type === 'incident_report') {
+      // Distributor reported an incident → notify admins
+      const { incidentType, incidentDescription } = body;
+      const INCIDENT_LABELS = {
+        discrepancia: 'Discrepancia en cantidades',
+        faltante: 'Producto faltante',
+        dano: 'Producto dañado',
+        error: 'Producto equivocado',
+        otro: 'Otro',
+      };
+      emails.push({
+        from: FROM_EMAIL,
+        to: ADMIN_EMAILS,
+        subject: `⚠️ Incidencia en Pedido #${orderNumber} — ${distributorName}`,
+        html: buildOrderEmailHtml({
+          title: `⚠️ Incidencia Reportada`,
+          subtitle: `${distributorName} ha reportado un problema con el Pedido #${orderNumber}.`,
+          orderNumber,
+          status: 'shipped',
+          total,
+          ctaUrl: orderUrl,
+          ctaText: 'Revisar Pedido',
+          footerNote: `Tipo: ${INCIDENT_LABELS[incidentType] || incidentType}\n\nDescripción: "${incidentDescription}"`,
+        }),
+      });
     }
 
     // Send all emails

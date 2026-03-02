@@ -217,6 +217,11 @@ export default function PedidosPage() {
                       <tr key={order.id} className="table-row-glass transition-all rounded-2xl group">
                         <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 rounded-l-2xl border-y border-l border-transparent group-hover:border-[#6a9a04]/10 first:rounded-l-2xl transition-colors">
                           <span className="text-slate-800 font-bold">#{order.order_number}</span>
+                          {order.notes && order.notes.includes('⚠️ INCIDENCIA') && (
+                            <span className="ml-2 px-2 py-0.5 text-[9px] font-bold uppercase rounded-full bg-red-100 text-red-600 border border-red-200 tracking-wider" title="Incidencia reportada">
+                              ⚠️ Incidencia
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
                           <div>

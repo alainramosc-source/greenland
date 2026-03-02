@@ -260,13 +260,14 @@ export default function OrderDetailsPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            type: 'status_change',
+            type: 'incident_report',
             orderNumber: order.order_number,
             orderId: id,
             status: 'shipped',
             distributorName: order.profiles?.full_name || 'Distribuidor',
-            distributorEmail: null,
             total: order.total_amount,
+            incidentType: incidentForm.type,
+            incidentDescription: incidentForm.description.trim(),
           }),
         });
       } catch (e) { console.error(e); }
@@ -1066,6 +1067,18 @@ export default function OrderDetailsPage() {
                   📝 Instrucciones del Distribuidor
                 </h3>
                 <p className="text-sm text-amber-900 m-0 whitespace-pre-wrap leading-relaxed">{order.notes}</p>
+              </div>
+            )}
+
+            {/* Incident Alert */}
+            {order.notes && order.notes.includes('⚠️ INCIDENCIA') && (
+              <div className="bg-red-50/80 backdrop-blur-md border-2 border-red-300 shadow-sm rounded-2xl p-5 animate-pulse-once">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-red-700 mb-2 m-0">
+                  <MessageCircleWarning className="w-4 h-4" /> 🚨 Incidencia Reportada
+                </h3>
+                <p className="text-sm text-red-800 m-0 font-medium">
+                  El distribuidor ha reportado un problema con este pedido. Revisa las notas arriba para más detalles.
+                </p>
               </div>
             )}
 
