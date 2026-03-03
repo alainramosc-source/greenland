@@ -13,7 +13,7 @@ module.exports = defineConfig({
     reporter: 'html',
     use: {
         actionTimeout: 0,
-        baseURL: 'http://localhost:3000',
+        baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://greenland-app.vercel.app',
         trace: 'on-first-retry',
     },
     projects: [
@@ -21,11 +21,5 @@ module.exports = defineConfig({
             name: 'chromium',
             use: { ...devices['Desktop Chrome'] },
         },
-        // We can add Firefox/WebKit later if needed, keeping it simple for now
     ],
-    webServer: {
-        command: 'npm run dev',
-        port: 3000,
-        reuseExistingServer: !process.env.CI,
-    },
 });
