@@ -153,9 +153,17 @@ export default function OnboardingPage() {
 
     // Generate signed URL for private bucket files (valid 1 hour)
     const getSignedUrl = async (storagePath) => {
-        if (!storagePath) return '#';
-        const { data, error } = await supabase.storage.from('onboarding-docs').createSignedUrl(storagePath, 3600);
-        if (error || !data?.signedUrl) return '#';
+        if (!storagePath) { alert('No se encontró la ruta del archivo.'); return null; }
+        // Handle old data that may have full URL instead of just path
+        let cleanPath = storagePath;
+        const match = storagePath.match(/onboarding-docs\/(.+?)(\?|$)/);
+        if (match) cleanPath = match[1];
+
+        const { data, error } = await supabase.storage.from('onboarding-docs').createSignedUrl(cleanPath, 3600);
+        if (error || !data?.signedUrl) {
+            alert('Error al generar enlace de descarga: ' + (error?.message || 'Archivo no encontrado'));
+            return null;
+        }
         return data.signedUrl;
     };
 
@@ -872,7 +880,7 @@ export default function OnboardingPage() {
                                                 <p className="text-xs text-slate-500">Revísalo antes de firmar</p>
                                             </div>
                                         </div>
-                                        <button onClick={async () => { const url = await getSignedUrl(contract.contract_pdf_url); window.open(url, '_blank'); }}
+                                        <button onClick={async () => { const url = await getSignedUrl(contract.contract_pdf_url); if (url) window.open(url, '_blank'); }}
                                             className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-600 transition-all border-none cursor-pointer">
                                             <Download size={16} /> Ver / Descargar
                                         </button>
@@ -937,7 +945,7 @@ export default function OnboardingPage() {
                                     </div>
                                 </div>
                                 <div className="flex gap-3">
-                                    <button onClick={async () => { const url = await getSignedUrl(contract.contract_signed_pdf_url); window.open(url, '_blank'); }}
+                                    <button onClick={async () => { const url = await getSignedUrl(contract.contract_signed_pdf_url); if (url) window.open(url, '_blank'); }}
                                         className="flex items-center gap-2 bg-[#6a9a04] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-[#6a9a04]/90 transition-all border-none cursor-pointer">
                                         <Download size={16} /> Descargar Contrato Firmado
                                     </button>
