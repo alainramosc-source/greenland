@@ -1,10 +1,16 @@
 node_modules
 .DS_Store
 .env.local
-_legacy_site
-.next
-.vercel
 .env*.local
+_legacy_site
+.next/
+.vercel/
+
+# Test artifacts
 playwright-report/
 test-results/
-.next/  
+
+# Secrets — NEVER commit
+0auth/
+*.secret.*
+client_secret_*

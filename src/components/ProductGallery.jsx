@@ -58,7 +58,7 @@ export default function ProductGallery({ sku, productName }) {
 
     // If no -P images loaded but we haven't tried the base one
     if (validImages.length === 0) {
-        console.log("No valid images found for SKU:", sku, "productName:", productName);
+        // No valid images found for this product
         return (
             <div className="product-image-container relative h-full w-full flex items-center justify-center bg-[#1a1a2e]">
                 <img
