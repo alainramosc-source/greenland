@@ -1,5 +1,6 @@
 'use client';
 import { createClient } from '@/utils/supabase/client';
+import { validatePrice } from '@/utils/sanitize';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -72,9 +73,15 @@ export default function PreciosPage() {
 
         let errors = [];
         for (const [id, newPrice] of entries) {
+            const validPrice = validatePrice(newPrice);
+            if (validPrice === null || validPrice <= 0) {
+                const product = products.find(p => p.id === id);
+                errors.push(`Precio inválido para ${product?.name || id}: debe ser mayor a 0`);
+                continue;
+            }
             const { error } = await supabase
                 .from('products')
-                .update({ price: parseFloat(newPrice) })
+                .update({ price: validPrice })
                 .eq('id', id);
             if (error) errors.push(error.message);
         }
@@ -125,7 +132,7 @@ export default function PreciosPage() {
             const rows = lines.slice(1).map(l => {
                 const parts = l.split(sep);
                 return { sku: (parts[0] || '').trim(), price: parseFloat((parts[1] || '').replace(/[$,]/g, '').trim()) };
-            }).filter(r => r.sku && !isNaN(r.price));
+            }).filter(r => r.sku && !isNaN(r.price) && r.price > 0);
 
             setCsvPreview(rows);
             setCsvData(rows);

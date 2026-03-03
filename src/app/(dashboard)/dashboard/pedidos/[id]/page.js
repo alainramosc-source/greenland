@@ -1,5 +1,6 @@
 'use client';
 import { createClient } from '@/utils/supabase/client';
+import { validateQuantity, validateAmount, sanitizeText } from '@/utils/sanitize';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -521,11 +522,17 @@ export default function OrderDetailsPage() {
 
   // --- Admin: Edit Item Quantity ---
   const handleUpdateQuantity = async (itemId, newQuantity) => {
+    const validQty = validateQuantity(newQuantity);
+    if (!validQty) {
+      alert('La cantidad debe ser un número entero mayor a 0.');
+      setEditingItems(prev => { const next = { ...prev }; delete next[itemId]; return next; });
+      return;
+    }
     setActionLoading(`qty-${itemId}`);
     const { data, error } = await supabase.rpc('update_order_item_quantity', {
       p_order_id: id,
       p_item_id: itemId,
-      p_new_quantity: newQuantity
+      p_new_quantity: validQty
     });
     if (error) {
       alert('Error al actualizar cantidad: ' + error.message);
@@ -540,18 +547,19 @@ export default function OrderDetailsPage() {
 
   // --- Admin: Register Payment ---
   const handleRegisterPayment = async () => {
-    if (!paymentForm.amount || Number(paymentForm.amount) <= 0) {
-      alert('Ingresa un monto válido.');
+    const validAmount = validateAmount(paymentForm.amount);
+    if (!validAmount) {
+      alert('Ingresa un monto válido (mayor a 0).');
       return;
     }
     setActionLoading('payment');
     const { data, error } = await supabase.rpc('register_payment', {
       p_order_id: id,
-      p_amount: Number(paymentForm.amount),
+      p_amount: validAmount,
       p_payment_method: paymentForm.payment_method,
-      p_reference: paymentForm.reference,
+      p_reference: sanitizeText(paymentForm.reference, 200),
       p_payment_date: paymentForm.payment_date,
-      p_notes: paymentForm.notes || null
+      p_notes: sanitizeText(paymentForm.notes, 500) || null
     });
     if (error) {
       alert('Error: ' + error.message);

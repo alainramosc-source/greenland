@@ -1,5 +1,6 @@
 'use client';
 import { createClient } from '@/utils/supabase/client';
+import { validateAmount, sanitizeText } from '@/utils/sanitize';
 import { useEffect, useState } from 'react';
 import {
   DollarSign, CreditCard, Clock, CheckCircle, XCircle, Upload,
@@ -115,16 +116,17 @@ export default function MisPagosPage() {
   };
 
   const handleSubmit = async () => {
-    if (!form.amount || Number(form.amount) <= 0) { alert('Ingresa un monto válido'); return; }
+    const validAmount = validateAmount(form.amount);
+    if (!validAmount) { alert('Ingresa un monto válido (mayor a 0)'); return; }
     if (!form.order_id) { alert('Selecciona un pedido para aplicar el pago'); return; }
     setSubmitting(true);
     const { data, error } = await supabase.rpc('submit_distributor_payment', {
-      p_amount: Number(form.amount),
+      p_amount: validAmount,
       p_payment_method: form.payment_method,
-      p_reference: form.reference || null,
+      p_reference: sanitizeText(form.reference, 200) || null,
       p_payment_date: form.payment_date,
       p_receipt_url: form.receipt_url || null,
-      p_notes: form.notes || null,
+      p_notes: sanitizeText(form.notes, 500) || null,
       p_order_id: form.order_id || null
     });
     setSubmitting(false);

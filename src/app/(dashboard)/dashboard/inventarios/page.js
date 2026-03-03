@@ -1,5 +1,6 @@
 'use client';
 import { createClient } from '@/utils/supabase/client';
+import { validateNumber, sanitizeText } from '@/utils/sanitize';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -101,12 +102,29 @@ export default function InventariosPage() {
     e.preventDefault();
     if (!selectedProduct || !adjustmentAmount || !selectedWarehouse) return;
 
+    const qty = parseInt(adjustmentAmount);
+    if (isNaN(qty) || qty === 0) {
+      alert('Ingresa una cantidad válida (positiva para agregar, negativa para restar).');
+      return;
+    }
+
+    // Prevent negative resulting stock
+    if (qty < 0) {
+      const currentStock = warehouseStock
+        .filter(ws => ws.product_id === selectedProduct.id && ws.warehouse_id === selectedWarehouse)
+        .reduce((sum, ws) => sum + (ws.stock - ws.reserved), 0);
+      if (currentStock + qty < 0) {
+        alert(`No puedes restar ${Math.abs(qty)} unidades. Stock disponible: ${currentStock}`);
+        return;
+      }
+    }
+
     setSubmitting(true);
     const { data, error } = await supabase.rpc('adjust_warehouse_stock', {
       p_product_id: selectedProduct.id,
       p_warehouse_id: selectedWarehouse,
-      p_quantity_change: parseInt(adjustmentAmount),
-      p_reason: adjustmentReason || 'Ajuste manual'
+      p_quantity_change: qty,
+      p_reason: sanitizeText(adjustmentReason, 300) || 'Ajuste manual'
     });
 
     if (error) {
@@ -126,12 +144,18 @@ export default function InventariosPage() {
     if (!showTransfer || !transferFrom || !transferTo || !transferQty) return;
     if (transferFrom === transferTo) { alert('Las bodegas deben ser diferentes.'); return; }
 
+    const qty = parseInt(transferQty);
+    if (isNaN(qty) || qty < 1) {
+      alert('La cantidad de transferencia debe ser un número entero mayor a 0.');
+      return;
+    }
+
     setTransferring(true);
     const { data, error } = await supabase.rpc('transfer_stock', {
       p_product_id: showTransfer.id,
       p_from_warehouse_id: transferFrom,
       p_to_warehouse_id: transferTo,
-      p_quantity: parseInt(transferQty)
+      p_quantity: qty
     });
 
     if (error) {
@@ -216,8 +240,8 @@ export default function InventariosPage() {
           {[{ key: 'stock', label: 'Stock', icon: Package }, { key: 'conteos', label: 'Conteos', icon: ClipboardList }].map(t => (
             <button key={t.key} onClick={() => setActiveTab(t.key)}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all border-none cursor-pointer ${activeTab === t.key
-                  ? 'bg-[#6a9a04] text-white shadow-md'
-                  : 'bg-transparent text-slate-500 hover:text-slate-700 hover:bg-white/50'
+                ? 'bg-[#6a9a04] text-white shadow-md'
+                : 'bg-transparent text-slate-500 hover:text-slate-700 hover:bg-white/50'
                 }`}>
               <t.icon size={16} /> {t.label}
             </button>

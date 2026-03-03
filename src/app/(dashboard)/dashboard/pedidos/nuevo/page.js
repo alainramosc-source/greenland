@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { validateQuantity, validatePrice, sanitizeText } from '@/utils/sanitize';
 import { Search, ShoppingCart, Plus, Minus, ArrowRight, ArrowLeft, CheckCircle, Package, MapPin, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -122,6 +123,19 @@ export default function NuevoPedidoPage() {
   // Submit Order
   const handleSubmitOrder = async () => {
     if (cart.length === 0) return;
+
+    // Validate all items before submitting
+    for (const item of cart) {
+      if (!validateQuantity(item.quantity)) {
+        alert(`Cantidad inválida para ${item.name}. Debe ser un número entero mayor a 0.`);
+        return;
+      }
+      if (validatePrice(item.price) === null || Number(item.price) <= 0) {
+        alert(`Precio inválido para ${item.name}.`);
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -149,7 +163,7 @@ export default function NuevoPedidoPage() {
           payment_status: 'unpaid',
           total_amount: cartTotal,
           shipping_address_id: selectedAddressId === 'pickup' ? null : selectedAddressId,
-          notes: orderNotes || (selectedAddressId === 'pickup' ? 'Recoger en sitio' : 'Pedido sugerido desde web')
+          notes: sanitizeText(orderNotes) || (selectedAddressId === 'pickup' ? 'Recoger en sitio' : 'Pedido sugerido desde web')
         })
         .select()
         .single();
