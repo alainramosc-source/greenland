@@ -49,7 +49,7 @@ export default function CoberturaPage() {
             supabase.from('products').select('id, name, sku').eq('is_active', true).order('sku'),
         ]);
         // Saltillo represents both Bodega Vito Alessio and Bodega Echeverria
-        const EXCLUDED_COVERAGE = ['Bodega Vito Alessio', 'Bodega Echeverria'];
+        const EXCLUDED_COVERAGE = ['Bodega Vito Alessio', 'Bodega Echeverría'];
         const wh = (whRes.data || []).filter(w => !EXCLUDED_COVERAGE.includes(w.name));
         setWarehouses(wh);
         setProducts(prodRes.data || []);
