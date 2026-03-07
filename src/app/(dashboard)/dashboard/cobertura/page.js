@@ -48,7 +48,9 @@ export default function CoberturaPage() {
             supabase.from('warehouses').select('*').eq('is_active', true).order('sort_order'),
             supabase.from('products').select('id, name, sku').eq('is_active', true).order('sku'),
         ]);
-        const wh = whRes.data || [];
+        // Saltillo represents both Bodega Vito Alessio and Bodega Echeverria
+        const EXCLUDED_COVERAGE = ['Bodega Vito Alessio', 'Bodega Echeverria'];
+        const wh = (whRes.data || []).filter(w => !EXCLUDED_COVERAGE.includes(w.name));
         setWarehouses(wh);
         setProducts(prodRes.data || []);
         if (wh.length > 0) {
@@ -202,8 +204,8 @@ export default function CoberturaPage() {
             {/* Toast */}
             {toast && (
                 <div className={`fixed top-20 right-6 z-50 px-5 py-3 rounded-xl flex items-center gap-2 text-sm font-bold shadow-xl animate-in slide-in-from-right backdrop-blur-md border ${toast.type === 'success' ? 'bg-green-50 text-green-700 border-green-200' :
-                        toast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' :
-                            'bg-yellow-50 text-yellow-700 border-yellow-200'
+                    toast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' :
+                        'bg-yellow-50 text-yellow-700 border-yellow-200'
                     }`}>
                     {toast.type === 'success' ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
                     {toast.message}
@@ -238,8 +240,8 @@ export default function CoberturaPage() {
                     {warehouses.map(wh => (
                         <button key={wh.id} onClick={() => handleWarehouseChange(wh)}
                             className={`px-4 py-2 rounded-lg text-sm font-bold transition-all border-none cursor-pointer whitespace-nowrap ${selectedWarehouse?.id === wh.id
-                                    ? 'bg-[#6a9a04] text-white shadow-md'
-                                    : 'bg-transparent text-slate-500 hover:text-slate-700 hover:bg-white/50'
+                                ? 'bg-[#6a9a04] text-white shadow-md'
+                                : 'bg-transparent text-slate-500 hover:text-slate-700 hover:bg-white/50'
                                 }`}>
                             {wh.name}
                         </button>
