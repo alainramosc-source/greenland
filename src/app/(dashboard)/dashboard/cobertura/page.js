@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
     ShieldCheck, MapPin, Package, Upload, Edit3, X, Save,
-    RefreshCw, AlertTriangle, CheckCircle, TrendingDown, Warehouse
+    RefreshCw, AlertTriangle, CheckCircle, TrendingDown, Warehouse, FileSpreadsheet
 } from 'lucide-react';
 
 export default function CoberturaPage() {
@@ -221,7 +221,7 @@ export default function CoberturaPage() {
                         </h1>
                         <p className="text-slate-500 mt-1 font-medium m-0">Seguimiento de inventario y cobertura semanal por localidad</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                         <button onClick={() => fileInputRef.current?.click()} disabled={csvImporting}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 cursor-pointer transition-all shadow-sm disabled:opacity-50">
                             <Upload size={16} /> {csvImporting ? 'Importando...' : 'Importar CSV'}
@@ -230,6 +230,10 @@ export default function CoberturaPage() {
                         <button onClick={handleRefresh}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 cursor-pointer transition-all shadow-sm">
                             <RefreshCw size={16} /> Actualizar
+                        </button>
+                        <button onClick={() => router.push('/dashboard/cobertura/nuevo-pedido')}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#6a9a04] text-white font-bold text-sm hover:bg-[#6a9a04]/90 cursor-pointer transition-all shadow-lg shadow-[#6a9a04]/20 border-none">
+                            <FileSpreadsheet size={16} /> Crear Pedido a Fabricante
                         </button>
                     </div>
                 </div>
