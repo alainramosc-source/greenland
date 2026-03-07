@@ -6,7 +6,7 @@ import {
     ArrowLeft, FileSpreadsheet, Save, Send, Package, Plus, Trash2,
     CheckCircle, AlertTriangle, Search, Loader2, Container, ChevronDown, ChevronUp
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const DESTINATIONS = [
     { code: 'SLW', city: 'Saltillo', port: 'MANZANILLO' },
@@ -184,117 +184,151 @@ export default function NuevoPedidoPage() {
         setSaving(false);
     };
 
-    // Export Excel with container borders
-    const exportExcel = () => {
+    // Export Excel with container borders using ExcelJS
+    const exportExcel = async () => {
         if (allItems.length === 0) { showToast('Agrega productos a al menos un contenedor', 'error'); return; }
         const poNumber = generatePoNumber();
         const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
         const supplierInfo = SUPPLIER_INFO[selectedSupplier.short_name] || {};
+        const activeContainers = containers.filter(c => c.items.some(i => i.quantity > 0));
 
-        const wsData = [];
-        wsData.push(['PURCHASE ORDER']);                                    // row 0
-        wsData.push([]);                                                    // row 1
-        wsData.push(['PO Number:', poNumber, '', 'Date:', today]);          // row 2
-        wsData.push([]);                                                    // row 3
-        wsData.push(['BUYER:']);                                             // row 4
-        wsData.push([BUYER_INFO.name]);                                     // row 5
-        wsData.push([BUYER_INFO.address]);                                  // row 6
-        wsData.push(['Tax ID: ' + BUYER_INFO.taxId]);                       // row 7
-        wsData.push([]);                                                    // row 8
-        wsData.push(['SUPPLIER:']);                                          // row 9
-        wsData.push([selectedSupplier.name]);                               // row 10
-        wsData.push([supplierInfo.address || '']);                           // row 11
-        wsData.push(['Attn: ' + (supplierInfo.attn || '')]);                // row 12
-        wsData.push([]);                                                    // row 13
-        wsData.push(['DESTINATION:', destination.city + ' (' + destination.code + ')']); // row 14
-        wsData.push(['DESTINATION PORT:', destination.port]);                // row 15
-        wsData.push([]);                                                    // row 16
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('Purchase Order');
 
-        // Table header
-        wsData.push(['PRODUCT', 'GREENLAND SKU', 'QTY', 'DESTINATION', 'DESTINATION PORT']); // row 17
+        // Column widths
+        ws.columns = [
+            { width: 42 }, { width: 18 }, { width: 12 }, { width: 18 }, { width: 24 },
+        ];
 
-        // Track container row ranges for borders
-        const containerRanges = [];
+        const boldFont = { bold: true, size: 11 };
+        const titleFont = { bold: true, size: 16 };
+        const labelFont = { bold: true, size: 11, color: { argb: 'FF333333' } };
 
-        containers.forEach(container => {
+        // --- Header ---
+        const r1 = ws.addRow(['PURCHASE ORDER']);
+        r1.font = titleFont;
+        ws.mergeCells(r1.number, 1, r1.number, 5);
+        ws.addRow([]);
+
+        const r3 = ws.addRow(['PO Number:', poNumber, '', 'Date:', today]);
+        r3.getCell(1).font = boldFont;
+        r3.getCell(4).font = boldFont;
+        ws.addRow([]);
+
+        // --- Buyer ---
+        const rb1 = ws.addRow(['BUYER:']);
+        rb1.font = labelFont;
+        ws.mergeCells(rb1.number, 1, rb1.number, 5);
+        const rb2 = ws.addRow([BUYER_INFO.name]);
+        rb2.font = boldFont;
+        ws.mergeCells(rb2.number, 1, rb2.number, 5);
+        const rb3 = ws.addRow([BUYER_INFO.address]);
+        ws.mergeCells(rb3.number, 1, rb3.number, 5);
+        const rb4 = ws.addRow(['Tax ID: ' + BUYER_INFO.taxId]);
+        ws.mergeCells(rb4.number, 1, rb4.number, 5);
+        ws.addRow([]);
+
+        // --- Supplier ---
+        const rs1 = ws.addRow(['SUPPLIER:']);
+        rs1.font = labelFont;
+        ws.mergeCells(rs1.number, 1, rs1.number, 5);
+        const rs2 = ws.addRow([selectedSupplier.name]);
+        rs2.font = boldFont;
+        ws.mergeCells(rs2.number, 1, rs2.number, 5);
+        const rs3 = ws.addRow([supplierInfo.address || '']);
+        ws.mergeCells(rs3.number, 1, rs3.number, 5);
+        const rs4 = ws.addRow(['Attn: ' + (supplierInfo.attn || '')]);
+        ws.mergeCells(rs4.number, 1, rs4.number, 5);
+        ws.addRow([]);
+
+        // --- Destination ---
+        const rd1 = ws.addRow(['DESTINATION:', destination.city + ' (' + destination.code + ')']);
+        rd1.getCell(1).font = boldFont;
+        const rd2 = ws.addRow(['DESTINATION PORT:', destination.port]);
+        rd2.getCell(1).font = boldFont;
+        ws.addRow([]);
+
+        // --- Table Header ---
+        const headerRow = ws.addRow(['PRODUCT', 'GREENLAND SKU', 'QTY', 'DESTINATION', 'DESTINATION PORT']);
+        headerRow.eachCell(cell => {
+            cell.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF333333' } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            cell.border = {
+                top: { style: 'medium' }, bottom: { style: 'medium' },
+                left: { style: 'medium' }, right: { style: 'medium' },
+            };
+        });
+
+        // --- Container groups ---
+        const thickBorder = { style: 'medium', color: { argb: 'FF000000' } };
+        const thinBorder = { style: 'thin', color: { argb: 'FFB0B0B0' } };
+
+        activeContainers.forEach(container => {
             const itemsWithQty = container.items.filter(i => i.quantity > 0);
             if (itemsWithQty.length === 0) return;
 
-            const startRow = wsData.length;
+            const startRowNum = ws.rowCount + 1;
+
             itemsWithQty.forEach(item => {
                 const product = products.find(p => p.id === item.productId);
                 if (!product) return;
-                wsData.push([
+                const row = ws.addRow([
                     getSupplierSku(item.productId),
                     product.sku,
                     item.quantity,
                     destination.code,
                     destination.port,
                 ]);
+                row.getCell(3).alignment = { horizontal: 'center' };
+                row.getCell(3).font = { bold: true };
+                row.getCell(4).alignment = { horizontal: 'center' };
+                row.getCell(5).alignment = { horizontal: 'center' };
             });
-            const endRow = wsData.length - 1;
-            containerRanges.push({ name: container.name, startRow, endRow });
-        });
 
-        // Totals
-        wsData.push([]);
-        wsData.push(['', 'TOTAL:', totalUnits, '', '']);
-        wsData.push([`${containers.filter(c => c.items.some(i => i.quantity > 0)).length} container(s)`]);
+            const endRowNum = ws.rowCount;
 
-        if (notes) { wsData.push([]); wsData.push(['NOTES:']); wsData.push([notes]); }
-
-        // Create workbook
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-        ws['!cols'] = [
-            { wch: 40 }, { wch: 18 }, { wch: 10 }, { wch: 16 }, { wch: 22 },
-        ];
-
-        ws['!merges'] = [
-            { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
-            { s: { r: 4, c: 0 }, e: { r: 4, c: 4 } },
-            { s: { r: 5, c: 0 }, e: { r: 5, c: 4 } },
-            { s: { r: 6, c: 0 }, e: { r: 6, c: 4 } },
-            { s: { r: 7, c: 0 }, e: { r: 7, c: 4 } },
-            { s: { r: 9, c: 0 }, e: { r: 9, c: 4 } },
-            { s: { r: 10, c: 0 }, e: { r: 10, c: 4 } },
-            { s: { r: 11, c: 0 }, e: { r: 11, c: 4 } },
-            { s: { r: 12, c: 0 }, e: { r: 12, c: 4 } },
-        ];
-
-        // Apply thick borders around each container group
-        const thinBorder = { style: 'thin', color: { rgb: '999999' } };
-        const thickBorder = { style: 'medium', color: { rgb: '000000' } };
-
-        containerRanges.forEach(({ startRow, endRow }) => {
-            for (let r = startRow; r <= endRow; r++) {
-                for (let c = 0; c < 5; c++) {
-                    const cellRef = XLSX.utils.encode_cell({ r, c });
-                    if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
-                    if (!ws[cellRef].s) ws[cellRef].s = {};
+            // Apply thick borders around the container group
+            for (let r = startRowNum; r <= endRowNum; r++) {
+                const row = ws.getRow(r);
+                for (let c = 1; c <= 5; c++) {
+                    const cell = row.getCell(c);
                     const border = {};
-                    // Top border for first row of container
-                    if (r === startRow) border.top = thickBorder;
-                    // Bottom border for last row of container
-                    if (r === endRow) border.bottom = thickBorder;
-                    // Left border for first column
-                    if (c === 0) border.left = thickBorder;
-                    // Right border for last column
-                    if (c === 4) border.right = thickBorder;
-                    // Inner borders
-                    if (!border.top) border.top = thinBorder;
-                    if (!border.bottom) border.bottom = thinBorder;
-                    if (!border.left) border.left = thinBorder;
-                    if (!border.right) border.right = thinBorder;
-                    ws[cellRef].s.border = border;
+                    border.top = (r === startRowNum) ? thickBorder : thinBorder;
+                    border.bottom = (r === endRowNum) ? thickBorder : thinBorder;
+                    border.left = (c === 1) ? thickBorder : thinBorder;
+                    border.right = (c === 5) ? thickBorder : thinBorder;
+                    cell.border = border;
                 }
             }
         });
 
-        XLSX.utils.book_append_sheet(wb, ws, 'Purchase Order');
+        // --- Totals ---
+        ws.addRow([]);
+        const totalRow = ws.addRow(['', 'TOTAL:', totalUnits, '', '']);
+        totalRow.getCell(2).font = { bold: true, size: 12 };
+        totalRow.getCell(3).font = { bold: true, size: 12 };
+        totalRow.getCell(3).alignment = { horizontal: 'center' };
+        const contRow = ws.addRow([`${activeContainers.length} container(s)`]);
+        contRow.font = { italic: true, color: { argb: 'FF666666' } };
+
+        if (notes) {
+            ws.addRow([]);
+            const notesLabel = ws.addRow(['NOTES:']);
+            notesLabel.font = boldFont;
+            ws.addRow([notes]);
+        }
+
+        // Generate and download
         const fileName = `PO_${selectedSupplier.short_name}_${destination.code}_${poNumber}.xlsx`;
-        XLSX.writeFile(wb, fileName);
+        const buffer = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
         showToast(`Excel exportado: ${fileName}`);
     };
 
@@ -355,8 +389,8 @@ export default function NuevoPedidoPage() {
                             {suppliers.map(s => (
                                 <button key={s.id} onClick={() => { setSelectedSupplier(s); setContainers([]); setNextContainerId(1); }}
                                     className={`flex-1 px-3 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${selectedSupplier?.id === s.id
-                                            ? 'bg-[#6a9a04] text-white shadow-md border-none'
-                                            : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'}`}>
+                                        ? 'bg-[#6a9a04] text-white shadow-md border-none'
+                                        : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'}`}>
                                     {s.short_name}
                                 </button>
                             ))}
@@ -489,8 +523,8 @@ export default function NuevoPedidoPage() {
                                                                     onChange={e => updateItemQty(container.id, item.productId, e.target.value)}
                                                                     placeholder="0"
                                                                     className={`w-24 px-3 py-1.5 border rounded-xl text-center text-sm outline-none transition-all shadow-sm ${item.quantity > 0
-                                                                            ? 'border-[#6a9a04]/40 bg-[#6a9a04]/5 text-[#6a9a04] font-black'
-                                                                            : 'border-slate-200 bg-white text-slate-700'}`} />
+                                                                        ? 'border-[#6a9a04]/40 bg-[#6a9a04]/5 text-[#6a9a04] font-black'
+                                                                        : 'border-slate-200 bg-white text-slate-700'}`} />
                                                             </td>
                                                             <td className="px-3 py-2 text-center">
                                                                 <button onClick={() => removeItemFromContainer(container.id, item.productId)}
