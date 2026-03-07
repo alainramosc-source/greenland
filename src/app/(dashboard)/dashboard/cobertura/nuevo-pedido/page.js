@@ -139,33 +139,67 @@ export default function NuevoPedidoPage() {
         setSaving(false);
     };
 
+    // Supplier address data
+    const SUPPLIER_INFO = {
+        'Shinaier': {
+            address: 'NO.11 LINGANG RD., DAIXI TOWN, WUXING DISTRICT, HUZHOU CITY, ZHEJIANG, 313000 CHINA',
+            attn: 'Jacqueline Wang',
+        },
+        'Freeman': {
+            address: 'Building 2, Xiaohe Science Park, No.24, Daxin East Road, Daojiao Town, Dongguan, Guangdong, China. 523181',
+            attn: 'Patrick Huang',
+        },
+    };
+
+    const BUYER_INFO = {
+        name: 'GREENLAND PRODUCTS S.A. DE C.V.',
+        address: 'BLVD. VITO ALESSIO ROBLES No. EXT. 3550, No. INT. 9, COL. NAZARIO S. ORTIZ GARZA, C.P. 25100, SALTILLO, COAHUILA DE ZARAGOZA, MÉXICO.',
+        taxId: 'GPR230911971',
+    };
+
     // Export to Excel
     const exportExcel = () => {
         if (itemsWithQty.length === 0) { showToast('Agrega cantidades a al menos un producto', 'error'); return; }
 
         const poNumber = generatePoNumber();
-        const today = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+        const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        const supplierInfo = SUPPLIER_INFO[selectedSupplier.short_name] || {};
 
         // Build worksheet data
         const wsData = [];
 
-        // Header section
-        wsData.push(['GREENLAND PRODUCTS']);
-        wsData.push(['ORDEN DE COMPRA / PURCHASE ORDER']);
+        // Header
+        wsData.push(['PURCHASE ORDER']);
         wsData.push([]);
-        wsData.push(['No. Orden:', poNumber, '', 'Fecha:', today]);
+
+        // PO info
+        wsData.push(['PO Number:', poNumber, '', 'Date:', today]);
         wsData.push([]);
-        wsData.push(['PROVEEDOR / SUPPLIER:']);
+
+        // Buyer info
+        wsData.push(['BUYER:']);
+        wsData.push([BUYER_INFO.name]);
+        wsData.push([BUYER_INFO.address]);
+        wsData.push(['Tax ID: ' + BUYER_INFO.taxId]);
+        wsData.push([]);
+
+        // Supplier info
+        wsData.push(['SUPPLIER:']);
         wsData.push([selectedSupplier.name]);
+        wsData.push([supplierInfo.address || '']);
+        wsData.push(['Attn: ' + (supplierInfo.attn || '')]);
         wsData.push([]);
-        wsData.push(['DESTINO / DESTINATION:', destination.city + ' (' + destination.code + ')']);
-        wsData.push(['PUERTO DESTINO / DESTINATION PORT:', destination.port]);
+
+        // Destination
+        wsData.push(['DESTINATION:', destination.city + ' (' + destination.code + ')']);
+        wsData.push(['DESTINATION PORT:', destination.port]);
         wsData.push([]);
 
         // Table header
         wsData.push(['PRODUCT', 'GREENLAND SKU', 'QTY', 'DESTINATION', 'DESTINATION PORT']);
 
         // Items
+        const tableStartRow = wsData.length;
         itemsWithQty.forEach(p => {
             wsData.push([
                 getSupplierSku(p.id),
@@ -179,9 +213,13 @@ export default function NuevoPedidoPage() {
         // Totals
         wsData.push([]);
         wsData.push(['', 'TOTAL:', totalUnits, '', '']);
-        wsData.push([]);
-        wsData.push(['NOTAS / NOTES:']);
-        wsData.push([notes || '—']);
+
+        // Notes
+        if (notes) {
+            wsData.push([]);
+            wsData.push(['NOTES:']);
+            wsData.push([notes]);
+        }
 
         // Create workbook
         const wb = XLSX.utils.book_new();
@@ -189,19 +227,24 @@ export default function NuevoPedidoPage() {
 
         // Column widths
         ws['!cols'] = [
-            { wch: 38 },  // Product
-            { wch: 16 },  // GL SKU
+            { wch: 40 },  // Product
+            { wch: 18 },  // GL SKU
             { wch: 10 },  // QTY
             { wch: 16 },  // Destination
             { wch: 22 },  // Port
         ];
 
-        // Merge header cells
+        // Merge cells for header sections
         ws['!merges'] = [
-            { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },  // GREENLAND
-            { s: { r: 1, c: 0 }, e: { r: 1, c: 4 } },  // ORDEN DE COMPRA
-            { s: { r: 5, c: 0 }, e: { r: 5, c: 4 } },  // PROVEEDOR label
-            { s: { r: 6, c: 0 }, e: { r: 6, c: 4 } },  // Supplier name
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },  // PURCHASE ORDER
+            { s: { r: 4, c: 0 }, e: { r: 4, c: 4 } },  // BUYER label
+            { s: { r: 5, c: 0 }, e: { r: 5, c: 4 } },  // Buyer name
+            { s: { r: 6, c: 0 }, e: { r: 6, c: 4 } },  // Buyer address
+            { s: { r: 7, c: 0 }, e: { r: 7, c: 4 } },  // Buyer tax
+            { s: { r: 9, c: 0 }, e: { r: 9, c: 4 } },  // SUPPLIER label
+            { s: { r: 10, c: 0 }, e: { r: 10, c: 4 } }, // Supplier name
+            { s: { r: 11, c: 0 }, e: { r: 11, c: 4 } }, // Supplier address
+            { s: { r: 12, c: 0 }, e: { r: 12, c: 4 } }, // Supplier attn
         ];
 
         XLSX.utils.book_append_sheet(wb, ws, 'Purchase Order');
@@ -232,8 +275,8 @@ export default function NuevoPedidoPage() {
             {/* Toast */}
             {toast && (
                 <div className={`fixed top-20 right-6 z-50 px-5 py-3 rounded-xl flex items-center gap-2 text-sm font-bold shadow-xl backdrop-blur-md border ${toast.type === 'success' ? 'bg-green-50 text-green-700 border-green-200' :
-                        toast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' :
-                            'bg-yellow-50 text-yellow-700 border-yellow-200'
+                    toast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' :
+                        'bg-yellow-50 text-yellow-700 border-yellow-200'
                     }`}>
                     {toast.type === 'success' ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
                     {toast.message}
@@ -279,8 +322,8 @@ export default function NuevoPedidoPage() {
                             {suppliers.map(s => (
                                 <button key={s.id} onClick={() => { setSelectedSupplier(s); setQuantities({}); }}
                                     className={`flex-1 px-3 py-2.5 rounded-xl text-sm font-bold transition-all border-none cursor-pointer ${selectedSupplier?.id === s.id
-                                            ? 'bg-[#6a9a04] text-white shadow-md'
-                                            : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'
+                                        ? 'bg-[#6a9a04] text-white shadow-md'
+                                        : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'
                                         }`}>
                                     {s.short_name}
                                 </button>
@@ -363,8 +406,8 @@ export default function NuevoPedidoPage() {
                                                     onChange={e => handleQtyChange(product.id, e.target.value)}
                                                     placeholder="0"
                                                     className={`w-24 px-3 py-2 border rounded-xl text-center text-sm outline-none transition-all shadow-sm ${qty > 0
-                                                            ? 'border-[#6a9a04]/40 bg-[#6a9a04]/5 text-[#6a9a04] font-black focus:ring-2 focus:ring-[#6a9a04]/20'
-                                                            : 'border-slate-200 bg-white text-slate-700 focus:ring-2 focus:ring-slate-200'
+                                                        ? 'border-[#6a9a04]/40 bg-[#6a9a04]/5 text-[#6a9a04] font-black focus:ring-2 focus:ring-[#6a9a04]/20'
+                                                        : 'border-slate-200 bg-white text-slate-700 focus:ring-2 focus:ring-slate-200'
                                                         }`}
                                                 />
                                             </td>
