@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 const DashboardSidebar = ({ isOpen, onClose, userRole, subRole }) => {
@@ -33,6 +33,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, subRole }) => {
 
   const allAdminItems = [
     { name: 'Inventarios', href: '/dashboard/inventarios', icon: Package, roles: ['super_admin', 'warehouse_admin'] },
+    { name: 'Cobertura', href: '/dashboard/cobertura', icon: ShieldCheck, roles: ['super_admin'] },
     { name: 'Precios', href: '/dashboard/precios', icon: DollarSign, roles: ['super_admin', 'accountant'] },
     { name: 'Pagos', href: '/dashboard/pagos', icon: CreditCard, roles: ['super_admin', 'accountant'] },
     { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: BarChart3, roles: ['super_admin', 'accountant'] },
