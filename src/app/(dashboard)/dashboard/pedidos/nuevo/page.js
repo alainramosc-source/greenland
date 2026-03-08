@@ -15,6 +15,8 @@ export default function NuevoPedidoPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [customPrices, setCustomPrices] = useState({}); // { productId: customPrice }
+  const [distributorId, setDistributorId] = useState(null);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [addresses, setAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
@@ -60,6 +62,7 @@ export default function NuevoPedidoPage() {
             const simId = sessionStorage.getItem('test_view_distributor_id');
             if (simId) addrUserId = simId;
           }
+          setDistributorId(addrUserId);
           const { data: addrData } = await supabase
             .from('distributor_addresses')
             .select('*')
@@ -80,6 +83,47 @@ export default function NuevoPedidoPage() {
     fetchData();
   }, []);
 
+  // Load custom prices when distributor or address changes
+  useEffect(() => {
+    if (!distributorId) return;
+    const loadCustomPrices = async () => {
+      const addressId = (selectedAddressId && selectedAddressId !== 'pickup') ? selectedAddressId : null;
+      let query = supabase
+        .from('distributor_prices')
+        .select('product_id, custom_price, address_id')
+        .eq('distributor_id', distributorId);
+      if (addressId) {
+        query = query.or(`address_id.eq.${addressId},address_id.is.null`);
+      } else {
+        query = query.is('address_id', null);
+      }
+      const { data } = await query;
+      const priceMap = {};
+      // First set defaults (null address)
+      (data || []).filter(d => d.address_id === null).forEach(d => {
+        priceMap[d.product_id] = d.custom_price;
+      });
+      // Then override with address-specific
+      if (addressId) {
+        (data || []).filter(d => d.address_id === addressId).forEach(d => {
+          priceMap[d.product_id] = d.custom_price;
+        });
+      }
+      setCustomPrices(priceMap);
+      // Update cart prices for existing items
+      setCart(prev => prev.map(item => {
+        const newPrice = priceMap[item.id] ?? item.basePrice;
+        return { ...item, price: newPrice };
+      }));
+    };
+    loadCustomPrices();
+  }, [distributorId, selectedAddressId]);
+
+  // Get effective price for a product
+  const getEffectivePrice = (product) => {
+    return customPrices[product.id] ?? product.price;
+  };
+
   // Filter products
   const filteredProducts = products.filter(product => {
     const safeQuery = searchQuery?.toLowerCase() || '';
@@ -91,6 +135,7 @@ export default function NuevoPedidoPage() {
 
   // Cart logic
   const addToCart = (product) => {
+    const effectivePrice = getEffectivePrice(product);
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
@@ -100,7 +145,7 @@ export default function NuevoPedidoPage() {
             : item
         );
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, price: effectivePrice, basePrice: product.price, quantity: 1 }];
     });
   };
 
@@ -295,7 +340,7 @@ export default function NuevoPedidoPage() {
                 <div className="flex flex-col flex-1">
                   <div className="flex justify-between items-start mb-2 gap-2">
                     <h3 className="font-bold text-slate-900 leading-tight">{product.name}</h3>
-                    <span className="font-black text-[#6a9a04] bg-[#6a9a04]/10 px-2 py-0.5 rounded-lg text-sm shrink-0">${product.price}</span>
+                    <span className="font-black text-[#6a9a04] bg-[#6a9a04]/10 px-2 py-0.5 rounded-lg text-sm shrink-0">${getEffectivePrice(product)}</span>
                   </div>
                   <p className="text-sm text-slate-500 mb-2 line-clamp-2">{product.description}</p>
                   <p className={`text-xs font-bold m-0 mb-3 ${product.available_stock <= 0 ? 'text-red-500' : product.available_stock <= 10 ? 'text-amber-500' : 'text-[#6a9a04]'}`}>

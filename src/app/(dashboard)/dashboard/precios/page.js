@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     DollarSign, Search, Save, Upload, Percent, X, Check,
-    AlertTriangle, Package, ArrowUpDown, Download, FileSpreadsheet, History, ChevronDown, ChevronUp
+    AlertTriangle, Package, ArrowUpDown, Download, FileSpreadsheet, History, ChevronDown, ChevronUp, Users, MapPin
 } from 'lucide-react';
 
 export default function PreciosPage() {
@@ -31,6 +31,12 @@ export default function PreciosPage() {
     // Price history
     const [priceHistory, setPriceHistory] = useState([]);
     const [showHistory, setShowHistory] = useState(false);
+    // Distributor pricing
+    const [distributors, setDistributors] = useState([]);
+    const [selectedDistributor, setSelectedDistributor] = useState('base'); // 'base' or distributor UUID
+    const [distributorAddresses, setDistributorAddresses] = useState([]);
+    const [selectedAddress, setSelectedAddress] = useState('default'); // 'default' or address UUID
+    const [distributorPrices, setDistributorPrices] = useState({}); // { productId: customPrice }
 
     const supabase = createClient();
     const router = useRouter();
@@ -42,7 +48,7 @@ export default function PreciosPage() {
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
         if (profile?.role !== 'admin') { router.push('/dashboard/pedidos'); return; }
 
-        const [productsRes, historyRes] = await Promise.all([
+        const [productsRes, historyRes, distributorsRes] = await Promise.all([
             supabase
                 .from('products')
                 .select('id, name, sku, price, category_id, categories:category_id(name)')
@@ -52,12 +58,19 @@ export default function PreciosPage() {
                 .from('price_history')
                 .select('*')
                 .order('changed_at', { ascending: false })
-                .limit(100)
+                .limit(100),
+            supabase
+                .from('profiles')
+                .select('id, full_name, email, city')
+                .eq('role', 'distributor')
+                .eq('is_active', true)
+                .order('full_name')
         ]);
 
         const data = productsRes.data || [];
         setProducts(data);
         setPriceHistory(historyRes.data || []);
+        setDistributors(distributorsRes.data || []);
         const cats = [...new Set(data.map(p => p.categories?.name).filter(Boolean))];
         setCategories(cats);
         setLoading(false);
@@ -65,32 +78,129 @@ export default function PreciosPage() {
 
     useEffect(() => { fetchData(); }, []);
 
+    // Fetch addresses when distributor changes
+    useEffect(() => {
+        if (selectedDistributor === 'base') {
+            setDistributorAddresses([]);
+            setSelectedAddress('default');
+            setDistributorPrices({});
+            return;
+        }
+        const fetchAddresses = async () => {
+            const { data } = await supabase
+                .from('distributor_addresses')
+                .select('*')
+                .eq('distributor_id', selectedDistributor)
+                .order('is_default', { ascending: false });
+            setDistributorAddresses(data || []);
+            setSelectedAddress('default');
+            // Load default (null address) prices
+            loadDistributorPrices(selectedDistributor, null);
+        };
+        fetchAddresses();
+    }, [selectedDistributor]);
+
+    // Fetch custom prices when address changes
+    useEffect(() => {
+        if (selectedDistributor === 'base') return;
+        const addressId = selectedAddress === 'default' ? null : selectedAddress;
+        loadDistributorPrices(selectedDistributor, addressId);
+    }, [selectedAddress]);
+
+    const loadDistributorPrices = async (distributorId, addressId) => {
+        // Fetch prices: first specific address, then fallback to default (null address)
+        let query = supabase
+            .from('distributor_prices')
+            .select('product_id, custom_price, address_id')
+            .eq('distributor_id', distributorId);
+
+        if (addressId) {
+            // Get both address-specific and default prices
+            query = query.or(`address_id.eq.${addressId},address_id.is.null`);
+        } else {
+            query = query.is('address_id', null);
+        }
+
+        const { data } = await query;
+        const priceMap = {};
+        // First set defaults (null address)
+        (data || []).filter(d => d.address_id === null).forEach(d => {
+            priceMap[d.product_id] = d.custom_price;
+        });
+        // Then override with address-specific
+        if (addressId) {
+            (data || []).filter(d => d.address_id === addressId).forEach(d => {
+                priceMap[d.product_id] = d.custom_price;
+            });
+        }
+        setDistributorPrices(priceMap);
+        setEditedPrices({});
+    };
+
     // --- Save edited prices ---
     const handleSaveAll = async () => {
         const entries = Object.entries(editedPrices);
         if (entries.length === 0) return;
         setSaving(true);
 
-        let errors = [];
-        for (const [id, newPrice] of entries) {
-            const validPrice = validatePrice(newPrice);
-            if (validPrice === null || validPrice <= 0) {
-                const product = products.find(p => p.id === id);
-                errors.push(`Precio inválido para ${product?.name || id}: debe ser mayor a 0`);
-                continue;
+        if (selectedDistributor === 'base') {
+            // Save to products table (base prices)
+            let errors = [];
+            for (const [id, newPrice] of entries) {
+                const validPrice = validatePrice(newPrice);
+                if (validPrice === null || validPrice <= 0) {
+                    const product = products.find(p => p.id === id);
+                    errors.push(`Precio inválido para ${product?.name || id}: debe ser mayor a 0`);
+                    continue;
+                }
+                const { error } = await supabase
+                    .from('products')
+                    .update({ price: validPrice })
+                    .eq('id', id);
+                if (error) errors.push(error.message);
             }
-            const { error } = await supabase
-                .from('products')
-                .update({ price: validPrice })
-                .eq('id', id);
-            if (error) errors.push(error.message);
-        }
 
-        if (errors.length) {
-            alert('Algunos errores: ' + errors.join(', '));
+            if (errors.length) {
+                alert('Algunos errores: ' + errors.join(', '));
+            } else {
+                setEditedPrices({});
+                await fetchData();
+            }
         } else {
-            setEditedPrices({});
-            await fetchData();
+            // Save to distributor_prices table
+            const addressId = selectedAddress === 'default' ? null : selectedAddress;
+            let errors = [];
+            for (const [productId, newPrice] of entries) {
+                const validPrice = validatePrice(newPrice);
+                if (validPrice === null || validPrice <= 0) {
+                    const product = products.find(p => p.id === productId);
+                    errors.push(`Precio inválido para ${product?.name || productId}`);
+                    continue;
+                }
+
+                // Upsert: insert or update
+                const { error } = await supabase
+                    .from('distributor_prices')
+                    .upsert({
+                        distributor_id: selectedDistributor,
+                        product_id: productId,
+                        address_id: addressId,
+                        custom_price: validPrice,
+                        updated_at: new Date().toISOString()
+                    }, {
+                        onConflict: addressId
+                            ? 'distributor_id,product_id,address_id'
+                            : 'distributor_id,product_id'
+                    });
+                if (error) errors.push(error.message);
+            }
+
+            if (errors.length) {
+                alert('Algunos errores: ' + errors.join(', '));
+            } else {
+                setEditedPrices({});
+                await loadDistributorPrices(selectedDistributor, addressId);
+            }
         }
         setSaving(false);
     };
@@ -106,7 +216,8 @@ export default function PreciosPage() {
 
         const newEdits = { ...editedPrices };
         targetProducts.forEach(p => {
-            const current = editedPrices[p.id] !== undefined ? parseFloat(editedPrices[p.id]) : p.price;
+            const currentPrice = getCurrentPrice(p);
+            const current = editedPrices[p.id] !== undefined ? parseFloat(editedPrices[p.id]) : currentPrice;
             const newPrice = Math.round(current * (1 + pct / 100) * 100) / 100;
             newEdits[p.id] = newPrice;
         });
@@ -162,21 +273,44 @@ export default function PreciosPage() {
 
     // --- Export CSV ---
     const handleExportCsv = () => {
-        const header = 'SKU,Nombre,Precio Actual\n';
-        const rows = products.map(p => `${p.sku || ''},${p.name},${p.price}`).join('\n');
+        const header = 'SKU,Nombre,Precio\n';
+        const rows = products.map(p => {
+            const price = selectedDistributor === 'base' ? p.price : (distributorPrices[p.id] ?? p.price);
+            return `${p.sku || ''},${p.name},${price}`;
+        }).join('\n');
+        const distName = selectedDistributor === 'base' ? 'base' : distributors.find(d => d.id === selectedDistributor)?.full_name || 'distribuidor';
         const blob = new Blob([header + rows], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'precios_greenland.csv';
+        a.download = `precios_${distName.replace(/\s+/g, '_').toLowerCase()}.csv`;
         a.click();
         URL.revokeObjectURL(url);
+    };
+
+    // Copy base prices to distributor
+    const handleCopyBasePrices = () => {
+        const newEdits = {};
+        products.forEach(p => {
+            newEdits[p.id] = p.price;
+        });
+        setEditedPrices(newEdits);
     };
 
     // --- Sorting ---
     const handleSort = (field) => {
         if (sortBy === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
         else { setSortBy(field); setSortDir('asc'); }
+    };
+
+    // Get current effective price for a product
+    const getCurrentPrice = (product) => {
+        if (selectedDistributor === 'base') return product.price;
+        return distributorPrices[product.id] ?? product.price;
+    };
+
+    const hasCustomPrice = (product) => {
+        return selectedDistributor !== 'base' && distributorPrices[product.id] !== undefined;
     };
 
     // --- Filter & Sort ---
@@ -191,13 +325,14 @@ export default function PreciosPage() {
             let va, vb;
             if (sortBy === 'name') { va = a.name; vb = b.name; }
             else if (sortBy === 'sku') { va = a.sku || ''; vb = b.sku || ''; }
-            else if (sortBy === 'price') { va = a.price; vb = b.price; }
+            else if (sortBy === 'price') { va = getCurrentPrice(a); vb = getCurrentPrice(b); }
             else { va = a.name; vb = b.name; }
             if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
             return sortDir === 'asc' ? va - vb : vb - va;
         });
 
     const editCount = Object.keys(editedPrices).length;
+    const isDistributorMode = selectedDistributor !== 'base';
 
     if (loading) {
         return (
@@ -212,11 +347,11 @@ export default function PreciosPage() {
         <div className="relative">
             <div className="relative z-10 max-w-7xl mx-auto">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-6">
                     <div>
                         <h1 className="text-3xl font-black tracking-tight text-slate-900 m-0">Gestión de Precios</h1>
                         <p className="text-slate-500 mt-1 font-medium m-0">
-                            Edita precios individuales, aplica ajustes porcentuales o importa desde CSV.
+                            Edita precios base o configura precios personalizados por distribuidor y destino.
                         </p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -242,6 +377,15 @@ export default function PreciosPage() {
                         >
                             <Percent className="w-3.5 h-3.5" /> Ajuste %
                         </button>
+                        {/* Copy base prices */}
+                        {isDistributorMode && (
+                            <button
+                                onClick={handleCopyBasePrices}
+                                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 hover:bg-amber-100 cursor-pointer transition-all"
+                            >
+                                <FileSpreadsheet className="w-3.5 h-3.5" /> Copiar Precios Base
+                            </button>
+                        )}
                         {/* Save */}
                         {editCount > 0 && (
                             <button
@@ -252,6 +396,55 @@ export default function PreciosPage() {
                                 <Save className="w-4 h-4" />
                                 {saving ? 'Guardando...' : `Guardar ${editCount} cambio${editCount > 1 ? 's' : ''}`}
                             </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Distributor + Address Selector */}
+                <div className="bg-white/60 backdrop-blur-md rounded-2xl border border-white/50 shadow-sm p-4 mb-6">
+                    <div className="flex flex-wrap items-end gap-4">
+                        <div className="flex-1 min-w-[200px]">
+                            <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                <Users className="w-3 h-3" /> Distribuidor
+                            </label>
+                            <select
+                                value={selectedDistributor}
+                                onChange={(e) => { setSelectedDistributor(e.target.value); setEditedPrices({}); }}
+                                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm"
+                            >
+                                <option value="base">📋 Precios Base (General)</option>
+                                {distributors.map(d => (
+                                    <option key={d.id} value={d.id}>
+                                        {d.full_name} {d.city ? `— ${d.city}` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        {isDistributorMode && (
+                            <div className="flex-1 min-w-[200px]">
+                                <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                    <MapPin className="w-3 h-3" /> Dirección de Envío
+                                </label>
+                                <select
+                                    value={selectedAddress}
+                                    onChange={(e) => { setSelectedAddress(e.target.value); setEditedPrices({}); }}
+                                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm"
+                                >
+                                    <option value="default">🏠 Precio default del distribuidor</option>
+                                    {distributorAddresses.map(a => (
+                                        <option key={a.id} value={a.id}>
+                                            {a.label} — {a.city}, {a.state}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        {isDistributorMode && (
+                            <div className="flex items-center gap-2 pb-0.5">
+                                <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${Object.keys(distributorPrices).length > 0 ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                                    {Object.keys(distributorPrices).length} precios personalizados
+                                </span>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -300,6 +493,7 @@ export default function PreciosPage() {
                             <AlertTriangle className="w-4 h-4 text-amber-500" />
                             <span className="text-sm font-bold text-amber-700">
                                 {editCount} precio{editCount > 1 ? 's' : ''} modificado{editCount > 1 ? 's' : ''} sin guardar
+                                {isDistributorMode && <span className="text-amber-500 font-normal"> (distribuidor)</span>}
                             </span>
                         </div>
                         <div className="flex gap-2">
@@ -333,8 +527,13 @@ export default function PreciosPage() {
                                         <span className="flex items-center gap-1">SKU <ArrowUpDown className="w-3 h-3" /></span>
                                     </th>
                                     <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Categoría</th>
+                                    {isDistributorMode && (
+                                        <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-400">Precio Base</th>
+                                    )}
                                     <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 cursor-pointer select-none" onClick={() => handleSort('price')}>
-                                        <span className="flex items-center gap-1">Precio Actual <ArrowUpDown className="w-3 h-3" /></span>
+                                        <span className="flex items-center gap-1">
+                                            {isDistributorMode ? 'Precio Distribuidor' : 'Precio Actual'} <ArrowUpDown className="w-3 h-3" />
+                                        </span>
                                     </th>
                                     <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Nuevo Precio</th>
                                     <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Diferencia</th>
@@ -342,13 +541,15 @@ export default function PreciosPage() {
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredProducts.length === 0 ? (
-                                    <tr><td colSpan="6" className="px-6 py-12 text-center text-slate-400">No se encontraron productos.</td></tr>
+                                    <tr><td colSpan={isDistributorMode ? 7 : 6} className="px-6 py-12 text-center text-slate-400">No se encontraron productos.</td></tr>
                                 ) : (
                                     filteredProducts.map(product => {
+                                        const currentPrice = getCurrentPrice(product);
                                         const hasEdit = editedPrices[product.id] !== undefined;
-                                        const newPrice = hasEdit ? parseFloat(editedPrices[product.id]) : product.price;
-                                        const diff = newPrice - product.price;
-                                        const diffPct = product.price > 0 ? ((diff / product.price) * 100).toFixed(1) : 0;
+                                        const newPrice = hasEdit ? parseFloat(editedPrices[product.id]) : currentPrice;
+                                        const diff = newPrice - currentPrice;
+                                        const diffPct = currentPrice > 0 ? ((diff / currentPrice) * 100).toFixed(1) : 0;
+                                        const isCustom = hasCustomPrice(product);
                                         return (
                                             <tr key={product.id} className={`transition-colors ${hasEdit ? 'bg-amber-50/50' : 'hover:bg-white/50'}`}>
                                                 <td className="px-6 py-3">
@@ -365,10 +566,22 @@ export default function PreciosPage() {
                                                         {product.categories?.name || '—'}
                                                     </span>
                                                 </td>
+                                                {isDistributorMode && (
+                                                    <td className="px-4 py-3">
+                                                        <span className="text-sm text-slate-400">
+                                                            ${Number(product.price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                    </td>
+                                                )}
                                                 <td className="px-4 py-3">
-                                                    <span className={`text-sm font-black ${hasEdit ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
-                                                        ${Number(product.price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                                                    </span>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className={`text-sm font-black ${hasEdit ? 'text-slate-400 line-through' : isCustom ? 'text-blue-600' : 'text-slate-900'}`}>
+                                                            ${Number(currentPrice).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                        {isCustom && !hasEdit && (
+                                                            <span className="text-[8px] font-bold text-blue-500 bg-blue-50 px-1 py-0.5 rounded">CUSTOM</span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="relative">
@@ -378,10 +591,10 @@ export default function PreciosPage() {
                                                             step="0.01"
                                                             min="0"
                                                             value={hasEdit ? editedPrices[product.id] : ''}
-                                                            placeholder={product.price.toString()}
+                                                            placeholder={currentPrice.toString()}
                                                             onChange={(e) => {
                                                                 const val = e.target.value;
-                                                                if (val === '' || parseFloat(val) === product.price) {
+                                                                if (val === '' || parseFloat(val) === currentPrice) {
                                                                     setEditedPrices(prev => { const n = { ...prev }; delete n[product.id]; return n; });
                                                                 } else {
                                                                     setEditedPrices(prev => ({ ...prev, [product.id]: val }));
@@ -419,6 +632,7 @@ export default function PreciosPage() {
                     <div className="px-6 py-3 bg-slate-50/50 border-t border-slate-200 flex items-center justify-between">
                         <p className="text-xs font-medium text-slate-500 m-0">
                             {filteredProducts.length} productos · {editCount} modificados
+                            {isDistributorMode && ` · ${Object.keys(distributorPrices).length} con precio custom`}
                         </p>
                     </div>
                 </div>
@@ -557,6 +771,11 @@ export default function PreciosPage() {
                         <div className="p-6 border-b border-slate-200 flex justify-between items-center">
                             <h3 className="text-lg font-bold text-slate-900 m-0 flex items-center gap-2">
                                 <FileSpreadsheet className="w-5 h-5 text-blue-600" /> Previsualización CSV
+                                {isDistributorMode && (
+                                    <span className="text-xs font-normal text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">
+                                        → {distributors.find(d => d.id === selectedDistributor)?.full_name}
+                                    </span>
+                                )}
                             </h3>
                             <button onClick={() => { setShowCsvModal(false); setCsvData(null); setCsvPreview([]); }}
                                 className="p-1 rounded-lg hover:bg-slate-100 bg-transparent border-none cursor-pointer">
