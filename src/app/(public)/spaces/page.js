@@ -14,7 +14,7 @@ const CONTAINERS = [
         name: 'Contenedor Expandible',
         tagline: 'Máximo espacio, mínimo esfuerzo',
         description: 'Contenedores expandibles que se despliegan para ofrecer espacio adicional. Ideales para oficinas, viviendas o exhibiciones. Se arman con 4 personas en 30 minutos.',
-        image: '/spaces/expandable.jpg',
+        image: '/spaces/expandable.png',
         specs: [
             { label: 'Espacio', value: '36–72 m²' },
             { label: 'Instalación', value: '4 personas + 30 min' },
@@ -36,7 +36,7 @@ const CONTAINERS = [
         name: 'Contenedor Plegable Tipo Z',
         tagline: 'Flexible, apilable y sustentable',
         description: 'Solución de espacio basada en contenedores plegables tipo Z. Se apilan hasta 3 pisos, creando espacios personalizables y sustentables para oficinas o campamentos.',
-        image: '/spaces/tipo-z.jpg',
+        image: '/spaces/tipo-z.png',
         specs: [
             { label: 'Dimensiones', value: '5,900 × 2,500 × 2,470 mm' },
             { label: 'Peso', value: '1,260 kg' },
@@ -62,7 +62,7 @@ const CONTAINERS = [
         name: 'Contenedor Plegable',
         tagline: 'Ultra rápido y transportable',
         description: 'Contenedores plegables de despliegue ultra rápido. Armado por 2 personas en solo 2 minutos. Ideales para campamentos, proyectos de emergencia y despliegues masivos.',
-        image: '/spaces/plegable.jpg',
+        image: '/spaces/plegable.png',
         specs: [
             { label: 'Dimensiones', value: '6,000 × 2,500 × 2,400 mm' },
             { label: 'Peso', value: '1,300 kg' },
