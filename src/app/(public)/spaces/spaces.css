@@ -152,14 +152,18 @@
     height: 100%;
     min-height: 400px;
     overflow: hidden;
+    position: relative;
 }
 
 .container-card-image img {
     width: 100%;
-    height: 100%;
+    height: 120%;
     object-fit: cover;
-    object-position: center 70%;
+    object-position: center bottom;
     display: block;
+    position: absolute;
+    bottom: 0;
+    left: 0;
 }
 
 .container-card-content {
