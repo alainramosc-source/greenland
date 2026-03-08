@@ -16,7 +16,7 @@ const CONTAINERS = [
         description: 'Contenedores expandibles que se despliegan para ofrecer espacio adicional. Ideales para oficinas, viviendas o exhibiciones. Se arman con 4 personas en 30 minutos.',
         image: '/spaces/expandable.jpg',
         specs: [
-            { label: 'Espacio', value: '10–72 m²' },
+            { label: 'Espacio', value: '36–72 m²' },
             { label: 'Instalación', value: '4 personas + 30 min' },
             { label: 'Estructura', value: 'Acero galvanizado Q2358' },
             { label: 'Aislamiento', value: 'EPS/lana de roca/lana de vidrio' },
