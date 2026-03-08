@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
     ShieldCheck, MapPin, Package, Upload, Edit3, X, Save,
-    RefreshCw, AlertTriangle, CheckCircle, TrendingDown, Warehouse, FileSpreadsheet
+    RefreshCw, AlertTriangle, CheckCircle, TrendingDown, Warehouse, FileSpreadsheet, History
 } from 'lucide-react';
 
 export default function CoberturaPage() {
@@ -234,6 +234,10 @@ export default function CoberturaPage() {
                         <button onClick={() => router.push('/dashboard/cobertura/nuevo-pedido')}
                             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#6a9a04] text-white font-bold text-sm hover:bg-[#6a9a04]/90 cursor-pointer transition-all shadow-lg shadow-[#6a9a04]/20 border-none">
                             <FileSpreadsheet size={16} /> Crear Pedido a Fabricante
+                        </button>
+                        <button onClick={() => router.push('/dashboard/cobertura/historial')}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 cursor-pointer transition-all shadow-sm">
+                            <History size={16} /> Historial
                         </button>
                     </div>
                 </div>
