@@ -14,7 +14,7 @@ const CONTAINERS = [
         name: 'Contenedor Expandible',
         tagline: 'Máximo espacio, mínimo esfuerzo',
         description: 'Contenedores expandibles que se despliegan para ofrecer espacio adicional. Ideales para oficinas, viviendas o exhibiciones. Se arman con 4 personas en 30 minutos.',
-        image: '/spaces/expandible.jpg',
+        image: '/spaces/expandable-hero.png',
         specs: [
             { label: 'Espacio', value: '10–72 m²' },
             { label: 'Instalación', value: '4 personas + 30 min' },
@@ -36,7 +36,7 @@ const CONTAINERS = [
         name: 'Contenedor Plegable Tipo Z',
         tagline: 'Flexible, apilable y sustentable',
         description: 'Solución de espacio basada en contenedores plegables tipo Z. Se apilan hasta 3 pisos, creando espacios personalizables y sustentables para oficinas o campamentos.',
-        image: '/spaces/tipo-z.jpg',
+        image: '/spaces/tipo-z-hero.png',
         specs: [
             { label: 'Dimensiones', value: '5,900 × 2,500 × 2,470 mm' },
             { label: 'Peso', value: '1,260 kg' },
@@ -62,7 +62,7 @@ const CONTAINERS = [
         name: 'Contenedor Plegable',
         tagline: 'Ultra rápido y transportable',
         description: 'Contenedores plegables de despliegue ultra rápido. Armado por 2 personas en solo 2 minutos. Ideales para campamentos, proyectos de emergencia y despliegues masivos.',
-        image: '/spaces/plegable.jpg',
+        image: '/spaces/plegable-hero.png',
         specs: [
             { label: 'Dimensiones', value: '6,000 × 2,500 × 2,400 mm' },
             { label: 'Peso', value: '1,300 kg' },
@@ -112,7 +112,7 @@ export default function SpacesPage() {
                     </div>
                     <div className="spaces-hero-visual">
                         <div className="spaces-image-card">
-                            <img src="/spaces/expandible.jpg" alt="Contenedor Expandible Greenland" className="spaces-hero-img" />
+                            <img src="/spaces/expandable-hero.png" alt="Contenedor Expandible Greenland" className="spaces-hero-img" />
                         </div>
                     </div>
                 </div>
