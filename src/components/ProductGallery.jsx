@@ -5,14 +5,17 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function ProductGallery({ sku, productName }) {
     // Determine how many images a product has based on the naming convention (GL01-P1.jpg, GL01-P2.jpg, etc.)
-    // We will attempt to load up to 5 images. If an image doesn't exist, the onError handler will mark it as failed.
-    const [images, setImages] = useState([
-        { id: 1, url: `/productos/${sku}-P1.jpg`, failed: false, isPng: false, pngFailed: false },
-        { id: 2, url: `/productos/${sku}-P2.jpg`, failed: false, isPng: false, pngFailed: false },
-        { id: 3, url: `/productos/${sku}-P3.jpg`, failed: false, isPng: false, pngFailed: false },
-        { id: 4, url: `/productos/${sku}-P4.jpg`, failed: false, isPng: false, pngFailed: false },
-        { id: 5, url: `/productos/${sku}-P5.jpg`, failed: false, isPng: false, pngFailed: false }
-    ]);
+    // We will attempt to load up to 10 images. If an image doesn't exist, the onError handler will mark it as failed.
+    const maxImages = 10;
+    const [images, setImages] = useState(
+        Array.from({ length: maxImages }, (_, i) => ({
+            id: i + 1,
+            url: `/productos/${sku}-P${i + 1}.jpg`,
+            failed: false,
+            isPng: false,
+            pngFailed: false,
+        }))
+    );
 
     const [baseImage, setBaseImage] = useState({ url: `/productos/${sku}.jpg`, isPng: false, failed: false });
     const [currentIndex, setCurrentIndex] = useState(0);
