@@ -116,14 +116,14 @@ export default function PedidosPage() {
             <p className="text-2xl font-bold text-[#000000] mt-1">{orders.length.toLocaleString('es-MX')}</p>
           </div>
 
-          {/* Ingresos Totales */}
+          {/* Ingresos / Compras Totales */}
           <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 bg-purple-100 rounded-2xl">
                 <DollarSign className="w-6 h-6 text-purple-600" />
               </div>
             </div>
-            <h3 className="text-slate-500 text-sm font-medium">Ingresos Totales</h3>
+            <h3 className="text-slate-500 text-sm font-medium">{isAdmin ? 'Ingresos Totales' : 'Compras Totales'}</h3>
             <p className="text-2xl font-bold text-[#000000] mt-1">${totalAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
 

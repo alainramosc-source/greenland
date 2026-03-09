@@ -227,24 +227,28 @@ export default function DistribuidoresPage() {
                     alignItems: 'center',
                     textAlign: 'center'
                 }}>
-                    <h2 style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '1.5rem', textTransform: 'uppercase', color: 'white' }}>Acceso para Distribuidores</h2>
-                    <p style={{ fontSize: '1.1rem', color: 'rgba(255,255,255,0.8)', marginBottom: '1.5rem', maxWidth: '600px', lineHeight: 1.6 }}>
-                        Acceso exclusivo para distribuidores autorizados. Este portal está pensado para facilitar la operación diaria y mejorar la comunicación entre Greenland y su red de distribución.
+                    <h2 style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '1.5rem', textTransform: 'uppercase', color: 'white' }}>Portal para Distribuidores</h2>
+                    <p style={{ fontSize: '1.1rem', color: 'rgba(255,255,255,0.8)', marginBottom: '2rem', maxWidth: '650px', lineHeight: 1.6 }}>
+                        Plataforma operativa exclusiva para distribuidores autorizados. Gestiona tu actividad comercial con Greenland de forma completa, ágil y en tiempo real.
                     </p>
-                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: 'var(--radius-lg)', marginBottom: '2.5rem', textAlign: 'left', maxWidth: '500px', width: '100%' }}>
-                        <h4 style={{ color: 'var(--color-primary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem', fontWeight: 700 }}>Funcionalidad contemplada (fase posterior):</h4>
-                        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                            {[
-                                'Acceso con usuario y contraseña',
-                                'Visualización de catálogo',
-                                'Generación de pedidos',
-                                'Envío automático de pedidos al equipo Greenland'
-                            ].map((feature, i) => (
-                                <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'rgba(255,255,255,0.9)', fontSize: '0.95rem' }}>
-                                    <ArrowRight size={16} color="var(--color-primary)" /> {feature}
-                                </li>
-                            ))}
-                        </ul>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '1rem', marginBottom: '2.5rem', textAlign: 'left', maxWidth: '700px', width: '100%' }}>
+                        {[
+                            { title: '📦 Pedidos', items: ['Creación y confirmación de pedidos', 'Seguimiento de estatus en tiempo real', 'Historial completo de órdenes'] },
+                            { title: '📋 Catálogo y Precios', items: ['Visualización de productos', 'Precios personalizados por distribuidor', 'Fichas técnicas y fotos HD'] },
+                            { title: '💰 Saldos y Pagos', items: ['Consulta de saldo pendiente', 'Registro y confirmación de pagos', 'Historial de transacciones'] },
+                            { title: '📊 Indicadores', items: ['Total de compras acumulado', 'Pedidos activos y tendencias', 'Métricas de operación'] },
+                        ].map((section, i) => (
+                            <div key={i} style={{ background: 'rgba(255,255,255,0.05)', padding: '1.25rem', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                <h4 style={{ color: 'var(--color-primary)', fontSize: '0.85rem', marginBottom: '0.75rem', fontWeight: 700 }}>{section.title}</h4>
+                                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    {section.items.map((item, j) => (
+                                        <li key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', color: 'rgba(255,255,255,0.8)', fontSize: '0.8rem', lineHeight: 1.4 }}>
+                                            <CheckCircle2 size={13} color="var(--color-primary)" style={{ flexShrink: 0, marginTop: '2px' }} /> {item}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ))}
                     </div>
                     <Link href="/login" style={{
                         display: 'inline-flex',
