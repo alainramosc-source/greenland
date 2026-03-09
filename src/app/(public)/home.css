@@ -546,7 +546,7 @@
 
 .coverage-content {
     display: grid;
-    grid-template-columns: 1fr 2fr;
+    grid-template-columns: 1fr 1fr;
     gap: 4rem;
     align-items: center;
 }
@@ -570,133 +570,51 @@
     line-height: 1.7;
 }
 
-.coverage-map-wrapper {
-    width: 100%;
+.coverage-photos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+}
+
+.coverage-photo-card {
     position: relative;
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     overflow: hidden;
-    background: #FFFFFF;
-    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.08);
-    /* Soft shadow */
-    padding: 2rem;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
 }
 
-.coverage-map-image {
+.coverage-photo-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
+}
+
+.coverage-photo-card img {
     width: 100%;
-    max-width: 600px;
-    /* Prevent it from being too huge */
-    height: auto;
-    object-fit: contain;
-    mix-blend-mode: multiply;
-    opacity: 0.7;
-    transition: opacity 0.3s ease;
+    height: 280px;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.5s ease;
 }
 
-.coverage-map-wrapper:hover .coverage-map-image {
-    opacity: 1;
+.coverage-photo-card:hover img {
+    transform: scale(1.05);
 }
 
-.coverage-map-container {
-    position: relative;
-    width: 100%;
-    max-width: 600px;
-}
-
-.map-pin {
+.coverage-photo-label {
     position: absolute;
-    width: 10px;
-    height: 10px;
-    background-color: var(--color-primary);
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    box-shadow: 0 0 0 4px rgba(6, 78, 59, 0.2);
-    transition: all 0.3s ease;
-    cursor: pointer;
-    z-index: 10;
-}
-
-.map-pin:hover {
-    transform: translate(-50%, -50%) scale(1.5);
-    background-color: var(--color-accent);
-    box-shadow: 0 0 0 6px rgba(124, 191, 102, 0.3);
-}
-
-.map-pin::after {
-    content: attr(title);
-    position: absolute;
-    bottom: 150%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--color-text);
-    color: #FFF;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+    color: #FFFFFF;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease, bottom 0.2s ease;
 }
 
-.map-pin:hover::after {
-    opacity: 1;
-    bottom: 180%;
-}
-
-/* Computed Coordinates for Mexico Map based on reference image */
-.saltillo {
-    top: 49.47%;
-    left: 43.01%;
-}
-
-.monterrey {
-    top: 49.00%;
-    left: 44.16%;
-}
-
-.altamira {
-    top: 55.25%;
-    left: 48.88%;
-}
-
-.mazatlan {
-    top: 53.40%;
-    left: 33.85%;
-}
-
-.queretaro {
-    top: 59.81%;
-    left: 44.94%;
-}
-
-.morelia {
-    top: 62.12%;
-    left: 42.54%;
-}
-
-.tlalnepantla {
-    top: 62.04%;
-    left: 46.99%;
-}
-
-.merida {
-    top: 59.49%;
-    left: 64.61%;
-}
-
-/* Dark mode fallback just in case */
-/* Dark mode fallback just in case */
-.dark .coverage-map-image {
-    mix-blend-mode: normal;
-    filter: invert(1);
-    opacity: 0.5;
-}
 
 /* ===== CTA SECTION ===== */
 .cta-section {
@@ -823,6 +741,10 @@
     .coverage-content {
         grid-template-columns: 1fr;
         gap: 2rem;
+    }
+
+    .coverage-photos {
+        grid-template-columns: 1fr;
     }
 
     .trusted-content {

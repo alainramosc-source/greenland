@@ -188,13 +188,13 @@ export default async function HomePage() {
             <div className="coverage-info">
               <Truck size={40} className="coverage-icon" />
               <div className="coverage-text">
-                <h2>{coverage.title || 'Logística Estratégica'}</h2>
+                <h2>{coverage.title || 'Cobertura Nacional'}</h2>
                 <div className="space-y-4">
                   <p className="coverage-desc text-slate-600">
                     Greenland opera desde múltiples puntos estratégicos del país, permitiéndonos surtir distribuidores y clientes finales con rapidez, disponibilidad permanente y total confiabilidad logística.
                   </p>
-                  <p className="coverage-desc font-medium text-slate-700">
-                    Contamos con presencia operativa en Saltillo y Monterrey para el norte del país; Tlalnepantla, Querétaro y Morelia como eje centro–occidente; Altamira y Mazatlán como puntos clave de conexión logística; y Mérida para atender el sureste de México.
+                  <p className="coverage-desc text-slate-600">
+                    Contamos con logística flexible para adaptarnos a distintos volúmenes y destinos. Utilizamos principalmente paqueterías como <strong>TresGuerras</strong> y <strong>Almex</strong> para envíos estándar. Para pedidos de alto volumen trabajamos con <strong>transportes propios y privados</strong>, optimizando costos y tiempos de entrega según zona.
                   </p>
                   <p className="coverage-desc text-slate-800 font-bold border-l-4 border-primary pl-4 py-1">
                     Esta red nos permite atender pedidos a cualquier código postal de la República Mexicana con tiempos de entrega competitivos y control total de inventario.
@@ -202,27 +202,20 @@ export default async function HomePage() {
                 </div>
               </div>
             </div>
-            <div className="coverage-map-wrapper">
-              <div className="coverage-map-container">
-                <img
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwkgcldJkjfmmaOP9aBPrsgunw4R1EoM0PvGVQjj_uUEK5wHP78cjrTBcvy1OhtOEA2Tp_8pMpzq19R8qu0438FqCeSKUi-WLbv9dUv2138jf3G6euTb6fjfb4s6pntdcGvc0cm0neKjW4MP_EsMkhuJWbEFWgG1-Edw0iY7yREU5kUa31XG0d2erwZOmzEuvbWBpmqIAU7KTGqzCJy2REMZ4Jkif62yL2PVga1g0UAnayGVbqPFBVAEXH5hHv3zVwwP9gZUATDU0"
-                  alt="Mapa de Cobertura Nacional"
-                  className="coverage-map-image"
-                />
-                {/* Puntos estratégicos */}
-                <div className="map-pin saltillo" title="Saltillo"></div>
-                <div className="map-pin monterrey" title="Monterrey"></div>
-                <div className="map-pin altamira" title="Altamira"></div>
-                <div className="map-pin mazatlan" title="Mazatlán"></div>
-                <div className="map-pin queretaro" title="Querétaro"></div>
-                <div className="map-pin morelia" title="Morelia"></div>
-                <div className="map-pin tlalnepantla" title="Tlalnepantla"></div>
-                <div className="map-pin merida" title="Mérida"></div>
+            <div className="coverage-photos">
+              <div className="coverage-photo-card">
+                <img src="/reparto.jpeg" alt="Camión de reparto Greenland" />
+                <span className="coverage-photo-label">Transporte Propio</span>
+              </div>
+              <div className="coverage-photo-card">
+                <img src="/paqueteria.png" alt="Carga de tarimas a camión TresGuerras" />
+                <span className="coverage-photo-label">Paquetería TresGuerras</span>
               </div>
             </div>
           </div>
         </div>
       </section>
+
 
       {/* ===== DIVISIONS (Original Design, Footer Location) ===== */}
       <section className="divisions-section">
