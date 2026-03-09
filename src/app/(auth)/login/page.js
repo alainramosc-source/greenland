@@ -106,7 +106,7 @@ export default function LoginPage() {
               Portal de Distribuidores
             </h2>
             <p className="text-slate-600 font-medium leading-relaxed max-w-sm">
-              Acceso exclusivo para distribuidores autorizados de GreenLand Products. Desde esta plataforma podrá crear pedidos, dar seguimiento a envíos, consultar su inventario, registrar ventas y gestionar pagos, todo en un solo lugar. Una herramienta diseñada para simplificar su operación y fortalecer el crecimiento de su negocio con GreenLand.
+              Acceso exclusivo para distribuidores autorizados de GreenLand Products. Desde esta plataforma podrá crear pedidos, dar seguimiento a envíos, consultar su inventario, registrar ventas y gestionar pagos, todo en un solo lugar.
             </p>
           </div>
 
