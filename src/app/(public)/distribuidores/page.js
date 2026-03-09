@@ -233,8 +233,7 @@ export default function DistribuidoresPage() {
                     </p>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '1rem', marginBottom: '2.5rem', textAlign: 'left', maxWidth: '700px', width: '100%' }}>
                         {[
-                            { title: '📦 Pedidos', items: ['Creación y confirmación de pedidos', 'Seguimiento de estatus en tiempo real', 'Historial completo de órdenes'] },
-                            { title: '📋 Catálogo y Precios', items: ['Visualización de productos', 'Precios personalizados por distribuidor', 'Fichas técnicas y fotos HD'] },
+                            { title: '📦 Pedidos y Catálogo', items: ['Creación y confirmación de pedidos', 'Seguimiento de estatus en tiempo real', 'Historial completo de órdenes', 'Catálogo y precios personalizados'] },
                             { title: '💰 Saldos y Pagos', items: ['Consulta de saldo pendiente', 'Registro y confirmación de pagos', 'Historial de transacciones'] },
                             { title: '📊 Indicadores', items: ['Total de compras acumulado', 'Pedidos activos y tendencias', 'Métricas de operación'] },
                         ].map((section, i) => (
