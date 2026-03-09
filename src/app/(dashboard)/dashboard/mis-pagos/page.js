@@ -158,7 +158,7 @@ export default function MisPagosPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => { setForm(f => ({ ...f, reference: clientNumber || '' })); setShowModal(true); }}
           className="flex items-center gap-2 bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-lg shadow-[#6a9a04]/20 transition-all border-none cursor-pointer"
         >
           <Plus size={18} /> Registrar Pago
