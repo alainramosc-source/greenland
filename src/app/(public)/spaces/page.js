@@ -14,7 +14,7 @@ const SOLUTIONS = [
         name: 'Contenedor Expandible',
         tagline: 'Máximo espacio, mínimo esfuerzo',
         description: 'Contenedores expandibles que se despliegan para ofrecer hasta 72 m² de espacio habitable. Ideales para oficinas, viviendas o exhibiciones. Una unidad de 40 pies se transforma en una casa completa con sala, cocina, comedor y baño en solo 30 minutos con 4 personas.',
-        images: ['/spaces/expandable.png', '/spaces/expandable 2.jpg'],
+        images: ['/spaces/expandable.png', '/spaces/expandable 2.png', '/spaces/expandable 3.png', '/spaces/expandable 4.png'],
         heroImage: '/spaces/expandable-hero.png',
         color: '#6a9a04',
         specs: [
@@ -39,7 +39,7 @@ const SOLUTIONS = [
         name: 'Contenedor Plegable Tipo Z',
         tagline: 'Resistente, apilable y sustentable',
         description: 'Solución modular basada en el innovador plegado tipo Z. Se apilan hasta 3 pisos, creando espacios personalizables para oficinas, campamentos o dormitorios. Resistente a huracanes categoría 12 con aislamiento térmico avanzado de aerogel.',
-        images: ['/spaces/tipo-z.png', '/spaces/tipo-z 2.jpg', '/spaces/tipo-z 3.jpg'],
+        images: ['/spaces/tipo-z.png', '/spaces/tipo-z 2.png', '/spaces/tipo-z 3.png'],
         heroImage: '/spaces/tipo-z-hero.png',
         color: '#2563eb',
         specs: [
@@ -67,7 +67,7 @@ const SOLUTIONS = [
         name: 'Contenedor Plegable',
         tagline: 'Ultra rápido y transportable',
         description: 'Contenedores de despliegue ultra rápido: 2 personas, 2 minutos. Optimiza costos de transporte con 12 unidades plegadas en un solo contenedor de 40 pies. Ideales para campamentos, despliegues de emergencia y proyectos masivos.',
-        images: ['/spaces/plegable.png', '/spaces/plegable 2.jpg', '/spaces/plegable 3.jpg'],
+        images: ['/spaces/plegable.png', '/spaces/plegable 2.png', '/spaces/plegable 3.png'],
         heroImage: '/spaces/plegable-hero.png',
         color: '#d97706',
         specs: [
@@ -95,8 +95,8 @@ const SOLUTIONS = [
         name: 'Space Capsule',
         tagline: 'Diseño futurista, confort total',
         description: 'Cápsulas espaciales de diseño futurista con ventanales panorámicos de vidrio curvado. Vienen equipadas con tecnología inteligente pre-instalada: aire acondicionado, calefacción de piso, iluminación y sistemas de seguridad. La solución premium para glamping de lujo, hoteles boutique y experiencias únicas.',
-        images: ['/spaces/capsule.png', '/spaces/capsule-2.png', '/spaces/capsule-3.png'],
-        heroImage: '/spaces/capsule.png',
+        images: ['/spaces/capsule 1.png', '/spaces/capsule 2.png', '/spaces/capsule 3.png', '/spaces/capsule 4.png'],
+        heroImage: '/spaces/capsule 1.png',
         color: '#7c3aed',
         specs: [
             { label: 'Diseño', value: 'Panorámico futurista' },
@@ -121,8 +121,8 @@ const SOLUTIONS = [
         name: 'Contenedor Desmontable',
         tagline: 'Llega a donde otros no pueden',
         description: 'Diseñados para ubicaciones de difícil acceso donde no llegan grúas ni camiones pesados. Las piezas se transportan manualmente y 4 trabajadores pueden armar una unidad completa en 3 a 5 horas. La solución ideal para proyectos rurales, montañosos o islas.',
-        images: ['/spaces/detachable.png', '/spaces/detachable-2.png', '/spaces/detachable-3.png'],
-        heroImage: '/spaces/detachable.png',
+        images: ['/spaces/detachable 1.png', '/spaces/detachable 2.png', '/spaces/detachable 3.png', '/spaces/detachable 4.png'],
+        heroImage: '/spaces/detachable 1.png',
         color: '#059669',
         specs: [
             { label: 'Transporte', value: 'Piezas manuales' },
