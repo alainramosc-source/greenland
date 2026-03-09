@@ -1,11 +1,35 @@
 'use client';
-import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowRight, CheckCircle2, Loader2, Send } from 'lucide-react';
 import Link from 'next/link';
 import '@/app/globals.css';
 
 // Remove the `revalidate = 0` line since this is now a client component
 
 export default function DistribuidoresPage() {
+    const [form, setForm] = useState({ company: '', email: '', phone: '', city: '' });
+    const [status, setStatus] = useState('idle'); // idle | sending | sent | error
+
+    const handleChange = (e) => {
+        setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!form.company || !form.email || !form.phone || !form.city) return;
+        setStatus('sending');
+        try {
+            const res = await fetch('/api/distributor-application', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(form),
+            });
+            const data = await res.json();
+            setStatus(data.success ? 'sent' : 'error');
+        } catch {
+            setStatus('error');
+        }
+    };
     return (
         <div className="page-wrapper" style={{ paddingTop: '6rem', paddingBottom: '8rem', background: 'var(--color-bg-alt)' }}>
             <div className="container">
@@ -98,42 +122,64 @@ export default function DistribuidoresPage() {
                         boxShadow: '0 20px 40px -10px rgba(0,0,0,0.08)',
                         border: '1px solid var(--color-border-light)'
                     }}>
-                        <h3 style={{ marginBottom: '2rem', fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text)' }}>Solicitud de Distribución</h3>
-                        <form className="simple-form" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                            <div className="form-group">
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--color-text)' }}>Nombre de la Empresa</label>
-                                <input type="text" className="input-field" placeholder="Ej. Eventos del Norte S.A. de C.V." style={{ width: '100%', padding: '0.875rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-bg-alt)', fontSize: '0.95rem' }} />
+                        {status === 'sent' ? (
+                            <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+                                <CheckCircle2 size={56} color="var(--color-primary)" style={{ marginBottom: '1rem' }} />
+                                <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text)', marginBottom: '0.75rem' }}>¡Solicitud Enviada!</h3>
+                                <p style={{ fontSize: '1rem', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
+                                    Hemos recibido tu solicitud de <strong>{form.company}</strong>. Nuestro equipo te contactará a la brevedad.
+                                </p>
                             </div>
-                            <div className="form-group">
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--color-text)' }}>Correo Electrónico</label>
-                                <input type="email" className="input-field" placeholder="contacto@tuempresa.com" style={{ width: '100%', padding: '0.875rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-bg-alt)', fontSize: '0.95rem' }} />
-                            </div>
-                            <div className="form-group">
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--color-text)' }}>Teléfono</label>
-                                <input type="tel" className="input-field" placeholder="+52 (55) ..." style={{ width: '100%', padding: '0.875rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-bg-alt)', fontSize: '0.95rem' }} />
-                            </div>
-                            <div className="form-group">
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--color-text)' }}>Ciudad / Estado</label>
-                                <input type="text" className="input-field" placeholder="Monterrey, NL" style={{ width: '100%', padding: '0.875rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-bg-alt)', fontSize: '0.95rem' }} />
-                            </div>
-                            <button type="button" className="btn-primary" style={{
-                                width: '100%',
-                                marginTop: '1rem',
-                                padding: '1rem',
-                                background: 'var(--color-primary)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: 'var(--radius-pill)',
-                                fontWeight: 700,
-                                display: 'inline-flex',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                cursor: 'pointer'
-                            }}>
-                                Enviar Solicitud <ArrowRight size={18} />
-                            </button>
-                        </form>
+                        ) : (
+                            <>
+                                <h3 style={{ marginBottom: '2rem', fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text)' }}>Solicitud de Distribución</h3>
+                                <form onSubmit={handleSubmit} className="simple-form" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                    <div className="form-group">
+                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--color-text)' }}>Nombre de la Empresa</label>
+                                        <input type="text" name="company" value={form.company} onChange={handleChange} required className="input-field" placeholder="Ej. Eventos del Norte S.A. de C.V." style={{ width: '100%', padding: '0.875rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-bg-alt)', fontSize: '0.95rem' }} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--color-text)' }}>Correo Electrónico</label>
+                                        <input type="email" name="email" value={form.email} onChange={handleChange} required className="input-field" placeholder="contacto@tuempresa.com" style={{ width: '100%', padding: '0.875rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-bg-alt)', fontSize: '0.95rem' }} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--color-text)' }}>Teléfono</label>
+                                        <input type="tel" name="phone" value={form.phone} onChange={handleChange} required className="input-field" placeholder="+52 (55) ..." style={{ width: '100%', padding: '0.875rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-bg-alt)', fontSize: '0.95rem' }} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--color-text)' }}>Ciudad / Estado</label>
+                                        <input type="text" name="city" value={form.city} onChange={handleChange} required className="input-field" placeholder="Monterrey, NL" style={{ width: '100%', padding: '0.875rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-bg-alt)', fontSize: '0.95rem' }} />
+                                    </div>
+                                    <button type="submit" disabled={status === 'sending'} className="btn-primary" style={{
+                                        width: '100%',
+                                        marginTop: '1rem',
+                                        padding: '1rem',
+                                        background: 'var(--color-primary)',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: 'var(--radius-pill)',
+                                        fontWeight: 700,
+                                        display: 'inline-flex',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        cursor: status === 'sending' ? 'not-allowed' : 'pointer',
+                                        opacity: status === 'sending' ? 0.7 : 1
+                                    }}>
+                                        {status === 'sending' ? (
+                                            <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</>
+                                        ) : (
+                                            <>Enviar Solicitud <ArrowRight size={18} /></>
+                                        )}
+                                    </button>
+                                    {status === 'error' && (
+                                        <p style={{ textAlign: 'center', color: '#ef4444', fontSize: '0.9rem', fontWeight: 600 }}>
+                                            Hubo un error al enviar. Intenta de nuevo.
+                                        </p>
+                                    )}
+                                </form>
+                            </>
+                        )}
                     </div>
 
                     <div className="benefits-list" style={{ paddingTop: '1rem' }}>
