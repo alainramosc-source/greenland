@@ -422,10 +422,7 @@ export default function OrderDetailsPage() {
       <div class="label">Total Modelos</div>
       <div class="value">${order.order_items.length}</div>
     </div>
-    <div>
-      <div class="label">Monto Total</div>
-      <div class="value" style="color:#6a9a04;">$${Number(order.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
-    </div>
+
   </div>
 
   ${order.notes ? `
