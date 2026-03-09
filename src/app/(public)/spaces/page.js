@@ -164,7 +164,7 @@ export default function SpacesPage() {
                             Infraestructura inteligente, resistente y lista para operar. Desde oficinas corporativas hasta glamping de lujo, nuestras soluciones se adaptan a tu visión.
                         </p>
                         <div className="spaces-actions">
-                            <Link href="/distribuidores" className="btn btn-primary">
+                            <Link href="/spaces/cotizacion" className="btn btn-primary">
                                 Solicitar Cotización <ArrowRight size={18} />
                             </Link>
                             <a href="#catalogo" className="btn btn-outline-spaces">
@@ -235,7 +235,7 @@ export default function SpacesPage() {
                                         </ul>
                                     </div>
 
-                                    <Link href="/distribuidores" className="solution-cta" style={{ background: sol.color }}>
+                                    <Link href="/spaces/cotizacion" className="solution-cta" style={{ background: sol.color }}>
                                         Cotizar {sol.name} <ArrowRight size={16} />
                                     </Link>
                                 </div>
@@ -325,7 +325,7 @@ export default function SpacesPage() {
                         <h2>Comienza tu proyecto modular hoy</h2>
                         <p>Nuestro equipo técnico está listo para asesorarte, cotizar y desplegar tus módulos en cualquier parte del país.</p>
                         <div className="spaces-cta-actions">
-                            <Link href="/distribuidores" className="btn btn-primary">
+                            <Link href="/spaces/cotizacion" className="btn btn-primary">
                                 Solicitar Cotización <ArrowRight size={18} />
                             </Link>
                         </div>
