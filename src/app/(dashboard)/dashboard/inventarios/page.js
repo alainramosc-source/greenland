@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Package, History, X, Search, AlertTriangle, Shield, ArrowRightLeft, Warehouse,
-  ClipboardList, Plus, Loader2, ChevronRight, Calendar, User, Lock
+  ClipboardList, Plus, Loader2, ChevronRight, Calendar, User, Lock, Eye, EyeOff, Filter
 } from 'lucide-react';
 
 const STATUS_LABELS = {
@@ -42,6 +42,14 @@ export default function InventariosPage() {
   const [admins, setAdmins] = useState([]);
   const [creatingSession, setCreatingSession] = useState(false);
   const [userId, setUserId] = useState(null);
+  // Warehouse visibility
+  const [hiddenWarehouses, setHiddenWarehouses] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try { return JSON.parse(localStorage.getItem('gl_hidden_warehouses') || '[]'); } catch { return []; }
+    }
+    return [];
+  });
+  const [showWhFilter, setShowWhFilter] = useState(false);
 
   const supabase = createClient();
   const router = useRouter();
@@ -258,6 +266,43 @@ export default function InventariosPage() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-12 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm placeholder:text-slate-400 text-slate-800 outline-none w-72 shadow-sm" />
               </div>
+              {/* Warehouse visibility toggle */}
+              <div className="relative">
+                <button onClick={() => setShowWhFilter(!showWhFilter)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border cursor-pointer transition-all shadow-sm ${hiddenWarehouses.length > 0 ? 'bg-[#6a9a04] text-white border-[#6a9a04]' : 'bg-white text-slate-600 border-slate-200 hover:border-[#6a9a04]/50'
+                    }`}>
+                  <Filter className="w-4 h-4" /> Bodegas
+                  {hiddenWarehouses.length > 0 && <span className="bg-white/30 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">{warehouses.length - hiddenWarehouses.length}/{warehouses.length}</span>}
+                </button>
+                {showWhFilter && (
+                  <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 min-w-[220px] p-2">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1.5 m-0">Mostrar / Ocultar</p>
+                    {warehouses.map(wh => {
+                      const isHidden = hiddenWarehouses.includes(wh.id);
+                      return (
+                        <button key={wh.id} onClick={() => {
+                          const updated = isHidden
+                            ? hiddenWarehouses.filter(id => id !== wh.id)
+                            : [...hiddenWarehouses, wh.id];
+                          setHiddenWarehouses(updated);
+                          localStorage.setItem('gl_hidden_warehouses', JSON.stringify(updated));
+                        }}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium border-none cursor-pointer transition-all ${isHidden ? 'text-slate-400 bg-transparent hover:bg-slate-50' : 'text-slate-800 bg-[#6a9a04]/5 hover:bg-[#6a9a04]/10'
+                            }`}>
+                          {isHidden ? <EyeOff className="w-4 h-4 text-slate-300" /> : <Eye className="w-4 h-4 text-[#6a9a04]" />}
+                          {wh.name}
+                        </button>
+                      );
+                    })}
+                    {hiddenWarehouses.length > 0 && (
+                      <button onClick={() => { setHiddenWarehouses([]); localStorage.removeItem('gl_hidden_warehouses'); }}
+                        className="w-full text-center text-xs text-[#6a9a04] font-bold py-2 mt-1 border-t border-slate-100 bg-transparent border-l-0 border-r-0 border-b-0 cursor-pointer hover:underline">
+                        Mostrar todas
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Products Table with Warehouse Columns */}
@@ -268,7 +313,7 @@ export default function InventariosPage() {
                     <tr className="bg-slate-50/50 border-b border-slate-200">
                       <th className="px-5 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Producto</th>
                       <th className="px-3 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">SKU</th>
-                      {warehouses.map(wh => (
+                      {warehouses.filter(wh => !hiddenWarehouses.includes(wh.id)).map(wh => (
                         <th key={wh.id} className="px-3 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center" style={{ minWidth: 120 }}>
                           <div className="flex flex-col items-center gap-0.5">
                             <Warehouse className="w-3.5 h-3.5 text-[#6a9a04]" />
@@ -283,7 +328,7 @@ export default function InventariosPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredProducts.length === 0 ? (
-                      <tr><td colSpan={6 + warehouses.length} className="px-6 py-12 text-center text-slate-400">No se encontraron productos.</td></tr>
+                      <tr><td colSpan={6 + warehouses.filter(wh => !hiddenWarehouses.includes(wh.id)).length} className="px-6 py-12 text-center text-slate-400">No se encontraron productos.</td></tr>
                     ) : (
                       filteredProducts.map(product => {
                         const totalStock = product.stock_quantity || 0;
@@ -306,7 +351,7 @@ export default function InventariosPage() {
                               </div>
                             </td>
                             <td className="px-3 py-3 font-mono text-xs text-slate-500">{product.sku || '—'}</td>
-                            {warehouses.map(wh => {
+                            {warehouses.filter(wh => !hiddenWarehouses.includes(wh.id)).map(wh => {
                               const ws = getWhStock(product.id, wh.id);
                               const whAvail = ws.stock - ws.reserved;
                               return (
@@ -379,7 +424,7 @@ export default function InventariosPage() {
                   <p className="text-xl font-black text-slate-900 m-0">{totalItems.toLocaleString('es-MX')}</p>
                 </div>
               </div>
-              {warehouses.map(wh => {
+              {warehouses.filter(wh => !hiddenWarehouses.includes(wh.id)).map(wh => {
                 const whTotal = products.reduce((sum, p) => {
                   const ws = getWhStock(p.id, wh.id);
                   return sum + Math.max(ws.stock - ws.reserved, 0);
