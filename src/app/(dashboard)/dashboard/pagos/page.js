@@ -95,6 +95,41 @@ export default function AdminPagosPage() {
     setLoading(false);
   };
 
+  // Send payment status notification email
+  const sendPaymentNotification = async (payment, status, rejectionReason) => {
+    try {
+      // Get distributor email from auth
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', payment.distributor_id)
+        .single();
+
+      // Get email from the user_emails view or auth
+      const { data: userData } = await supabase.rpc('get_user_email', { p_user_id: payment.distributor_id });
+      const distributorEmail = userData;
+      if (!distributorEmail) return;
+
+      const distributorName = profile?.full_name || payment.profiles?.full_name || 'Distribuidor';
+      await fetch('/api/send-payment-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          distributorEmail,
+          distributorName,
+          amount: payment.amount,
+          paymentDate: new Date(payment.payment_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }),
+          paymentMethod: payment.payment_method || '—',
+          reference: payment.reference || '',
+          status,
+          rejectionReason: rejectionReason || '',
+        }),
+      });
+    } catch (err) {
+      console.error('Error sending payment notification:', err);
+    }
+  };
+
   const handleApprove = async (paymentId) => {
     setActionLoading(paymentId);
     const { data, error } = await supabase.rpc('review_distributor_payment', {
@@ -103,6 +138,9 @@ export default function AdminPagosPage() {
     setActionLoading(null);
     if (error) { alert('Error: ' + error.message); return; }
     if (data && !data.success) { alert(data.error); return; }
+    // Send email notification
+    const payment = payments.find(p => p.id === paymentId);
+    if (payment) sendPaymentNotification(payment, 'approved');
     fetchData();
   };
 
@@ -112,11 +150,15 @@ export default function AdminPagosPage() {
     const { data, error } = await supabase.rpc('review_distributor_payment', {
       p_payment_id: rejectModal, p_action: 'reject', p_rejection_reason: rejectReason || 'Sin motivo especificado'
     });
+    const rejectedPayment = payments.find(p => p.id === rejectModal);
     setActionLoading(null);
     setRejectModal(null);
+    const reason = rejectReason || 'Sin motivo especificado';
     setRejectReason('');
     if (error) { alert('Error: ' + error.message); return; }
     if (data && !data.success) { alert(data.error); return; }
+    // Send email notification
+    if (rejectedPayment) sendPaymentNotification(rejectedPayment, 'rejected', reason);
     fetchData();
   };
 
@@ -290,6 +332,10 @@ export default function AdminPagosPage() {
 
     setApproving(false);
     alert(`✅ ${approvedCount} pagos aprobados\n⚠️ ${unmatched.length} movimientos sin match guardados para revisión`);
+    // Send email notifications for all approved payments
+    for (const match of toApprove) {
+      if (match.matchedPayment) sendPaymentNotification(match.matchedPayment, 'approved');
+    }
     setParsedMovements([]);
     setMatchResults([]);
     setUploadFileName('');
@@ -717,6 +763,9 @@ export default function AdminPagosPage() {
                 setApproving(false);
                 if (error) { alert('Error: ' + error.message); return; }
                 if (data && !data.success) { alert(data.error); return; }
+                // Send email notification
+                const approvedPayment = payments.find(p => p.id === manualMatchPaymentId);
+                if (approvedPayment) sendPaymentNotification(approvedPayment, 'approved');
                 setManualMatchModal(null);
                 setManualMatchPaymentId('');
                 setUnmatchedFromDB(prev => prev.filter(m => m.id !== manualMatchModal.id));
