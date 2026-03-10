@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { Menu, Bell, X, ExternalLink } from 'lucide-react';
+import { Menu, Bell, X, ExternalLink, LogOut, Settings } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 
@@ -8,6 +8,8 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
   const [notifications, setNotifications] = useState([]);
   const [showPanel, setShowPanel] = useState(false);
   const panelRef = useRef(null);
+  const userMenuRef = useRef(null);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const supabase = createClient();
   const router = useRouter();
 
@@ -52,6 +54,17 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showPanel]);
 
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setShowUserMenu(false);
+      }
+    };
+    if (showUserMenu) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showUserMenu]);
+
   const handleMarkAsRead = async (notifId) => {
     await supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
     setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
@@ -64,6 +77,11 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
       await supabase.from('notifications').update({ is_read: true }).eq('id', nid);
     }
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
   };
 
   const handleNotificationClick = (notif) => {
@@ -171,18 +189,30 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
 
         <div className="h-8 w-[1px] bg-slate-200/50 mx-2"></div>
 
-        <div className="flex items-center gap-3 cursor-pointer p-1.5 pr-4 rounded-full border border-slate-200/50 hover:bg-white/50 transition-colors bg-white/20 backdrop-blur-sm">
-          <div className="w-10 h-10 rounded-full border border-[#6a9a04]/20 p-0.5 bg-white/50 flex items-center justify-center overflow-hidden">
-            <div className="w-full h-full rounded-full bg-gradient-to-br from-[#6a9a04]/20 to-[#dee24b]/20 flex items-center justify-center text-[#6a9a04] font-bold text-sm">
-              {userName ? userName.charAt(0).toUpperCase() : 'U'}
+        <div className="relative" ref={userMenuRef}>
+          <div onClick={() => setShowUserMenu(!showUserMenu)} className="flex items-center gap-3 cursor-pointer p-1.5 pr-4 rounded-full border border-slate-200/50 hover:bg-white/50 transition-colors bg-white/20 backdrop-blur-sm">
+            <div className="w-10 h-10 rounded-full border border-[#6a9a04]/20 p-0.5 bg-white/50 flex items-center justify-center overflow-hidden">
+              <div className="w-full h-full rounded-full bg-gradient-to-br from-[#6a9a04]/20 to-[#dee24b]/20 flex items-center justify-center text-[#6a9a04] font-bold text-sm">
+                {userName ? userName.charAt(0).toUpperCase() : 'U'}
+              </div>
+            </div>
+            <div className="text-right hidden sm:block">
+              <p className="text-sm font-bold text-slate-800 leading-none">{userName || 'Usuario'}</p>
+              <p className="text-[10px] uppercase tracking-widest text-[#6a9a04] font-black mt-1">
+                {userRole === 'admin' ? 'Administrador' : 'Distribuidor'}
+              </p>
             </div>
           </div>
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-bold text-slate-800 leading-none">{userName || 'Usuario'}</p>
-            <p className="text-[10px] uppercase tracking-widest text-[#6a9a04] font-black mt-1">
-              {userRole === 'admin' ? 'Administrador' : 'Distribuidor'}
-            </p>
-          </div>
+          {showUserMenu && (
+            <div className="absolute right-0 top-14 w-48 bg-white/95 backdrop-blur-xl rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-50">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors bg-transparent border-none cursor-pointer"
+              >
+                <LogOut size={16} /> Cerrar Sesión
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
