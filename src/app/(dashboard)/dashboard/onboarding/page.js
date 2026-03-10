@@ -73,7 +73,7 @@ export default function OnboardingPage() {
         zip_code: '', city: '', state: '',
     });
     const [declarations, setDeclarations] = useState({
-        info_true: false, terms: false, contract: false,
+        info_true: false, terms: false, contract: false, privacy: false, terms_use: false,
     });
 
     // Signature
@@ -112,6 +112,8 @@ export default function OnboardingPage() {
                     info_true: dp.declaration_info_true || false,
                     terms: dp.declaration_terms_accepted || false,
                     contract: dp.declaration_contract_accepted || false,
+                    privacy: dp.declaration_privacy_accepted || false,
+                    terms_use: dp.declaration_terms_use_accepted || false,
                 });
 
                 // Determine step from status
@@ -282,7 +284,7 @@ export default function OnboardingPage() {
 
     // STEP 4: Declarations
     const handleAcceptDeclarations = async () => {
-        if (!declarations.info_true || !declarations.terms || !declarations.contract) {
+        if (!declarations.info_true || !declarations.terms || !declarations.contract || !declarations.privacy || !declarations.terms_use) {
             alert('Debes aceptar todas las declaraciones.'); return;
         }
         setSaving(true);
@@ -291,6 +293,8 @@ export default function OnboardingPage() {
             declaration_info_true: true,
             declaration_terms_accepted: true,
             declaration_contract_accepted: true,
+            declaration_privacy_accepted: true,
+            declaration_terms_use_accepted: true,
             declarations_accepted_at: new Date().toISOString(),
             declarations_ip: ip,
             onboarding_status: 'contract_generated',
@@ -824,6 +828,23 @@ export default function OnboardingPage() {
                                     <span className="text-sm text-slate-700 leading-relaxed">{d.text}</span>
                                 </label>
                             ))}
+                            {/* Privacy & Terms checkboxes */}
+                            <label className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${declarations.privacy ? 'border-[#6a9a04]/30 bg-[#6a9a04]/5' : 'border-slate-200 hover:border-slate-300'}`}>
+                                <input type="checkbox" checked={declarations.privacy}
+                                    onChange={e => setDeclarations(prev => ({ ...prev, privacy: e.target.checked }))}
+                                    className="mt-1 w-5 h-5 accent-[#6a9a04] shrink-0" />
+                                <span className="text-sm text-slate-700 leading-relaxed">
+                                    He leído y acepto el <a href="/aviso-de-privacidad" target="_blank" className="text-[#6a9a04] font-bold hover:underline" onClick={e => e.stopPropagation()}>Aviso de Privacidad</a>
+                                </span>
+                            </label>
+                            <label className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${declarations.terms_use ? 'border-[#6a9a04]/30 bg-[#6a9a04]/5' : 'border-slate-200 hover:border-slate-300'}`}>
+                                <input type="checkbox" checked={declarations.terms_use}
+                                    onChange={e => setDeclarations(prev => ({ ...prev, terms_use: e.target.checked }))}
+                                    className="mt-1 w-5 h-5 accent-[#6a9a04] shrink-0" />
+                                <span className="text-sm text-slate-700 leading-relaxed">
+                                    Acepto los <a href="/terminos-de-uso" target="_blank" className="text-[#6a9a04] font-bold hover:underline" onClick={e => e.stopPropagation()}>Términos de Uso</a>
+                                </span>
+                            </label>
                         </div>
 
                         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
@@ -836,7 +857,7 @@ export default function OnboardingPage() {
                             <button onClick={() => setStep(3)} className="flex items-center gap-2 text-slate-600 hover:text-slate-800 font-medium bg-transparent border-none cursor-pointer">
                                 <ArrowLeft size={18} /> Atrás
                             </button>
-                            <button onClick={handleAcceptDeclarations} disabled={saving || !declarations.info_true || !declarations.terms || !declarations.contract}
+                            <button onClick={handleAcceptDeclarations} disabled={saving || !declarations.info_true || !declarations.terms || !declarations.contract || !declarations.privacy || !declarations.terms_use}
                                 className="flex items-center gap-2 bg-[#6a9a04] text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-[#6a9a04]/20 hover:bg-[#6a9a04]/90 transition-all border-none cursor-pointer disabled:opacity-50">
                                 {saving ? <Loader2 size={18} className="animate-spin" /> : <CheckSquare size={18} />} Aceptar y Continuar
                             </button>

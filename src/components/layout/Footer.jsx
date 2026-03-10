@@ -62,8 +62,8 @@ const Footer = () => {
         <div className="footer-bottom">
           <p>&copy; {new Date().getFullYear()} Greenland Products. Todos los derechos reservados.</p>
           <div className="legal-links">
-            <Link href="/privacidad">Aviso de Privacidad</Link>
-            <Link href="/terminos">Términos y Condiciones</Link>
+            <Link href="/aviso-de-privacidad">Aviso de Privacidad</Link>
+            <Link href="/terminos-de-uso">Términos de Uso</Link>
           </div>
         </div>
       </div>

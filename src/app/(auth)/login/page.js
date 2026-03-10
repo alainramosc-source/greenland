@@ -304,6 +304,13 @@ export default function LoginPage() {
               {viewState === 'register' ? 'Inicia Sesión' : viewState === 'recover' ? 'Inicia Sesión' : 'Solicita acceso'}
             </button>
           </div>
+
+          {/* Legal Footer */}
+          <div className="mt-6 pt-4 border-t border-slate-100 flex justify-center gap-4 text-xs text-slate-400">
+            <Link href="/aviso-de-privacidad" className="hover:text-[#6a9a04] transition-colors" target="_blank">Aviso de Privacidad</Link>
+            <span>·</span>
+            <Link href="/terminos-de-uso" className="hover:text-[#6a9a04] transition-colors" target="_blank">Términos de Uso</Link>
+          </div>
         </div>
       </div>
 

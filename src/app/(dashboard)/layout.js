@@ -84,6 +84,15 @@ export default function DashboardLayout({ children }) {
           <div className="relative z-10 max-w-7xl mx-auto">
             {children}
           </div>
+
+          {/* Legal Footer */}
+          <div className="relative z-10 max-w-7xl mx-auto mt-12 pt-4 border-t border-slate-200/50 flex flex-wrap justify-center gap-3 text-xs text-slate-400 pb-4">
+            <span>© {new Date().getFullYear()} GreenLand Products</span>
+            <span>·</span>
+            <a href="/aviso-de-privacidad" target="_blank" className="hover:text-[#6a9a04] transition-colors no-underline text-slate-400">Aviso de Privacidad</a>
+            <span>·</span>
+            <a href="/terminos-de-uso" target="_blank" className="hover:text-[#6a9a04] transition-colors no-underline text-slate-400">Términos de Uso</a>
+          </div>
         </main>
       </div>
 
