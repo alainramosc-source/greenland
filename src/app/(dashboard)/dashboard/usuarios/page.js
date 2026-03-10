@@ -195,7 +195,7 @@ export default function UsersPage() {
 
   const totalClients = users.length;
   const activeClients = users.filter(u => u.is_active).length;
-  const totalRevenue = '$240.5k'; // Placeholder – connect to real data if available
+  const totalRevenue = '$0'; // Will reflect real data from orders
 
   const getInitials = (user) => {
     if (user.full_name) {
