@@ -32,8 +32,8 @@ const Footer = () => {
           <div className="footer-col">
             <h4>LÍNEAS</h4>
             <ul>
-              <li><Link href="/productos?cat=spaces">Greenland Spaces</Link></li>
-              <li><Link href="/productos?cat=deco">Greenland Deco</Link></li>
+              <li><Link href="/spaces">Greenland Spaces</Link></li>
+              <li><Link href="/deco">Greenland Deco</Link></li>
               <li><Link href="/productos?cat=mesas">Mesas Plegables</Link></li>
               <li><Link href="/productos?cat=sillas">Sillas y Bancas</Link></li>
             </ul>
