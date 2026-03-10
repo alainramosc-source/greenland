@@ -170,6 +170,8 @@ export default function AvisoDePrivacidadPage() {
                         {/* Section 8 */}
                         <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', marginTop: '36px', paddingBottom: '10px', borderBottom: '2px solid #f1f5f9' }}>8. Consentimiento</h2>
                         <p>Al registrarse o utilizar el Portal de Distribuidores GreenLand, el usuario manifiesta haber leído y aceptado los términos del presente Aviso de Privacidad.</p>
+
+                        <p style={{ marginTop: '40px', fontSize: '13px', color: '#94a3b8', fontStyle: 'italic' }}>Última actualización: Marzo 2026.</p>
                     </div>
                 </div>
             </div>
