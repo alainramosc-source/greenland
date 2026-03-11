@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import DashboardSidebar from '@/components/layout/DashboardSidebar';
 import DashboardTopBar from '@/components/layout/DashboardTopBar';
-import AdminTestingPanel from '@/components/AdminTestingPanel';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 
@@ -95,9 +94,6 @@ export default function DashboardLayout({ children }) {
           </div>
         </main>
       </div>
-
-      {/* Admin Testing Panel - only renders for admins */}
-      <AdminTestingPanel />
 
       <style jsx>{`
         .dashboard-layout {
