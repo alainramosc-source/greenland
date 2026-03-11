@@ -83,6 +83,32 @@ export default function NuevoPedidoPage() {
     fetchData();
   }, []);
 
+  // Check for reorder items from sessionStorage
+  useEffect(() => {
+    if (products.length === 0) return;
+    const reorderData = sessionStorage.getItem('reorder_items');
+    if (!reorderData) return;
+    try {
+      const items = JSON.parse(reorderData);
+      sessionStorage.removeItem('reorder_items');
+      const cartItems = items.map(item => {
+        const product = products.find(p => p.id === item.product_id);
+        if (!product) return null;
+        const effectivePrice = customPrices[product.id] ?? product.price;
+        return {
+          ...product,
+          price: effectivePrice,
+          basePrice: product.price,
+          quantity: item.quantity || 1,
+        };
+      }).filter(Boolean);
+      if (cartItems.length > 0) setCart(cartItems);
+    } catch (e) {
+      console.error('Error loading reorder items:', e);
+      sessionStorage.removeItem('reorder_items');
+    }
+  }, [products, customPrices]);
+
   // Load custom prices when distributor or address changes
   useEffect(() => {
     if (!distributorId) return;

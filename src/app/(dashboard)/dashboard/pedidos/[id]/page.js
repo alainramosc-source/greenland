@@ -8,7 +8,7 @@ import {
   CheckCircle, XCircle, Truck, PackageCheck, Loader2, User,
   AlertTriangle, X, Plus, Minus, CreditCard, ClipboardCheck,
   PackageOpen, Lock, Camera, Image, Trash2, Search, Warehouse, PackageCheck as BoxCheck,
-  MessageCircleWarning
+  MessageCircleWarning, RotateCcw
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 
@@ -778,6 +778,23 @@ export default function OrderDetailsPage() {
             >
               {ps.label}
             </span>
+            {/* Reorder Button */}
+            <button
+              onClick={() => {
+                const reorderItems = order.order_items.map(item => ({
+                  product_id: item.product_id,
+                  quantity: item.quantity,
+                  unit_price: item.unit_price,
+                  name: item.products?.name,
+                  sku: item.products?.sku,
+                }));
+                sessionStorage.setItem('reorder_items', JSON.stringify(reorderItems));
+                router.push('/dashboard/pedidos/nuevo');
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border border-[#6a9a04]/30 text-[#6a9a04] bg-[#6a9a04]/5 hover:bg-[#6a9a04]/15 cursor-pointer transition-all ml-auto"
+            >
+              <RotateCcw size={15} /> Reordenar
+            </button>
           </div>
         </div>
 
