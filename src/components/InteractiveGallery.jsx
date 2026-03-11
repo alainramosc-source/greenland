@@ -163,14 +163,15 @@ export default function InteractiveGallery({ sku, productName }) {
                             key={idx}
                             onClick={() => selectThumbnail(idx)}
                             className={`thumbnail-btn relative min-w-[80px] w-[80px] h-[80px] rounded-lg overflow-hidden border-2 transition-all ${idx === safeCurrentIndex
-                                    ? 'border-[var(--color-primary)] opacity-100 scale-105 shadow-md'
-                                    : 'border-transparent opacity-60 hover:opacity-100 bg-[#f8f9fa]'
+                                ? 'border-[var(--color-primary)] opacity-100 scale-105 shadow-md'
+                                : 'border-transparent opacity-60 hover:opacity-100 bg-[#f8f9fa]'
                                 }`}
                         >
                             <img
                                 src={img.url}
                                 alt={`Miniatura ${idx + 1}`}
                                 className="w-full h-full object-cover mix-blend-multiply"
+                                onError={() => handleImageError(images.findIndex(i => i.id === img.id))}
                             />
                         </button>
                     ))}
