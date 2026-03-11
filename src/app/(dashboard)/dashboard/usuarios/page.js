@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Search, Filter, Edit2, Shield, AlertCircle, X, Save, UserPlus, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from 'lucide-react';
+import { Search, Filter, Edit2, Shield, AlertCircle, X, Save, UserPlus, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, Loader2, ShieldAlert } from 'lucide-react';
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -20,6 +20,7 @@ export default function UsersPage() {
   const [newCollab, setNewCollab] = useState({ full_name: '', email: '', password: '', sub_role: 'viewer' });
   const [creatingCollab, setCreatingCollab] = useState(false);
   const [currentUserSubRole, setCurrentUserSubRole] = useState(null);
+  const [unauthorized, setUnauthorized] = useState(false);
 
   const supabase = createClient();
 
@@ -27,20 +28,34 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     setLoading(true);
+
+    // Admin guard
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
+    const { data: profile } = await supabase.from('profiles').select('role, sub_role').eq('id', user.id).single();
+    if (profile?.role !== 'admin') {
+      setUnauthorized(true);
+      setLoading(false);
+      return;
+    }
+    setCurrentUserSubRole(profile?.sub_role);
+
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
     if (!error && data) setUsers(data);
-
-    // Get current user's sub_role
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase.from('profiles').select('sub_role').eq('id', user.id).single();
-      setCurrentUserSubRole(profile?.sub_role);
-    }
     setLoading(false);
   };
+
+  if (unauthorized) {
+    return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-slate-500">
+        <Shield size={48} className="text-red-400" />
+        <p className="font-bold text-lg">Acceso no autorizado</p>
+      </div>
+    );
+  }
 
   const handleEditClick = (user) => {
     setSelectedUser({ ...user });

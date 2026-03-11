@@ -21,9 +21,20 @@ export default function ExpedientesPage() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [unauthorized, setUnauthorized] = useState(false);
 
     useEffect(() => {
         async function load() {
+            // Admin guard
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) { setLoading(false); return; }
+            const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+            if (profile?.role !== 'admin') {
+                setUnauthorized(true);
+                setLoading(false);
+                return;
+            }
+
             const { data } = await supabase
                 .from('distributor_profiles')
                 .select('*, profiles:user_id(full_name, email, phone, client_number)')
@@ -33,6 +44,15 @@ export default function ExpedientesPage() {
         }
         load();
     }, []);
+
+    if (unauthorized) {
+        return (
+            <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-slate-500">
+                <Shield size={48} className="text-red-400" />
+                <p className="font-bold text-lg">Acceso no autorizado</p>
+            </div>
+        );
+    }
 
     const filtered = profiles.filter(p => {
         const name = p.full_name || p.legal_name || p.profiles?.full_name || '';
