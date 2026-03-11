@@ -347,16 +347,43 @@ export default function InventariosPage() {
     setCsvUploading(true);
     let success = 0;
     let failed = 0;
+    const failedErrors = [];
     for (const row of csvRows) {
-      const { error } = await supabase.from('warehouse_stock').upsert({
-        product_id: row.productId,
-        warehouse_id: row.warehouseId,
-        stock: row.quantity,
-        reserved: 0,
-      }, { onConflict: 'product_id,warehouse_id' });
-      if (error) failed++; else success++;
+      // Check if row exists
+      const { data: existing } = await supabase
+        .from('warehouse_stock')
+        .select('id, reserved')
+        .eq('product_id', row.productId)
+        .eq('warehouse_id', row.warehouseId)
+        .maybeSingle();
+
+      let error;
+      if (existing) {
+        // UPDATE existing — preserve reserved
+        ({ error } = await supabase
+          .from('warehouse_stock')
+          .update({ stock: row.quantity })
+          .eq('product_id', row.productId)
+          .eq('warehouse_id', row.warehouseId));
+      } else {
+        // INSERT new
+        ({ error } = await supabase
+          .from('warehouse_stock')
+          .insert({
+            product_id: row.productId,
+            warehouse_id: row.warehouseId,
+            stock: row.quantity,
+            reserved: 0,
+          }));
+      }
+      if (error) {
+        failed++;
+        if (failedErrors.length < 5) failedErrors.push(`${row.sku} → ${row.warehouseName}: ${error.message}`);
+      } else {
+        success++;
+      }
     }
-    setCsvResult({ success, failed });
+    setCsvResult({ success, failed, errors: failedErrors });
     setCsvUploading(false);
     if (failed === 0) {
       await fetchData();
@@ -925,6 +952,11 @@ export default function InventariosPage() {
                       {csvResult.success} registros actualizados exitosamente
                       {csvResult.failed > 0 && `, ${csvResult.failed} fallaron`}
                     </p>
+                    {csvResult.errors && csvResult.errors.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {csvResult.errors.map((err, i) => <p key={i} className="text-xs text-red-600 m-0">{err}</p>)}
+                      </div>
+                    )}
                   </div>
                 )}
 
