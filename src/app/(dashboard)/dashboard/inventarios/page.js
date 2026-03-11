@@ -241,7 +241,9 @@ export default function InventariosPage() {
     router.push(`/dashboard/inventarios/conteo/${data.session_id}`);
   };
 
-  // CSV Upload handler
+  // CSV Upload handler — supports two formats:
+  // 1) Pivot: SKU | Bodega1 | Bodega2 | ...  (warehouse names as headers)
+  // 2) Row:   SKU | Bodega | Cantidad         (one row per SKU+warehouse)
   const handleCsvFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -251,41 +253,85 @@ export default function InventariosPage() {
       const lines = text.split(/\r?\n/).filter(l => l.trim());
       if (lines.length < 2) { setCsvErrors(['El archivo está vacío o no tiene filas de datos.']); setShowCsvModal(true); return; }
 
-      // Detect delimiter
+      // Detect delimiter (tab, semicolon, or comma)
       const headerLine = lines[0];
-      const delimiter = headerLine.includes(';') ? ';' : ',';
-      const headers = headerLine.split(delimiter).map(h => h.trim().toLowerCase().replace(/["']/g, ''));
+      const delimiter = headerLine.includes('\t') ? '\t' : headerLine.includes(';') ? ';' : ',';
+      const headers = headerLine.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+      const headersLower = headers.map(h => h.toLowerCase());
 
-      // Find column indices
-      const skuIdx = headers.findIndex(h => h === 'sku' || h === 'código' || h === 'codigo');
-      const whIdx = headers.findIndex(h => h === 'bodega' || h === 'warehouse' || h === 'almacen' || h === 'almacén');
-      const qtyIdx = headers.findIndex(h => h === 'cantidad' || h === 'stock' || h === 'qty' || h === 'quantity');
-
-      if (skuIdx === -1 || whIdx === -1 || qtyIdx === -1) {
-        setCsvErrors([`No se encontraron las columnas requeridas. Encontradas: [${headers.join(', ')}]. Se necesitan: SKU, Bodega, Cantidad.`]);
+      // Find SKU column
+      const skuIdx = headersLower.findIndex(h => h === 'sku' || h === 'código' || h === 'codigo');
+      if (skuIdx === -1) {
+        setCsvErrors([`No se encontró la columna SKU. Columnas encontradas: [${headers.join(', ')}]`]);
         setCsvRows([]);
         setShowCsvModal(true);
         return;
       }
 
+      // Check if it's pivot format (warehouse names as headers) or row format
+      const whIdx = headersLower.findIndex(h => h === 'bodega' || h === 'warehouse' || h === 'almacen' || h === 'almacén');
+      const qtyIdx = headersLower.findIndex(h => h === 'cantidad' || h === 'stock' || h === 'qty' || h === 'quantity');
+      const isPivot = whIdx === -1 || qtyIdx === -1;
+
       const errors = [];
       const rows = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
-        const sku = cols[skuIdx]?.toUpperCase();
-        const whName = cols[whIdx];
-        const qty = parseInt(cols[qtyIdx]);
 
-        if (!sku || !whName) continue;
+      if (isPivot) {
+        // PIVOT FORMAT: Each non-SKU header is a warehouse name
+        const warehouseColumns = [];
+        for (let c = 0; c < headers.length; c++) {
+          if (c === skuIdx) continue;
+          const wh = warehouses.find(w => w.name.toLowerCase() === headers[c].toLowerCase());
+          if (wh) {
+            warehouseColumns.push({ idx: c, warehouse: wh });
+          } else if (headers[c].trim()) {
+            errors.push(`Columna "${headers[c]}" no coincide con ninguna bodega registrada`);
+          }
+        }
 
-        const product = products.find(p => p.sku?.toUpperCase() === sku);
-        const warehouse = warehouses.find(w => w.name.toLowerCase() === whName.toLowerCase());
+        if (warehouseColumns.length === 0) {
+          setCsvErrors([`No se encontraron bodegas en las columnas. Columnas: [${headers.join(', ')}]. Bodegas registradas: [${warehouses.map(w => w.name).join(', ')}]`]);
+          setCsvRows([]);
+          setShowCsvModal(true);
+          return;
+        }
 
-        if (!product) { errors.push(`Fila ${i + 1}: SKU "${sku}" no encontrado`); continue; }
-        if (!warehouse) { errors.push(`Fila ${i + 1}: Bodega "${whName}" no encontrada`); continue; }
-        if (isNaN(qty) || qty < 0) { errors.push(`Fila ${i + 1}: Cantidad inválida "${cols[qtyIdx]}"`); continue; }
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+          const sku = cols[skuIdx]?.toUpperCase();
+          if (!sku) continue;
 
-        rows.push({ sku, productId: product.id, productName: product.name, warehouseId: warehouse.id, warehouseName: warehouse.name, quantity: qty });
+          const product = products.find(p => p.sku?.toUpperCase() === sku);
+          if (!product) { errors.push(`Fila ${i + 1}: SKU "${sku}" no encontrado`); continue; }
+
+          for (const wc of warehouseColumns) {
+            const qty = parseInt(cols[wc.idx]);
+            if (isNaN(qty) || qty < 0) continue; // Skip empty/invalid cells
+            rows.push({
+              sku, productId: product.id, productName: product.name,
+              warehouseId: wc.warehouse.id, warehouseName: wc.warehouse.name, quantity: qty
+            });
+          }
+        }
+      } else {
+        // ROW FORMAT: SKU, Bodega, Cantidad
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+          const sku = cols[skuIdx]?.toUpperCase();
+          const whName = cols[whIdx];
+          const qty = parseInt(cols[qtyIdx]);
+
+          if (!sku || !whName) continue;
+
+          const product = products.find(p => p.sku?.toUpperCase() === sku);
+          const warehouse = warehouses.find(w => w.name.toLowerCase() === whName.toLowerCase());
+
+          if (!product) { errors.push(`Fila ${i + 1}: SKU "${sku}" no encontrado`); continue; }
+          if (!warehouse) { errors.push(`Fila ${i + 1}: Bodega "${whName}" no encontrada`); continue; }
+          if (isNaN(qty) || qty < 0) { errors.push(`Fila ${i + 1}: Cantidad inválida "${cols[qtyIdx]}"`); continue; }
+
+          rows.push({ sku, productId: product.id, productName: product.name, warehouseId: warehouse.id, warehouseName: warehouse.name, quantity: qty });
+        }
       }
 
       setCsvRows(rows);
