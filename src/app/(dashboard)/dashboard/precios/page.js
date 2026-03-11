@@ -418,10 +418,18 @@ export default function PreciosPage() {
 
     const downloadBulkTemplate = () => {
         const rows = ['ID_Cliente,Dirección,SKU,Precio'];
-        distributors.slice(0, 2).forEach(d => {
+        distributors.forEach(d => {
+            if (!d.client_number) return;
             const addrs = allAddresses.filter(a => a.distributor_id === d.id);
-            products.slice(0, 3).forEach(p => {
-                rows.push(`${d.client_number || ''},${addrs[0]?.alias || 'Por defecto'},${p.sku},${p.price}`);
+            // Default (no specific address)
+            products.slice(0, 2).forEach(p => {
+                rows.push(`${d.client_number},Por defecto,${p.sku},${p.price}`);
+            });
+            // Each registered address
+            addrs.forEach(addr => {
+                products.slice(0, 2).forEach(p => {
+                    rows.push(`${d.client_number},${addr.alias || addr.city || ''},${p.sku},${p.price}`);
+                });
             });
         });
         const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
