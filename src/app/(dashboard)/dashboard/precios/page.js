@@ -37,6 +37,14 @@ export default function PreciosPage() {
     const [distributorAddresses, setDistributorAddresses] = useState([]);
     const [selectedAddress, setSelectedAddress] = useState('default'); // 'default' or address UUID
     const [distributorPrices, setDistributorPrices] = useState({}); // { productId: customPrice }
+    // Bulk CSV for distributor prices
+    const [showBulkCsv, setShowBulkCsv] = useState(false);
+    const [bulkCsvRows, setBulkCsvRows] = useState([]);
+    const [bulkCsvErrors, setBulkCsvErrors] = useState([]);
+    const [bulkCsvUploading, setBulkCsvUploading] = useState(false);
+    const [bulkCsvResult, setBulkCsvResult] = useState(null);
+    const [allAddresses, setAllAddresses] = useState([]);
+    const bulkFileRef = useRef(null);
 
     const supabase = createClient();
     const router = useRouter();
@@ -61,7 +69,7 @@ export default function PreciosPage() {
                 .limit(100),
             supabase
                 .from('profiles')
-                .select('id, full_name, email, city')
+                .select('id, full_name, email, city, client_number')
                 .eq('role', 'distributor')
                 .eq('is_active', true)
                 .order('full_name')
@@ -73,6 +81,14 @@ export default function PreciosPage() {
         setDistributors(distributorsRes.data || []);
         const cats = [...new Set(data.map(p => p.categories?.name).filter(Boolean))];
         setCategories(cats);
+
+        // Fetch all addresses for bulk upload
+        const { data: allAddr } = await supabase
+            .from('distributor_addresses')
+            .select('id, distributor_id, alias, city, state')
+            .order('alias');
+        setAllAddresses(allAddr || []);
+
         setLoading(false);
     };
 
@@ -288,6 +304,133 @@ export default function PreciosPage() {
         URL.revokeObjectURL(url);
     };
 
+    // --- BULK CSV for multiple distributors ---
+    const handleBulkCsvFile = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const text = ev.target.result;
+            const lines = text.split(/\r?\n/).filter(l => l.trim());
+            if (lines.length < 2) { setBulkCsvErrors(['El archivo está vacío.']); setShowBulkCsv(true); return; }
+
+            const delimiter = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ',';
+            const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+            const headersLower = headers.map(h => h.toLowerCase());
+
+            const clientIdx = headersLower.findIndex(h => ['id_cliente', 'id cliente', 'cliente', 'client_number', 'distribuidor'].includes(h));
+            const addrIdx = headersLower.findIndex(h => ['dirección', 'direccion', 'address', 'alias'].includes(h));
+            const skuIdx = headersLower.findIndex(h => h === 'sku' || h === 'código' || h === 'codigo');
+            const priceIdx = headersLower.findIndex(h => ['precio', 'price', 'precio_especial', 'custom_price'].includes(h));
+
+            if (clientIdx === -1 || skuIdx === -1 || priceIdx === -1) {
+                setBulkCsvErrors([`Columnas requeridas no encontradas. Encontradas: [${headers.join(', ')}]. Se necesitan: ID_Cliente, SKU, Precio (Dirección es opcional).`]);
+                setBulkCsvRows([]);
+                setShowBulkCsv(true);
+                return;
+            }
+
+            const errors = [];
+            const rows = [];
+            for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+                const clientNum = cols[clientIdx]?.toUpperCase();
+                const sku = cols[skuIdx]?.toUpperCase();
+                const priceRaw = cols[priceIdx]?.replace(/[$,]/g, '');
+                const price = parseFloat(priceRaw);
+                const addrAlias = addrIdx !== -1 ? cols[addrIdx] : null;
+
+                if (!clientNum || !sku) continue;
+
+                const dist = distributors.find(d => d.client_number?.toUpperCase() === clientNum);
+                if (!dist) { errors.push(`Fila ${i + 1}: Cliente "${clientNum}" no encontrado`); continue; }
+
+                const product = products.find(p => p.sku?.toUpperCase() === sku);
+                if (!product) { errors.push(`Fila ${i + 1}: SKU "${sku}" no encontrado`); continue; }
+
+                if (isNaN(price) || price <= 0) { errors.push(`Fila ${i + 1}: Precio inválido "${cols[priceIdx]}"`); continue; }
+
+                let addressId = null;
+                let addressName = 'Por defecto';
+                if (addrAlias && addrAlias.toLowerCase() !== 'default' && addrAlias.toLowerCase() !== 'por defecto') {
+                    const addr = allAddresses.find(a => a.distributor_id === dist.id && a.alias?.toLowerCase() === addrAlias.toLowerCase());
+                    if (!addr) { errors.push(`Fila ${i + 1}: Dirección "${addrAlias}" no encontrada para ${clientNum}`); continue; }
+                    addressId = addr.id;
+                    addressName = addr.alias;
+                }
+
+                rows.push({
+                    clientNum, distributorId: dist.id, distributorName: dist.full_name,
+                    sku, productId: product.id, productName: product.name,
+                    addressId, addressName, price
+                });
+            }
+
+            setBulkCsvRows(rows);
+            setBulkCsvErrors(errors);
+            setBulkCsvResult(null);
+            setShowBulkCsv(true);
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    };
+
+    const handleBulkCsvUpload = async () => {
+        setBulkCsvUploading(true);
+        let success = 0, failed = 0;
+        const failedErrors = [];
+        for (const row of bulkCsvRows) {
+            // Check if exists
+            let query = supabase.from('distributor_prices').select('id')
+                .eq('distributor_id', row.distributorId)
+                .eq('product_id', row.productId);
+            if (row.addressId) {
+                query = query.eq('address_id', row.addressId);
+            } else {
+                query = query.is('address_id', null);
+            }
+            const { data: existing } = await query.maybeSingle();
+
+            let error;
+            if (existing) {
+                ({ error } = await supabase.from('distributor_prices')
+                    .update({ custom_price: row.price, updated_at: new Date().toISOString() })
+                    .eq('id', existing.id));
+            } else {
+                ({ error } = await supabase.from('distributor_prices')
+                    .insert({
+                        distributor_id: row.distributorId,
+                        product_id: row.productId,
+                        address_id: row.addressId,
+                        custom_price: row.price,
+                    }));
+            }
+            if (error) {
+                failed++;
+                if (failedErrors.length < 5) failedErrors.push(`${row.clientNum}/${row.sku}: ${error.message}`);
+            } else {
+                success++;
+            }
+        }
+        setBulkCsvResult({ success, failed, errors: failedErrors });
+        setBulkCsvUploading(false);
+    };
+
+    const downloadBulkTemplate = () => {
+        const rows = ['ID_Cliente,Dirección,SKU,Precio'];
+        distributors.slice(0, 2).forEach(d => {
+            const addrs = allAddresses.filter(a => a.distributor_id === d.id);
+            products.slice(0, 3).forEach(p => {
+                rows.push(`${d.client_number || ''},${addrs[0]?.alias || 'Por defecto'},${p.sku},${p.price}`);
+            });
+        });
+        const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'plantilla_precios_distribuidores.csv';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    };
+
     // Copy base prices to distributor
     const handleCopyBasePrices = () => {
         const newEdits = {};
@@ -386,6 +529,20 @@ export default function PreciosPage() {
                                 <FileSpreadsheet className="w-3.5 h-3.5" /> Copiar Precios Base
                             </button>
                         )}
+                        {/* Bulk CSV Upload */}
+                        <input ref={bulkFileRef} type="file" accept=".csv,.txt,.tsv" onChange={handleBulkCsvFile} className="hidden" />
+                        <button
+                            onClick={() => bulkFileRef.current?.click()}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-[#6a9a04] bg-[#6a9a04]/5 border border-[#6a9a04]/30 hover:bg-[#6a9a04]/15 cursor-pointer transition-all"
+                        >
+                            <Upload className="w-3.5 h-3.5" /> Carga Masiva
+                        </button>
+                        <button
+                            onClick={downloadBulkTemplate}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm"
+                        >
+                            <Download className="w-3.5 h-3.5" /> Plantilla
+                        </button>
                         {/* Save */}
                         {editCount > 0 && (
                             <button
@@ -827,6 +984,99 @@ export default function PreciosPage() {
                                     <Upload className="w-4 h-4" /> Aplicar Precios del CSV
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk CSV Modal */}
+            {showBulkCsv && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center px-4">
+                    <div className="bg-white/95 backdrop-blur-xl border border-white max-w-[800px] w-full rounded-2xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
+                        <div className="p-5 border-b border-slate-200/50 flex justify-between items-center bg-white/50">
+                            <div className="flex items-center gap-3">
+                                <Users className="w-5 h-5 text-[#6a9a04]" />
+                                <h3 className="text-lg font-bold text-slate-900 m-0">Carga Masiva — Precios por Distribuidor</h3>
+                            </div>
+                            <button onClick={() => { setShowBulkCsv(false); setBulkCsvRows([]); setBulkCsvErrors([]); setBulkCsvResult(null); }}
+                                className="p-1.5 rounded-lg hover:bg-slate-100 bg-transparent border-none cursor-pointer text-slate-500">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="overflow-y-auto flex-1 p-5 space-y-4">
+                            {bulkCsvErrors.length > 0 && (
+                                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                                    <p className="text-sm font-bold text-red-700 mb-2 m-0 flex items-center gap-2"><AlertTriangle size={14} /> {bulkCsvErrors.length} error(es)</p>
+                                    <div className="max-h-32 overflow-y-auto space-y-1">
+                                        {bulkCsvErrors.map((e, i) => <p key={i} className="text-xs text-red-600 m-0">{e}</p>)}
+                                    </div>
+                                </div>
+                            )}
+
+                            {bulkCsvResult && (
+                                <div className={`border rounded-xl p-4 ${bulkCsvResult.failed > 0 ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
+                                    <p className="text-sm font-bold m-0 flex items-center gap-2">
+                                        {bulkCsvResult.failed === 0 ? <Check size={16} className="text-green-600" /> : <AlertTriangle size={16} className="text-amber-600" />}
+                                        {bulkCsvResult.success} precios actualizados
+                                        {bulkCsvResult.failed > 0 && `, ${bulkCsvResult.failed} fallaron`}
+                                    </p>
+                                    {bulkCsvResult.errors?.length > 0 && (
+                                        <div className="mt-2 space-y-1">
+                                            {bulkCsvResult.errors.map((err, i) => <p key={i} className="text-xs text-red-600 m-0">{err}</p>)}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {bulkCsvRows.length > 0 && !bulkCsvResult && (
+                                <>
+                                    <p className="text-sm text-slate-600 font-medium m-0">{bulkCsvRows.length} precios listos para aplicar:</p>
+                                    <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="bg-slate-50 border-b border-slate-200">
+                                                    <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">Cliente</th>
+                                                    <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">Dirección</th>
+                                                    <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">SKU</th>
+                                                    <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">Producto</th>
+                                                    <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase text-right">Precio</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {bulkCsvRows.slice(0, 50).map((row, i) => (
+                                                    <tr key={i} className="hover:bg-slate-50/50">
+                                                        <td className="px-3 py-2 text-sm"><span className="font-mono font-bold text-[#6a9a04]">{row.clientNum}</span> <span className="text-slate-400 text-xs">{row.distributorName}</span></td>
+                                                        <td className="px-3 py-2 text-sm text-slate-600">{row.addressName}</td>
+                                                        <td className="px-3 py-2 text-sm font-mono text-slate-500">{row.sku}</td>
+                                                        <td className="px-3 py-2 text-sm text-slate-700">{row.productName}</td>
+                                                        <td className="px-3 py-2 text-sm font-bold text-slate-900 text-right">${row.price.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                        {bulkCsvRows.length > 50 && <p className="text-xs text-slate-400 text-center py-2 m-0">...y {bulkCsvRows.length - 50} más</p>}
+                                    </div>
+                                </>
+                            )}
+
+                            {bulkCsvRows.length === 0 && bulkCsvErrors.length === 0 && !bulkCsvResult && (
+                                <p className="text-center text-slate-400 py-8 m-0">No se encontraron datos válidos.</p>
+                            )}
+                        </div>
+
+                        <div className="p-5 border-t border-slate-200 flex justify-end gap-3">
+                            <button onClick={() => { setShowBulkCsv(false); setBulkCsvRows([]); setBulkCsvErrors([]); setBulkCsvResult(null); }}
+                                className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm">
+                                {bulkCsvResult ? 'Cerrar' : 'Cancelar'}
+                            </button>
+                            {bulkCsvRows.length > 0 && !bulkCsvResult && (
+                                <button onClick={handleBulkCsvUpload} disabled={bulkCsvUploading}
+                                    className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#6a9a04] hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/20 cursor-pointer transition-all border-none disabled:opacity-50 flex items-center gap-2">
+                                    {bulkCsvUploading ? <Save size={16} className="animate-spin" /> : <Upload size={16} />}
+                                    {bulkCsvUploading ? 'Aplicando...' : `Aplicar ${bulkCsvRows.length} precios`}
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
