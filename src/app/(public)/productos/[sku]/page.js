@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import InteractiveGallery from '@/components/InteractiveGallery';
 import { notFound } from 'next/navigation';
+import '../catalog.css';
 
 export const dynamic = 'force-dynamic';
 export const dynamicParams = true;
@@ -68,7 +69,6 @@ export default async function ProductDetailsPage({ params }) {
 
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: '1fr',
                     gap: '4rem',
                     background: '#FFFFFF',
                     padding: '3rem',
