@@ -127,9 +127,8 @@ export default function InventariosPage() {
 
     // Prevent negative resulting stock
     if (qty < 0) {
-      const currentStock = warehouseStock
-        .filter(ws => ws.product_id === selectedProduct.id && ws.warehouse_id === selectedWarehouse)
-        .reduce((sum, ws) => sum + (ws.stock - ws.reserved), 0);
+      const ws = getWhStock(selectedProduct.id, selectedWarehouse);
+      const currentStock = ws.stock - ws.reserved;
       if (currentStock + qty < 0) {
         alert(`No puedes restar ${Math.abs(qty)} unidades. Stock disponible: ${currentStock}`);
         return;
@@ -352,7 +351,7 @@ export default function InventariosPage() {
       // Check if row exists
       const { data: existing } = await supabase
         .from('warehouse_stock')
-        .select('id, reserved')
+        .select('id, reserved_quantity')
         .eq('product_id', row.productId)
         .eq('warehouse_id', row.warehouseId)
         .maybeSingle();
@@ -362,7 +361,7 @@ export default function InventariosPage() {
         // UPDATE existing — preserve reserved
         ({ error } = await supabase
           .from('warehouse_stock')
-          .update({ stock: row.quantity })
+          .update({ stock_quantity: row.quantity })
           .eq('product_id', row.productId)
           .eq('warehouse_id', row.warehouseId));
       } else {
@@ -372,8 +371,8 @@ export default function InventariosPage() {
           .insert({
             product_id: row.productId,
             warehouse_id: row.warehouseId,
-            stock: row.quantity,
-            reserved: 0,
+            stock_quantity: row.quantity,
+            reserved_quantity: 0,
           }));
       }
       if (error) {
