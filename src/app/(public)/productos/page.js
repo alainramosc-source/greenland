@@ -128,7 +128,7 @@ export default async function ProductosPage({ searchParams }) {
                                         <h3>{product.name}</h3>
                                         <p>{product.description?.substring(0, 80)}...</p>
                                         <div className="product-footer" style={{ marginTop: 'auto' }}>
-                                            <span className="price">${parseFloat(product.price).toLocaleString()} <span style={{ fontSize: '0.7em', fontWeight: 400 }}>MXN</span></span>
+                                            <span></span>
                                             <button className="btn-icon" aria-label="Ver detalles" style={{ pointerEvents: 'none' }} tabIndex={-1}>
                                                 <ArrowRight size={20} />
                                             </button>

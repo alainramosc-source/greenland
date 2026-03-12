@@ -101,9 +101,8 @@ export default async function ProductDetailsPage({ params }) {
                         </h1>
                         <p style={{ fontSize: '1rem', color: 'var(--color-text-secondary)', marginBottom: '2rem', fontFamily: 'monospace' }}>SKU: {product.sku}</p>
 
-                        <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--color-primary)', marginBottom: '2rem' }}>
-                            ${parseFloat(product.price).toLocaleString()} <span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--color-text-secondary)' }}>MXN</span>
-                        </div>
+
+
 
                         <div style={{ marginBottom: '3rem' }}>
                             <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--color-text)' }}>Descripción Técnica</h3>
