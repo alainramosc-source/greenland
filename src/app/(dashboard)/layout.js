@@ -67,6 +67,7 @@ export default function DashboardLayout({ children }) {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         userRole={userRole}
+        actualRole={actualRole}
         subRole={subRole}
       />
       <div className="dashboard-content-wrapper flex flex-col min-h-screen overflow-hidden relative">

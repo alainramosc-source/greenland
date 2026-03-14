@@ -1,21 +1,76 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
-const DashboardSidebar = ({ isOpen, onClose, userRole, subRole }) => {
+const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) => {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
 
+  // Impersonation state
+  const [distributors, setDistributors] = useState([]);
+  const [selectedDistId, setSelectedDistId] = useState('');
+  const [isImpersonating, setIsImpersonating] = useState(false);
+  const [impersonatedName, setImpersonatedName] = useState('');
+
+  const isSuperAdmin = actualRole === 'admin' && subRole === 'super_admin';
+
+  // Load distributors list and check current impersonation state
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+
+    const testRole = sessionStorage.getItem('test_view_role');
+    const testDistId = sessionStorage.getItem('test_view_distributor_id');
+    const testDistName = sessionStorage.getItem('test_distributor_name');
+    if (testRole === 'distributor' && testDistId) {
+      setIsImpersonating(true);
+      setSelectedDistId(testDistId);
+      setImpersonatedName(testDistName || 'Distribuidor');
+    }
+
+    // Fetch distributors
+    const fetchDistributors = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, client_number')
+        .eq('role', 'distributor')
+        .eq('is_active', true)
+        .order('full_name', { ascending: true });
+      setDistributors(data || []);
+    };
+    fetchDistributors();
+  }, [isSuperAdmin]);
+
+  const handleStartImpersonation = () => {
+    if (!selectedDistId) return;
+    const dist = distributors.find(d => d.id === selectedDistId);
+    const name = dist?.full_name || dist?.email || 'Distribuidor';
+    sessionStorage.setItem('test_view_role', 'distributor');
+    sessionStorage.setItem('test_view_distributor_id', selectedDistId);
+    sessionStorage.setItem('test_distributor_name', name);
+    window.location.href = '/dashboard';
+  };
+
+  const handleStopImpersonation = () => {
+    sessionStorage.removeItem('test_view_role');
+    sessionStorage.removeItem('test_view_distributor_id');
+    sessionStorage.removeItem('test_distributor_name');
+    window.location.href = '/dashboard';
+  };
+
   const handleLogout = async () => {
+    sessionStorage.removeItem('test_view_role');
+    sessionStorage.removeItem('test_view_distributor_id');
+    sessionStorage.removeItem('test_distributor_name');
     await supabase.auth.signOut();
     router.push('/login');
     router.refresh();
   };
 
-  // Distributor: only "Mis Pedidos"
+  // Distributor: only their modules
   // Admin: full navigation
   const navItems = userRole === 'admin'
     ? [
@@ -50,13 +105,32 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, subRole }) => {
   return (
     <>
       <aside className={`fixed inset-y-0 left-0 w-72 bg-white/40 backdrop-blur-xl border-r border-[#6a9a04]/10 flex flex-col z-50 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`} style={{ background: 'rgba(106, 154, 4, 0.05)' }}>
-        <div className="p-6">
+
+        {/* Impersonation Banner */}
+        {isImpersonating && isSuperAdmin && (
+          <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-4 py-2.5 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Eye size={14} className="shrink-0" />
+              <span className="text-[11px] font-bold truncate">
+                Vista: {impersonatedName}
+              </span>
+            </div>
+            <button
+              onClick={handleStopImpersonation}
+              className="flex items-center gap-1 px-2 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-[10px] font-bold transition-all cursor-pointer border-none text-white shrink-0"
+            >
+              <ArrowLeft size={12} /> Admin
+            </button>
+          </div>
+        )}
+
+        <div className="p-6 flex-1 overflow-y-auto">
           <div className="flex flex-col items-center justify-center mb-8">
             <img src="/logo-new.jpg" alt="GreenLand Products" className="h-16 w-auto object-contain mb-2" style={{ mixBlendMode: 'multiply' }} />
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6a9a04]">Portal de Distribuidores</span>
           </div>
 
-          <nav className="space-y-2 overflow-y-auto">
+          <nav className="space-y-2">
             <div className="mb-2 px-4 flex items-center gap-2">
               <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Menú Principal</span>
             </div>
@@ -98,21 +172,53 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, subRole }) => {
           </nav>
         </div>
 
-        <div className="mt-auto p-6 border-t border-[#6a9a04]/10">
-          <button onClick={handleLogout} className="flex w-full items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl transition-all">
-            <LogOut size={20} />
-            <span className="font-bold text-sm">Cerrar Sesión</span>
-          </button>
-          <div className="text-center mt-3">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              {userRole === 'admin'
-                ? (subRole === 'super_admin' ? 'Super Admin'
-                  : subRole === 'warehouse_admin' ? 'Admin Bodega'
-                    : subRole === 'accountant' ? 'Contabilidad'
-                      : subRole === 'viewer' ? 'Solo Lectura'
-                        : 'Administrador')
-                : 'Distribuidor'}
-            </p>
+        {/* Bottom section */}
+        <div className="mt-auto border-t border-[#6a9a04]/10">
+          {/* Impersonation Panel — Super Admin Only */}
+          {isSuperAdmin && !isImpersonating && (
+            <div className="px-4 py-3 border-b border-slate-200/50">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Eye size={12} className="text-orange-500" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-orange-500">Ver como Distribuidor</span>
+              </div>
+              <select
+                value={selectedDistId}
+                onChange={(e) => setSelectedDistId(e.target.value)}
+                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 outline-none focus:ring-2 focus:ring-orange-300 mb-2"
+              >
+                <option value="">Seleccionar distribuidor...</option>
+                {distributors.map(d => (
+                  <option key={d.id} value={d.id}>
+                    {d.client_number ? `${d.client_number} — ` : ''}{d.full_name || d.email}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleStartImpersonation}
+                disabled={!selectedDistId}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all border-none"
+              >
+                <Eye size={12} /> Activar Vista
+              </button>
+            </div>
+          )}
+
+          <div className="p-6">
+            <button onClick={handleLogout} className="flex w-full items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl transition-all">
+              <LogOut size={20} />
+              <span className="font-bold text-sm">Cerrar Sesión</span>
+            </button>
+            <div className="text-center mt-3">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                {userRole === 'admin'
+                  ? (subRole === 'super_admin' ? 'Super Admin'
+                    : subRole === 'warehouse_admin' ? 'Admin Bodega'
+                      : subRole === 'accountant' ? 'Contabilidad'
+                        : subRole === 'viewer' ? 'Solo Lectura'
+                          : 'Administrador')
+                  : 'Distribuidor'}
+              </p>
+            </div>
           </div>
         </div>
       </aside>
