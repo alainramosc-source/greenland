@@ -4,7 +4,8 @@ import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
     ShieldCheck, MapPin, Package, Upload, Edit3, X, Save,
-    RefreshCw, AlertTriangle, CheckCircle, TrendingDown, Warehouse, FileSpreadsheet, History
+    RefreshCw, AlertTriangle, CheckCircle, TrendingDown, Warehouse, FileSpreadsheet, History,
+    Clock, Truck, Calendar, ArrowRight
 } from 'lucide-react';
 
 export default function CoberturaPage() {
@@ -25,6 +26,8 @@ export default function CoberturaPage() {
     const [toast, setToast] = useState(null);
 
     const NUM_WEEKS = 20;
+    const LEAD_TIME_WEEKS = 9; // 4 production + 5 transit
+    const REORDER_TARGET_WEEKS = 20; // Suggested qty covers this many weeks ahead
 
     useEffect(() => { checkAdminAndFetch(); }, []);
 
@@ -48,7 +51,6 @@ export default function CoberturaPage() {
             supabase.from('warehouses').select('*').eq('is_active', true).order('sort_order'),
             supabase.from('products').select('id, name, sku').eq('is_active', true).order('sku'),
         ]);
-        // Saltillo represents both Bodega Vito Alessio and Bodega Echeverria
         const EXCLUDED_COVERAGE = ['Bodega Vito Alessio', 'Bodega Echeverría'];
         const wh = (whRes.data || []).filter(w => !EXCLUDED_COVERAGE.includes(w.name));
         setWarehouses(wh);
@@ -75,8 +77,9 @@ export default function CoberturaPage() {
         if (selectedWarehouse) { await fetchCoverage(selectedWarehouse.id); showToast('Datos actualizados'); }
     };
 
-    // Build heatmap data
+    // Build heatmap data with reorder intelligence
     const heatmapData = useMemo(() => {
+        const now = new Date();
         return products.map(product => {
             const coverage = coverageData.find(c => c.product_id === product.id);
             const stockBodega = coverage?.stock_bodega || 0;
@@ -86,7 +89,45 @@ export default function CoberturaPage() {
             const weeks = [];
             for (let i = 0; i < NUM_WEEKS; i++) { weeks.push(totalStock - (weeklyDemand * (i + 1))); }
             const coverageWeeks = weeklyDemand > 0 ? totalStock / weeklyDemand : 999;
-            return { product, stockBodega, stockTransito, weeklyDemand, totalStock, coverageWeeks, weeks, coverageId: coverage?.id || null };
+
+            // Reorder intelligence
+            let stockoutWeek = null;
+            let stockoutDate = null;
+            let reorderStatus = 'no_demand';
+            let reorderMargin = 999;
+            let suggestedQty = 0;
+
+            if (weeklyDemand > 0) {
+                // When does stock hit 0?
+                stockoutWeek = Math.floor(coverageWeeks);
+                const stockoutDateObj = new Date(now);
+                stockoutDateObj.setDate(now.getDate() + (coverageWeeks * 7));
+                stockoutDate = stockoutDateObj;
+
+                // How much margin do we have after accounting for lead time?
+                reorderMargin = coverageWeeks - LEAD_TIME_WEEKS;
+
+                if (reorderMargin > 4) {
+                    reorderStatus = 'ok'; // Plenty of time
+                } else if (reorderMargin > 0) {
+                    reorderStatus = 'plan'; // Should start planning
+                } else if (reorderMargin > -4) {
+                    reorderStatus = 'order_now'; // Order ASAP, will be tight
+                } else {
+                    reorderStatus = 'late'; // Even ordering today won't prevent stockout
+                }
+
+                // Suggested quantity: enough to cover REORDER_TARGET_WEEKS from when shipment arrives
+                const stockWhenArrives = Math.max(0, totalStock - (weeklyDemand * LEAD_TIME_WEEKS));
+                const neededForTarget = weeklyDemand * REORDER_TARGET_WEEKS;
+                suggestedQty = Math.max(0, Math.ceil(neededForTarget - stockWhenArrives));
+            }
+
+            return {
+                product, stockBodega, stockTransito, weeklyDemand, totalStock,
+                coverageWeeks, weeks, coverageId: coverage?.id || null,
+                stockoutWeek, stockoutDate, reorderStatus, reorderMargin, suggestedQty
+            };
         });
     }, [products, coverageData]);
 
@@ -99,7 +140,15 @@ export default function CoberturaPage() {
         const noDemand = heatmapData.filter(r => r.weeklyDemand === 0).length;
         const avgCoverage = withDemand.length > 0
             ? withDemand.reduce((sum, r) => sum + Math.min(r.coverageWeeks, NUM_WEEKS), 0) / withDemand.length : 0;
-        return { green, yellow, red, noDemand, avgCoverage, total: heatmapData.length };
+        const needReorder = withDemand.filter(r => r.reorderStatus === 'order_now' || r.reorderStatus === 'late').length;
+        return { green, yellow, red, noDemand, avgCoverage, total: heatmapData.length, needReorder };
+    }, [heatmapData]);
+
+    // Products that need urgent reorder
+    const reorderAlerts = useMemo(() => {
+        return heatmapData
+            .filter(r => r.weeklyDemand > 0 && (r.reorderStatus === 'order_now' || r.reorderStatus === 'late' || r.reorderStatus === 'plan'))
+            .sort((a, b) => a.reorderMargin - b.reorderMargin);
     }, [heatmapData]);
 
     // Cell color
@@ -112,6 +161,38 @@ export default function CoberturaPage() {
         if (ratio >= 0.5) return 'bg-yellow-100 text-yellow-800';
         if (ratio > 0) return 'bg-orange-100 text-orange-800';
         return 'bg-red-100 text-red-700 font-black';
+    };
+
+    // Reorder badge
+    const getReorderBadge = (row) => {
+        const configs = {
+            no_demand: { label: '—', bg: 'bg-slate-100', text: 'text-slate-400', icon: null },
+            ok: { label: 'OK', bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200', icon: <CheckCircle size={10} /> },
+            plan: { label: 'Planear', bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200', icon: <Clock size={10} /> },
+            order_now: { label: '¡Pedir!', bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200', icon: <Truck size={10} /> },
+            late: { label: 'TARDE', bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200', icon: <AlertTriangle size={10} /> },
+        };
+        const c = configs[row.reorderStatus] || configs.no_demand;
+        if (row.reorderStatus === 'no_demand') {
+            return <span className="text-slate-400 text-[10px]">—</span>;
+        }
+
+        const dateStr = row.stockoutDate
+            ? row.stockoutDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+            : '';
+
+        return (
+            <div className="flex flex-col items-center gap-0.5" title={`Quiebre: ${dateStr}\nMargen: ${row.reorderMargin.toFixed(1)} sem\nSugerido: ${row.suggestedQty} uds`}>
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black ${c.bg} ${c.text} border ${c.border}`}>
+                    {c.icon} {c.label}
+                </span>
+                {row.stockoutDate && (
+                    <span className={`text-[8px] font-bold ${row.reorderStatus === 'late' ? 'text-red-500' : row.reorderStatus === 'order_now' ? 'text-orange-500' : 'text-slate-400'}`}>
+                        ⚡ {dateStr}
+                    </span>
+                )}
+            </div>
+        );
     };
 
     // Week labels
@@ -219,7 +300,7 @@ export default function CoberturaPage() {
                         <h1 className="text-3xl font-black tracking-tight text-slate-900 m-0 flex items-center gap-2">
                             <ShieldCheck className="w-7 h-7 text-[#6a9a04]" /> Cobertura de Producto
                         </h1>
-                        <p className="text-slate-500 mt-1 font-medium m-0">Seguimiento de inventario y cobertura semanal por localidad</p>
+                        <p className="text-slate-500 mt-1 font-medium m-0">Seguimiento de inventario y cobertura semanal por localidad · <span className="text-orange-500 font-bold">Lead time: {LEAD_TIME_WEEKS} semanas</span></p>
                     </div>
                     <div className="flex gap-2 flex-wrap">
                         <button onClick={() => fileInputRef.current?.click()} disabled={csvImporting}
@@ -257,7 +338,7 @@ export default function CoberturaPage() {
                 </div>
 
                 {/* KPI Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
                     <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-lg p-4 rounded-2xl flex items-center gap-3 hover:bg-white/80 transition-all">
                         <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-500"><CheckCircle className="w-5 h-5" /></div>
                         <div><p className="text-xl font-black text-slate-900 m-0">{kpis.green}</p><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 m-0">OK (8+ sem)</p></div>
@@ -273,6 +354,15 @@ export default function CoberturaPage() {
                     <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-lg p-4 rounded-2xl flex items-center gap-3 hover:bg-white/80 transition-all">
                         <div className="w-10 h-10 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center text-[#6a9a04]"><Package className="w-5 h-5" /></div>
                         <div><p className="text-xl font-black text-slate-900 m-0">{kpis.avgCoverage.toFixed(1)}</p><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 m-0">Promedio Sem</p></div>
+                    </div>
+                    <div className={`backdrop-blur-md border shadow-lg p-4 rounded-2xl flex items-center gap-3 hover:bg-white/80 transition-all ${kpis.needReorder > 0 ? 'bg-orange-50/80 border-orange-200' : 'bg-white/60 border-white/50'}`}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${kpis.needReorder > 0 ? 'bg-orange-100 text-orange-500' : 'bg-slate-100 text-slate-400'}`}>
+                            <Truck className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <p className={`text-xl font-black m-0 ${kpis.needReorder > 0 ? 'text-orange-600' : 'text-slate-900'}`}>{kpis.needReorder}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 m-0">Pedir Ahora</p>
+                        </div>
                     </div>
                 </div>
 
@@ -294,9 +384,13 @@ export default function CoberturaPage() {
                                     <th className="px-3 py-3 text-center text-[10px] font-black uppercase tracking-wider text-slate-500 min-w-[70px]">Bodega</th>
                                     <th className="px-3 py-3 text-center text-[10px] font-black uppercase tracking-wider text-slate-500 min-w-[70px]">Tránsito</th>
                                     <th className="px-3 py-3 text-center text-[10px] font-black uppercase tracking-wider text-slate-500 min-w-[70px]">Dem/Sem</th>
+                                    <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-wider text-orange-500 min-w-[65px] bg-orange-50/50">Reorden</th>
                                     <th className="px-3 py-3 text-center text-[10px] font-black uppercase tracking-wider text-slate-500 min-w-[55px]">Editar</th>
                                     {weekLabels.map((label, i) => (
-                                        <th key={i} className="px-1.5 py-3 text-center text-[10px] font-black uppercase tracking-wider text-slate-400 min-w-[52px]">{label}</th>
+                                        <th key={i} className={`px-1.5 py-3 text-center text-[10px] font-black uppercase tracking-wider min-w-[52px] ${i === LEAD_TIME_WEEKS - 1 ? 'text-orange-500 border-r-2 border-orange-300' : 'text-slate-400'}`}>
+                                            {label}
+                                            {i === LEAD_TIME_WEEKS - 1 && <div className="text-[7px] text-orange-400 font-bold">🚢 LLEGA</div>}
+                                        </th>
                                     ))}
                                 </tr>
                             </thead>
@@ -328,6 +422,9 @@ export default function CoberturaPage() {
                                                         className="w-16 px-2 py-1 border border-[#6a9a04]/30 rounded-lg text-center text-xs outline-none focus:ring-2 focus:ring-[#6a9a04]/20 bg-white shadow-sm" />
                                                 ) : <span className="text-xs tabular-nums text-slate-700">{row.weeklyDemand.toLocaleString()}</span>}
                                             </td>
+                                            <td className="px-2 py-2 text-center bg-orange-50/20">
+                                                {getReorderBadge(row)}
+                                            </td>
                                             <td className="px-3 py-2 text-center">
                                                 {isEditing ? (
                                                     <div className="flex gap-1 justify-center">
@@ -348,7 +445,7 @@ export default function CoberturaPage() {
                                                 )}
                                             </td>
                                             {row.weeks.map((remaining, i) => (
-                                                <td key={i} className={`px-1 py-2 text-center text-[11px] tabular-nums font-bold transition-colors ${getCellColor(remaining, row.weeklyDemand)}`}
+                                                <td key={i} className={`px-1 py-2 text-center text-[11px] tabular-nums font-bold transition-colors ${getCellColor(remaining, row.weeklyDemand)} ${i === LEAD_TIME_WEEKS - 1 ? 'border-r-2 border-orange-300' : ''}`}
                                                     title={`${weekLabels[i]}: ${remaining.toLocaleString()} unidades`}>
                                                     {row.weeklyDemand > 0 ? remaining.toLocaleString() : '—'}
                                                 </td>
@@ -361,6 +458,62 @@ export default function CoberturaPage() {
                     </div>
                 </div>
 
+                {/* Reorder Suggestion Panel */}
+                {reorderAlerts.length > 0 && (
+                    <div className="bg-gradient-to-br from-orange-50/80 to-amber-50/80 backdrop-blur-md border border-orange-200 shadow-xl rounded-2xl overflow-hidden mb-4">
+                        <div className="px-5 py-4 border-b border-orange-200/50 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center text-orange-500">
+                                    <Truck className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-slate-900 m-0">Sugerencia de Reorden</h3>
+                                    <p className="text-[11px] text-slate-500 m-0">Basado en lead time de {LEAD_TIME_WEEKS} semanas · Objetivo: cubrir {REORDER_TARGET_WEEKS} semanas</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                                <thead>
+                                    <tr className="bg-orange-100/30 border-b border-orange-200/50">
+                                        <th className="px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-wider text-slate-500">SKU</th>
+                                        <th className="px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-wider text-slate-500">Producto</th>
+                                        <th className="px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-wider text-slate-500">Stock Actual</th>
+                                        <th className="px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-wider text-slate-500">Dem/Sem</th>
+                                        <th className="px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-wider text-slate-500">Sem Restantes</th>
+                                        <th className="px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-wider text-orange-500">Quiebre Est.</th>
+                                        <th className="px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-wider text-slate-500">Status</th>
+                                        <th className="px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-wider text-[#6a9a04]">Qty Sugerida</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-orange-100/50">
+                                    {reorderAlerts.map(row => (
+                                        <tr key={row.product.id} className="hover:bg-orange-50/50 transition-colors">
+                                            <td className="px-4 py-2.5 font-mono text-[11px] font-black text-[#6a9a04]">{row.product.sku}</td>
+                                            <td className="px-4 py-2.5 text-xs text-slate-700">{row.product.name}</td>
+                                            <td className="px-4 py-2.5 text-center text-xs tabular-nums font-bold text-slate-700">{row.totalStock.toLocaleString()}</td>
+                                            <td className="px-4 py-2.5 text-center text-xs tabular-nums text-slate-600">{row.weeklyDemand.toLocaleString()}</td>
+                                            <td className="px-4 py-2.5 text-center text-xs tabular-nums font-bold text-slate-700">{row.coverageWeeks.toFixed(1)}</td>
+                                            <td className="px-4 py-2.5 text-center">
+                                                <span className={`text-xs font-bold ${row.reorderStatus === 'late' ? 'text-red-600' : row.reorderStatus === 'order_now' ? 'text-orange-600' : 'text-blue-600'}`}>
+                                                    <Calendar size={10} className="inline mr-1" />
+                                                    {row.stockoutDate?.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-2.5 text-center">{getReorderBadge(row)}</td>
+                                            <td className="px-4 py-2.5 text-center">
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#6a9a04]/10 text-[#6a9a04] text-xs font-black">
+                                                    {row.suggestedQty.toLocaleString()} uds
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
                 {/* Legend */}
                 <div className="bg-white/60 backdrop-blur-md border border-white/50 rounded-xl px-4 py-3 flex items-center gap-5 flex-wrap text-xs text-slate-500">
                     <span className="font-bold text-slate-600">Leyenda:</span>
@@ -369,6 +522,8 @@ export default function CoberturaPage() {
                     <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-orange-200 inline-block" /> Bajo</span>
                     <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-200 inline-block" /> Sin stock</span>
                     <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-200 inline-block" /> Sin demanda</span>
+                    <span className="text-slate-300">|</span>
+                    <span className="flex items-center gap-1.5 text-orange-500 font-bold"><span className="w-3 h-3 rounded border-2 border-orange-300 inline-block" /> Línea semana 9 = llegada de embarque</span>
                 </div>
             </div>
         </div>
