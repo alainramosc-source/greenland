@@ -243,6 +243,24 @@ export default function PreciosPage() {
         setPercentValue('');
     };
 
+    // --- CSV Line Parser (handles quoted fields with commas inside) ---
+    const parseCsvLine = (line, delimiter = ',') => {
+        if (delimiter !== ',') return line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (ch === '"') { inQuotes = !inQuotes; continue; }
+            if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; continue; }
+            current += ch;
+        }
+        result.push(current.trim());
+        return result;
+    };
+
+    const cleanPrice = (raw) => parseFloat((raw || '').replace(/[$,\s]/g, ''));
+
     // --- CSV Import ---
     const handleCsvFile = (e) => {
         const file = e.target.files[0];
@@ -257,8 +275,8 @@ export default function PreciosPage() {
             // Detect separator
             const sep = header.includes('\t') ? '\t' : header.includes(';') ? ';' : ',';
             const rows = lines.slice(1).map(l => {
-                const parts = l.split(sep);
-                return { sku: (parts[0] || '').trim(), price: parseFloat((parts[1] || '').replace(/[$,]/g, '').trim()) };
+                const parts = parseCsvLine(l, sep);
+                return { sku: (parts[0] || '').trim(), price: cleanPrice(parts[1]) };
             }).filter(r => r.sku && !isNaN(r.price) && r.price > 0);
 
             setCsvPreview(rows);
@@ -273,18 +291,27 @@ export default function PreciosPage() {
         if (!csvData) return;
         const newEdits = { ...editedPrices };
         let matched = 0;
+        const unmatched = [];
+        console.log('[CSV Debug] Products in system:', products.map(p => p.sku));
         csvData.forEach(row => {
             const product = products.find(p => p.sku?.toLowerCase() === row.sku.toLowerCase());
             if (product) {
                 newEdits[product.id] = row.price;
                 matched++;
+            } else {
+                unmatched.push(row.sku);
+                console.log(`[CSV Debug] SKU NOT FOUND: "${row.sku}" (charCodes: ${[...row.sku].map(c => c.charCodeAt(0)).join(',')})`);
             }
         });
         setEditedPrices(newEdits);
         setShowCsvModal(false);
         setCsvData(null);
         setCsvPreview([]);
-        alert(`Se actualizaron ${matched} de ${csvData.length} productos del CSV.`);
+        if (unmatched.length > 0) {
+            alert(`Se actualizaron ${matched} de ${csvData.length} productos.\n\nSKUs NO encontrados (${unmatched.length}):\n${unmatched.join(', ')}\n\nRevisa la consola (F12) para más detalles.`);
+        } else {
+            alert(`Se actualizaron ${matched} de ${csvData.length} productos del CSV.`);
+        }
     };
 
     // --- Export CSV ---
@@ -315,7 +342,7 @@ export default function PreciosPage() {
             if (lines.length < 2) { setBulkCsvErrors(['El archivo está vacío.']); setShowBulkCsv(true); return; }
 
             const delimiter = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ',';
-            const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+            const headers = parseCsvLine(lines[0], delimiter);
             const headersLower = headers.map(h => h.toLowerCase());
 
             const clientIdx = headersLower.findIndex(h => ['id_cliente', 'id cliente', 'cliente', 'client_number', 'distribuidor'].includes(h));
@@ -333,11 +360,10 @@ export default function PreciosPage() {
             const errors = [];
             const rows = [];
             for (let i = 1; i < lines.length; i++) {
-                const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+                const cols = parseCsvLine(lines[i], delimiter);
                 const clientNum = cols[clientIdx]?.toUpperCase();
                 const sku = cols[skuIdx]?.toUpperCase();
-                const priceRaw = cols[priceIdx]?.replace(/[$,]/g, '');
-                const price = parseFloat(priceRaw);
+                const price = cleanPrice(cols[priceIdx]);
                 const addrAlias = addrIdx !== -1 ? cols[addrIdx] : null;
 
                 if (!clientNum || !sku) continue;
