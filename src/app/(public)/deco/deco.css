@@ -3,7 +3,7 @@
     min-height: 100vh;
 }
 
-/* Hero Section */
+/* ======================== HERO ======================== */
 .deco-hero {
     padding: 6rem 0 4rem;
     background-color: var(--color-card);
@@ -29,17 +29,29 @@
 }
 
 .back-link:hover {
-    color: var(--color-primary);
+    color: #c98c56;
 }
 
-.deco-tag {
-    display: inline-block;
+.deco-brand {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.deco-logo-text {
     font-size: 0.875rem;
     font-weight: 600;
+    color: var(--color-text-light);
+    letter-spacing: 0.15em;
+}
+
+.deco-logo-accent {
+    font-size: 0.875rem;
+    font-weight: 800;
     color: #c98c56;
-    /* A slightly warmer tone for deco */
-    letter-spacing: 0.1em;
-    margin-bottom: 1rem;
+    letter-spacing: 0.15em;
+    font-style: italic;
 }
 
 .deco-hero-content h1 {
@@ -50,14 +62,11 @@
     color: var(--color-text);
 }
 
-.deco-intro {
-    font-size: 1.25rem;
-    color: var(--color-text);
-    font-weight: 500;
-    margin-bottom: 1rem;
+.deco-hero-content h1 .accent {
+    color: #c98c56;
 }
 
-.deco-description {
+.deco-intro {
     font-size: 1.125rem;
     color: var(--color-text-light);
     line-height: 1.6;
@@ -67,123 +76,395 @@
 .deco-actions {
     display: flex;
     gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.btn-primary-deco {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.75rem;
+    background-color: #c98c56;
+    color: white;
+    text-decoration: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.3s;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-primary-deco:hover {
+    background-color: #b07a49;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(201, 140, 86, 0.3);
+}
+
+.btn-outline-deco {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.75rem;
+    border: 2px solid var(--color-text);
+    color: var(--color-text);
+    text-decoration: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.3s;
+    background: transparent;
+}
+
+.btn-outline-deco:hover {
+    background-color: var(--color-text);
+    color: white;
+}
+
+.deco-hero-visual {
+    display: flex;
+    justify-content: center;
 }
 
 .deco-image-card {
     width: 100%;
     height: 500px;
-    background: linear-gradient(135deg, #f5f0eb 0%, #e2d8ce 100%);
-    /* Warmer gradient */
     border-radius: 24px;
+    overflow: hidden;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.deco-hero-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ======================== NAV ======================== */
+.deco-nav {
+    background-color: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+}
+
+.deco-nav-inner {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 1.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 
-.deco-placeholder span {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #a38c73;
-    text-transform: uppercase;
+.deco-nav-inner::-webkit-scrollbar {
+    display: none;
+}
+
+.deco-nav-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #c98c56;
     letter-spacing: 0.1em;
+    white-space: nowrap;
 }
 
-/* Materials Catalog */
-.materials-section {
+.deco-nav-links {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.deco-nav-link {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--color-text-light);
+    text-decoration: none;
+    border-radius: 8px;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.deco-nav-link:hover {
+    background-color: rgba(201, 140, 86, 0.1);
+    color: #c98c56;
+}
+
+/* ======================== PRODUCTS ======================== */
+.deco-products-section {
     padding: 5rem 0;
     background-color: var(--color-background);
 }
 
-.materials-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 2rem;
-    margin-top: 3rem;
+.deco-products-header {
+    text-align: center;
+    max-width: 700px;
+    margin: 0 auto 4rem;
 }
 
-.material-card {
-    background: var(--color-card);
+.section-label-deco {
+    display: inline-block;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #c98c56;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.75rem;
+}
+
+.deco-products-header h2 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--color-text);
+}
+
+.deco-products-header p {
+    color: var(--color-text-light);
+    font-size: 1.125rem;
+    line-height: 1.6;
+}
+
+.deco-products-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6rem;
+}
+
+.deco-product-card {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: start;
+}
+
+.deco-product-card.reversed {
+    direction: rtl;
+}
+
+.deco-product-card.reversed > * {
+    direction: ltr;
+}
+
+.deco-product-visual {
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    position: sticky;
+    top: 6rem;
+}
+
+.deco-product-img {
+    width: 100%;
+    height: 400px;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.5s;
+}
+
+.deco-product-visual:hover .deco-product-img {
+    transform: scale(1.03);
+}
+
+.deco-product-content {
+    padding: 0.5rem 0;
+}
+
+.deco-product-number {
+    font-size: 3rem;
+    font-weight: 900;
+    line-height: 1;
+    opacity: 0.25;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.deco-product-content h3 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    color: var(--color-text);
+}
+
+.deco-product-subtitle {
+    font-size: 0.875rem;
+    color: var(--color-text-light);
+    margin-bottom: 0.5rem;
+    font-style: italic;
+}
+
+.deco-product-tagline {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.deco-product-desc {
+    font-size: 1rem;
+    color: var(--color-text-light);
+    line-height: 1.6;
+    margin-bottom: 2rem;
+}
+
+/* Specs Grid */
+.deco-specs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 2rem;
+}
+
+.deco-spec-item {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.deco-spec-item:nth-child(odd) {
+    border-right: 1px solid var(--color-border);
+}
+
+.deco-spec-item:nth-last-child(-n+2) {
+    border-bottom: none;
+}
+
+.deco-spec-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--color-text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.deco-spec-value {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+/* Advantages */
+.deco-advantages-list {
+    margin-bottom: 2rem;
+}
+
+.deco-advantages-list h4 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-light);
+    margin-bottom: 0.75rem;
+}
+
+.deco-advantages-list ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.deco-advantages-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.95rem;
+    color: var(--color-text);
+    line-height: 1.4;
+}
+
+.deco-adv-icon {
+    flex-shrink: 0;
+    margin-top: 3px;
+}
+
+/* Product CTA */
+.deco-product-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    color: white;
+    text-decoration: none;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+}
+
+.deco-product-cta:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* ======================== APPLICATIONS ======================== */
+.deco-applications-section {
+    padding: 5rem 0;
+    background-color: #fcfbf9;
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.section-header-deco {
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto 3rem;
+}
+
+.section-header-deco h2 {
+    font-size: 2.25rem;
+    margin-bottom: 1rem;
+    color: var(--color-text);
+}
+
+.section-header-deco p {
+    color: var(--color-text-light);
+    font-size: 1.125rem;
+}
+
+.deco-applications-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+}
+
+.deco-app-card {
+    background: white;
     padding: 2.5rem 2rem;
     border-radius: 16px;
     border: 1px solid var(--color-border);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.material-card:hover {
+.deco-app-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
 }
 
-.material-icon {
+.deco-app-icon {
     color: #c98c56;
-    /* Warmer tone */
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.25rem;
 }
 
-.material-card h3 {
+.deco-app-card h3 {
     font-size: 1.25rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
     color: var(--color-text);
 }
 
-.material-card p {
+.deco-app-card p {
     color: var(--color-text-light);
     line-height: 1.5;
+    font-size: 0.95rem;
 }
 
-/* Target Audience */
-.target-section {
-    padding: 5rem 0;
-    background-color: #fcfbf9;
-    /* Super subtle warm tint */
-    border-top: 1px solid var(--color-border);
-    border-bottom: 1px solid var(--color-border);
-}
-
-.target-container {
-    max-width: 800px;
-    margin: 0 auto;
-}
-
-.target-content h2 {
-    font-size: 2.25rem;
-    margin-bottom: 1.5rem;
-    color: var(--color-text);
-}
-
-.target-content p {
-    font-size: 1.125rem;
-    color: var(--color-text-light);
-    line-height: 1.6;
-    margin-bottom: 2rem;
-}
-
-.target-list {
-    list-style: none;
-    padding: 0;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-}
-
-.target-list li {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    font-size: 1.125rem;
-    color: var(--color-text);
-    background: white;
-    padding: 1rem 1.5rem;
-    border-radius: 8px;
-    border: 1px solid var(--color-border);
-}
-
-.list-icon {
-    color: #c98c56;
-}
-
-/* CTA */
+/* ======================== CTA ======================== */
 .deco-cta-section {
     padding: 6rem 0;
     text-align: center;
@@ -200,6 +481,9 @@
     font-size: 1.25rem;
     color: var(--color-text-light);
     margin-bottom: 2rem;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .deco-cta-actions {
@@ -207,24 +491,73 @@
     justify-content: center;
 }
 
-/* Responsive */
+/* ======================== RESPONSIVE ======================== */
 @media (max-width: 992px) {
     .deco-hero-container {
         grid-template-columns: 1fr;
         gap: 3rem;
     }
+
+    .deco-product-card {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+
+    .deco-product-card.reversed {
+        direction: ltr;
+    }
+
+    .deco-product-visual {
+        position: static;
+    }
+
+    .deco-applications-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 @media (max-width: 768px) {
     .deco-hero-content h1 {
-        font-size: 2.5rem;
+        font-size: 2.25rem;
     }
 
-    .materials-grid {
+    .deco-image-card {
+        height: 300px;
+    }
+
+    .deco-product-img {
+        height: 280px;
+    }
+
+    .deco-products-header h2 {
+        font-size: 1.75rem;
+    }
+
+    .deco-specs-grid {
         grid-template-columns: 1fr;
     }
 
-    .target-list {
+    .deco-spec-item:nth-child(odd) {
+        border-right: none;
+    }
+
+    .deco-spec-item {
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .deco-spec-item:last-child {
+        border-bottom: none;
+    }
+
+    .deco-applications-grid {
         grid-template-columns: 1fr;
+    }
+
+    .deco-cta-content h2 {
+        font-size: 1.75rem;
+    }
+
+    .section-header-deco h2 {
+        font-size: 1.75rem;
     }
 }
