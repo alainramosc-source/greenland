@@ -35,6 +35,7 @@ export default function OrderDetailsPage() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -44,6 +45,7 @@ export default function OrderDetailsPage() {
     payment_date: new Date().toISOString().split('T')[0], notes: ''
   });
   const [editingItems, setEditingItems] = useState({});
+  const [editingPrices, setEditingPrices] = useState({});
   const [evidence, setEvidence] = useState([]);
   const [evidenceTab, setEvidenceTab] = useState('embarque');
   const [uploading, setUploading] = useState(false);
@@ -83,6 +85,10 @@ export default function OrderDetailsPage() {
     }
 
     setIsAdmin(admin);
+
+    // Super admin check (can edit prices on any order)
+    const superEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+    setIsSuperAdmin(admin && superEmails.includes(user.email?.toLowerCase()));
 
     const { data, error } = await supabase
       .from('orders')
@@ -570,6 +576,34 @@ export default function OrderDetailsPage() {
     setActionLoading(null);
   };
 
+  // --- Super Admin: Update Item Price ---
+  const handleUpdatePrice = async (itemId, newPrice) => {
+    const validPrice = parseFloat(newPrice);
+    if (isNaN(validPrice) || validPrice < 0) {
+      alert('El precio debe ser un número válido (>= 0).');
+      setEditingPrices(prev => { const next = { ...prev }; delete next[itemId]; return next; });
+      return;
+    }
+    setActionLoading(`price-${itemId}`);
+    const { error } = await supabase
+      .from('order_items')
+      .update({ unit_price: validPrice })
+      .eq('id', itemId);
+    if (error) {
+      alert('Error al actualizar precio: ' + error.message);
+    } else {
+      // Recalculate order total
+      const updatedItems = order.order_items.map(i =>
+        i.id === itemId ? { ...i, unit_price: validPrice } : i
+      );
+      const newTotal = updatedItems.reduce((sum, i) => sum + (i.quantity * i.unit_price), 0);
+      await supabase.from('orders').update({ total_amount: newTotal }).eq('id', id);
+      await fetchOrderDetails();
+    }
+    setEditingPrices(prev => { const next = { ...prev }; delete next[itemId]; return next; });
+    setActionLoading(null);
+  };
+
   // --- Admin: Register Payment ---
   const handleRegisterPayment = async () => {
     const validAmount = validateAmount(paymentForm.amount);
@@ -875,8 +909,39 @@ export default function OrderDetailsPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="py-4 font-medium text-slate-600">
-                          ${Number(item.unit_price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        <td className="py-4">
+                          {isSuperAdmin ? (
+                            <div className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+                              <span className="text-amber-600 text-sm font-bold">$</span>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={editingPrices[item.id] !== undefined ? editingPrices[item.id] : Number(item.unit_price).toFixed(2)}
+                                onChange={(e) => {
+                                  const raw = e.target.value.replace(/[^0-9.]/g, '');
+                                  setEditingPrices(prev => ({ ...prev, [item.id]: raw }));
+                                }}
+                                onBlur={() => {
+                                  const raw = editingPrices[item.id];
+                                  if (raw === undefined) return;
+                                  const newPrice = parseFloat(raw);
+                                  setEditingPrices(prev => { const next = { ...prev }; delete next[item.id]; return next; });
+                                  if (!isNaN(newPrice) && newPrice !== Number(item.unit_price)) {
+                                    handleUpdatePrice(item.id, newPrice);
+                                  }
+                                }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                                className="font-bold text-sm text-amber-700 w-20 text-right border-none outline-none bg-transparent"
+                              />
+                              {actionLoading === `price-${item.id}` && (
+                                <Loader2 size={12} className="animate-spin text-amber-500" />
+                              )}
+                            </div>
+                          ) : (
+                            <span className="font-medium text-slate-600">
+                              ${Number(item.unit_price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </span>
+                          )}
                         </td>
                         <td className="py-4 text-center">
                           {isAdmin && order.status === 'pending' ? (
