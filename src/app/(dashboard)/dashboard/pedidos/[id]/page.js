@@ -8,7 +8,7 @@ import {
   CheckCircle, XCircle, Truck, PackageCheck, Loader2, User,
   AlertTriangle, X, Plus, Minus, CreditCard, ClipboardCheck,
   PackageOpen, Lock, Camera, Image, Trash2, Search, Warehouse, PackageCheck as BoxCheck,
-  MessageCircleWarning, RotateCcw
+  MessageCircleWarning, RotateCcw, Printer
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 
@@ -856,6 +856,22 @@ export default function OrderDetailsPage() {
             >
               <RotateCcw size={15} /> Reordenar
             </button>
+            {/* Reprint Loading Sheet — Admin, when in_fulfillment or beyond */}
+            {isAdmin && ['in_fulfillment', 'shipped', 'closed'].includes(order.status) && (
+              <button
+                onClick={() => {
+                  const pw = window.open('', '_blank');
+                  if (pw) {
+                    printLoadingSheet(pw);
+                  } else {
+                    alert('El navegador bloqueó la ventana emergente. Permite las ventanas emergentes e intenta de nuevo.');
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border border-purple-300 text-purple-600 bg-purple-50 hover:bg-purple-100 cursor-pointer transition-all"
+              >
+                <Printer size={15} /> Hoja de Carga
+              </button>
+            )}
           </div>
         </div>
 
