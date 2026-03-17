@@ -561,3 +561,149 @@
         font-size: 1.75rem;
     }
 }
+
+/* ======================== QUOTATION FORM ======================== */
+.deco-quote-hero {
+    padding: 6rem 0 3rem;
+    background-color: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.deco-quote-hero h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 0.75rem;
+}
+
+.deco-quote-subtitle {
+    font-size: 1.125rem;
+    color: var(--color-text-light);
+    max-width: 550px;
+}
+
+.deco-quote-success {
+    text-align: center;
+    padding: 4rem 0;
+}
+
+.deco-quote-success h1 {
+    margin-top: 1.5rem;
+}
+
+.deco-quote-success p {
+    font-size: 1.125rem;
+    color: var(--color-text-light);
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.deco-quote-form-section {
+    padding: 3rem 0 5rem;
+    background-color: var(--color-background);
+}
+
+.deco-quote-form {
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.deco-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.deco-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+}
+
+.deco-full-width {
+    margin-bottom: 1.5rem;
+}
+
+.deco-form-group label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.deco-form-group input,
+.deco-form-group select,
+.deco-form-group textarea {
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-card);
+    color: var(--color-text);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: inherit;
+}
+
+.deco-form-group input:focus,
+.deco-form-group select:focus,
+.deco-form-group textarea:focus {
+    outline: none;
+    border-color: #c98c56;
+    box-shadow: 0 0 0 3px rgba(201, 140, 86, 0.15);
+}
+
+.deco-form-group textarea {
+    resize: vertical;
+}
+
+.deco-quote-submit {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 2rem;
+    background: #c98c56;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: inherit;
+}
+
+.deco-quote-submit:hover:not(:disabled) {
+    background: #b07a49;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(201, 140, 86, 0.3);
+}
+
+.deco-quote-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.deco-quote-error {
+    color: #dc2626;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+}
+
+.spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+    .deco-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .deco-quote-hero h1 {
+        font-size: 1.75rem;
+    }
+}

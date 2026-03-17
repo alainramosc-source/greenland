@@ -223,7 +223,7 @@ export default function DecoPage() {
                             Desde paneles de madera hasta mármol UV y pisos vinílicos. Soluciones decorativas funcionales, estéticas y de fácil instalación para proyectos residenciales, comerciales e industriales.
                         </p>
                         <div className="deco-actions">
-                            <Link href="/distribuidores" className="btn btn-primary-deco">
+                            <Link href="/deco/cotizacion" className="btn btn-primary-deco">
                                 Contactar Asesor <ArrowRight size={18} />
                             </Link>
                             <a href="#catalogo" className="btn btn-outline-deco">
