@@ -69,7 +69,7 @@ export default function OrderDetailsPage() {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, sub_role')
       .eq('id', user.id)
       .single();
 
@@ -87,8 +87,7 @@ export default function OrderDetailsPage() {
     setIsAdmin(admin);
 
     // Super admin check (can edit prices on any order)
-    const superEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-    setIsSuperAdmin(admin && superEmails.includes(user.email?.toLowerCase()));
+    setIsSuperAdmin(admin && profile?.sub_role === 'super_admin');
 
     const { data, error } = await supabase
       .from('orders')
