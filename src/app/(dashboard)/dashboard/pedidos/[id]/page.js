@@ -519,6 +519,10 @@ export default function OrderDetailsPage() {
 
   // --- Admin: Edit Item Quantity ---
   const handleUpdateQuantity = async (itemId, newQuantity) => {
+    // Handle delete (qty = 0)
+    if (newQuantity === 0) {
+      return handleDeleteItem(itemId);
+    }
     const validQty = validateQuantity(newQuantity);
     if (!validQty) {
       alert('La cantidad debe ser un número entero mayor a 0.');
@@ -539,6 +543,30 @@ export default function OrderDetailsPage() {
       await fetchOrderDetails();
     }
     setEditingItems(prev => { const next = { ...prev }; delete next[itemId]; return next; });
+    setActionLoading(null);
+  };
+
+  // --- Admin: Delete Item from Order ---
+  const handleDeleteItem = async (itemId) => {
+    if (order.order_items.length <= 1) {
+      alert('No puedes eliminar el último producto del pedido. Si deseas cancelar el pedido, recházalo.');
+      return;
+    }
+    setActionLoading(`qty-${itemId}`);
+    // Delete the item
+    const { error: delErr } = await supabase
+      .from('order_items')
+      .delete()
+      .eq('id', itemId);
+    if (delErr) {
+      alert('Error al eliminar producto: ' + delErr.message);
+    } else {
+      // Recalculate order total
+      const remainingItems = order.order_items.filter(i => i.id !== itemId);
+      const newTotal = remainingItems.reduce((sum, i) => sum + (i.quantity * i.unit_price), 0);
+      await supabase.from('orders').update({ total_amount: newTotal }).eq('id', id);
+      await fetchOrderDetails();
+    }
     setActionLoading(null);
   };
 

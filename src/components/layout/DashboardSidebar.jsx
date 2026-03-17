@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck, Eye, EyeOff, ArrowLeft, MessageSquare } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) => {
@@ -75,10 +75,12 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
   const navItems = userRole === 'admin'
     ? [
       { name: 'Tablero', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'Inbox', href: '/dashboard/inbox', icon: MessageSquare },
       { name: 'Pedidos', href: '/dashboard/pedidos', icon: ShoppingCart },
     ]
     : [
       { name: 'Tablero', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'Inbox', href: '/dashboard/inbox', icon: MessageSquare },
       { name: 'Mis Pedidos', href: '/dashboard/pedidos', icon: ShoppingCart },
       { name: 'Mis Pagos', href: '/dashboard/mis-pagos', icon: CreditCard },
       { name: 'Mi Inventario', href: '/dashboard/mi-inventario', icon: Package },

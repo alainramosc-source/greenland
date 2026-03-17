@@ -52,12 +52,16 @@ export default function InventariosPage() {
     return [];
   });
   const [showWhFilter, setShowWhFilter] = useState(false);
+  // Movement history
+  const [movementLogs, setMovementLogs] = useState([]);
+  const [movementSearch, setMovementSearch] = useState('');
   // CSV upload
   const [showCsvModal, setShowCsvModal] = useState(false);
   const [csvRows, setCsvRows] = useState([]);
   const [csvErrors, setCsvErrors] = useState([]);
   const [csvUploading, setCsvUploading] = useState(false);
   const [csvResult, setCsvResult] = useState(null);
+  const [csvComment, setCsvComment] = useState('');
   const csvInputRef = useRef(null);
 
   const supabase = createClient();
@@ -108,6 +112,31 @@ export default function InventariosPage() {
       .select('id, full_name, email')
       .eq('role', 'admin');
     setAdmins(adminUsers || []);
+
+    // Fetch movement logs (last 200)
+    let logs = [];
+    try {
+      const { data: logsData, error: logsErr } = await supabase
+        .from('inventory_logs')
+        .select('*, product:products(name, sku), user:profiles(full_name, email)')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (logsErr) throw logsErr;
+      logs = logsData || [];
+    } catch {
+      // Fallback without joins
+      const { data: logsData } = await supabase
+        .from('inventory_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      logs = (logsData || []).map(l => ({
+        ...l,
+        product: products.find(p => p.id === l.product_id) || null,
+        user: null
+      }));
+    }
+    setMovementLogs(logs);
 
     setUserId(user.id);
     setLoading(false);
@@ -347,34 +376,27 @@ export default function InventariosPage() {
     let success = 0;
     let failed = 0;
     const failedErrors = [];
+    const reason = csvComment.trim() || 'Carga masiva CSV';
     for (const row of csvRows) {
-      // Check if row exists
+      // Get current stock to calculate delta
       const { data: existing } = await supabase
         .from('warehouse_stock')
-        .select('id, reserved_quantity')
+        .select('id, stock_quantity, reserved_quantity')
         .eq('product_id', row.productId)
         .eq('warehouse_id', row.warehouseId)
         .maybeSingle();
 
-      let error;
-      if (existing) {
-        // UPDATE existing — preserve reserved
-        ({ error } = await supabase
-          .from('warehouse_stock')
-          .update({ stock_quantity: row.quantity })
-          .eq('product_id', row.productId)
-          .eq('warehouse_id', row.warehouseId));
-      } else {
-        // INSERT new
-        ({ error } = await supabase
-          .from('warehouse_stock')
-          .insert({
-            product_id: row.productId,
-            warehouse_id: row.warehouseId,
-            stock_quantity: row.quantity,
-            reserved_quantity: 0,
-          }));
-      }
+      const currentQty = existing?.stock_quantity || 0;
+      const delta = row.quantity - currentQty;
+
+      // Use RPC to track the movement with reason/comment
+      const { error } = await supabase.rpc('adjust_warehouse_stock', {
+        p_product_id: row.productId,
+        p_warehouse_id: row.warehouseId,
+        p_quantity_change: delta,
+        p_reason: reason
+      });
+
       if (error) {
         failed++;
         if (failedErrors.length < 5) failedErrors.push(`${row.sku} → ${row.warehouseName}: ${error.message}`);
@@ -382,7 +404,7 @@ export default function InventariosPage() {
         success++;
       }
     }
-    setCsvResult({ success, failed, errors: failedErrors });
+    setCsvResult({ success, failed, errors: failedErrors, comment: reason });
     setCsvUploading(false);
     if (failed === 0) {
       await fetchData();
@@ -417,7 +439,7 @@ export default function InventariosPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 mb-6 bg-white/60 backdrop-blur-md rounded-xl p-1 border border-white/50 shadow-sm w-fit">
-            {[{ key: 'stock', label: 'Stock', icon: Package }, { key: 'conteos', label: 'Conteos', icon: ClipboardList }].map(t => (
+            {[{ key: 'stock', label: 'Stock', icon: Package }, { key: 'historial', label: 'Historial', icon: History }, { key: 'conteos', label: 'Conteos', icon: ClipboardList }].map(t => (
               <button key={t.key} onClick={() => setActiveTab(t.key)}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all border-none cursor-pointer ${activeTab === t.key
                   ? 'bg-[#6a9a04] text-white shadow-md'
@@ -637,6 +659,112 @@ export default function InventariosPage() {
               </div>
             </>
           )}
+
+          {/* ===== HISTORIAL TAB ===== */}
+          {activeTab === 'historial' && (() => {
+            const filteredLogs = movementLogs.filter(log => {
+              if (!movementSearch) return true;
+              const s = movementSearch.toLowerCase();
+              return (
+                (log.product?.name || '').toLowerCase().includes(s) ||
+                (log.product?.sku || '').toLowerCase().includes(s) ||
+                (log.reason || '').toLowerCase().includes(s) ||
+                (log.user?.full_name || '').toLowerCase().includes(s)
+              );
+            });
+            return (
+              <div>
+                {/* Search */}
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input type="text" placeholder="Buscar por producto, SKU, motivo, usuario..."
+                      value={movementSearch} onChange={(e) => setMovementSearch(e.target.value)}
+                      className="w-full pl-12 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm placeholder:text-slate-400 text-slate-800 outline-none shadow-sm" />
+                  </div>
+                  <p className="text-sm text-slate-500 m-0 ml-auto">{filteredLogs.length} movimientos</p>
+                </div>
+
+                {filteredLogs.length === 0 ? (
+                  <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-12 text-center">
+                    <History size={48} className="mx-auto mb-4 text-slate-300" />
+                    <p className="text-lg font-bold text-slate-400">Sin movimientos</p>
+                    <p className="text-sm text-slate-400 mt-1">Los ajustes manuales y cargas CSV aparecerán aquí.</p>
+                  </div>
+                ) : (
+                  <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-xl rounded-2xl overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50/50 border-b border-slate-200">
+                            <th className="px-5 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Fecha</th>
+                            <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Producto</th>
+                            <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center">Cantidad</th>
+                            <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Bodega</th>
+                            <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Motivo</th>
+                            <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Usuario</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredLogs.map(log => {
+                            const qty = log.quantity_change || 0;
+                            const isPositive = qty > 0;
+                            // Extract warehouse name from reason if present e.g. "[Bodega: Echeverría]"
+                            const whMatch = (log.reason || '').match(/\[Bodega:\s*(.+?)\]/);
+                            const warehouseName = whMatch ? whMatch[1] : '—';
+                            const cleanReason = (log.reason || '—').replace(/\s*\[Bodega:.*?\]/, '').trim();
+                            const dateStr = new Date(log.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+                            const timeStr = new Date(log.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+                            return (
+                              <tr key={log.id} className="hover:bg-white/50 transition-colors">
+                                <td className="px-5 py-3">
+                                  <p className="text-sm font-medium text-slate-800 m-0">{dateStr}</p>
+                                  <p className="text-[10px] text-slate-400 m-0">{timeStr}</p>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <p className="text-sm font-bold text-slate-800 m-0">{log.product?.name || '—'}</p>
+                                  <p className="text-[10px] font-mono text-[#6a9a04] m-0">{log.product?.sku || ''}</p>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-black ${
+                                    isPositive
+                                      ? 'bg-green-50 text-green-700 border border-green-200'
+                                      : qty < 0
+                                        ? 'bg-red-50 text-red-600 border border-red-200'
+                                        : 'bg-slate-50 text-slate-500 border border-slate-200'
+                                  }`}>
+                                    {isPositive ? '+' : ''}{qty}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="text-xs text-slate-600 flex items-center gap-1">
+                                    <Warehouse size={12} className="text-slate-400" />
+                                    {warehouseName}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <p className="text-xs text-slate-600 m-0 max-w-[200px] truncate" title={cleanReason}>{cleanReason}</p>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="text-xs text-slate-500 flex items-center gap-1">
+                                    <User size={12} className="text-slate-400" />
+                                    {log.user?.full_name || log.user?.email?.split('@')[0] || '—'}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="px-6 py-3 bg-slate-50/50 border-t border-slate-200">
+                      <p className="text-xs text-slate-400 m-0">Mostrando los últimos {filteredLogs.length} movimientos</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* ===== CONTEOS TAB ===== */}
           {activeTab === 'conteos' && (
@@ -926,7 +1054,7 @@ export default function InventariosPage() {
                   <FileSpreadsheet className="w-5 h-5 text-[#6a9a04]" />
                   <h3 className="text-lg font-bold text-slate-900 m-0">Carga Masiva de Inventario</h3>
                 </div>
-                <button onClick={() => { setShowCsvModal(false); setCsvRows([]); setCsvErrors([]); setCsvResult(null); }}
+                <button onClick={() => { setShowCsvModal(false); setCsvRows([]); setCsvErrors([]); setCsvResult(null); setCsvComment(''); }}
                   className="p-1.5 rounded-lg hover:bg-slate-100 bg-transparent border-none cursor-pointer text-slate-500">
                   <X className="w-5 h-5" />
                 </button>
@@ -962,6 +1090,18 @@ export default function InventariosPage() {
                 {/* Preview Table */}
                 {csvRows.length > 0 && !csvResult && (
                   <>
+                    {/* Comment/Notes */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-600 mb-1">📝 Comentarios / Motivo de la carga *</label>
+                      <textarea
+                        value={csvComment}
+                        onChange={(e) => setCsvComment(e.target.value)}
+                        placeholder="Ej: Inventario inicial, Reconteo Bodega 1, Ajuste post-auditoría, Recepción de mercancía lote #45..."
+                        rows={2}
+                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-sm text-slate-800 outline-none resize-none placeholder:text-slate-400"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1 m-0">Este comentario quedará registrado en cada movimiento de inventario.</p>
+                    </div>
                     <p className="text-sm text-slate-600 font-medium m-0">{csvRows.length} registros listos para cargar:</p>
                     <div className="overflow-x-auto border border-slate-200 rounded-xl">
                       <table className="w-full text-left border-collapse">
@@ -994,12 +1134,12 @@ export default function InventariosPage() {
               </div>
 
               <div className="p-5 border-t border-slate-200 flex justify-end gap-3">
-                <button onClick={() => { setShowCsvModal(false); setCsvRows([]); setCsvErrors([]); setCsvResult(null); }}
+                <button onClick={() => { setShowCsvModal(false); setCsvRows([]); setCsvErrors([]); setCsvResult(null); setCsvComment(''); }}
                   className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm">
                   {csvResult ? 'Cerrar' : 'Cancelar'}
                 </button>
                 {csvRows.length > 0 && !csvResult && (
-                  <button onClick={handleCsvUpload} disabled={csvUploading}
+                  <button onClick={handleCsvUpload} disabled={csvUploading || !csvComment.trim()}
                     className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#6a9a04] hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/20 cursor-pointer transition-all border-none disabled:opacity-50 flex items-center gap-2">
                     {csvUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
                     {csvUploading ? 'Cargando...' : `Aplicar ${csvRows.length} registros`}

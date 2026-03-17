@@ -161,10 +161,18 @@ export default function NuevoPedidoPage() {
 
   // Cart logic
   const addToCart = (product) => {
+    if (product.available_stock <= 0) {
+      alert(`${product.name} no tiene stock disponible.`);
+      return;
+    }
     const effectivePrice = getEffectivePrice(product);
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
+        if (existing.quantity >= product.available_stock) {
+          alert(`Solo hay ${product.available_stock} unidades disponibles de ${product.name}.`);
+          return prev;
+        }
         return prev.map(item =>
           item.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
@@ -182,7 +190,12 @@ export default function NuevoPedidoPage() {
   const updateQuantity = (id, delta) => {
     setCart(prev => prev.map(item => {
       if (item.id === id) {
-        const newQty = Math.max(1, item.quantity + delta);
+        let newQty = Math.max(1, item.quantity + delta);
+        // Cap at available stock
+        if (newQty > item.available_stock) {
+          newQty = item.available_stock;
+          alert(`Solo hay ${item.available_stock} unidades disponibles de ${item.name}.`);
+        }
         return { ...item, quantity: newQty };
       }
       return item;
@@ -203,6 +216,12 @@ export default function NuevoPedidoPage() {
       }
       if (validatePrice(item.price) === null || Number(item.price) <= 0) {
         alert(`Precio inválido para ${item.name}.`);
+        return;
+      }
+      // Validate against available stock
+      const product = products.find(p => p.id === item.id);
+      if (product && item.quantity > product.available_stock) {
+        alert(`No hay suficiente stock de ${item.name}. Solicitaste ${item.quantity} pero solo hay ${product.available_stock} disponibles.`);
         return;
       }
     }

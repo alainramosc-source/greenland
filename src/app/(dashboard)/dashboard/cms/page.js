@@ -165,7 +165,7 @@ export default function CMSPage() {
                     { sku: 'GL16', name: 'Mesa Plegable 1.80 × 74 Tipo Ratán', description: 'TAMAÑO: L180*W74*H74CM\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 25*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA Y CAJA DE CARTÓN\nTAMAÑO CAJA: 90*75*8 CMS\nPESO: 11 KGS\nCANT POR TARIMA: 35 PIEZAS' },
                     { sku: 'GL17', name: 'Silla Plegable Tipo Ratán', description: 'TAMAÑO: L51*W45*H85.5 CMS\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 25*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA, 4 PIEZAS POR CAJA\nTAMAÑO CAJA: 116*34*48 CMS\nPESO: 4.5 KGS\nCANT POR TARIMA: 80 PIEZAS' },
                     { sku: 'GL18', name: 'Mesa Plegable Redonda 1.54', description: 'TAMAÑO: D154*H74CMS\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 28*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA, 1 PIEZAS POR CAJA\nTAMAÑO CAJA: 156*79*10 CMS\nPESO: 21.5 KGS\nCANT POR TARIMA: 20 PIEZAS' },
-                    { sku: 'GL19', name: 'Mesa Plegable Personal 76', description: 'TAMAÑO: L76*W50*(H53.5 – 71.5) CMS\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 19*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA, 1 PIEZA POR CAJA\nTAMAÑO CAJA: 93*51*6 CMS\nPESO: 4.5 KGS\nCANT POR TARIMA: 90 PIEZAS' }
+                    { sku: 'GL19', name: 'Mesa Plegable Personal 76', description: 'TAMAÑO: L76*W50*(H53.5 – 71.5) CMS\nMATERIAL: HDPE + ACERO\nMARCO DE ACERO: DIA 19*1.0 MM\nEMPAQUE: BOLSA DE PE POR PIEZA, 1 PIEZA POR CAJA\nTAMAÑO CAJA: 93*51*6 CMS\nPESO: 4.5 KGS\nCANT POR TARIMA: 62 PIEZAS' }
                   ];
 
                   for (let d of productsData) {

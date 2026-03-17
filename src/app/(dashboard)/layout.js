@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import DashboardSidebar from '@/components/layout/DashboardSidebar';
 import DashboardTopBar from '@/components/layout/DashboardTopBar';
 import { createClient } from '@/utils/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 export default function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -13,14 +13,17 @@ export default function DashboardLayout({ children }) {
   const [userName, setUserName] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   const supabase = createClient();
+
+  // Detect if we're on an inbox route → fullscreen mode
+  const isInboxRoute = pathname?.startsWith('/dashboard/inbox');
 
   useEffect(() => {
     async function getUser() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Fetch role from profiles
         const { data: profile } = await supabase
           .from('profiles')
           .select('role, sub_role, full_name, is_active, client_number')
@@ -30,17 +33,15 @@ export default function DashboardLayout({ children }) {
         if (profile) {
           if (profile.is_active === false) {
             router.push('/pending-approval');
-            return; // Stop rendering dashboard
+            return;
           }
 
-          // Auto-assign client_number if missing
           if (profile.role === 'distributor' && !profile.client_number) {
             supabase.rpc('assign_client_number_to_user', { p_user_id: user.id }).catch(() => { });
           }
 
           setActualRole(profile.role);
           setSubRole(profile.sub_role);
-          // Check for admin role simulation
           const testRole = typeof window !== 'undefined' ? sessionStorage.getItem('test_view_role') : null;
           if (profile.role === 'admin' && testRole === 'distributor') {
             setUserRole('distributor');
@@ -61,6 +62,28 @@ export default function DashboardLayout({ children }) {
     </div>;
   }
 
+  // Inbox route → render fullscreen (no sidebar, no topbar)
+  if (isInboxRoute) {
+    return (
+      <div className="text-slate-900 font-sans" style={{
+        background: '#f8f6f6',
+        backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')",
+        backgroundAttachment: 'fixed',
+      }}>
+        {children}
+        <style jsx>{`
+          .loading-screen {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f6f6;
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard-layout text-slate-900 font-sans min-h-screen">
       <DashboardSidebar
@@ -77,7 +100,6 @@ export default function DashboardLayout({ children }) {
           userName={userName}
         />
         <main className="dashboard-main flex-1 p-4 md:p-8 overflow-y-auto relative z-0">
-          {/* Background Accent Blurs */}
           <div className="absolute top-[-10%] right-[-10%] w-[40rem] h-[40rem] bg-[#dee24b]/10 blur-[120px] rounded-full -z-10 pointer-events-none"></div>
           <div className="absolute bottom-[-10%] left-[20%] w-[30rem] h-[30rem] bg-[#6a9a04]/10 blur-[100px] rounded-full -z-10 pointer-events-none"></div>
 
@@ -85,7 +107,6 @@ export default function DashboardLayout({ children }) {
             {children}
           </div>
 
-          {/* Legal Footer */}
           <div className="relative z-10 max-w-7xl mx-auto mt-12 pt-4 border-t border-slate-200/50 flex flex-wrap justify-center gap-3 text-xs text-slate-400 pb-4">
             <span>© {new Date().getFullYear()} GreenLand Products</span>
             <span>·</span>
@@ -108,7 +129,7 @@ export default function DashboardLayout({ children }) {
 
         .dashboard-content-wrapper {
           flex: 1;
-          margin-left: 18rem; /* 72 spacing = 288px = 18rem for md+ */
+          margin-left: 18rem;
           min-width: 0; 
           transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
