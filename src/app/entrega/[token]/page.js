@@ -403,11 +403,11 @@ export default function EntregaPage({ params }) {
   // ========================
   // DELIVERY FORM
   // ========================
-  const inputClass = "w-full px-3.5 py-2.5 text-sm bg-slate-800/50 border border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04]/50 transition-all text-white placeholder:text-slate-500";
-  const labelClass = "text-[11px] font-bold text-slate-300 mb-1 block";
+  const inputClass = "w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04]/50 transition-all text-slate-800 placeholder:text-slate-400";
+  const labelClass = "text-[11px] font-bold text-slate-600 mb-1 block";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-white">
       {/* Header */}
       <div className="bg-gradient-to-r from-slate-950 to-slate-900 px-6 py-5 border-b border-slate-700/50">
         <div className="max-w-lg mx-auto flex items-center gap-3">
@@ -429,15 +429,15 @@ export default function EntregaPage({ params }) {
       {/* Order summary */}
       {order?.items && (
         <div className="max-w-lg mx-auto px-4 pt-4">
-          <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 p-4 backdrop-blur-sm">
+          <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4">
             <p className="text-[10px] font-black uppercase tracking-wider text-[#6a9a04] mb-2">📦 Tu pedido</p>
             {JSON.parse(typeof order.items === 'string' ? order.items : JSON.stringify(order.items)).map((item, i) => (
-              <div key={i} className="flex items-center justify-between py-1.5 border-b border-slate-700/50 last:border-0">
+              <div key={i} className="flex items-center justify-between py-1.5 border-b border-slate-200 last:border-0">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <span className="text-[10px] font-mono text-[#6a9a04] bg-[#6a9a04]/10 px-1.5 py-0.5 rounded">{item.sku}</span>
-                  <span className="text-xs font-medium text-slate-200 truncate">{item.name}</span>
+                  <span className="text-xs font-medium text-slate-700 truncate">{item.name}</span>
                 </div>
-                <span className="text-xs text-slate-400 shrink-0 ml-2 font-bold">×{item.quantity}</span>
+                <span className="text-xs text-slate-500 shrink-0 ml-2 font-bold">×{item.quantity}</span>
               </div>
             ))}
           </div>
@@ -447,7 +447,7 @@ export default function EntregaPage({ params }) {
       {/* Form */}
       <form onSubmit={handleSubmit} className="max-w-lg mx-auto px-4 py-6 space-y-4">
         {/* Section: Personal */}
-        <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-4 border-l-4 border-l-[#6a9a04]">
+        <div className="bg-[#6a9a04]/5 border border-[#6a9a04]/20 rounded-2xl p-4 border-l-4 border-l-[#6a9a04]">
           <p className="text-[10px] font-black uppercase tracking-wider text-[#6a9a04] mb-3 flex items-center gap-1.5">
             <span className="w-5 h-5 bg-[#6a9a04]/15 rounded-md flex items-center justify-center text-[10px]">👤</span>
             Datos del destinatario
@@ -465,8 +465,8 @@ export default function EntregaPage({ params }) {
         </div>
 
         {/* Section: Alternate contact */}
-        <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-4 border-l-4 border-l-amber-500">
-          <p className="text-[10px] font-black uppercase tracking-wider text-amber-400 mb-3 flex items-center gap-1.5">
+        <div className="bg-amber-50/50 border border-amber-200/50 rounded-2xl p-4 border-l-4 border-l-amber-500">
+          <p className="text-[10px] font-black uppercase tracking-wider text-amber-600 mb-3 flex items-center gap-1.5">
             <span className="w-5 h-5 bg-amber-500/15 rounded-md flex items-center justify-center text-[10px]">👥</span>
             Contacto alterno (si no te encuentras)
           </p>
@@ -483,8 +483,8 @@ export default function EntregaPage({ params }) {
         </div>
 
         {/* Section: Address */}
-        <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-4 border-l-4 border-l-blue-500">
-          <p className="text-[10px] font-black uppercase tracking-wider text-blue-400 mb-3 flex items-center gap-1.5">
+        <div className="bg-blue-50/50 border border-blue-200/50 rounded-2xl p-4 border-l-4 border-l-blue-500">
+          <p className="text-[10px] font-black uppercase tracking-wider text-blue-600 mb-3 flex items-center gap-1.5">
             <span className="w-5 h-5 bg-blue-500/15 rounded-md flex items-center justify-center text-[10px]">📍</span>
             Dirección de entrega
           </p>
@@ -528,8 +528,8 @@ export default function EntregaPage({ params }) {
         </div>
 
         {/* Section: References */}
-        <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-4 border-l-4 border-l-purple-500">
-          <p className="text-[10px] font-black uppercase tracking-wider text-purple-400 mb-3 flex items-center gap-1.5">
+        <div className="bg-purple-50/50 border border-purple-200/50 rounded-2xl p-4 border-l-4 border-l-purple-500">
+          <p className="text-[10px] font-black uppercase tracking-wider text-purple-600 mb-3 flex items-center gap-1.5">
             <span className="w-5 h-5 bg-purple-500/15 rounded-md flex items-center justify-center text-[10px]">🗺️</span>
             Referencias de ubicación
           </p>
@@ -544,7 +544,7 @@ export default function EntregaPage({ params }) {
             </div>
             {/* Interactive Map — pin placement (required) */}
             <div>
-              <label className="text-[11px] font-bold text-slate-300 mb-1 block">📍 Pin en mapa * <span className="font-normal text-slate-500">(toca el mapa para colocar el pin)</span></label>
+              <label className="text-[11px] font-bold text-slate-600 mb-1 block">📍 Pin en mapa * <span className="font-normal text-slate-400">(toca el mapa para colocar el pin)</span></label>
               <InteractiveMapPin lat={form.lat} lng={form.lng} onPinPlaced={(lat, lng) => { updateField('lat', lat); updateField('lng', lng); }} />
               {!form.lat && (
                 <p className="text-[10px] text-amber-400 mt-1">⚠️ Debes colocar el pin en el mapa para continuar</p>
@@ -554,8 +554,8 @@ export default function EntregaPage({ params }) {
         </div>
 
         {/* Section: Special instructions */}
-        <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-4 border-l-4 border-l-emerald-500">
-          <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400 mb-3 flex items-center gap-1.5">
+        <div className="bg-emerald-50/50 border border-emerald-200/50 rounded-2xl p-4 border-l-4 border-l-emerald-500">
+          <p className="text-[10px] font-black uppercase tracking-wider text-emerald-600 mb-3 flex items-center gap-1.5">
             <span className="w-5 h-5 bg-emerald-500/15 rounded-md flex items-center justify-center text-[10px]">📝</span>
             Instrucciones especiales
           </p>
@@ -574,7 +574,7 @@ export default function EntregaPage({ params }) {
       </form>
 
       {/* Footer */}
-      <div className="py-6 text-center border-t border-slate-800">
+      <div className="py-6 text-center border-t border-slate-200">
         <div className="flex items-center justify-center gap-2">
           <div className="w-6 h-6 bg-gradient-to-br from-[#6a9a04] to-[#4a7a00] rounded-md flex items-center justify-center">
             <span className="text-[10px] font-black text-white">G</span>
