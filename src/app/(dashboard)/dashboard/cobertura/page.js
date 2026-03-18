@@ -16,6 +16,7 @@ export default function CoberturaPage() {
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
     const [warehouses, setWarehouses] = useState([]);
+    const [saltilloWarehouseIds, setSaltilloWarehouseIds] = useState([]);
     const [selectedWarehouse, setSelectedWarehouse] = useState(null);
     const [products, setProducts] = useState([]);
     const [coverageData, setCoverageData] = useState([]);
@@ -51,31 +52,78 @@ export default function CoberturaPage() {
             supabase.from('warehouses').select('*').eq('is_active', true).order('sort_order'),
             supabase.from('products').select('id, name, sku').eq('is_active', true).order('sku'),
         ]);
-        const EXCLUDED_COVERAGE = ['Bodega Vito Alessio', 'Bodega Echeverría'];
-        const wh = (whRes.data || []).filter(w => !EXCLUDED_COVERAGE.includes(w.name));
-        setWarehouses(wh);
+        const SALTILLO_BODEGAS = ['Bodega Vito Alessio', 'Bodega Echeverría'];
+        const allWarehouses = whRes.data || [];
+        const saltilloIds = allWarehouses.filter(w => SALTILLO_BODEGAS.includes(w.name)).map(w => w.id);
+        setSaltilloWarehouseIds(saltilloIds);
+        const wh = allWarehouses.filter(w => !SALTILLO_BODEGAS.includes(w.name));
+        // Add virtual Saltillo tab at the beginning if both bodegas exist
+        const saltilloTab = saltilloIds.length > 0 ? [{ id: 'saltillo-combined', name: 'Saltillo', isCombined: true }] : [];
+        const finalWarehouses = [...saltilloTab, ...wh];
+        setWarehouses(finalWarehouses);
         setProducts(prodRes.data || []);
-        if (wh.length > 0) {
-            setSelectedWarehouse(wh[0]);
-            await fetchCoverage(wh[0].id);
+        if (finalWarehouses.length > 0) {
+            setSelectedWarehouse(finalWarehouses[0]);
+            await fetchCoverage(finalWarehouses[0], saltilloIds);
         }
         setLoading(false);
     };
 
-    const fetchCoverage = async (warehouseId) => {
-        const { data } = await supabase.from('coverage_inventory').select('*').eq('warehouse_id', warehouseId);
-        setCoverageData(data || []);
+    const fetchCoverage = async (warehouse, saltilloIds = saltilloWarehouseIds) => {
+        if (warehouse?.isCombined) {
+            // Fetch actual stock from warehouse_stock for both Saltillo bodegas
+            const [wsRes, covRes] = await Promise.all([
+                supabase.from('warehouse_stock').select('*').in('warehouse_id', saltilloIds),
+                supabase.from('coverage_inventory').select('*').in('warehouse_id', saltilloIds),
+            ]);
+            const merged = {};
+            // First, load stock data from warehouse_stock
+            for (const row of (wsRes.data || [])) {
+                if (!merged[row.product_id]) {
+                    merged[row.product_id] = {
+                        product_id: row.product_id,
+                        warehouse_id: 'saltillo-combined',
+                        stock_bodega: row.stock_quantity || 0,
+                        stock_transito: 0,
+                        weekly_demand: 0,
+                    };
+                } else {
+                    merged[row.product_id].stock_bodega += (row.stock_quantity || 0);
+                }
+            }
+            // Then, overlay weekly_demand and stock_transito from coverage_inventory if available
+            for (const row of (covRes.data || [])) {
+                if (merged[row.product_id]) {
+                    merged[row.product_id].stock_transito += (row.stock_transito || 0);
+                    merged[row.product_id].weekly_demand += (row.weekly_demand || 0);
+                } else {
+                    merged[row.product_id] = {
+                        product_id: row.product_id,
+                        warehouse_id: 'saltillo-combined',
+                        stock_bodega: row.stock_bodega || 0,
+                        stock_transito: row.stock_transito || 0,
+                        weekly_demand: row.weekly_demand || 0,
+                    };
+                }
+            }
+            setCoverageData(Object.values(merged));
+        } else {
+            const { data } = await supabase.from('coverage_inventory').select('*').eq('warehouse_id', warehouse.id);
+            setCoverageData(data || []);
+        }
     };
 
     const handleWarehouseChange = async (wh) => {
         setSelectedWarehouse(wh);
         setEditingRow(null);
-        await fetchCoverage(wh.id);
+        await fetchCoverage(wh);
     };
 
     const handleRefresh = async () => {
-        if (selectedWarehouse) { await fetchCoverage(selectedWarehouse.id); showToast('Datos actualizados'); }
+        if (selectedWarehouse) { await fetchCoverage(selectedWarehouse); showToast('Datos actualizados'); }
     };
+
+    const isCombinedView = selectedWarehouse?.isCombined === true;
 
     // Build heatmap data with reorder intelligence
     const heatmapData = useMemo(() => {
@@ -438,10 +486,14 @@ export default function CoberturaPage() {
                                                         </button>
                                                     </div>
                                                 ) : (
-                                                    <button onClick={() => startEdit(row)}
-                                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-white hover:text-[#6a9a04] cursor-pointer bg-transparent transition-all">
-                                                        <Edit3 size={12} />
-                                                    </button>
+                                                    isCombinedView ? (
+                                                        <span className="text-slate-300" title="Vista combinada — edita desde Inventarios">—</span>
+                                                    ) : (
+                                                        <button onClick={() => startEdit(row)}
+                                                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-white hover:text-[#6a9a04] cursor-pointer bg-transparent transition-all">
+                                                            <Edit3 size={12} />
+                                                        </button>
+                                                    )
                                                 )}
                                             </td>
                                             {row.weeks.map((remaining, i) => (
