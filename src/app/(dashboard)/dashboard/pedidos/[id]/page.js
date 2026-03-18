@@ -59,6 +59,8 @@ export default function OrderDetailsPage() {
   const [showIncidentModal, setShowIncidentModal] = useState(false);
   const [incidentForm, setIncidentForm] = useState({ type: 'discrepancia', description: '' });
   const [submittingIncident, setSubmittingIncident] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const supabase = createClient();
 
   const fetchOrderDetails = async () => {
@@ -494,6 +496,32 @@ export default function OrderDetailsPage() {
       if (newStatus === 'in_fulfillment' && printWindow) {
         printLoadingSheet(printWindow);
       }
+    }
+    setActionLoading(null);
+  };
+
+  // --- Admin: Cancel Order (full reversal) ---
+  const handleCancelOrder = async () => {
+    if (!cancelReason.trim()) {
+      alert('Por favor escribe un motivo de cancelación.');
+      return;
+    }
+    setActionLoading('cancelled');
+    const { data, error } = await supabase.rpc('cancel_order', {
+      p_order_id: id,
+      p_reason: cancelReason.trim()
+    });
+    if (error) {
+      alert('Error: ' + error.message);
+    } else if (data && !data.success) {
+      alert('Error: ' + data.error);
+    } else {
+      const msg = data?.message || 'Pedido cancelado exitosamente.';
+      alert('✅ ' + msg);
+      setShowCancelModal(false);
+      setCancelReason('');
+      await fetchOrderDetails();
+      sendStatusEmail('cancelled');
     }
     setActionLoading(null);
   };
@@ -1528,7 +1556,7 @@ export default function OrderDetailsPage() {
                     </button>
                     <button
                       className="w-full flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-5 py-3 rounded-xl font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                      onClick={() => handleUpdateStatus('cancelled', 'Cancelado')}
+                      onClick={() => setShowCancelModal(true)}
                       disabled={!!actionLoading}
                     >
                       {actionLoading === 'cancelled' ? <Loader2 size={18} className="animate-spin" /> : <XCircle size={18} />}
@@ -1559,7 +1587,7 @@ export default function OrderDetailsPage() {
                     </button>
                     <button
                       className="w-full flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-5 py-3 rounded-xl font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                      onClick={() => handleUpdateStatus('cancelled', 'Cancelado')}
+                      onClick={() => setShowCancelModal(true)}
                       disabled={!!actionLoading}
                     >
                       {actionLoading === 'cancelled' ? <Loader2 size={18} className="animate-spin" /> : <XCircle size={18} />}
@@ -1587,6 +1615,16 @@ export default function OrderDetailsPage() {
                           📸 Sube mín. 2 fotos de embarque para habilitar ({embarqueCount}/2)
                         </p>
                       )}
+                      <button
+                        className="w-full flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-5 py-3 rounded-xl font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-2"
+                        onClick={() => setShowCancelModal(true)}
+                        disabled={!!actionLoading}
+                      >
+                        <XCircle size={18} /> Cancelar Pedido
+                      </button>
+                      <p className="text-[10px] text-center text-slate-400 mt-1">
+                        Libera inventario, saldo a cobrar y pagos registrados
+                      </p>
                     </div>
                   );
                 })()}
@@ -1694,6 +1732,53 @@ export default function OrderDetailsPage() {
                         className="px-5 py-2.5 rounded-xl text-white font-bold bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/30 cursor-pointer transition-all border-none disabled:opacity-50"
                       >
                         {submittingIncident ? <Loader2 size={18} className="animate-spin" /> : 'Enviar Reporte'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Cancel Order Modal */}
+            {showCancelModal && (
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+                  <div className="p-6 border-b border-slate-200">
+                    <h3 className="text-lg font-black text-red-600 flex items-center gap-2">
+                      <XCircle size={22} /> Cancelar Pedido #{order?.order_number}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">Esta acción no se puede deshacer</p>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                      <p className="text-xs text-red-700 font-semibold mb-1">⚠️ Al cancelar se revertirá:</p>
+                      <ul className="text-xs text-red-600 list-disc list-inside space-y-0.5">
+                        <li>Inventario reservado será liberado</li>
+                        <li>Saldo a cobrar del pedido se anula</li>
+                        <li>Los pagos registrados se mantienen en la cuenta</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-600 mb-1">Motivo de cancelación *</label>
+                      <textarea
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                        placeholder="Escribe el motivo de la cancelación..."
+                        rows={3}
+                        autoFocus
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500/30 text-slate-800 outline-none resize-none shadow-sm"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-3 pt-2">
+                      <button onClick={() => { setShowCancelModal(false); setCancelReason(''); }}
+                        className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm"
+                      >Volver</button>
+                      <button
+                        onClick={handleCancelOrder}
+                        disabled={actionLoading === 'cancelled' || !cancelReason.trim()}
+                        className="px-5 py-2.5 rounded-xl text-white font-bold bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/30 cursor-pointer transition-all border-none disabled:opacity-50"
+                      >
+                        {actionLoading === 'cancelled' ? <Loader2 size={18} className="animate-spin" /> : 'Confirmar Cancelación'}
                       </button>
                     </div>
                   </div>
