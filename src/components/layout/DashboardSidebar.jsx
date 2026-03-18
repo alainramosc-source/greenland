@@ -80,7 +80,6 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
     ]
     : [
       { name: 'Tablero', href: '/dashboard', icon: LayoutDashboard },
-      { name: 'Inbox', href: '/dashboard/inbox', icon: MessageSquare },
       { name: 'Mis Pedidos', href: '/dashboard/pedidos', icon: ShoppingCart },
       { name: 'Mis Pagos', href: '/dashboard/mis-pagos', icon: CreditCard },
       { name: 'Mi Inventario', href: '/dashboard/mi-inventario', icon: Package },
