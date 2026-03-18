@@ -275,16 +275,30 @@ export default function CoberturaPage() {
         if (!selectedWarehouse) return;
         setSaving(true);
         const { data: { user } } = await supabase.auth.getUser();
+        const newStock = parseInt(editForm.stock_bodega) || 0;
+        const newTransito = parseInt(editForm.stock_transito) || 0;
+        const newDemand = parseInt(editForm.weekly_demand) || 0;
         const payload = {
             warehouse_id: selectedWarehouse.id, product_id: productId,
-            stock_bodega: parseInt(editForm.stock_bodega) || 0,
-            stock_transito: parseInt(editForm.stock_transito) || 0,
-            weekly_demand: parseInt(editForm.weekly_demand) || 0,
+            stock_bodega: newStock, stock_transito: newTransito, weekly_demand: newDemand,
             updated_at: new Date().toISOString(), updated_by: user.id,
         };
         const { error } = await supabase.from('coverage_inventory').upsert(payload, { onConflict: 'warehouse_id,product_id' });
         if (error) { showToast('Error: ' + error.message, 'error'); }
-        else { await fetchCoverage(selectedWarehouse); setEditingRow(null); showToast('Datos guardados'); }
+        else {
+            // Optimistic update — update local state immediately
+            setCoverageData(prev => {
+                const exists = prev.find(c => c.product_id === productId);
+                if (exists) {
+                    return prev.map(c => c.product_id === productId
+                        ? { ...c, stock_bodega: newStock, stock_transito: newTransito, weekly_demand: newDemand }
+                        : c);
+                }
+                return [...prev, { ...payload }];
+            });
+            setEditingRow(null);
+            showToast('Datos guardados');
+        }
         setSaving(false);
     };
 
