@@ -278,11 +278,26 @@ export default function CoberturaPage() {
         const newStock = parseInt(editForm.stock_bodega) || 0;
         const newTransito = parseInt(editForm.stock_transito) || 0;
         const newDemand = parseInt(editForm.weekly_demand) || 0;
+
+        // For combined Saltillo view, save transit/demand to the first Saltillo bodega
+        const targetWarehouseId = isCombinedView ? saltilloWarehouseIds[0] : selectedWarehouse.id;
+
         const payload = {
-            warehouse_id: selectedWarehouse.id, product_id: productId,
-            stock_bodega: newStock, stock_transito: newTransito, weekly_demand: newDemand,
+            warehouse_id: targetWarehouseId, product_id: productId,
+            stock_bodega: isCombinedView ? 0 : newStock,
+            stock_transito: newTransito, weekly_demand: newDemand,
             updated_at: new Date().toISOString(), updated_by: user.id,
         };
+
+        // For combined view, also zero out the second bodega's transit/demand to avoid double-counting
+        if (isCombinedView && saltilloWarehouseIds.length > 1) {
+            await supabase.from('coverage_inventory').upsert({
+                warehouse_id: saltilloWarehouseIds[1], product_id: productId,
+                stock_bodega: 0, stock_transito: 0, weekly_demand: 0,
+                updated_at: new Date().toISOString(), updated_by: user.id,
+            }, { onConflict: 'warehouse_id,product_id' });
+        }
+
         const { error } = await supabase.from('coverage_inventory').upsert(payload, { onConflict: 'warehouse_id,product_id' });
         if (error) { showToast('Error: ' + error.message, 'error'); }
         else {
@@ -291,10 +306,10 @@ export default function CoberturaPage() {
                 const exists = prev.find(c => c.product_id === productId);
                 if (exists) {
                     return prev.map(c => c.product_id === productId
-                        ? { ...c, stock_bodega: newStock, stock_transito: newTransito, weekly_demand: newDemand }
+                        ? { ...c, stock_transito: newTransito, weekly_demand: newDemand, ...(isCombinedView ? {} : { stock_bodega: newStock }) }
                         : c);
                 }
-                return [...prev, { ...payload }];
+                return [...prev, { product_id: productId, warehouse_id: targetWarehouseId, stock_bodega: isCombinedView ? 0 : newStock, stock_transito: newTransito, weekly_demand: newDemand }];
             });
             setEditingRow(null);
             showToast('Datos guardados');
@@ -464,7 +479,7 @@ export default function CoberturaPage() {
                                             <td className="sticky left-0 z-5 bg-white/95 px-3 py-2 font-mono text-[11px] font-black text-[#6a9a04]">{row.product.sku}</td>
                                             <td className="sticky left-[70px] z-5 bg-white/95 px-3 py-2 text-xs text-slate-700 truncate max-w-[200px]">{row.product.name}</td>
                                             <td className="px-3 py-2 text-center">
-                                                {isEditing ? (
+                                                {isEditing && !isCombinedView ? (
                                                     <input type="number" value={editForm.stock_bodega}
                                                         onChange={e => setEditForm(f => ({ ...f, stock_bodega: e.target.value }))}
                                                         className="w-16 px-2 py-1 border border-[#6a9a04]/30 rounded-lg text-center text-xs outline-none focus:ring-2 focus:ring-[#6a9a04]/20 bg-white shadow-sm" />
@@ -500,14 +515,11 @@ export default function CoberturaPage() {
                                                         </button>
                                                     </div>
                                                 ) : (
-                                                    isCombinedView ? (
-                                                        <span className="text-slate-300" title="Vista combinada — edita desde Inventarios">—</span>
-                                                    ) : (
-                                                        <button onClick={() => startEdit(row)}
-                                                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-white hover:text-[#6a9a04] cursor-pointer bg-transparent transition-all">
-                                                            <Edit3 size={12} />
-                                                        </button>
-                                                    )
+                                                    <button onClick={() => startEdit(row)}
+                                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-white hover:text-[#6a9a04] cursor-pointer bg-transparent transition-all"
+                                                        title={isCombinedView ? 'Editar tránsito y demanda' : 'Editar'}>
+                                                        <Edit3 size={12} />
+                                                    </button>
                                                 )}
                                             </td>
                                             {row.weeks.map((remaining, i) => (
