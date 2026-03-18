@@ -284,7 +284,7 @@ export default function CoberturaPage() {
         };
         const { error } = await supabase.from('coverage_inventory').upsert(payload, { onConflict: 'warehouse_id,product_id' });
         if (error) { showToast('Error: ' + error.message, 'error'); }
-        else { await fetchCoverage(selectedWarehouse.id); setEditingRow(null); showToast('Datos guardados'); }
+        else { await fetchCoverage(selectedWarehouse); setEditingRow(null); showToast('Datos guardados'); }
         setSaving(false);
     };
 
