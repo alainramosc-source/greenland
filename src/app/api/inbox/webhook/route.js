@@ -307,24 +307,21 @@ async function storeInboundMessage(conversationId, content, contentType, mediaUr
       status: 'delivered',
     });
 
-  // Update conversation
+  // Update conversation with last message info and increment unread
+  const { data: conv } = await getAdminClient()
+    .from('inbox_conversations')
+    .select('unread_count')
+    .eq('id', conversationId)
+    .single();
+
   await getAdminClient()
     .from('inbox_conversations')
     .update({
       last_message_at: new Date().toISOString(),
       last_message_preview: content?.substring(0, 100),
-      unread_count: getAdminClient().rpc ? undefined : 1, // Fallback
+      unread_count: (conv?.unread_count || 0) + 1,
     })
     .eq('id', conversationId);
-
-  // Increment unread count via raw SQL
-  await getAdminClient().rpc('increment_unread', { conv_id: conversationId }).catch(() => {
-    // If RPC doesn't exist, update directly
-    getAdminClient()
-      .from('inbox_conversations')
-      .update({ unread_count: 1 })
-      .eq('id', conversationId);
-  });
 
   console.log(`[Inbox] 📩 New message in conversation ${conversationId}`);
 }
