@@ -1313,6 +1313,59 @@ export default function InboxPage() {
       }
     }
     init();
+
+    // Realtime: listen for new/updated conversations
+    const convChannel = supabase
+      .channel('inbox-conversations-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'inbox_conversations',
+      }, async (payload) => {
+        if (payload.eventType === 'INSERT') {
+          // Fetch the full conversation with joins
+          const { data: newConv } = await supabase
+            .from('inbox_conversations')
+            .select(`
+              *,
+              inbox_contacts!inner(display_name, phone, email, notes, created_at),
+              inbox_channels!inner(platform)
+            `)
+            .eq('id', payload.new.id)
+            .single();
+          if (newConv) {
+            const mapped = {
+              id: newConv.id,
+              contact_name: newConv.inbox_contacts.display_name,
+              contact_phone: newConv.inbox_contacts.phone,
+              contact_email: newConv.inbox_contacts.email,
+              contact_notes: newConv.inbox_contacts.notes,
+              contact_created: newConv.inbox_contacts.created_at,
+              platform: newConv.inbox_channels.platform,
+              last_message_at: newConv.last_message_at,
+              last_message_preview: newConv.last_message_preview,
+              unread_count: newConv.unread_count,
+              funnel_stage_id: newConv.funnel_stage_id,
+              tags: [],
+            };
+            setConversations(prev => [mapped, ...prev.filter(c => c.id !== mapped.id)]);
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          setConversations(prev => prev.map(c => {
+            if (c.id !== payload.new.id) return c;
+            return {
+              ...c,
+              last_message_at: payload.new.last_message_at,
+              last_message_preview: payload.new.last_message_preview,
+              unread_count: payload.new.unread_count,
+              funnel_stage_id: payload.new.funnel_stage_id,
+            };
+          }));
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(convChannel); };
   }, []);
 
   // Load messages when active conversation changes
@@ -1393,16 +1446,20 @@ export default function InboxPage() {
       return;
     }
 
-    // TODO: POST to /api/inbox/send when Meta API is connected
-    // For now, just insert directly
     try {
-      await supabase.from('inbox_messages').insert({
-        conversation_id: activeConversation.id,
-        direction: 'outbound',
-        content,
-        content_type: 'text',
-        status: 'sent',
+      const res = await fetch('/api/inbox/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: activeConversation.id,
+          content,
+          content_type: 'text',
+        }),
       });
+      if (!res.ok) {
+        const err = await res.json();
+        console.error('Send error:', err);
+      }
     } catch (err) {
       console.error('Send error:', err);
     }
