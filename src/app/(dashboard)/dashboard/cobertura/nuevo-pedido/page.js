@@ -33,6 +33,11 @@ const BUYER_INFO = {
     taxId: 'GPR230911971',
 };
 
+const LEAD_TIMES = {
+    'Shinaier': { weeks: 12 },  // 8 prod + 5 transit - Shinaier is 12 actually 
+    'Freeman': { weeks: 9 },    // 4 prod + 5 transit
+};
+
 export default function NuevoPedidoPage() {
     const supabase = createClient();
     const router = useRouter();
@@ -46,6 +51,7 @@ export default function NuevoPedidoPage() {
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState(null);
     const [notes, setNotes] = useState('');
+    const [allWarehouses, setAllWarehouses] = useState([]);
 
     // Containers: array of { id, name, collapsed, items: [{ productId, quantity }] }
     const [containers, setContainers] = useState([]);
@@ -62,14 +68,16 @@ export default function NuevoPedidoPage() {
         setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { router.push('/login'); return; }
-        const [suppRes, prodRes, mapRes] = await Promise.all([
+        const [suppRes, prodRes, mapRes, whRes] = await Promise.all([
             supabase.from('suppliers').select('*').eq('is_active', true).order('short_name'),
             supabase.from('products').select('id, name, sku').eq('is_active', true).order('sku'),
             supabase.from('supplier_sku_mapping').select('*'),
+            supabase.from('warehouses').select('id, name, city').eq('is_active', true),
         ]);
         setSuppliers(suppRes.data || []);
         setProducts(prodRes.data || []);
         setSkuMapping(mapRes.data || []);
+        setAllWarehouses(whRes.data || []);
         if (suppRes.data?.length > 0) setSelectedSupplier(suppRes.data[0]);
         setLoading(false);
     };
@@ -84,6 +92,20 @@ export default function NuevoPedidoPage() {
     const getSupplierSku = (productId) => {
         if (!selectedSupplier) return '—';
         return skuMapping.find(m => m.product_id === productId && m.supplier_id === selectedSupplier.id)?.supplier_sku || '—';
+    };
+
+    // Map destination to warehouse_id
+    const getWarehouseForDestination = (destCode) => {
+        const DEST_WAREHOUSE_MAP = {
+            'SLW': ['Bodega Vito Alessio', 'Bodega Echeverría'],
+            'TL': ['Tlalnepantla'],
+            'MRO': ['Morelia'],
+            'QRO': ['Querétaro'],
+            'ALT': ['Altamira'],
+        };
+        const names = DEST_WAREHOUSE_MAP[destCode] || [];
+        const wh = allWarehouses.find(w => names.some(n => w.name?.includes(n) || w.city?.includes(n)));
+        return wh?.id || allWarehouses[0]?.id;
     };
 
     // Container operations
@@ -179,8 +201,36 @@ export default function NuevoPedidoPage() {
             supplier_sku: getSupplierSku(i.productId), quantity: i.quantity,
         }));
         const { error: itemErr } = await supabase.from('purchase_order_items').insert(items);
-        if (itemErr) showToast('Error: ' + itemErr.message, 'error');
-        else showToast(`Orden ${poNumber} guardada`);
+        if (itemErr) { showToast('Error: ' + itemErr.message, 'error'); }
+        else {
+            // Auto-create transit_shipments for coverage system
+            const leadTimeConfig = LEAD_TIMES[selectedSupplier.short_name];
+            const leadWeeks = leadTimeConfig?.weeks || 9;
+            const arrivalDate = new Date();
+            arrivalDate.setDate(arrivalDate.getDate() + (leadWeeks * 7));
+            const arrivalStr = arrivalDate.toISOString().split('T')[0];
+            const warehouseId = getWarehouseForDestination(destination.code);
+
+            // Aggregate quantities per product across all containers
+            const productQtys = {};
+            allItems.forEach(i => {
+                productQtys[i.productId] = (productQtys[i.productId] || 0) + i.quantity;
+            });
+
+            const transitEntries = Object.entries(productQtys).map(([productId, qty]) => ({
+                product_id: productId,
+                warehouse_id: warehouseId,
+                quantity: qty,
+                estimated_arrival: arrivalStr,
+                origin: selectedSupplier.short_name,
+                created_by: user.id,
+            }));
+
+            const { error: transitErr } = await supabase.from('transit_shipments').insert(transitEntries);
+            if (transitErr) console.error('Transit auto-create error:', transitErr);
+
+            showToast(`Orden ${poNumber} guardada · ${transitEntries.length} tránsitos creados automáticamente`);
+        }
         setSaving(false);
     };
 
