@@ -1365,7 +1365,49 @@ export default function InboxPage() {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(convChannel); };
+    // Polling fallback: refetch conversations every 10 seconds
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data: { user: pollUser } } = await supabase.auth.getUser();
+        if (!pollUser) return;
+        const { data: freshConvs } = await supabase
+          .from('inbox_conversations')
+          .select(`
+            *,
+            inbox_contacts!inner(display_name, phone, email, notes, created_at),
+            inbox_channels!inner(platform)
+          `)
+          .eq('distributor_id', pollUser.id)
+          .order('last_message_at', { ascending: false });
+        if (freshConvs && freshConvs.length > 0) {
+          const mapped = freshConvs.map(c => ({
+            id: c.id,
+            contact_name: c.inbox_contacts.display_name,
+            contact_phone: c.inbox_contacts.phone,
+            contact_email: c.inbox_contacts.email,
+            contact_notes: c.inbox_contacts.notes,
+            contact_created: c.inbox_contacts.created_at,
+            platform: c.inbox_channels.platform,
+            last_message_at: c.last_message_at,
+            last_message_preview: c.last_message_preview,
+            unread_count: c.unread_count,
+            funnel_stage_id: c.funnel_stage_id,
+            tags: [],
+          }));
+          setConversations(prev => {
+            // Only update if data changed
+            const prevIds = prev.map(c => `${c.id}-${c.unread_count}-${c.last_message_preview}`).join(',');
+            const newIds = mapped.map(c => `${c.id}-${c.unread_count}-${c.last_message_preview}`).join(',');
+            return prevIds === newIds ? prev : mapped;
+          });
+        }
+      } catch (e) { /* silently ignore poll errors */ }
+    }, 10000);
+
+    return () => {
+      supabase.removeChannel(convChannel);
+      clearInterval(pollInterval);
+    };
   }, []);
 
   // Load messages when active conversation changes
@@ -1466,9 +1508,22 @@ export default function InboxPage() {
   }, [activeConversation]);
 
   // Handle conversation select
-  const handleSelectConversation = (conv) => {
+  const handleSelectConversation = async (conv) => {
     setActiveConversation(conv);
     setShowMobileChat(true);
+
+    // Mark as read: reset unread count
+    if (conv.unread_count > 0 && !conv.id?.startsWith('demo-')) {
+      // Update local state immediately
+      setConversations(prev =>
+        prev.map(c => c.id === conv.id ? { ...c, unread_count: 0 } : c)
+      );
+      // Update database
+      await supabase
+        .from('inbox_conversations')
+        .update({ unread_count: 0 })
+        .eq('id', conv.id);
+    }
   };
 
   if (loading) {
