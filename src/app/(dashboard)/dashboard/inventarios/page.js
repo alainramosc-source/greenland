@@ -378,22 +378,11 @@ export default function InventariosPage() {
     const failedErrors = [];
     const reason = csvComment.trim() || 'Carga masiva CSV';
     for (const row of csvRows) {
-      // Get current stock to calculate delta
-      const { data: existing } = await supabase
-        .from('warehouse_stock')
-        .select('id, stock_quantity, reserved_quantity')
-        .eq('product_id', row.productId)
-        .eq('warehouse_id', row.warehouseId)
-        .maybeSingle();
-
-      const currentQty = existing?.stock_quantity || 0;
-      const delta = row.quantity - currentQty;
-
-      // Use RPC to track the movement with reason/comment
+      // Sum mode: CSV quantity is ADDED to existing stock
       const { error } = await supabase.rpc('adjust_warehouse_stock', {
         p_product_id: row.productId,
         p_warehouse_id: row.warehouseId,
-        p_quantity_change: delta,
+        p_quantity_change: row.quantity,
         p_reason: reason
       });
 
