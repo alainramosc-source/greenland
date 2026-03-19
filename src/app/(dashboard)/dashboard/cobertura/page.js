@@ -45,7 +45,7 @@ export default function CoberturaPage() {
     const NUM_WEEKS = 20;
     const ORDER_CYCLE_WEEKS = 4; // Pedido nuevo cada 4 semanas (mensual)
     const REORDER_TARGET_WEEKS = LEAD_TIME_WEEKS + ORDER_CYCLE_WEEKS;
-    const SAFETY_STOCK_WEEKS = 2; // Buffer de seguridad
+    const SAFETY_STOCK_WEEKS = 0; // Desactivado por ahora — se activará por SKU después
 
     useEffect(() => { checkAdminAndFetch(); }, []);
 
@@ -760,10 +760,8 @@ export default function CoberturaPage() {
                     <span className="text-slate-300">|</span>
                     <span className="flex items-center gap-1.5 text-orange-500 font-bold">
                         <span className="w-3 h-3 rounded border-2 border-orange-300 inline-block" />
-                        🚢 Lead time: {selectedManufacturer.name} ({selectedManufacturer.production}p + {selectedManufacturer.transit}t = {LEAD_TIME_WEEKS}sem)
+                        🚢 {selectedManufacturer.name}: {selectedManufacturer.production}p + {selectedManufacturer.transit}t = {LEAD_TIME_WEEKS}sem · Ciclo: {ORDER_CYCLE_WEEKS}sem
                     </span>
-                    <span className="text-slate-300">|</span>
-                    <span className="text-blue-500 font-bold">🛡️ Safety stock: +{SAFETY_STOCK_WEEKS} sem</span>
                 </div>
             </div>
         </div>
