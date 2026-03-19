@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
     ShieldCheck, MapPin, Package, Upload, Edit3, X, Save,
     RefreshCw, AlertTriangle, CheckCircle, TrendingDown, Warehouse, FileSpreadsheet, History,
-    Clock, Truck, Calendar, ArrowRight
+    Clock, Truck, Calendar, ArrowRight, Plus, Trash2, Ship, Loader2, ChevronRight
 } from 'lucide-react';
 
 export default function CoberturaPage() {
@@ -20,15 +20,31 @@ export default function CoberturaPage() {
     const [selectedWarehouse, setSelectedWarehouse] = useState(null);
     const [products, setProducts] = useState([]);
     const [coverageData, setCoverageData] = useState([]);
+    const [transitShipments, setTransitShipments] = useState([]);
     const [editingRow, setEditingRow] = useState(null);
     const [editForm, setEditForm] = useState({ stock_bodega: 0, stock_transito: 0, weekly_demand: 0 });
     const [saving, setSaving] = useState(false);
     const [csvImporting, setCsvImporting] = useState(false);
     const [toast, setToast] = useState(null);
 
+    // Smart coverage state
+    const [transitPanel, setTransitPanel] = useState(null); // product_id of open panel
+    const [transitForm, setTransitForm] = useState({ quantity: '', estimated_arrival: '', origin: '' });
+    const [showTransitCsvModal, setShowTransitCsvModal] = useState(false);
+    const [transitCsvText, setTransitCsvText] = useState('');
+    const [transitCsvImporting, setTransitCsvImporting] = useState(false);
+
+    // Manufacturer lead time configs
+    const MANUFACTURERS = [
+        { id: 'freeman', name: 'Freeman', production: 4, transit: 5, total: 9 },
+        { id: 'shinaier', name: 'Shinaier', production: 8, transit: 5, total: 12 },
+    ];
+    const [selectedManufacturer, setSelectedManufacturer] = useState(MANUFACTURERS[0]);
+    const LEAD_TIME_WEEKS = selectedManufacturer.total;
+
     const NUM_WEEKS = 20;
-    const LEAD_TIME_WEEKS = 9; // 4 production + 5 transit
-    const REORDER_TARGET_WEEKS = 20; // Suggested qty covers this many weeks ahead
+    const REORDER_TARGET_WEEKS = 20;
+    const SAFETY_STOCK_WEEKS = 2; // Buffer de seguridad
 
     useEffect(() => { checkAdminAndFetch(); }, []);
 
@@ -113,30 +129,78 @@ export default function CoberturaPage() {
         }
     };
 
+    // Fetch transit shipments for current warehouse context
+    const fetchTransits = async (warehouse, saltIds) => {
+        const ids = saltIds || saltilloWarehouseIds;
+        let query = supabase.from('transit_shipments').select('*').eq('status', 'in_transit');
+        if (warehouse?.isCombined) {
+            query = query.in('warehouse_id', ids);
+        } else if (warehouse?.id) {
+            query = query.eq('warehouse_id', warehouse.id);
+        }
+        const { data } = await query.order('estimated_arrival', { ascending: true });
+        setTransitShipments(data || []);
+    };
+
     const handleWarehouseChange = async (wh) => {
         setSelectedWarehouse(wh);
         setEditingRow(null);
-        await fetchCoverage(wh);
+        setTransitPanel(null);
+        await Promise.all([fetchCoverage(wh), fetchTransits(wh)]);
     };
 
     const handleRefresh = async () => {
-        if (selectedWarehouse) { await fetchCoverage(selectedWarehouse); showToast('Datos actualizados'); }
+        if (selectedWarehouse) {
+            await Promise.all([fetchCoverage(selectedWarehouse), fetchTransits(selectedWarehouse)]);
+            showToast('Datos actualizados');
+        }
     };
 
     const isCombinedView = selectedWarehouse?.isCombined === true;
 
-    // Build heatmap data with reorder intelligence
+    // Build heatmap data with SMART reorder intelligence
     const heatmapData = useMemo(() => {
         const now = new Date();
         return products.map(product => {
             const coverage = coverageData.find(c => c.product_id === product.id);
             const stockBodega = coverage?.stock_bodega || 0;
-            const stockTransito = coverage?.stock_transito || 0;
             const weeklyDemand = coverage?.weekly_demand || 0;
-            const totalStock = stockBodega + stockTransito;
+
+            // Get transit shipments for this product
+            const productTransits = transitShipments.filter(t => t.product_id === product.id);
+            const totalTransitQty = productTransits.reduce((s, t) => s + t.quantity, 0);
+
+            // Calculate which week each transit arrives
+            const getTransitWeek = (arrivalDate) => {
+                const arrival = new Date(arrivalDate);
+                const diffMs = arrival - now;
+                const diffWeeks = Math.max(0, Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)));
+                return diffWeeks;
+            };
+
+            // SMART projection: week-by-week simulation
             const weeks = [];
-            for (let i = 0; i < NUM_WEEKS; i++) { weeks.push(totalStock - (weeklyDemand * (i + 1))); }
-            const coverageWeeks = weeklyDemand > 0 ? totalStock / weeklyDemand : 999;
+            let running = stockBodega; // Start with bodega only, NOT transit
+            for (let i = 0; i < NUM_WEEKS; i++) {
+                // Inject transits arriving this week
+                for (const t of productTransits) {
+                    if (getTransitWeek(t.estimated_arrival) === i) {
+                        running += t.quantity;
+                    }
+                }
+                // Dead demand: only subtract if stock > 0
+                if (running > 0 && weeklyDemand > 0) {
+                    running = Math.max(0, running - weeklyDemand);
+                }
+                weeks.push(running);
+            }
+
+            // Coverage weeks: when does stock first hit 0?
+            const totalStock = stockBodega; // For display, just bodega (transit shown separately)
+            const coverageWeeks = weeklyDemand > 0 ? (() => {
+                for (let i = 0; i < NUM_WEEKS; i++) { if (weeks[i] <= 0) return i; }
+                return NUM_WEEKS;
+            })() : 999;
 
             // Reorder intelligence
             let stockoutWeek = null;
@@ -146,38 +210,34 @@ export default function CoberturaPage() {
             let suggestedQty = 0;
 
             if (weeklyDemand > 0) {
-                // When does stock hit 0?
-                stockoutWeek = Math.floor(coverageWeeks);
+                stockoutWeek = coverageWeeks;
                 const stockoutDateObj = new Date(now);
                 stockoutDateObj.setDate(now.getDate() + (coverageWeeks * 7));
                 stockoutDate = stockoutDateObj;
 
-                // How much margin do we have after accounting for lead time?
                 reorderMargin = coverageWeeks - LEAD_TIME_WEEKS;
 
-                if (reorderMargin > 4) {
-                    reorderStatus = 'ok'; // Plenty of time
-                } else if (reorderMargin > 0) {
-                    reorderStatus = 'plan'; // Should start planning
-                } else if (reorderMargin > -4) {
-                    reorderStatus = 'order_now'; // Order ASAP, will be tight
-                } else {
-                    reorderStatus = 'late'; // Even ordering today won't prevent stockout
-                }
+                if (reorderMargin > 4) reorderStatus = 'ok';
+                else if (reorderMargin > 0) reorderStatus = 'plan';
+                else if (reorderMargin > -4) reorderStatus = 'order_now';
+                else reorderStatus = 'late';
 
-                // Suggested quantity: enough to cover REORDER_TARGET_WEEKS from when shipment arrives
-                const stockWhenArrives = Math.max(0, totalStock - (weeklyDemand * LEAD_TIME_WEEKS));
-                const neededForTarget = weeklyDemand * REORDER_TARGET_WEEKS;
-                suggestedQty = Math.max(0, Math.ceil(neededForTarget - stockWhenArrives));
+                // SMART suggested qty: simulate what stock will be when new order arrives
+                // Account for existing transits already in the simulation
+                const stockAtLeadTime = weeks[Math.min(LEAD_TIME_WEEKS - 1, NUM_WEEKS - 1)] || 0;
+                const neededForTarget = weeklyDemand * (REORDER_TARGET_WEEKS + SAFETY_STOCK_WEEKS);
+                suggestedQty = Math.max(0, Math.ceil(neededForTarget - stockAtLeadTime));
             }
 
             return {
-                product, stockBodega, stockTransito, weeklyDemand, totalStock,
+                product, stockBodega, stockTransito: totalTransitQty, weeklyDemand, totalStock,
                 coverageWeeks, weeks, coverageId: coverage?.id || null,
-                stockoutWeek, stockoutDate, reorderStatus, reorderMargin, suggestedQty
+                stockoutWeek, stockoutDate, reorderStatus, reorderMargin, suggestedQty,
+                transitCount: productTransits.length,
+                nextArrival: productTransits[0]?.estimated_arrival || null
             };
         });
-    }, [products, coverageData]);
+    }, [products, coverageData, transitShipments, LEAD_TIME_WEEKS]);
 
     // KPIs
     const kpis = useMemo(() => {
@@ -349,6 +409,80 @@ export default function CoberturaPage() {
         showToast(`Importado: ${imported} productos. ${errors > 0 ? `${errors} errores.` : ''}`, errors > 0 ? 'warning' : 'success');
     };
 
+    // --- Transit Shipment Management ---
+    const addTransit = async (productId) => {
+        if (!transitForm.quantity || !transitForm.estimated_arrival) {
+            showToast('Cantidad y fecha de llegada son obligatorios', 'error');
+            return;
+        }
+        const { data: { user } } = await supabase.auth.getUser();
+        const targetWarehouseId = isCombinedView ? saltilloWarehouseIds[0] : selectedWarehouse?.id;
+        const { error } = await supabase.from('transit_shipments').insert({
+            product_id: productId,
+            warehouse_id: targetWarehouseId,
+            quantity: parseInt(transitForm.quantity),
+            estimated_arrival: transitForm.estimated_arrival,
+            origin: transitForm.origin || null,
+            created_by: user.id,
+        });
+        if (error) { showToast('Error: ' + error.message, 'error'); }
+        else {
+            setTransitForm({ quantity: '', estimated_arrival: '', origin: '' });
+            await fetchTransits(selectedWarehouse);
+            showToast('Embarque registrado');
+        }
+    };
+
+    const deleteTransit = async (transitId) => {
+        if (!confirm('¿Eliminar este embarque?')) return;
+        const { error } = await supabase.from('transit_shipments').delete().eq('id', transitId);
+        if (error) showToast('Error: ' + error.message, 'error');
+        else { await fetchTransits(selectedWarehouse); showToast('Embarque eliminado'); }
+    };
+
+    const markTransitArrived = async (transitId) => {
+        const { error } = await supabase.from('transit_shipments')
+            .update({ status: 'arrived' }).eq('id', transitId);
+        if (error) showToast('Error: ' + error.message, 'error');
+        else { await fetchTransits(selectedWarehouse); showToast('Embarque marcado como llegado'); }
+    };
+
+    // Bulk CSV transit import
+    const handleTransitCsvImport = async () => {
+        if (!transitCsvText.trim()) return;
+        setTransitCsvImporting(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        const targetWarehouseId = isCombinedView ? saltilloWarehouseIds[0] : selectedWarehouse?.id;
+        const lines = transitCsvText.split('\n').filter(l => l.trim());
+        const header = lines[0].toLowerCase();
+        const hasHeader = header.includes('sku') || header.includes('fecha');
+        const dataLines = hasHeader ? lines.slice(1) : lines;
+        let imported = 0, errors = 0;
+        for (const line of dataLines) {
+            const cols = line.split(',').map(c => c.trim().replace(/"/g, ''));
+            if (cols.length < 3) { errors++; continue; }
+            const [sku, qty, fecha, origen] = cols;
+            const product = products.find(p => p.sku === sku);
+            if (!product) { errors++; continue; }
+            const parsedDate = new Date(fecha);
+            if (isNaN(parsedDate.getTime())) { errors++; continue; }
+            const { error } = await supabase.from('transit_shipments').insert({
+                product_id: product.id,
+                warehouse_id: targetWarehouseId,
+                quantity: parseInt(qty) || 0,
+                estimated_arrival: fecha,
+                origin: origen || null,
+                created_by: user.id,
+            });
+            if (error) errors++; else imported++;
+        }
+        await fetchTransits(selectedWarehouse);
+        setTransitCsvImporting(false);
+        setTransitCsvText('');
+        setShowTransitCsvModal(false);
+        showToast(`${imported} embarques importados.${errors > 0 ? ` ${errors} errores.` : ''}`, errors > 0 ? 'warning' : 'success');
+    };
+
     if (loading) return (
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500 gap-4">
             <div className="w-10 h-10 border-3 border-slate-300 border-l-[#6a9a04] rounded-full animate-spin" />
@@ -358,6 +492,7 @@ export default function CoberturaPage() {
     if (!isAdmin) return null;
 
     return (
+        <>
         <div className="relative">
             {/* Toast */}
             {toast && (
@@ -380,22 +515,32 @@ export default function CoberturaPage() {
                         <p className="text-slate-500 mt-1 font-medium m-0">Seguimiento de inventario y cobertura semanal por localidad · <span className="text-orange-500 font-bold">Lead time: {LEAD_TIME_WEEKS} semanas</span></p>
                     </div>
                     <div className="flex gap-2 flex-wrap">
+                        {/* Manufacturer toggle */}
+                        <div className="flex items-center bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                            {MANUFACTURERS.map(m => (
+                                <button key={m.id} onClick={() => setSelectedManufacturer(m)}
+                                    className={`px-3 py-2.5 text-xs font-bold transition-all border-none cursor-pointer ${selectedManufacturer.id === m.id
+                                        ? 'bg-orange-500 text-white' : 'bg-transparent text-slate-500 hover:bg-slate-50'}`}>
+                                    {m.name} ({m.total}s)
+                                </button>
+                            ))}
+                        </div>
+                        <button onClick={() => setShowTransitCsvModal(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-orange-200 bg-orange-50 text-orange-700 font-bold text-sm hover:bg-orange-100 cursor-pointer transition-all shadow-sm">
+                            <Ship size={16} /> Importar Tránsitos
+                        </button>
                         <button onClick={() => fileInputRef.current?.click()} disabled={csvImporting}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 cursor-pointer transition-all shadow-sm disabled:opacity-50">
-                            <Upload size={16} /> {csvImporting ? 'Importando...' : 'Importar CSV'}
+                            <Upload size={16} /> {csvImporting ? 'Importando...' : 'CSV Cobertura'}
                         </button>
                         <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleCsvImport} />
                         <button onClick={handleRefresh}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 cursor-pointer transition-all shadow-sm">
-                            <RefreshCw size={16} /> Actualizar
+                            <RefreshCw size={16} />
                         </button>
                         <button onClick={() => router.push('/dashboard/cobertura/nuevo-pedido')}
                             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#6a9a04] text-white font-bold text-sm hover:bg-[#6a9a04]/90 cursor-pointer transition-all shadow-lg shadow-[#6a9a04]/20 border-none">
-                            <FileSpreadsheet size={16} /> Crear Pedido a Fabricante
-                        </button>
-                        <button onClick={() => router.push('/dashboard/cobertura/historial')}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 cursor-pointer transition-all shadow-sm">
-                            <History size={16} /> Historial
+                            <FileSpreadsheet size={16} /> Crear Pedido
                         </button>
                     </div>
                 </div>
@@ -485,13 +630,24 @@ export default function CoberturaPage() {
                                                         className="w-16 px-2 py-1 border border-[#6a9a04]/30 rounded-lg text-center text-xs outline-none focus:ring-2 focus:ring-[#6a9a04]/20 bg-white shadow-sm" />
                                                 ) : <span className="text-xs tabular-nums text-slate-700">{row.stockBodega.toLocaleString()}</span>}
                                             </td>
-                                            <td className="px-3 py-2 text-center">
-                                                {isEditing ? (
-                                                    <input type="number" value={editForm.stock_transito}
-                                                        onChange={e => setEditForm(f => ({ ...f, stock_transito: e.target.value }))}
-                                                        className="w-16 px-2 py-1 border border-[#6a9a04]/30 rounded-lg text-center text-xs outline-none focus:ring-2 focus:ring-[#6a9a04]/20 bg-white shadow-sm" />
-                                                ) : <span className="text-xs tabular-nums text-slate-700">{row.stockTransito.toLocaleString()}</span>}
-                                            </td>
+                            <td className="px-3 py-2 text-center">
+                                {isEditing ? (
+                                    <input type="number" value={editForm.stock_transito}
+                                        onChange={e => setEditForm(f => ({ ...f, stock_transito: e.target.value }))}
+                                        className="w-16 px-2 py-1 border border-[#6a9a04]/30 rounded-lg text-center text-xs outline-none focus:ring-2 focus:ring-[#6a9a04]/20 bg-white shadow-sm" />
+                                ) : (
+                                    <button onClick={() => setTransitPanel(row.product.id)}
+                                        className="text-xs tabular-nums cursor-pointer bg-transparent border-none hover:bg-orange-50 px-2 py-1 rounded-lg transition-all"
+                                        title="Click para gestionar tránsitos">
+                                        <span className={row.transitCount > 0 ? 'text-orange-600 font-bold' : 'text-slate-400'}>
+                                            {row.stockTransito > 0 ? row.stockTransito.toLocaleString() : '—'}
+                                        </span>
+                                        {row.transitCount > 0 && (
+                                            <span className="ml-1 text-[9px] text-orange-400">({row.transitCount})</span>
+                                        )}
+                                    </button>
+                                )}
+                            </td>
                                             <td className="px-3 py-2 text-center">
                                                 {isEditing ? (
                                                     <input type="number" value={editForm.weekly_demand}
@@ -601,9 +757,161 @@ export default function CoberturaPage() {
                     <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-200 inline-block" /> Sin stock</span>
                     <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-200 inline-block" /> Sin demanda</span>
                     <span className="text-slate-300">|</span>
-                    <span className="flex items-center gap-1.5 text-orange-500 font-bold"><span className="w-3 h-3 rounded border-2 border-orange-300 inline-block" /> Línea semana 9 = llegada de embarque</span>
+                    <span className="flex items-center gap-1.5 text-orange-500 font-bold">
+                        <span className="w-3 h-3 rounded border-2 border-orange-300 inline-block" />
+                        🚢 Lead time: {selectedManufacturer.name} ({selectedManufacturer.production}p + {selectedManufacturer.transit}t = {LEAD_TIME_WEEKS}sem)
+                    </span>
+                    <span className="text-slate-300">|</span>
+                    <span className="text-blue-500 font-bold">🛡️ Safety stock: +{SAFETY_STOCK_WEEKS} sem</span>
                 </div>
             </div>
         </div>
+
+        {/* ============ Transit Slide-Over Panel ============ */}
+        {transitPanel && (() => {
+            const product = products.find(p => p.id === transitPanel);
+            const productTransits = transitShipments.filter(t => t.product_id === transitPanel);
+            const totalQty = productTransits.reduce((s, t) => s + t.quantity, 0);
+            return (
+                <div className="fixed inset-0 z-50 flex justify-end">
+                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setTransitPanel(null)} />
+                    <div className="relative w-full max-w-md bg-white shadow-2xl flex flex-col animate-in slide-in-from-right" style={{animationDuration:'200ms'}}>
+                        {/* Header */}
+                        <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-orange-50 to-amber-50">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <Ship className="w-5 h-5 text-orange-500" />
+                                    <h2 className="text-lg font-black text-slate-900 m-0">Tránsitos</h2>
+                                </div>
+                                <button onClick={() => setTransitPanel(null)} className="p-2 rounded-lg hover:bg-white/80 cursor-pointer bg-transparent border-none text-slate-400 hover:text-slate-600 transition-all">
+                                    <X size={18} />
+                                </button>
+                            </div>
+                            <p className="text-sm font-bold text-[#6a9a04] m-0">{product?.sku} — {product?.name}</p>
+                            <p className="text-xs text-slate-500 m-0 mt-1">Total en tránsito: <span className="font-black text-orange-600">{totalQty.toLocaleString()} uds</span> en {productTransits.length} embarque(s)</p>
+                        </div>
+
+                        {/* Shipments list */}
+                        <div className="flex-1 overflow-y-auto px-6 py-4">
+                            {productTransits.length === 0 ? (
+                                <div className="text-center py-10 text-slate-400">
+                                    <Ship className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                                    <p className="font-bold text-sm">Sin embarques en tránsito</p>
+                                    <p className="text-xs">Agrega un embarque abajo</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {productTransits.map(t => {
+                                        const arrDate = new Date(t.estimated_arrival);
+                                        const daysUntil = Math.ceil((arrDate - new Date()) / (1000 * 60 * 60 * 24));
+                                        const weeksUntil = Math.ceil(daysUntil / 7);
+                                        return (
+                                            <div key={t.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100 hover:border-orange-200 transition-all">
+                                                <div className="flex items-start justify-between mb-2">
+                                                    <div>
+                                                        <span className="text-lg font-black text-slate-900">{t.quantity.toLocaleString()}</span>
+                                                        <span className="text-xs text-slate-400 ml-1">uds</span>
+                                                    </div>
+                                                    <div className="flex gap-1">
+                                                        <button onClick={() => markTransitArrived(t.id)} title="Marcar como llegado"
+                                                            className="p-1.5 rounded-lg border border-green-200 text-green-600 hover:bg-green-50 cursor-pointer bg-transparent transition-all text-xs">
+                                                            <CheckCircle size={14} />
+                                                        </button>
+                                                        <button onClick={() => deleteTransit(t.id)} title="Eliminar"
+                                                            className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 cursor-pointer bg-transparent transition-all text-xs">
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-xs">
+                                                    <span className="flex items-center gap-1 text-slate-600">
+                                                        <Calendar size={12} />
+                                                        {arrDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                    </span>
+                                                    <span className={`font-bold ${daysUntil <= 0 ? 'text-green-600' : daysUntil <= 14 ? 'text-orange-600' : 'text-slate-500'}`}>
+                                                        {daysUntil <= 0 ? '🟢 Llegando' : `${weeksUntil} sem (${daysUntil}d)`}
+                                                    </span>
+                                                </div>
+                                                {t.origin && <span className="inline-block mt-2 text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{t.origin}</span>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Add new transit form */}
+                        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+                            <p className="text-xs font-black text-slate-600 uppercase tracking-wider mb-3 m-0">Agregar embarque</p>
+                            <div className="grid grid-cols-3 gap-2 mb-3">
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Cantidad</label>
+                                    <input type="number" placeholder="500" value={transitForm.quantity}
+                                        onChange={e => setTransitForm(f => ({ ...f, quantity: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-200 bg-white" />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Fecha llegada</label>
+                                    <input type="date" value={transitForm.estimated_arrival}
+                                        onChange={e => setTransitForm(f => ({ ...f, estimated_arrival: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-200 bg-white" />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Origen</label>
+                                    <select value={transitForm.origin} onChange={e => setTransitForm(f => ({ ...f, origin: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-200 bg-white">
+                                        <option value="">—</option>
+                                        {MANUFACTURERS.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <button onClick={() => addTransit(transitPanel)} disabled={!transitForm.quantity || !transitForm.estimated_arrival}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 cursor-pointer transition-all border-none disabled:opacity-40 disabled:cursor-not-allowed shadow-md">
+                                <Plus size={16} /> Agregar Embarque
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        })()}
+
+        {/* ============ Transit CSV Import Modal ============ */}
+        {showTransitCsvModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowTransitCsvModal(false)} />
+                <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <Ship className="w-5 h-5 text-orange-500" />
+                            <h2 className="text-lg font-black text-slate-900 m-0">Importar Tránsitos</h2>
+                        </div>
+                        <button onClick={() => setShowTransitCsvModal(false)} className="p-2 rounded-lg hover:bg-slate-100 cursor-pointer bg-transparent border-none text-slate-400">
+                            <X size={18} />
+                        </button>
+                    </div>
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5 mb-4 text-xs text-orange-700">
+                        <strong>Formato CSV:</strong>
+                        <code className="bg-orange-100 px-2 py-0.5 rounded text-orange-800 font-bold text-[11px] ml-2">sku, cantidad, fecha_llegada, origen</code>
+                        <br />
+                        <span className="text-orange-500 text-[11px]">Ejemplo: <code className="bg-orange-100 px-2 py-0.5 rounded text-[11px]">GL01, 500, 2026-04-15, Shinaier</code></span>
+                    </div>
+                    <textarea value={transitCsvText} onChange={e => setTransitCsvText(e.target.value)}
+                        placeholder="Pega los datos CSV aquí..."
+                        className="w-full h-40 px-4 py-3 border border-slate-200 rounded-xl text-sm font-mono outline-none focus:ring-2 focus:ring-orange-200 resize-none bg-white mb-4"
+                        style={{ boxSizing: 'border-box' }} />
+                    <div className="flex gap-3">
+                        <button onClick={() => setShowTransitCsvModal(false)}
+                            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 cursor-pointer bg-white transition-all">
+                            Cancelar
+                        </button>
+                        <button onClick={handleTransitCsvImport} disabled={transitCsvImporting || !transitCsvText.trim()}
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 cursor-pointer transition-all border-none disabled:opacity-40 shadow-md">
+                            {transitCsvImporting ? <><Loader2 size={16} className="animate-spin" /> Importando...</> : <><Upload size={16} /> Importar</>}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 }
