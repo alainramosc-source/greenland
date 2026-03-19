@@ -43,7 +43,8 @@ export default function CoberturaPage() {
     const LEAD_TIME_WEEKS = selectedManufacturer.total;
 
     const NUM_WEEKS = 20;
-    const REORDER_TARGET_WEEKS = 20;
+    const ORDER_CYCLE_WEEKS = 4; // Pedido nuevo cada 4 semanas (mensual)
+    const REORDER_TARGET_WEEKS = LEAD_TIME_WEEKS + ORDER_CYCLE_WEEKS;
     const SAFETY_STOCK_WEEKS = 2; // Buffer de seguridad
 
     useEffect(() => { checkAdminAndFetch(); }, []);
