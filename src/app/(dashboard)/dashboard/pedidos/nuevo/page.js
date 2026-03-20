@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { validateQuantity, validatePrice, sanitizeText } from '@/utils/sanitize';
 import { Search, ShoppingCart, Plus, Minus, ArrowRight, ArrowLeft, CheckCircle, Package, MapPin, Trash2 } from 'lucide-react';
@@ -21,6 +21,8 @@ export default function NuevoPedidoPage() {
   const [addresses, setAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [orderNotes, setOrderNotes] = useState('');
+  const [addToast, setAddToast] = useState(null);
+  const cartRef = useRef(null);
 
   const router = useRouter();
   const supabase = createClient();
@@ -181,6 +183,12 @@ export default function NuevoPedidoPage() {
       }
       return [...prev, { ...product, price: effectivePrice, basePrice: product.price, quantity: 1 }];
     });
+    // Show toast and auto-scroll to cart
+    setAddToast(product.name);
+    setTimeout(() => setAddToast(null), 2500);
+    setTimeout(() => {
+      cartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
   };
 
   const removeFromCart = (id) => {
@@ -409,7 +417,7 @@ export default function NuevoPedidoPage() {
         </div>
 
         {/* Cart Sidebar */}
-        <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden" style={{ display: 'flex', flexDirection: 'column' }}>
+        <div ref={cartRef} className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="p-5 border-b border-slate-200/50 flex justify-between items-center bg-white/40">
             <div className="flex items-center gap-2">
               <ShoppingCart size={20} className="text-[#6a9a04]" />
@@ -546,6 +554,23 @@ export default function NuevoPedidoPage() {
           </div>
         </div>
       </div>
+
+      {/* Add to cart toast */}
+      {addToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-[slideUp_0.3s_ease-out] pointer-events-none">
+          <div className="flex items-center gap-2 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl text-sm font-bold">
+            <CheckCircle size={18} className="text-[#6a9a04] shrink-0" />
+            <span>{addToast} agregado al carrito ↓</span>
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translate(-50%, 20px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+      `}</style>
     </div>
   );
 }
