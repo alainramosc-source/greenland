@@ -504,6 +504,14 @@ export default function NuevoPedidoPage() {
 
                 {containers.map((container, idx) => {
                     const containerTotal = container.items.reduce((s, i) => s + (i.quantity || 0), 0);
+                    // Calculate container fill percentage
+                    const containerFillFraction = container.items.reduce((sum, item) => {
+                        const product = products.find(p => p.id === item.productId);
+                        const cap = product?.container_capacity || 0;
+                        return sum + (cap > 0 ? (item.quantity || 0) / cap : 0);
+                    }, 0);
+                    const fillPct = Math.round(containerFillFraction * 100);
+                    const fillColor = fillPct > 100 ? '#ef4444' : fillPct >= 80 ? '#f59e0b' : '#6a9a04';
                     return (
                         <div key={container.id} className="bg-white/60 backdrop-blur-md border border-white/50 shadow-xl rounded-2xl overflow-hidden mb-4">
                             {/* Container Header */}
@@ -522,6 +530,13 @@ export default function NuevoPedidoPage() {
                                     <span className="bg-white/20 px-3 py-1 rounded-full text-[11px] font-bold">
                                         {container.items.length} productos · {containerTotal.toLocaleString()} uds
                                     </span>
+                                    {/* Fill percentage badge */}
+                                    {containerTotal > 0 && (
+                                        <span className="px-3 py-1 rounded-full text-[11px] font-black flex items-center gap-1.5"
+                                            style={{ backgroundColor: `${fillColor}30`, color: fillColor }}>
+                                            📦 {fillPct}%
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button onClick={(e) => { e.stopPropagation(); removeContainer(container.id); }}
@@ -534,6 +549,18 @@ export default function NuevoPedidoPage() {
 
                             {!container.collapsed && (
                                 <div className="p-4">
+                                    {/* Fill bar */}
+                                    {containerTotal > 0 && (
+                                        <div className="mb-3 bg-slate-100 rounded-full h-3 overflow-hidden relative">
+                                            <div className="h-full rounded-full transition-all duration-500"
+                                                style={{ width: `${Math.min(fillPct, 100)}%`, backgroundColor: fillColor }} />
+                                            {fillPct > 100 && (
+                                                <div className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-red-700">
+                                                    ⚠ Sobrecargado ({fillPct}%)
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                     {/* Add Product to Container */}
                                     <div className="flex items-center gap-3 mb-3">
                                         <select
@@ -556,6 +583,7 @@ export default function NuevoPedidoPage() {
                                                     <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-slate-400">Descripción</th>
                                                     <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-slate-400 w-40">SKU Fabricante</th>
                                                     <th className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-slate-400 w-28">Cantidad</th>
+                                                    <th className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-slate-400 w-28">% Contenedor</th>
                                                     <th className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-slate-400 w-12"></th>
                                                 </tr>
                                             </thead>
@@ -575,6 +603,21 @@ export default function NuevoPedidoPage() {
                                                                     className={`w-24 px-3 py-1.5 border rounded-xl text-center text-sm outline-none transition-all shadow-sm ${item.quantity > 0
                                                                         ? 'border-[#6a9a04]/40 bg-[#6a9a04]/5 text-[#6a9a04] font-black'
                                                                         : 'border-slate-200 bg-white text-slate-700'}`} />
+                                                            </td>
+                                                            <td className="px-3 py-2 text-center">
+                                                                {(() => {
+                                                                    const cap = product.container_capacity || 0;
+                                                                    if (cap === 0) return <span className="text-[10px] text-slate-300">—</span>;
+                                                                    const pct = Math.round(((item.quantity || 0) / cap) * 100);
+                                                                    return (
+                                                                        <div className="flex flex-col items-center">
+                                                                            <span className={`text-[11px] font-black ${pct > 100 ? 'text-red-500' : pct >= 50 ? 'text-orange-500' : 'text-slate-500'}`}>
+                                                                                {pct}%
+                                                                            </span>
+                                                                            <span className="text-[9px] text-slate-400">{(item.quantity || 0).toLocaleString()}/{cap.toLocaleString()}</span>
+                                                                        </div>
+                                                                    );
+                                                                })()}
                                                             </td>
                                                             <td className="px-3 py-2 text-center">
                                                                 <button onClick={() => removeItemFromContainer(container.id, item.productId)}
