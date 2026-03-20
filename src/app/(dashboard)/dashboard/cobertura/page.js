@@ -176,8 +176,11 @@ export default function CoberturaPage() {
 
             // Calculate which week each transit arrives
             const getTransitWeek = (arrivalDate) => {
-                const arrival = new Date(arrivalDate);
-                const diffMs = arrival - now;
+                // Normalize both dates to noon to avoid UTC vs local timezone mismatch
+                const parts = arrivalDate.toString().split(/[-T]/);
+                const arrival = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+                const diffMs = arrival - today;
                 const diffWeeks = Math.max(0, Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)));
                 return diffWeeks;
             };
