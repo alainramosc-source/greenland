@@ -81,7 +81,10 @@ export default function CoberturaPage() {
         setProducts(prodRes.data || []);
         if (finalWarehouses.length > 0) {
             setSelectedWarehouse(finalWarehouses[0]);
-            await fetchCoverage(finalWarehouses[0], saltilloIds);
+            await Promise.all([
+                fetchCoverage(finalWarehouses[0], saltilloIds),
+                fetchTransits(finalWarehouses[0], saltilloIds),
+            ]);
         }
         setLoading(false);
     };
