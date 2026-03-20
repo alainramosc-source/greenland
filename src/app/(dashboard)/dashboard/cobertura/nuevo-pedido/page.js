@@ -191,18 +191,18 @@ export default function NuevoPedidoPage() {
         return `PO-${y}${m}${d}-${r}`;
     };
 
-    // Save draft
-    const saveDraft = async () => {
-        if (allItems.length === 0) { showToast('Agrega productos a al menos un contenedor', 'error'); return; }
+    // Save draft — returns poNumber on success
+    const saveDraft = async (poNumberOverride) => {
+        if (allItems.length === 0) { showToast('Agrega productos a al menos un contenedor', 'error'); return null; }
         setSaving(true);
         const { data: { user } } = await supabase.auth.getUser();
-        const poNumber = generatePoNumber();
+        const poNumber = poNumberOverride || generatePoNumber();
         const { data: po, error: poErr } = await supabase.from('purchase_orders').insert({
             po_number: poNumber, supplier_id: selectedSupplier.id, status: 'draft',
             destination_code: destination.code, destination_port: destination.port,
             notes: notes || null, created_by: user.id,
         }).select().single();
-        if (poErr) { showToast('Error: ' + poErr.message, 'error'); setSaving(false); return; }
+        if (poErr) { showToast('Error: ' + poErr.message, 'error'); setSaving(false); return null; }
         const items = allItems.map(i => ({
             purchase_order_id: po.id, product_id: i.productId,
             supplier_sku: getSupplierSku(i.productId), quantity: i.quantity,
@@ -237,37 +237,15 @@ export default function NuevoPedidoPage() {
             if (transitErr) console.error('Transit auto-create error:', transitErr);
 
             showToast(`Orden ${poNumber} guardada · ${transitEntries.length} tránsitos creados automáticamente`);
-
-            // Send email notification to admins + supplier
-            try {
-                const supplierInfo = SUPPLIER_INFO[selectedSupplier.short_name] || {};
-                const poItems = allItems.map(i => {
-                    const p = products.find(pr => pr.id === i.productId);
-                    return { sku: p?.sku || '—', supplierSku: getSupplierSku(i.productId), quantity: i.quantity };
-                });
-                await fetch('/api/send-notification', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        type: 'purchase_order',
-                        orderNumber: poNumber,
-                        supplierName: selectedSupplier.short_name,
-                        supplierEmail: supplierInfo.email || null,
-                        destinationCity: destination.city,
-                        destinationPort: destination.port,
-                        poItems,
-                        totalQty: totalUnits,
-                    }),
-                });
-            } catch (emailErr) { console.error('PO email error:', emailErr); }
         }
         setSaving(false);
+        return poNumber;
     };
 
-    // Export Excel with container borders using ExcelJS
-    const exportExcel = async () => {
-        if (allItems.length === 0) { showToast('Agrega productos a al menos un contenedor', 'error'); return; }
-        const poNumber = generatePoNumber();
+    // Export Excel — accepts poNumber, returns { buffer, fileName } or downloads directly
+    const exportExcel = async (poNumberOverride) => {
+        if (allItems.length === 0) { showToast('Agrega productos a al menos un contenedor', 'error'); return null; }
+        const poNumber = poNumberOverride || generatePoNumber();
         const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
         const supplierInfo = SUPPLIER_INFO[selectedSupplier.short_name] || {};
         const activeContainers = containers.filter(c => c.items.some(i => i.quantity > 0));
@@ -424,9 +402,46 @@ export default function NuevoPedidoPage() {
         a.click();
         URL.revokeObjectURL(url);
         showToast(`Excel exportado: ${fileName}`);
+        return { buffer, fileName };
     };
 
-    const saveAndExport = async () => { await saveDraft(); exportExcel(); };
+    const saveAndExport = async () => {
+        const poNumber = generatePoNumber();
+        const saved = await saveDraft(poNumber);
+        if (!saved) return;
+        const result = await exportExcel(poNumber);
+        // Attach Excel to email
+        if (result?.buffer) {
+            try {
+                const supplierInfo = SUPPLIER_INFO[selectedSupplier.short_name] || {};
+                const poItems = allItems.map(i => {
+                    const p = products.find(pr => pr.id === i.productId);
+                    return { sku: p?.sku || '—', supplierSku: getSupplierSku(i.productId), quantity: i.quantity };
+                });
+                // Convert buffer to base64
+                const uint8 = new Uint8Array(result.buffer);
+                let binary = '';
+                uint8.forEach(b => binary += String.fromCharCode(b));
+                const excelBase64 = btoa(binary);
+                await fetch('/api/send-notification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'purchase_order',
+                        orderNumber: poNumber,
+                        supplierName: selectedSupplier.short_name,
+                        supplierEmail: supplierInfo.email || null,
+                        destinationCity: destination.city,
+                        destinationPort: destination.port,
+                        poItems,
+                        totalQty: totalUnits,
+                        excelBase64,
+                        excelFileName: result.fileName,
+                    }),
+                });
+            } catch (emailErr) { console.error('PO email error:', emailErr); }
+        }
+    };
 
     if (loading) return (
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500 gap-4">

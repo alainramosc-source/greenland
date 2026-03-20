@@ -220,7 +220,10 @@ export async function POST(request) {
       });
     } else if (type === 'purchase_order') {
       // Admin created a manufacturer PO → notify PO team + supplier
-      const { supplierName, supplierEmail, destinationCity, destinationPort, poItems, totalQty } = body;
+      const { supplierName, supplierEmail, destinationCity, destinationPort, poItems, totalQty, excelBase64, excelFileName } = body;
+
+      // Build attachment array if Excel provided
+      const attachments = excelBase64 ? [{ filename: excelFileName || 'PurchaseOrder.xlsx', content: Buffer.from(excelBase64, 'base64') }] : [];
 
       // Send to PO team (Alain + Didier) — with platform link
       const PO_RECIPIENTS = ['alain.ramos@greenland-products.com.mx', 'didier.fernandez@greenland-products.com.mx'];
@@ -229,6 +232,7 @@ export async function POST(request) {
         to: PO_RECIPIENTS,
         subject: `📦 PO ${orderNumber} — ${supplierName} → ${destinationCity}`,
         html: buildPoEmailHtml({ orderNumber, supplierName, destinationCity, destinationPort, poItems, totalQty, showPlatformLink: true, appUrl }),
+        attachments,
       });
 
       // Send to supplier — no platform link
@@ -238,6 +242,7 @@ export async function POST(request) {
           to: [supplierEmail],
           subject: `📦 Purchase Order ${orderNumber} — Greenland Products`,
           html: buildPoEmailHtml({ orderNumber, supplierName, destinationCity, destinationPort, poItems, totalQty, showPlatformLink: false, appUrl }),
+          attachments,
         });
       }
     }
