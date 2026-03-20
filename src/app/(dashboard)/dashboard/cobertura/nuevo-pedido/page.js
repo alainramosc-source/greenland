@@ -114,6 +114,7 @@ export default function NuevoPedidoPage() {
             id: nextContainerId,
             name: `Container ${nextContainerId}`,
             collapsed: false,
+            departure_date: '',
             items: [],
         }]);
         setNextContainerId(n => n + 1);
@@ -129,6 +130,10 @@ export default function NuevoPedidoPage() {
 
     const updateContainerName = (containerId, name) => {
         setContainers(prev => prev.map(c => c.id === containerId ? { ...c, name } : c));
+    };
+
+    const updateContainerDeparture = (containerId, departure_date) => {
+        setContainers(prev => prev.map(c => c.id === containerId ? { ...c, departure_date } : c));
     };
 
     const addItemToContainer = (containerId, productId) => {
@@ -319,6 +324,15 @@ export default function NuevoPedidoPage() {
             if (itemsWithQty.length === 0) return;
 
             const startRowNum = ws.rowCount + 1;
+
+            // Container label row with departure date
+            const labelText = container.departure_date
+                ? `${container.name}  —  Departure: ${container.departure_date}`
+                : container.name;
+            const labelRow = ws.addRow([labelText]);
+            ws.mergeCells(labelRow.number, 1, labelRow.number, 5);
+            labelRow.getCell(1).font = { bold: true, size: 10, italic: true, color: { argb: 'FF1a365d' } };
+            labelRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F0FE' } };
 
             itemsWithQty.forEach(item => {
                 const product = products.find(p => p.id === item.productId);
@@ -539,6 +553,16 @@ export default function NuevoPedidoPage() {
                                     )}
                                 </div>
                                 <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                                        <span className="text-[10px] text-white/60 font-bold">DEPARTURE:</span>
+                                        <input
+                                            type="date"
+                                            value={container.departure_date || ''}
+                                            onChange={e => updateContainerDeparture(container.id, e.target.value)}
+                                            className="bg-white/15 border border-white/20 rounded-lg px-2 py-1 text-xs text-white font-bold outline-none focus:ring-2 focus:ring-white/30 cursor-pointer"
+                                            style={{ colorScheme: 'dark' }}
+                                        />
+                                    </div>
                                     <button onClick={(e) => { e.stopPropagation(); removeContainer(container.id); }}
                                         className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-300 bg-transparent border-none cursor-pointer transition-all">
                                         <Trash2 size={14} />
