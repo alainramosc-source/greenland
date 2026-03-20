@@ -393,6 +393,33 @@ export default function CoberturaPage() {
         return ',';
     };
 
+    // Normalize date string to YYYY-MM-DD, handles: YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY
+    const normalizeDate = (raw) => {
+        if (!raw) return null;
+        const s = raw.trim();
+        // Already YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        // DD/MM/YYYY or MM/DD/YYYY
+        const slash = s.split('/');
+        if (slash.length === 3) {
+            const [a, b, c] = slash.map(Number);
+            if (c > 1000) { // a/b/YYYY
+                // If a > 12, it must be DD/MM/YYYY
+                if (a > 12) return `${c}-${String(b).padStart(2,'0')}-${String(a).padStart(2,'0')}`;
+                // If b > 12, it must be MM/DD/YYYY
+                if (b > 12) return `${c}-${String(a).padStart(2,'0')}-${String(b).padStart(2,'0')}`;
+                // Ambiguous — assume DD/MM/YYYY (Mexican locale)
+                return `${c}-${String(b).padStart(2,'0')}-${String(a).padStart(2,'0')}`;
+            }
+        }
+        // Fallback: try native parse
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) {
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+        return null;
+    };
+
     // CSV Import — format: sku, weekly_demand, transit_qty, transit_date, transit_origin
     const handleCsvImport = async (e) => {
         const file = e.target.files?.[0];
@@ -424,13 +451,13 @@ export default function CoberturaPage() {
 
             // Optionally create transit shipment if qty + date provided
             if (transitQty && parseInt(transitQty) > 0 && transitDate) {
-                const parsedDate = new Date(transitDate);
-                if (!isNaN(parsedDate.getTime())) {
+                const normDate = normalizeDate(transitDate);
+                if (normDate) {
                     const { error: transitErr } = await supabase.from('transit_shipments').insert({
                         product_id: product.id,
                         warehouse_id: targetWarehouseId,
                         quantity: parseInt(transitQty),
-                        estimated_arrival: transitDate.trim(),
+                        estimated_arrival: normDate,
                         origin: transitOrigin || null,
                         created_by: user.id,
                     });
@@ -503,13 +530,13 @@ export default function CoberturaPage() {
             const [sku, qty, fecha, origen] = cols;
             const product = products.find(p => p.sku === sku);
             if (!product) { errors++; continue; }
-            const parsedDate = new Date(fecha);
-            if (isNaN(parsedDate.getTime())) { errors++; continue; }
+            const normDate = normalizeDate(fecha);
+            if (!normDate) { errors++; continue; }
             const { error } = await supabase.from('transit_shipments').insert({
                 product_id: product.id,
                 warehouse_id: targetWarehouseId,
                 quantity: parseInt(qty) || 0,
-                estimated_arrival: fecha.trim(),
+                estimated_arrival: normDate,
                 origin: origen || null,
                 created_by: user.id,
             });
