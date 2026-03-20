@@ -808,8 +808,10 @@ export default function CoberturaPage() {
                             ) : (
                                 <div className="space-y-3">
                                     {productTransits.map(t => {
-                                        const arrDate = new Date(t.estimated_arrival);
-                                        const daysUntil = Math.ceil((arrDate - new Date()) / (1000 * 60 * 60 * 24));
+                                        const arrParts = t.estimated_arrival.toString().split(/[-T]/);
+                                        const arrDate = new Date(parseInt(arrParts[0]), parseInt(arrParts[1]) - 1, parseInt(arrParts[2]), 12, 0, 0);
+                                        const todayNoon = new Date(); todayNoon.setHours(12, 0, 0, 0);
+                                        const daysUntil = Math.ceil((arrDate - todayNoon) / (1000 * 60 * 60 * 24));
                                         const weeksUntil = Math.ceil(daysUntil / 7);
                                         return (
                                             <div key={t.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100 hover:border-orange-200 transition-all">
