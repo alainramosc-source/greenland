@@ -350,14 +350,19 @@ export default function NuevoPedidoPage() {
 
             const startRowNum = ws.rowCount + 1;
 
-            // Container label row with departure date
-            const labelText = container.departure_date
-                ? `${container.name}  —  Departure: ${container.departure_date}`
-                : container.name;
-            const labelRow = ws.addRow([labelText]);
+            // Container label row
+            const labelRow = ws.addRow([container.name]);
             ws.mergeCells(labelRow.number, 1, labelRow.number, 5);
             labelRow.getCell(1).font = { bold: true, size: 10, italic: true, color: { argb: 'FF1a365d' } };
             labelRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F0FE' } };
+
+            // Departure date row (prominent, separate)
+            if (container.departure_date) {
+                const depRow = ws.addRow([`DEPARTURE DATE: ${container.departure_date}`]);
+                ws.mergeCells(depRow.number, 1, depRow.number, 5);
+                depRow.getCell(1).font = { bold: true, size: 11, color: { argb: 'FF92400E' } };
+                depRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7ED' } };
+            }
 
             itemsWithQty.forEach(item => {
                 const product = products.find(p => p.id === item.productId);
