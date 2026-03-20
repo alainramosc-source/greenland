@@ -222,9 +222,11 @@ export async function POST(request) {
 </html>`;
 
       // Send to admins
+      // Send to PO team (Alain + Didier only)
+      const PO_RECIPIENTS = ['alain.ramos@greenland-products.com.mx', 'didier.fernandez@greenland-products.com.mx'];
       emails.push({
         from: FROM_EMAIL,
-        to: ADMIN_EMAILS,
+        to: PO_RECIPIENTS,
         subject: `📦 PO ${orderNumber} — ${supplierName} → ${destinationCity}`,
         html: poHtml,
       });
