@@ -42,7 +42,8 @@ export default function CoberturaPage() {
     const [selectedManufacturer, setSelectedManufacturer] = useState(MANUFACTURERS[0]);
     const LEAD_TIME_WEEKS = selectedManufacturer.total;
 
-    const NUM_WEEKS = 20;
+    // Dynamic: weeks remaining until end of 2026
+    const NUM_WEEKS = Math.ceil((new Date('2026-12-31') - new Date()) / (7 * 24 * 60 * 60 * 1000));
     const ORDER_CYCLE_WEEKS = 4; // Pedido nuevo cada 4 semanas (mensual)
     const REORDER_TARGET_WEEKS = LEAD_TIME_WEEKS + ORDER_CYCLE_WEEKS;
     const SAFETY_STOCK_WEEKS = 0; // Desactivado por ahora — se activará por SKU después
