@@ -385,6 +385,14 @@ export default function CoberturaPage() {
         setSaving(false);
     };
 
+    // Auto-detect CSV separator (comma, semicolon, or tab)
+    const detectSeparator = (text) => {
+        const firstLine = text.split('\n')[0] || '';
+        if (firstLine.includes('\t')) return '\t';
+        if (firstLine.includes(';')) return ';';
+        return ',';
+    };
+
     // CSV Import — format: sku, weekly_demand, transit_qty, transit_date, transit_origin
     const handleCsvImport = async (e) => {
         const file = e.target.files?.[0];
@@ -398,8 +406,9 @@ export default function CoberturaPage() {
         const { data: { user } } = await supabase.auth.getUser();
         const targetWarehouseId = isCombinedView ? saltilloWarehouseIds[0] : selectedWarehouse?.id;
         let demandUpdated = 0, transitsCreated = 0, errors = 0;
+        const sep = detectSeparator(text);
         for (const line of dataLines) {
-            const cols = line.split(',').map(c => c.trim().replace(/"/g, ''));
+            const cols = line.split(sep).map(c => c.trim().replace(/"/g, ''));
             if (cols.length < 2) { errors++; continue; }
             const [sku, demanda, transitQty, transitDate, transitOrigin] = cols;
             const product = products.find(p => p.sku === sku);
@@ -487,8 +496,9 @@ export default function CoberturaPage() {
         const hasHeader = header.includes('sku') || header.includes('fecha') || header.includes('cantidad');
         const dataLines = hasHeader ? lines.slice(1) : lines;
         let imported = 0, errors = 0;
+        const sep = detectSeparator(text);
         for (const line of dataLines) {
-            const cols = line.split(',').map(c => c.trim().replace(/"/g, ''));
+            const cols = line.split(sep).map(c => c.trim().replace(/"/g, ''));
             if (cols.length < 3) { errors++; continue; }
             const [sku, qty, fecha, origen] = cols;
             const product = products.find(p => p.sku === sku);
