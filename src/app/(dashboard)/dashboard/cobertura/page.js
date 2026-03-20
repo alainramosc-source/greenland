@@ -68,7 +68,7 @@ export default function CoberturaPage() {
         setLoading(true);
         const [whRes, prodRes] = await Promise.all([
             supabase.from('warehouses').select('*').eq('is_active', true).order('sort_order'),
-            supabase.from('products').select('id, name, sku').eq('is_active', true).order('sku'),
+            supabase.from('products').select('id, name, sku, container_capacity').eq('is_active', true).order('sku'),
         ]);
         const SALTILLO_BODEGAS = ['Bodega Vito Alessio', 'Bodega Echeverría'];
         const allWarehouses = whRes.data || [];

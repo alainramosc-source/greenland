@@ -70,7 +70,7 @@ export default function NuevoPedidoPage() {
         if (!user) { router.push('/login'); return; }
         const [suppRes, prodRes, mapRes, whRes] = await Promise.all([
             supabase.from('suppliers').select('*').eq('is_active', true).order('short_name'),
-            supabase.from('products').select('id, name, sku').eq('is_active', true).order('sku'),
+            supabase.from('products').select('id, name, sku, container_capacity').eq('is_active', true).order('sku'),
             supabase.from('supplier_sku_mapping').select('*'),
             supabase.from('warehouses').select('id, name, city').eq('is_active', true),
         ]);
