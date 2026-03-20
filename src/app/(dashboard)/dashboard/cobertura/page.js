@@ -473,15 +473,18 @@ export default function CoberturaPage() {
         else { await fetchTransits(selectedWarehouse); showToast('Embarque marcado como llegado'); }
     };
 
-    // Bulk CSV transit import
-    const handleTransitCsvImport = async () => {
-        if (!transitCsvText.trim()) return;
+    // Bulk CSV transit import (file-based)
+    const transitFileRef = useRef(null);
+    const handleTransitCsvImport = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
         setTransitCsvImporting(true);
+        const text = await file.text();
         const { data: { user } } = await supabase.auth.getUser();
         const targetWarehouseId = isCombinedView ? saltilloWarehouseIds[0] : selectedWarehouse?.id;
-        const lines = transitCsvText.split('\n').filter(l => l.trim());
+        const lines = text.split('\n').filter(l => l.trim());
         const header = lines[0].toLowerCase();
-        const hasHeader = header.includes('sku') || header.includes('fecha');
+        const hasHeader = header.includes('sku') || header.includes('fecha') || header.includes('cantidad');
         const dataLines = hasHeader ? lines.slice(1) : lines;
         let imported = 0, errors = 0;
         for (const line of dataLines) {
@@ -496,7 +499,7 @@ export default function CoberturaPage() {
                 product_id: product.id,
                 warehouse_id: targetWarehouseId,
                 quantity: parseInt(qty) || 0,
-                estimated_arrival: fecha,
+                estimated_arrival: fecha.trim(),
                 origin: origen || null,
                 created_by: user.id,
             });
@@ -504,9 +507,8 @@ export default function CoberturaPage() {
         }
         await fetchTransits(selectedWarehouse);
         setTransitCsvImporting(false);
-        setTransitCsvText('');
-        setShowTransitCsvModal(false);
-        showToast(`${imported} embarques importados.${errors > 0 ? ` ${errors} errores.` : ''}`, errors > 0 ? 'warning' : 'success');
+        e.target.value = '';
+        showToast(`${imported} tránsitos importados.${errors > 0 ? ` ${errors} errores.` : ''}`, errors > 0 ? 'warning' : 'success');
     };
 
     if (loading) return (
@@ -551,10 +553,11 @@ export default function CoberturaPage() {
                                 </button>
                             ))}
                         </div>
-                        <button onClick={() => setShowTransitCsvModal(true)}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-orange-200 bg-orange-50 text-orange-700 font-bold text-sm hover:bg-orange-100 cursor-pointer transition-all shadow-sm">
-                            <Ship size={16} /> Importar Tránsitos
+                        <button onClick={() => transitFileRef.current?.click()} disabled={transitCsvImporting}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-orange-200 bg-orange-50 text-orange-700 font-bold text-sm hover:bg-orange-100 cursor-pointer transition-all shadow-sm disabled:opacity-50">
+                            <Ship size={16} /> {transitCsvImporting ? 'Importando...' : 'Importar Tránsitos'}
                         </button>
+                        <input ref={transitFileRef} type="file" accept=".csv" className="hidden" onChange={handleTransitCsvImport} />
                         <button onClick={() => fileInputRef.current?.click()} disabled={csvImporting}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 cursor-pointer transition-all shadow-sm disabled:opacity-50">
                             <Upload size={16} /> {csvImporting ? 'Importando...' : 'CSV Cobertura'}
@@ -901,43 +904,7 @@ export default function CoberturaPage() {
             );
         })()}
 
-        {/* ============ Transit CSV Import Modal ============ */}
-        {showTransitCsvModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center">
-                <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowTransitCsvModal(false)} />
-                <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <Ship className="w-5 h-5 text-orange-500" />
-                            <h2 className="text-lg font-black text-slate-900 m-0">Importar Tránsitos</h2>
-                        </div>
-                        <button onClick={() => setShowTransitCsvModal(false)} className="p-2 rounded-lg hover:bg-slate-100 cursor-pointer bg-transparent border-none text-slate-400">
-                            <X size={18} />
-                        </button>
-                    </div>
-                    <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5 mb-4 text-xs text-orange-700">
-                        <strong>Formato CSV:</strong>
-                        <code className="bg-orange-100 px-2 py-0.5 rounded text-orange-800 font-bold text-[11px] ml-2">sku, cantidad, fecha_llegada, origen</code>
-                        <br />
-                        <span className="text-orange-500 text-[11px]">Ejemplo: <code className="bg-orange-100 px-2 py-0.5 rounded text-[11px]">GL01, 500, 2026-04-15, Shinaier</code></span>
-                    </div>
-                    <textarea value={transitCsvText} onChange={e => setTransitCsvText(e.target.value)}
-                        placeholder="Pega los datos CSV aquí..."
-                        className="w-full h-40 px-4 py-3 border border-slate-200 rounded-xl text-sm font-mono outline-none focus:ring-2 focus:ring-orange-200 resize-none bg-white mb-4"
-                        style={{ boxSizing: 'border-box' }} />
-                    <div className="flex gap-3">
-                        <button onClick={() => setShowTransitCsvModal(false)}
-                            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 cursor-pointer bg-white transition-all">
-                            Cancelar
-                        </button>
-                        <button onClick={handleTransitCsvImport} disabled={transitCsvImporting || !transitCsvText.trim()}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 cursor-pointer transition-all border-none disabled:opacity-40 shadow-md">
-                            {transitCsvImporting ? <><Loader2 size={16} className="animate-spin" /> Importando...</> : <><Upload size={16} /> Importar</>}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
+        {/* Transit CSV import is now file-based — no modal needed */}
         </>
     );
 }
