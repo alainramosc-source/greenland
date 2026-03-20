@@ -385,7 +385,7 @@ export default function CoberturaPage() {
         setSaving(false);
     };
 
-    // CSV Import
+    // CSV Import — format: sku, weekly_demand, transit_qty, transit_date, transit_origin
     const handleCsvImport = async (e) => {
         const file = e.target.files?.[0];
         if (!file || !selectedWarehouse) return;
@@ -393,28 +393,46 @@ export default function CoberturaPage() {
         const text = await file.text();
         const lines = text.split('\n').filter(l => l.trim());
         const header = lines[0].toLowerCase();
-        const hasHeader = header.includes('sku') || header.includes('clave');
+        const hasHeader = header.includes('sku') || header.includes('demand') || header.includes('demanda');
         const dataLines = hasHeader ? lines.slice(1) : lines;
         const { data: { user } } = await supabase.auth.getUser();
-        let imported = 0, errors = 0;
+        const targetWarehouseId = isCombinedView ? saltilloWarehouseIds[0] : selectedWarehouse?.id;
+        let demandUpdated = 0, transitsCreated = 0, errors = 0;
         for (const line of dataLines) {
             const cols = line.split(',').map(c => c.trim().replace(/"/g, ''));
-            if (cols.length < 4) { errors++; continue; }
-            const [sku, bodega, transito, demanda] = cols;
+            if (cols.length < 2) { errors++; continue; }
+            const [sku, demanda, transitQty, transitDate, transitOrigin] = cols;
             const product = products.find(p => p.sku === sku);
             if (!product) { errors++; continue; }
-            const { error } = await supabase.from('coverage_inventory').upsert({
-                warehouse_id: selectedWarehouse.id, product_id: product.id,
-                stock_bodega: parseInt(bodega) || 0, stock_transito: parseInt(transito) || 0,
+
+            // Always update weekly_demand
+            const { error: demandErr } = await supabase.from('coverage_inventory').upsert({
+                warehouse_id: targetWarehouseId, product_id: product.id,
                 weekly_demand: parseInt(demanda) || 0,
                 updated_at: new Date().toISOString(), updated_by: user.id,
             }, { onConflict: 'warehouse_id,product_id' });
-            if (error) errors++; else imported++;
+            if (demandErr) { errors++; } else { demandUpdated++; }
+
+            // Optionally create transit shipment if qty + date provided
+            if (transitQty && parseInt(transitQty) > 0 && transitDate) {
+                const parsedDate = new Date(transitDate);
+                if (!isNaN(parsedDate.getTime())) {
+                    const { error: transitErr } = await supabase.from('transit_shipments').insert({
+                        product_id: product.id,
+                        warehouse_id: targetWarehouseId,
+                        quantity: parseInt(transitQty),
+                        estimated_arrival: transitDate.trim(),
+                        origin: transitOrigin || null,
+                        created_by: user.id,
+                    });
+                    if (transitErr) errors++; else transitsCreated++;
+                }
+            }
         }
-        await fetchCoverage(selectedWarehouse.id);
+        await Promise.all([fetchCoverage(selectedWarehouse), fetchTransits(selectedWarehouse)]);
         setCsvImporting(false);
         e.target.value = '';
-        showToast(`Importado: ${imported} productos. ${errors > 0 ? `${errors} errores.` : ''}`, errors > 0 ? 'warning' : 'success');
+        showToast(`${demandUpdated} demandas actualizadas${transitsCreated > 0 ? `, ${transitsCreated} tránsitos creados` : ''}.${errors > 0 ? ` ${errors} errores.` : ''}`, errors > 0 ? 'warning' : 'success');
     };
 
     // --- Transit Shipment Management ---
