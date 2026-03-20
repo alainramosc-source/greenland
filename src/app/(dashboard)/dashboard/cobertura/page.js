@@ -230,11 +230,11 @@ export default function CoberturaPage() {
                 else if (reorderMargin > -4) reorderStatus = 'order_now';
                 else reorderStatus = 'late';
 
-                // SMART suggested qty: simulate what stock will be when new order arrives
-                // Account for existing transits already in the simulation
-                const stockAtLeadTime = weeks[Math.min(LEAD_TIME_WEEKS - 1, NUM_WEEKS - 1)] || 0;
+                // SMART suggested qty: target stock for (lead_time + cycle + safety) weeks
+                // minus what we already have (current stock + incoming transits)
                 const neededForTarget = weeklyDemand * (REORDER_TARGET_WEEKS + SAFETY_STOCK_WEEKS);
-                suggestedQty = Math.max(0, Math.ceil(neededForTarget - stockAtLeadTime));
+                const totalOnHand = stockBodega + totalTransitQty;
+                suggestedQty = Math.max(0, Math.ceil(neededForTarget - totalOnHand));
             }
 
             return {
