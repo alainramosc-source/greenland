@@ -225,26 +225,19 @@ export async function POST(request) {
       // Build attachment array if Excel provided
       const attachments = excelBase64 ? [{ filename: excelFileName || 'PurchaseOrder.xlsx', content: Buffer.from(excelBase64, 'base64') }] : [];
 
-      // Send to PO team (Alain + Didier) — with platform link
+      // Send single email — PO team in TO, supplier in CC so everyone sees everyone
       const PO_RECIPIENTS = ['alain.ramos@greenland-products.com.mx', 'didier.fernandez@greenland-products.com.mx'];
-      emails.push({
+      const emailObj = {
         from: FROM_EMAIL,
         to: PO_RECIPIENTS,
-        subject: `📦 PO ${orderNumber} — ${supplierName} → ${destinationCity}`,
+        subject: `📦 Purchase Order ${orderNumber} — ${supplierName} → ${destinationCity}`,
         html: buildPoEmailHtml({ orderNumber, supplierName, destinationCity, destinationPort, poItems, totalQty, showPlatformLink: true, appUrl }),
         attachments,
-      });
-
-      // Send to supplier — no platform link
+      };
       if (supplierEmail) {
-        emails.push({
-          from: FROM_EMAIL,
-          to: [supplierEmail],
-          subject: `📦 Purchase Order ${orderNumber} — Greenland Products`,
-          html: buildPoEmailHtml({ orderNumber, supplierName, destinationCity, destinationPort, poItems, totalQty, showPlatformLink: false, appUrl }),
-          attachments,
-        });
+        emailObj.cc = [supplierEmail];
       }
+      emails.push(emailObj);
     }
 
     // Send all emails
