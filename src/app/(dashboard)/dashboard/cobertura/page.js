@@ -558,7 +558,7 @@ export default function CoberturaPage() {
 
     return (
         <>
-        <div className="relative">
+        <div className="relative p-4 md:p-6">
             {/* Toast */}
             {toast && (
                 <div className={`fixed top-20 right-6 z-50 px-5 py-3 rounded-xl flex items-center gap-2 text-sm font-bold shadow-xl animate-in slide-in-from-right backdrop-blur-md border ${toast.type === 'success' ? 'bg-green-50 text-green-700 border-green-200' :

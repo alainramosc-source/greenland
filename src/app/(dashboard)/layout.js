@@ -17,8 +17,8 @@ export default function DashboardLayout({ children }) {
 
   const supabase = createClient();
 
-  // Detect if we're on an inbox route → fullscreen mode
-  const isInboxRoute = pathname?.startsWith('/dashboard/inbox');
+  // Detect if we're on a fullscreen route → no sidebar, no topbar
+  const isFullscreenRoute = pathname?.startsWith('/dashboard/inbox') || pathname?.startsWith('/dashboard/cobertura');
 
   useEffect(() => {
     async function getUser() {
@@ -63,7 +63,7 @@ export default function DashboardLayout({ children }) {
   }
 
   // Inbox route → render fullscreen (no sidebar, no topbar)
-  if (isInboxRoute) {
+  if (isFullscreenRoute) {
     return (
       <div className="text-slate-900 font-sans" style={{
         background: '#f8f6f6',
