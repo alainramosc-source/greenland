@@ -183,12 +183,9 @@ export default function NuevoPedidoPage() {
       }
       return [...prev, { ...product, price: effectivePrice, basePrice: product.price, quantity: 1 }];
     });
-    // Show toast and auto-scroll to cart
+    // Show toast
     setAddToast(product.name);
     setTimeout(() => setAddToast(null), 2500);
-    setTimeout(() => {
-      cartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 150);
   };
 
   const removeFromCart = (id) => {
