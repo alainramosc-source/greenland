@@ -76,7 +76,7 @@ export default function PedidosPage() {
 
   const counts = {};
   orders.forEach(o => { counts[o.status] = (counts[o.status] || 0) + 1; });
-  const totalAmount = orders.reduce((acc, order) => acc + Number(order.total_amount || 0), 0);
+  const totalAmount = orders.filter(o => !['cancelled', 'rejected'].includes(o.status)).reduce((acc, order) => acc + Number(order.total_amount || 0), 0);
   const pendingPayment = orders.filter(o => o.payment_status !== 'paid' && !['cancelled', 'rejected'].includes(o.status)).reduce((acc, o) => acc + Number(o.total_amount || 0), 0);
 
   return (
