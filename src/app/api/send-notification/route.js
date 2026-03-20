@@ -173,6 +173,71 @@ export async function POST(request) {
           footerNote: `Tipo: ${INCIDENT_LABELS[incidentType] || incidentType}\n\nDescripción: "${incidentDescription}"`,
         }),
       });
+    } else if (type === 'purchase_order') {
+      // Admin created a manufacturer PO → notify admins + supplier
+      const { supplierName, supplierEmail, destinationCity, destinationPort, poItems, totalQty } = body;
+
+      const poHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:24px;">
+    <div style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+      <div style="background:linear-gradient(135deg,#1a365d,#2563eb);padding:28px 24px;text-align:center;">
+        <h1 style="color:#fff;font-size:22px;margin:0;font-weight:800;">📦 Purchase Order</h1>
+        <p style="color:rgba(255,255,255,0.85);font-size:12px;margin:6px 0 0;letter-spacing:1px;text-transform:uppercase;">Greenland Products</p>
+      </div>
+      <div style="padding:28px 24px;">
+        <div style="background:#f8fafc;border-radius:12px;padding:16px;margin-bottom:16px;border:1px solid #e2e8f0;">
+          <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;text-transform:uppercase;font-weight:700;">PO Number</p>
+          <p style="margin:0;font-size:20px;color:#1e293b;font-weight:800;">${orderNumber}</p>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;">
+            <div><p style="margin:0;font-size:11px;color:#94a3b8;font-weight:700;">SUPPLIER</p><p style="margin:4px 0 0;font-size:14px;color:#1e293b;font-weight:600;">${supplierName}</p></div>
+            <div style="text-align:right;"><p style="margin:0;font-size:11px;color:#94a3b8;font-weight:700;">DESTINATION</p><p style="margin:4px 0 0;font-size:14px;color:#1e293b;font-weight:600;">${destinationCity} → ${destinationPort}</p></div>
+          </div>
+        </div>
+        ${poItems && poItems.length > 0 ? `
+        <div style="margin-bottom:16px;">
+          <p style="font-size:12px;color:#94a3b8;text-transform:uppercase;font-weight:700;margin:0 0 8px;">Products (${totalQty} units total)</p>
+          ${poItems.map(item => `
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;">
+              <span style="font-size:13px;color:#475569;">${item.supplierSku} (${item.sku})</span>
+              <span style="font-size:13px;color:#1e293b;font-weight:700;">${item.quantity} pcs</span>
+            </div>
+          `).join('')}
+        </div>` : ''}
+        <div style="text-align:center;margin:24px 0;">
+          <a href="${appUrl}/dashboard/cobertura/historial" style="display:inline-block;background:#1a365d;color:#fff;font-size:14px;font-weight:700;padding:12px 28px;border-radius:12px;text-decoration:none;">
+            Ver en Plataforma
+          </a>
+        </div>
+      </div>
+      <div style="background:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
+        <p style="margin:0;font-size:11px;color:#94a3b8;">Greenland Products S.A. de C.V.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+      // Send to admins
+      emails.push({
+        from: FROM_EMAIL,
+        to: ADMIN_EMAILS,
+        subject: `📦 PO ${orderNumber} — ${supplierName} → ${destinationCity}`,
+        html: poHtml,
+      });
+
+      // Send to supplier if email provided
+      if (supplierEmail) {
+        emails.push({
+          from: FROM_EMAIL,
+          to: [supplierEmail],
+          subject: `📦 Purchase Order ${orderNumber} — Greenland Products`,
+          html: poHtml,
+        });
+      }
     }
 
     // Send all emails

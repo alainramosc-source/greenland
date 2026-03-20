@@ -20,10 +20,12 @@ const SUPPLIER_INFO = {
     'Shinaier': {
         address: 'NO.11 LINGANG RD., DAIXI TOWN, WUXING DISTRICT, HUZHOU CITY, ZHEJIANG, 313000 CHINA',
         attn: 'Jacqueline Wang',
+        email: 'jacqueline@shinaier-cn.com',
     },
     'Freeman': {
         address: 'Building 2, Xiaohe Science Park, No.24, Daxin East Road, Daojiao Town, Dongguan, Guangdong, China. 523181',
         attn: 'Patrick Huang',
+        email: 'patrick@freemanfurniture.cn',
     },
 };
 
@@ -235,6 +237,29 @@ export default function NuevoPedidoPage() {
             if (transitErr) console.error('Transit auto-create error:', transitErr);
 
             showToast(`Orden ${poNumber} guardada · ${transitEntries.length} tránsitos creados automáticamente`);
+
+            // Send email notification to admins + supplier
+            try {
+                const supplierInfo = SUPPLIER_INFO[selectedSupplier.short_name] || {};
+                const poItems = allItems.map(i => {
+                    const p = products.find(pr => pr.id === i.productId);
+                    return { sku: p?.sku || '—', supplierSku: getSupplierSku(i.productId), quantity: i.quantity };
+                });
+                await fetch('/api/send-notification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'purchase_order',
+                        orderNumber: poNumber,
+                        supplierName: selectedSupplier.short_name,
+                        supplierEmail: supplierInfo.email || null,
+                        destinationCity: destination.city,
+                        destinationPort: destination.port,
+                        poItems,
+                        totalQty: totalUnits,
+                    }),
+                });
+            } catch (emailErr) { console.error('PO email error:', emailErr); }
         }
         setSaving(false);
     };

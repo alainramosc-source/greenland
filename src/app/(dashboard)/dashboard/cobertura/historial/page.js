@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
     ArrowLeft, FileSpreadsheet, Clock, CheckCircle, Send, Package,
-    AlertTriangle, ChevronDown, ChevronUp, Truck, Eye, History
+    AlertTriangle, ChevronDown, ChevronUp, Truck, Eye, History, Save, Loader2
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 
@@ -49,6 +49,8 @@ export default function HistorialPedidosPage() {
     const [products, setProducts] = useState([]);
     const [toast, setToast] = useState(null);
     const [filterStatus, setFilterStatus] = useState('all');
+    const [editedQtys, setEditedQtys] = useState({}); // { orderId: { itemId: qty } }
+    const [savingItems, setSavingItems] = useState(false);
 
     useEffect(() => { fetchOrders(); }, []);
 
@@ -95,6 +97,60 @@ export default function HistorialPedidosPage() {
         if (error) { showToast('Error: ' + error.message, 'error'); return; }
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
         showToast(`Orden actualizada a: ${STATUS_CONFIG[newStatus].label}`);
+    };
+
+    // Edit quantity in expanded order
+    const handleQtyEdit = (orderId, itemId, newQty) => {
+        setEditedQtys(prev => ({
+            ...prev,
+            [orderId]: { ...(prev[orderId] || {}), [itemId]: parseInt(newQty) || 0 },
+        }));
+    };
+
+    const hasEdits = (orderId) => {
+        const edits = editedQtys[orderId];
+        if (!edits) return false;
+        const items = orderItems[orderId] || [];
+        return Object.entries(edits).some(([itemId, qty]) => {
+            const original = items.find(i => i.id === itemId);
+            return original && original.quantity !== qty;
+        });
+    };
+
+    const saveQtyEdits = async (order) => {
+        const edits = editedQtys[order.id];
+        if (!edits) return;
+        setSavingItems(true);
+        const items = orderItems[order.id] || [];
+        let errors = 0;
+        for (const [itemId, newQty] of Object.entries(edits)) {
+            const item = items.find(i => i.id === itemId);
+            if (!item || item.quantity === newQty) continue;
+            // Update PO item
+            const { error } = await supabase.from('purchase_order_items')
+                .update({ quantity: newQty }).eq('id', itemId);
+            if (error) { errors++; continue; }
+            // Update matching transit_shipment
+            const supplier = getSupplier(order.supplier_id);
+            const { data: transits } = await supabase.from('transit_shipments')
+                .select('id, quantity')
+                .eq('product_id', item.product_id)
+                .eq('origin', supplier?.short_name || '')
+                .order('created_at', { ascending: false })
+                .limit(1);
+            if (transits && transits.length > 0) {
+                await supabase.from('transit_shipments')
+                    .update({ quantity: newQty }).eq('id', transits[0].id);
+            }
+        }
+        // Refresh items
+        const { data: refreshed } = await supabase.from('purchase_order_items')
+            .select('*').eq('purchase_order_id', order.id);
+        setOrderItems(prev => ({ ...prev, [order.id]: refreshed || [] }));
+        setEditedQtys(prev => { const next = { ...prev }; delete next[order.id]; return next; });
+        setSavingItems(false);
+        showToast(errors > 0 ? `Guardado con ${errors} errores` : 'Cantidades actualizadas + tránsitos sincronizados',
+            errors > 0 ? 'error' : 'success');
     };
 
     // Re-export Excel
@@ -338,6 +394,14 @@ export default function HistorialPedidosPage() {
                                                 className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#6a9a04]/30 bg-white text-[#6a9a04] font-bold text-xs hover:bg-[#6a9a04]/5 cursor-pointer transition-all shadow-sm">
                                                 <FileSpreadsheet size={14} /> Exportar Excel
                                             </button>
+                                            {hasEdits(order.id) && (
+                                                <button onClick={(e) => { e.stopPropagation(); saveQtyEdits(order); }}
+                                                    disabled={savingItems}
+                                                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500 text-white border-none font-bold text-xs hover:bg-orange-600 cursor-pointer transition-all shadow-sm disabled:opacity-50">
+                                                    {savingItems ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                                    Guardar Cambios
+                                                </button>
+                                            )}
                                             {status.next && (
                                                 <button onClick={(e) => { e.stopPropagation(); changeStatus(order.id, status.next); }}
                                                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 font-bold text-xs hover:bg-blue-100 cursor-pointer transition-all shadow-sm">
@@ -366,7 +430,20 @@ export default function HistorialPedidosPage() {
                                                                 <td className="px-3 py-2 font-mono text-xs text-slate-500">{item.supplier_sku}</td>
                                                                 <td className="px-3 py-2 font-mono text-[11px] font-black text-[#6a9a04]">{product?.sku || '—'}</td>
                                                                 <td className="px-3 py-2 text-xs text-slate-700">{product?.name || '—'}</td>
-                                                                <td className="px-3 py-2 text-right font-black text-sm text-slate-900">{item.quantity?.toLocaleString()}</td>
+                                                            <td className="px-3 py-2 text-right">
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    value={editedQtys[order.id]?.[item.id] ?? item.quantity}
+                                                                    onChange={e => handleQtyEdit(order.id, item.id, e.target.value)}
+                                                                    onClick={e => e.stopPropagation()}
+                                                                    className={`w-20 text-right font-black text-sm px-2 py-1 rounded-lg border outline-none transition-colors ${
+                                                                        editedQtys[order.id]?.[item.id] !== undefined && editedQtys[order.id]?.[item.id] !== item.quantity
+                                                                            ? 'border-orange-300 bg-orange-50 text-orange-700 ring-2 ring-orange-200'
+                                                                            : 'border-slate-200 bg-white text-slate-900'
+                                                                    }`}
+                                                                />
+                                                            </td>
                                                             </tr>
                                                         );
                                                     })}
