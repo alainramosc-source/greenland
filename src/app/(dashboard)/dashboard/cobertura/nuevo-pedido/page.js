@@ -20,12 +20,12 @@ const SUPPLIER_INFO = {
     'Shinaier': {
         address: 'NO.11 LINGANG RD., DAIXI TOWN, WUXING DISTRICT, HUZHOU CITY, ZHEJIANG, 313000 CHINA',
         attn: 'Jacqueline Wang',
-        email: 'jacqueline@shinaier-cn.com',
+        email: 'jacqueline@foldingtable.cn',
     },
     'Freeman': {
         address: 'Building 2, Xiaohe Science Park, No.24, Daxin East Road, Daojiao Town, Dongguan, Guangdong, China. 523181',
         attn: 'Patrick Huang',
-        email: 'patrick@freemanfurniture.cn',
+        email: 'patrick.huang@tent-tent.com',
     },
 };
 
