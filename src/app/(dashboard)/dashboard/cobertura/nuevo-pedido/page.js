@@ -197,19 +197,32 @@ export default function NuevoPedidoPage() {
         setSaving(true);
         const { data: { user } } = await supabase.auth.getUser();
         const poNumber = poNumberOverride || generatePoNumber();
+
+        console.log('[PO] Saving PO:', poNumber, 'items:', allItems.length, 'supplier:', selectedSupplier?.short_name);
+
         const { data: po, error: poErr } = await supabase.from('purchase_orders').insert({
             po_number: poNumber, supplier_id: selectedSupplier.id, status: 'draft',
             destination_code: destination.code, destination_port: destination.port,
             notes: notes || null, created_by: user.id,
         }).select().single();
-        if (poErr) { showToast('Error: ' + poErr.message, 'error'); setSaving(false); return null; }
+        if (poErr) { console.error('[PO] PO insert error:', poErr); showToast('Error: ' + poErr.message, 'error'); setSaving(false); return null; }
+
+        console.log('[PO] PO created:', po.id);
+
         const items = allItems.map(i => ({
             purchase_order_id: po.id, product_id: i.productId,
             supplier_sku: getSupplierSku(i.productId), quantity: i.quantity,
         }));
+
+        console.log('[PO] Inserting items:', JSON.stringify(items));
+
         const { error: itemErr } = await supabase.from('purchase_order_items').insert(items);
-        if (itemErr) { showToast('Error: ' + itemErr.message, 'error'); }
-        else {
+        if (itemErr) {
+            console.error('[PO] Items insert error:', itemErr);
+            showToast('Error guardando items: ' + itemErr.message, 'error');
+        } else {
+            console.log('[PO] Items inserted OK');
+
             // Auto-create transit_shipments for coverage system
             const leadTimeConfig = LEAD_TIMES[selectedSupplier.short_name];
             const leadWeeks = leadTimeConfig?.weeks || 9;
@@ -217,6 +230,8 @@ export default function NuevoPedidoPage() {
             arrivalDate.setDate(arrivalDate.getDate() + (leadWeeks * 7));
             const arrivalStr = arrivalDate.toISOString().split('T')[0];
             const warehouseId = getWarehouseForDestination(destination.code);
+
+            console.log('[PO] Transit: warehouseId=', warehouseId, 'leadWeeks=', leadWeeks, 'arrival=', arrivalStr);
 
             // Aggregate quantities per product across all containers
             const productQtys = {};
@@ -234,8 +249,11 @@ export default function NuevoPedidoPage() {
                 created_by: user.id,
             }));
 
+            console.log('[PO] Inserting transits:', JSON.stringify(transitEntries));
+
             const { error: transitErr } = await supabase.from('transit_shipments').insert(transitEntries);
-            if (transitErr) console.error('Transit auto-create error:', transitErr);
+            if (transitErr) console.error('[PO] Transit insert error:', transitErr);
+            else console.log('[PO] Transits inserted OK');
 
             showToast(`Orden ${poNumber} guardada · ${transitEntries.length} tránsitos creados automáticamente`);
         }
