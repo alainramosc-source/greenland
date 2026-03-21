@@ -230,6 +230,7 @@ export default function NuevoPedidoPage() {
                 quantity: qty,
                 estimated_arrival: arrivalStr,
                 origin: selectedSupplier.short_name,
+                status: 'in_transit',
                 created_by: user.id,
             }));
 

@@ -604,6 +604,10 @@ export default function CoberturaPage() {
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 cursor-pointer transition-all shadow-sm">
                             <RefreshCw size={16} />
                         </button>
+                        <button onClick={() => router.push('/dashboard/cobertura/historial')}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 font-bold text-sm hover:bg-blue-100 cursor-pointer transition-all shadow-sm">
+                            <History size={16} /> Historial PO
+                        </button>
                         <button onClick={() => router.push('/dashboard/cobertura/nuevo-pedido')}
                             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#6a9a04] text-white font-bold text-sm hover:bg-[#6a9a04]/90 cursor-pointer transition-all shadow-lg shadow-[#6a9a04]/20 border-none">
                             <FileSpreadsheet size={16} /> Crear Pedido
