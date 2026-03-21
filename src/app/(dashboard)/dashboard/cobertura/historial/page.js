@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
     ArrowLeft, FileSpreadsheet, Clock, CheckCircle, Send, Package,
-    AlertTriangle, ChevronDown, ChevronUp, Truck, Eye, History, Save, Loader2
+    AlertTriangle, ChevronDown, ChevronUp, Truck, Eye, History, Save, Loader2, Trash2, Plus
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 
@@ -49,8 +49,11 @@ export default function HistorialPedidosPage() {
     const [products, setProducts] = useState([]);
     const [toast, setToast] = useState(null);
     const [filterStatus, setFilterStatus] = useState('all');
-    const [editedQtys, setEditedQtys] = useState({}); // { orderId: { itemId: qty } }
+    const [editedQtys, setEditedQtys] = useState({});
     const [savingItems, setSavingItems] = useState(false);
+    const [skuMapping, setSkuMapping] = useState([]);
+    const [addingProduct, setAddingProduct] = useState(null);
+    const [warehouses, setWarehouses] = useState([]);
 
     useEffect(() => { fetchOrders(); }, []);
 
@@ -61,16 +64,20 @@ export default function HistorialPedidosPage() {
 
     const fetchOrders = async () => {
         setLoading(true);
-        const [ordersRes, suppRes, prodRes] = await Promise.all([
+        const [ordersRes, suppRes, prodRes, mapRes, whRes] = await Promise.all([
             supabase.from('purchase_orders')
                 .select('*')
                 .order('created_at', { ascending: false }),
             supabase.from('suppliers').select('*'),
             supabase.from('products').select('id, name, sku').eq('is_active', true),
+            supabase.from('supplier_sku_mapping').select('*'),
+            supabase.from('warehouses').select('id, name, city').eq('is_active', true),
         ]);
         setOrders(ordersRes.data || []);
         setSuppliers(suppRes.data || []);
         setProducts(prodRes.data || []);
+        setSkuMapping(mapRes.data || []);
+        setWarehouses(whRes.data || []);
         setLoading(false);
     };
 
@@ -151,6 +158,67 @@ export default function HistorialPedidosPage() {
         setSavingItems(false);
         showToast(errors > 0 ? `Guardado con ${errors} errores` : 'Cantidades actualizadas + tránsitos sincronizados',
             errors > 0 ? 'error' : 'success');
+    };
+
+    // Remove item from order
+    const removeItem = async (order, itemId) => {
+        const item = (orderItems[order.id] || []).find(i => i.id === itemId);
+        if (!item) return;
+        const { error } = await supabase.from('purchase_order_items').delete().eq('id', itemId);
+        if (error) { showToast('Error: ' + error.message, 'error'); return; }
+        // Remove matching transit
+        const supplier = getSupplier(order.supplier_id);
+        const { data: transits } = await supabase.from('transit_shipments')
+            .select('id').eq('product_id', item.product_id)
+            .eq('origin', supplier?.short_name || '')
+            .order('created_at', { ascending: false }).limit(1);
+        if (transits?.[0]) await supabase.from('transit_shipments').delete().eq('id', transits[0].id);
+        // Refresh
+        const { data: refreshed } = await supabase.from('purchase_order_items')
+            .select('*').eq('purchase_order_id', order.id);
+        setOrderItems(prev => ({ ...prev, [order.id]: refreshed || [] }));
+        showToast('Producto eliminado');
+    };
+
+    // Add item to existing order
+    const addItemToOrder = async (order, productId) => {
+        const supplier = getSupplier(order.supplier_id);
+        const supplierSku = skuMapping.find(m => m.product_id === productId && m.supplier_id === order.supplier_id)?.supplier_sku || '—';
+        const { error } = await supabase.from('purchase_order_items').insert({
+            purchase_order_id: order.id,
+            product_id: productId,
+            supplier_sku: supplierSku,
+            quantity: 1,
+        });
+        if (error) { showToast('Error: ' + error.message, 'error'); return; }
+        // Create transit
+        const DEST_WH = { 'SLW': 'Bodega Vito', 'TL': 'Tlalnepantla', 'MRO': 'Morelia', 'QRO': 'Querétaro', 'ALT': 'Altamira' };
+        const whName = DEST_WH[order.destination_code] || '';
+        const wh = warehouses.find(w => w.name?.includes(whName) || w.city?.includes(whName));
+        if (wh) {
+            const leadWeeks = (supplier?.short_name === 'Shinaier') ? 12 : 9;
+            await supabase.from('transit_shipments').insert({
+                product_id: productId,
+                warehouse_id: wh.id,
+                quantity: 1,
+                estimated_arrival: new Date(Date.now() + leadWeeks * 7 * 86400000).toISOString().split('T')[0],
+                origin: supplier?.short_name || '',
+                status: 'in_transit',
+            });
+        }
+        // Refresh
+        const { data: refreshed } = await supabase.from('purchase_order_items')
+            .select('*').eq('purchase_order_id', order.id);
+        setOrderItems(prev => ({ ...prev, [order.id]: refreshed || [] }));
+        setAddingProduct(null);
+        showToast('Producto agregado — ajusta la cantidad');
+    };
+
+    // Get products not yet in this order
+    const getAvailableProducts = (orderId) => {
+        const items = orderItems[orderId] || [];
+        const usedIds = new Set(items.map(i => i.product_id));
+        return products.filter(p => !usedIds.has(p.id));
     };
 
     // Re-export Excel
@@ -420,6 +488,7 @@ export default function HistorialPedidosPage() {
                                                         <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-slate-400">GL SKU</th>
                                                         <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-slate-400">Producto</th>
                                                         <th className="px-3 py-2 text-right text-[10px] font-black uppercase tracking-wider text-slate-400">Cantidad</th>
+                                                        <th className="px-3 py-2 w-10"></th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100">
@@ -444,19 +513,51 @@ export default function HistorialPedidosPage() {
                                                                     }`}
                                                                 />
                                                             </td>
+                                                            <td className="px-3 py-1 text-center">
+                                                                <button onClick={e => { e.stopPropagation(); removeItem(order, item.id); }}
+                                                                    className="p-1 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 bg-transparent border-none cursor-pointer transition-colors">
+                                                                    <Trash2 size={13} />
+                                                                </button>
+                                                            </td>
                                                             </tr>
                                                         );
                                                     })}
                                                 </tbody>
                                                 <tfoot>
                                                     <tr className="border-t-2 border-slate-300">
-                                                        <td colSpan="3" className="px-3 py-2 text-right text-xs font-black text-slate-500 uppercase">Total</td>
+                                                        <td colSpan="4" className="px-3 py-2 text-right text-xs font-black text-slate-500 uppercase">Total</td>
                                                         <td className="px-3 py-2 text-right font-black text-sm text-[#6a9a04]">{totalQty.toLocaleString()}</td>
                                                     </tr>
                                                 </tfoot>
                                             </table>
                                         ) : (
                                             <p className="text-xs text-slate-400 text-center py-4 m-0">Cargando items...</p>
+                                        )}
+
+                                        {/* Add product */}
+                                        {isExpanded && items.length > 0 && (
+                                            <div className="mt-3 flex items-center gap-2">
+                                                {addingProduct === order.id ? (
+                                                    <>
+                                                        <select
+                                                            className="flex-1 text-xs border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#6a9a04]/30"
+                                                            defaultValue=""
+                                                            onChange={e => { if (e.target.value) addItemToOrder(order, e.target.value); }}>
+                                                            <option value="" disabled>Seleccionar producto...</option>
+                                                            {getAvailableProducts(order.id).map(p => (
+                                                                <option key={p.id} value={p.id}>{p.sku} — {p.name}</option>
+                                                            ))}
+                                                        </select>
+                                                        <button onClick={() => setAddingProduct(null)}
+                                                            className="px-3 py-2 text-xs text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer">Cancelar</button>
+                                                    </>
+                                                ) : (
+                                                    <button onClick={() => setAddingProduct(order.id)}
+                                                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-[#6a9a04] hover:bg-[#6a9a04]/5 bg-transparent border border-dashed border-[#6a9a04]/30 rounded-lg cursor-pointer transition-colors">
+                                                        <Plus size={14} /> Agregar Producto
+                                                    </button>
+                                                )}
+                                            </div>
                                         )}
 
                                         {order.notes && (
