@@ -74,7 +74,7 @@ export default function NuevoPedidoPage() {
             supabase.from('suppliers').select('*').eq('is_active', true).order('short_name'),
             supabase.from('products').select('id, name, sku, container_capacity').eq('is_active', true).order('sku'),
             supabase.from('supplier_sku_mapping').select('*'),
-            supabase.from('warehouses').select('id, name, city').eq('is_active', true),
+            supabase.from('warehouses').select('id, name').eq('is_active', true),
         ]);
         setSuppliers(suppRes.data || []);
         setProducts(prodRes.data || []);
@@ -106,7 +106,7 @@ export default function NuevoPedidoPage() {
             'ALT': ['Altamira'],
         };
         const names = DEST_WAREHOUSE_MAP[destCode] || [];
-        const wh = allWarehouses.find(w => names.some(n => w.name?.includes(n) || w.city?.includes(n)));
+        const wh = allWarehouses.find(w => names.some(n => w.name?.includes(n)));
         return wh?.id || allWarehouses[0]?.id;
     };
 

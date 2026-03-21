@@ -71,7 +71,7 @@ export default function HistorialPedidosPage() {
             supabase.from('suppliers').select('*'),
             supabase.from('products').select('id, name, sku').eq('is_active', true),
             supabase.from('supplier_sku_mapping').select('*'),
-            supabase.from('warehouses').select('id, name, city').eq('is_active', true),
+            supabase.from('warehouses').select('id, name').eq('is_active', true),
         ]);
         setOrders(ordersRes.data || []);
         setSuppliers(suppRes.data || []);
@@ -194,7 +194,7 @@ export default function HistorialPedidosPage() {
         // Create transit
         const DEST_WH = { 'SLW': 'Bodega Vito', 'TL': 'Tlalnepantla', 'MRO': 'Morelia', 'QRO': 'Querétaro', 'ALT': 'Altamira' };
         const whName = DEST_WH[order.destination_code] || '';
-        const wh = warehouses.find(w => w.name?.includes(whName) || w.city?.includes(whName));
+        const wh = warehouses.find(w => w.name?.includes(whName));
         if (wh) {
             const leadWeeks = (supplier?.short_name === 'Shinaier') ? 12 : 9;
             await supabase.from('transit_shipments').insert({
