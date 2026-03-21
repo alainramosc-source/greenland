@@ -218,12 +218,44 @@ export default function NuevoPedidoPage() {
 
         const { error: itemErr } = await supabase.from('purchase_order_items').insert(items);
         if (itemErr) {
-            console.error('[PO] Items insert error:', itemErr);
-            showToast('Error guardando items: ' + itemErr.message, 'error');
-        } else {
-            console.log('[PO] Items inserted OK');
+            console.error('[PO] Items batch insert error:', itemErr);
+            // Retry one-by-one
+            console.log('[PO] Retrying items one-by-one...');
+            let insertedCount = 0;
+            for (const item of items) {
+                const { error: singleErr } = await supabase.from('purchase_order_items').insert(item);
+                if (singleErr) console.error('[PO] Single item error:', item.supplier_sku, singleErr.message);
+                else insertedCount++;
+            }
+            if (insertedCount === 0) {
+                showToast('Error guardando items del pedido', 'error');
+            } else {
+                showToast(`Orden ${poNumber} guardada (${insertedCount}/${items.length} items)`);
+            }
+        }
 
-            // Auto-create transit_shipments for coverage system
+        // Verify items were actually saved
+        const { data: savedItems } = await supabase.from('purchase_order_items')
+            .select('id, product_id, quantity').eq('purchase_order_id', po.id);
+        const savedCount = savedItems?.length || 0;
+        console.log('[PO] Verification: saved', savedCount, 'items out of', items.length);
+
+        if (savedCount === 0 && !itemErr) {
+            // Batch said OK but nothing saved — retry one by one
+            console.error('[PO] CRITICAL: batch returned no error but 0 items saved! Retrying...');
+            for (const item of items) {
+                const { error: retryErr } = await supabase.from('purchase_order_items').insert(item);
+                if (retryErr) console.error('[PO] Retry error:', item.supplier_sku, retryErr.message);
+                else console.log('[PO] Retry OK:', item.supplier_sku);
+            }
+            // Re-verify
+            const { data: recheck } = await supabase.from('purchase_order_items')
+                .select('id').eq('purchase_order_id', po.id);
+            console.log('[PO] Re-verify:', recheck?.length || 0, 'items');
+        }
+
+        // Auto-create transit_shipments for coverage system
+        if (savedCount > 0 || itemErr === null) {
             const leadTimeConfig = LEAD_TIMES[selectedSupplier.short_name];
             const leadWeeks = leadTimeConfig?.weeks || 9;
             const arrivalDate = new Date();
@@ -232,6 +264,10 @@ export default function NuevoPedidoPage() {
             const warehouseId = getWarehouseForDestination(destination.code);
 
             console.log('[PO] Transit: warehouseId=', warehouseId, 'leadWeeks=', leadWeeks, 'arrival=', arrivalStr);
+
+            if (!warehouseId) {
+                console.error('[PO] WARNING: warehouseId is null/undefined! destination.code=', destination.code, 'allWarehouses=', allWarehouses.length);
+            }
 
             // Aggregate quantities per product across all containers
             const productQtys = {};
@@ -249,11 +285,12 @@ export default function NuevoPedidoPage() {
                 created_by: user.id,
             }));
 
-            console.log('[PO] Inserting transits:', JSON.stringify(transitEntries));
-
-            const { error: transitErr } = await supabase.from('transit_shipments').insert(transitEntries);
-            if (transitErr) console.error('[PO] Transit insert error:', transitErr);
-            else console.log('[PO] Transits inserted OK');
+            if (warehouseId) {
+                console.log('[PO] Inserting transits:', transitEntries.length);
+                const { error: transitErr } = await supabase.from('transit_shipments').insert(transitEntries);
+                if (transitErr) console.error('[PO] Transit insert error:', transitErr);
+                else console.log('[PO] Transits inserted OK');
+            }
 
             showToast(`Orden ${poNumber} guardada · ${transitEntries.length} tránsitos creados automáticamente`);
         }
