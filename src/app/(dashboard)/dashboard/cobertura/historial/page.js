@@ -106,6 +106,27 @@ export default function HistorialPedidosPage() {
         showToast(`Orden actualizada a: ${STATUS_CONFIG[newStatus].label}`);
     };
 
+    // Delete cancelled order completely
+    const deleteOrder = async (order) => {
+        if (!window.confirm(`¿Eliminar ${order.po_number} permanentemente?\n\nEsto borrará el pedido, sus items y tránsitos asociados.`)) return;
+        const supplier = getSupplier(order.supplier_id);
+        // Delete transit shipments for each item
+        const items = orderItems[order.id] || [];
+        for (const item of items) {
+            await supabase.from('transit_shipments').delete()
+                .eq('product_id', item.product_id)
+                .eq('origin', supplier?.short_name || '');
+        }
+        // Delete PO items (cascade should handle, but explicit)
+        await supabase.from('purchase_order_items').delete().eq('purchase_order_id', order.id);
+        // Delete PO
+        const { error } = await supabase.from('purchase_orders').delete().eq('id', order.id);
+        if (error) { showToast('Error: ' + error.message, 'error'); return; }
+        setOrders(prev => prev.filter(o => o.id !== order.id));
+        setExpandedOrder(null);
+        showToast(`${order.po_number} eliminada permanentemente`);
+    };
+
     // Edit quantity in expanded order
     const handleQtyEdit = (orderId, itemId, newQty) => {
         setEditedQtys(prev => ({
@@ -475,6 +496,12 @@ export default function HistorialPedidosPage() {
                                                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 font-bold text-xs hover:bg-blue-100 cursor-pointer transition-all shadow-sm">
                                                     {status.next === 'sent' ? <Send size={14} /> : <Truck size={14} />}
                                                     {NEXT_STATUS_LABEL[order.status]}
+                                                </button>
+                                            )}
+                                            {order.status === 'cancelled' && (
+                                                <button onClick={(e) => { e.stopPropagation(); deleteOrder(order); }}
+                                                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-600 border border-red-200 font-bold text-xs hover:bg-red-100 cursor-pointer transition-all shadow-sm ml-auto">
+                                                    <Trash2 size={14} /> Eliminar Pedido
                                                 </button>
                                             )}
                                         </div>
