@@ -28,6 +28,15 @@ const PAY_STATUS = {
   paid: { label: 'Pagado', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.12)' },
 };
 
+// Product weights in kg per unit (from manufacturer specs)
+const PRODUCT_WEIGHTS = {
+  GL01: 12.35, GL02: 8.45, GL03: 4.3, GL04: 11.1, GL05: 9.7,
+  GL06: 18.25, GL07: 19.7, GL08: 16.15, GL09: 10.65, GL10: 14.5,
+  GL11: 18, GL12: 23.7, GL13: 32.9, GL14: 4.3, GL15: 13,
+  GL16: 11.1, GL17: 4.5, GL18: 21.55, GL19: 4.5, GL20: 12.35,
+  GL21: 0, GL22: 4.3, GL23: 4.3, GL24: 0, GL25: 0,
+};
+
 export default function OrderDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -325,16 +334,20 @@ export default function OrderDetailsPage() {
     const totalPieces = order.order_items.reduce((sum, i) => sum + i.quantity, 0);
     const today = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
 
-    const itemsHtml = order.order_items.map((item, idx) => `
+    const itemsHtml = order.order_items.map((item, idx) => {
+      const unitW = PRODUCT_WEIGHTS[item.products?.sku] || 0;
+      const lineWeight = unitW * item.quantity;
+      return `
       <tr>
         <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:600;">${idx + 1}</td>
         <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#64748b;font-family:monospace;">${item.products?.sku || '—'}</td>
         <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;">${item.products?.name || 'Producto'}</td>
         <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:700;font-size:18px;">${item.quantity}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:12px;color:#475569;">${lineWeight > 0 ? lineWeight.toFixed(1) + ' kg' : '—'}</td>
         <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#64748b;">${item.warehouse_id ? (warehouses.find(w => w.id === item.warehouse_id)?.name || '—') : 'Sin asignar'}</td>
         <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">☐</td>
-      </tr>
-    `).join('');
+      </tr>`;
+    }).join('');
 
     const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://greenland-app.vercel.app';
 
@@ -411,6 +424,7 @@ export default function OrderDetailsPage() {
         <th style="width:100px;">SKU</th>
         <th>Producto / Modelo</th>
         <th style="width:80px;text-align:center;">Cantidad</th>
+        <th style="width:80px;text-align:right;">Peso</th>
         <th style="width:120px;">Bodega</th>
         <th style="width:60px;text-align:center;">✓</th>
       </tr>
@@ -420,7 +434,7 @@ export default function OrderDetailsPage() {
     </tbody>
   </table>
 
-  <div class="totals">
+    <div class="totals">
     <div>
       <div class="label">Total Piezas</div>
       <div class="value">${totalPieces}</div>
@@ -428,6 +442,10 @@ export default function OrderDetailsPage() {
     <div>
       <div class="label">Total Modelos</div>
       <div class="value">${order.order_items.length}</div>
+    </div>
+    <div>
+      <div class="label">Peso Total</div>
+      <div class="value">${order.order_items.reduce((s,i) => s + (PRODUCT_WEIGHTS[i.products?.sku]||0) * i.quantity, 0).toFixed(1)} kg</div>
     </div>
 
   </div>
@@ -926,6 +944,7 @@ export default function OrderDetailsPage() {
                       <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Cantidad</th>
                       {isAdmin && <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Bodega</th>}
                       <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Subtotal</th>
+                      {isAdmin && <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Peso</th>}
                       {isAdmin && order.status === 'pending' && <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center" style={{ width: '50px' }}></th>}
                     </tr>
                   </thead>
@@ -1081,6 +1100,22 @@ export default function OrderDetailsPage() {
                             ${Number((editingItems[item.id] ?? item.quantity) * item.unit_price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </td>
+                        {isAdmin && (() => {
+                          const unitW = PRODUCT_WEIGHTS[item.products?.sku] || 0;
+                          const qty = editingItems[item.id] ?? item.quantity;
+                          const lineWeight = unitW * qty;
+                          return (
+                            <td className="py-4 text-right">
+                              {unitW > 0 ? (
+                                <span className="text-sm text-slate-600 font-medium">
+                                  {lineWeight.toFixed(1)} kg
+                                </span>
+                              ) : (
+                                <span className="text-xs text-slate-400">—</span>
+                              )}
+                            </td>
+                          );
+                        })()}
                         {isAdmin && order.status === 'pending' && (
                           <td className="py-4 text-center">
                             <button
@@ -1102,6 +1137,31 @@ export default function OrderDetailsPage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Total Weight Summary (admin only) */}
+              {isAdmin && (() => {
+                const totalWeight = order.order_items.reduce((sum, item) => {
+                  const w = PRODUCT_WEIGHTS[item.products?.sku] || 0;
+                  const qty = editingItems[item.id] ?? item.quantity;
+                  return sum + (w * qty);
+                }, 0);
+                const totalPieces = order.order_items.reduce((sum, item) => sum + (editingItems[item.id] ?? item.quantity), 0);
+                return totalWeight > 0 ? (
+                  <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-end gap-6">
+                    <div className="text-right">
+                      <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Piezas</div>
+                      <div className="text-lg font-black text-slate-700">{totalPieces}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Peso Total</div>
+                      <div className={`text-lg font-black ${totalWeight > 1000 ? 'text-red-600' : totalWeight > 500 ? 'text-amber-600' : 'text-slate-700'}`}>
+                        {totalWeight.toFixed(1)} kg
+                        <span className="text-xs font-medium text-slate-400 ml-1">({(totalWeight / 1000).toFixed(2)} ton)</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
             </div>
 
             {/* Admin: Add Product to Order */}
