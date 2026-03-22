@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function InteractiveGallery({ sku, productName }) {
-    // Array of up to 5 images
+    // Array of images: base image first, then up to 5 additional angles
     const [images, setImages] = useState([
+        { id: 0, url: `/productos/${sku}.jpg`, failed: false, isPng: false },
         { id: 1, url: `/productos/${sku}-P1.jpg`, failed: false, isPng: false },
         { id: 2, url: `/productos/${sku}-P2.jpg`, failed: false, isPng: false },
         { id: 3, url: `/productos/${sku}-P3.jpg`, failed: false, isPng: false },
@@ -23,7 +24,11 @@ export default function InteractiveGallery({ sku, productName }) {
         setImages(prev => {
             const newImages = [...prev];
             if (!newImages[index].isPng) {
-                newImages[index].url = `/productos/${sku}-P${index + 1}.png`;
+                // Base image (id 0) uses SKU.png, others use SKU-P{N}.png
+                const fallbackUrl = newImages[index].id === 0
+                    ? `/productos/${sku}.png`
+                    : `/productos/${sku}-P${newImages[index].id}.png`;
+                newImages[index].url = fallbackUrl;
                 newImages[index].isPng = true;
             } else {
                 newImages[index].failed = true;
