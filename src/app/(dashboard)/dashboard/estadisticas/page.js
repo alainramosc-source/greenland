@@ -104,9 +104,42 @@ export default function EstadisticasPage() {
 
     // --- Fulfillment Metrics ---
     const fulfillmentMetrics = useMemo(() => {
+        // Excludes weekend block: Saturday 14:00 → Monday 09:00 (43 hrs)
+        // All other hours (weekday nights, etc.) count normally
         const diffHours = (a, b) => {
             if (!a || !b) return null;
-            return (new Date(b) - new Date(a)) / (1000 * 60 * 60);
+            const start = new Date(a);
+            const end = new Date(b);
+            if (end <= start) return 0;
+
+            let totalMs = 0;
+            const cursor = new Date(start);
+
+            while (cursor < end) {
+                const day = cursor.getDay(); // 0=Sun, 6=Sat
+                const hour = cursor.getHours();
+
+                // Check if current hour is in the weekend block:
+                // Saturday 14:00+ OR all Sunday OR Monday before 9:00
+                const isWeekendBlock =
+                    (day === 6 && hour >= 14) ||  // Saturday 2pm+
+                    (day === 0) ||                  // All Sunday
+                    (day === 1 && hour < 9);        // Monday before 9am
+
+                if (!isWeekendBlock) {
+                    // Count this hour (or partial hour at boundaries)
+                    const nextHour = new Date(cursor);
+                    nextHour.setHours(nextHour.getHours() + 1);
+                    const sliceEnd = nextHour > end ? end : nextHour;
+                    totalMs += sliceEnd - cursor;
+                }
+
+                // Advance to next hour
+                cursor.setHours(cursor.getHours() + 1);
+                cursor.setMinutes(0, 0, 0);
+            }
+
+            return totalMs / (1000 * 60 * 60);
         };
 
         const confirmTimes = [];
