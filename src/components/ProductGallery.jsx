@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // SKUs that need object-contain (wide/panoramic images)
-const CONTAIN_SKUS = ['GL06', 'GL03'];
+const CONTAIN_SKUS = ['GL06'];
 
 export default function ProductGallery({ sku, productName }) {
     const objectFit = CONTAIN_SKUS.includes(sku) ? 'object-contain' : 'object-cover';
@@ -90,6 +90,7 @@ export default function ProductGallery({ sku, productName }) {
     return (
         <div className="product-gallery relative w-full h-full group">
             <img
+                key={validImages[safeCurrentIndex].url}
                 src={validImages[safeCurrentIndex].url}
                 alt={`${productName} - Vista ${safeCurrentIndex + 1}`}
                 className={`w-full h-full ${objectFit} transition-opacity duration-300`}

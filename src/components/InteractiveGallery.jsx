@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // SKUs that need object-contain (wide/panoramic images that get cropped with object-cover)
-const CONTAIN_SKUS = ['GL06', 'GL03'];
+const CONTAIN_SKUS = ['GL06'];
 
 export default function InteractiveGallery({ sku, productName }) {
     const objectFit = CONTAIN_SKUS.includes(sku) ? 'object-contain' : 'object-cover';
@@ -92,6 +92,7 @@ export default function InteractiveGallery({ sku, productName }) {
                 onMouseLeave={handleMouseLeave}
             >
                 <img
+                    key={validImages[safeCurrentIndex].url}
                     src={validImages[safeCurrentIndex].url}
                     alt={`${productName} - Vista ${safeCurrentIndex + 1}`}
                     className={`w-full h-full ${objectFit} transition-opacity duration-300 mix-blend-multiply`}
@@ -142,6 +143,7 @@ export default function InteractiveGallery({ sku, productName }) {
                                 }`}
                         >
                             <img
+                                key={img.url}
                                 src={img.url}
                                 alt={`Miniatura ${idx + 1}`}
                                 className={`w-full h-full ${objectFit} mix-blend-multiply`}
