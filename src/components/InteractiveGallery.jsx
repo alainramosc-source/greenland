@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // SKUs that need object-contain (wide/panoramic images)
@@ -8,49 +8,50 @@ const CONTAIN_SKUS = ['GL06'];
 
 export default function InteractiveGallery({ sku, productName }) {
     const objectFit = CONTAIN_SKUS.includes(sku) ? 'object-contain' : 'object-cover';
-
-    const [images, setImages] = useState([
-        { id: 1, url: `/productos/${sku}-P1.jpg`, failed: false, isPng: false },
-        { id: 2, url: `/productos/${sku}-P2.jpg`, failed: false, isPng: false },
-        { id: 3, url: `/productos/${sku}-P3.jpg`, failed: false, isPng: false },
-        { id: 4, url: `/productos/${sku}-P4.jpg`, failed: false, isPng: false },
-        { id: 5, url: `/productos/${sku}-P5.jpg`, failed: false, isPng: false }
-    ]);
-
+    const [images, setImages] = useState([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [zoomStyle, setZoomStyle] = useState({ display: 'none' });
+    const [loading, setLoading] = useState(true);
 
-    // Synchronous guard to prevent double-processing the same error
-    const handledErrors = useRef(new Set());
+    // On mount, probe all possible image URLs to find which ones actually exist
+    useEffect(() => {
+        const candidates = [];
+        for (let i = 1; i <= 5; i++) {
+            candidates.push({ id: i, jpgUrl: `/productos/${sku}-P${i}.jpg`, pngUrl: `/productos/${sku}-P${i}.png` });
+        }
 
-    const handleImageError = (imageId, failedSrc) => {
-        // Use the actual src that failed as the key — this is synchronous
-        // so even if React batches, the second call for the same src is blocked
-        if (handledErrors.current.has(failedSrc)) return;
-        handledErrors.current.add(failedSrc);
+        const probeImage = (url) => new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false);
+            img.src = url;
+        });
 
-        setImages(prev => prev.map(img => {
-            if (img.id !== imageId) return img;
-            if (!img.isPng) {
-                return { ...img, url: `/productos/${sku}-P${img.id}.png`, isPng: true };
-            }
-            return { ...img, failed: true };
-        }));
-    };
-
-    const validImages = images.filter(img => !img.failed);
-    const safeCurrentIndex = Math.min(currentIndex, Math.max(0, validImages.length - 1));
+        Promise.all(
+            candidates.map(async (c) => {
+                // Try JPG first
+                if (await probeImage(c.jpgUrl)) return { id: c.id, url: c.jpgUrl };
+                // Try PNG
+                if (await probeImage(c.pngUrl)) return { id: c.id, url: c.pngUrl };
+                // Neither exists
+                return null;
+            })
+        ).then(results => {
+            setImages(results.filter(Boolean));
+            setLoading(false);
+        });
+    }, [sku]);
 
     const nextImage = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        setCurrentIndex((prev) => (prev + 1) % validImages.length);
+        setCurrentIndex((prev) => (prev + 1) % images.length);
     };
 
     const prevImage = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        setCurrentIndex((prev) => (prev === 0 ? validImages.length - 1 : prev - 1));
+        setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
     };
 
     const selectThumbnail = (index) => {
@@ -61,11 +62,10 @@ export default function InteractiveGallery({ sku, productName }) {
         const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
         const x = ((e.clientX - left) / width) * 100;
         const y = ((e.clientY - top) / height) * 100;
-
         setZoomStyle({
             display: 'block',
             backgroundPosition: `${x}% ${y}%`,
-            backgroundImage: `url(${validImages[safeCurrentIndex]?.url})`,
+            backgroundImage: `url(${images[currentIndex]?.url})`,
             backgroundSize: '250%'
         });
     };
@@ -74,7 +74,17 @@ export default function InteractiveGallery({ sku, productName }) {
         setZoomStyle({ display: 'none' });
     };
 
-    if (validImages.length === 0) {
+    if (loading) {
+        return (
+            <div className="interactive-gallery w-full flex flex-col gap-4">
+                <div className="main-image-container relative w-full aspect-square bg-[#f8f9fa] rounded-2xl overflow-hidden flex items-center justify-center">
+                    <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-500 rounded-full animate-spin" />
+                </div>
+            </div>
+        );
+    }
+
+    if (images.length === 0) {
         return (
             <div className="interactive-gallery w-full flex flex-col gap-4">
                 <div className="main-image-container relative w-full aspect-square bg-[#f8f9fa] rounded-xl overflow-hidden">
@@ -86,6 +96,8 @@ export default function InteractiveGallery({ sku, productName }) {
         );
     }
 
+    const safeIndex = Math.min(currentIndex, images.length - 1);
+
     return (
         <div className="interactive-gallery flex flex-col gap-4 w-full h-full">
             {/* Main Image with Zoom */}
@@ -95,14 +107,12 @@ export default function InteractiveGallery({ sku, productName }) {
                 onMouseLeave={handleMouseLeave}
             >
                 <img
-                    key={validImages[safeCurrentIndex].url}
-                    src={validImages[safeCurrentIndex].url}
-                    alt={`${productName} - Vista ${safeCurrentIndex + 1}`}
+                    src={images[safeIndex].url}
+                    alt={`${productName} - Vista ${safeIndex + 1}`}
                     className={`w-full h-full ${objectFit} transition-opacity duration-300 mix-blend-multiply`}
-                    onError={(e) => handleImageError(validImages[safeCurrentIndex].id, e.target.src)}
                 />
 
-                {validImages.length > 1 && (
+                {images.length > 1 && (
                     <>
                         <button
                             onClick={prevImage}
@@ -132,23 +142,21 @@ export default function InteractiveGallery({ sku, productName }) {
             </div>
 
             {/* Thumbnails */}
-            {validImages.length > 1 && (
+            {images.length > 1 && (
                 <div className="thumbnails-container flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
-                    {validImages.map((img, idx) => (
+                    {images.map((img, idx) => (
                         <button
                             key={img.id}
                             onClick={() => selectThumbnail(idx)}
-                            className={`thumbnail-btn relative min-w-[80px] w-[80px] h-[80px] rounded-lg overflow-hidden border-2 transition-all ${idx === safeCurrentIndex
+                            className={`thumbnail-btn relative min-w-[80px] w-[80px] h-[80px] rounded-lg overflow-hidden border-2 transition-all ${idx === safeIndex
                                 ? 'border-[var(--color-primary)] opacity-100 scale-105 shadow-md'
                                 : 'border-transparent opacity-60 hover:opacity-100 bg-[#f8f9fa]'
                                 }`}
                         >
                             <img
-                                key={img.url}
                                 src={img.url}
                                 alt={`Miniatura ${idx + 1}`}
                                 className={`w-full h-full ${objectFit} mix-blend-multiply`}
-                                onError={(e) => handleImageError(img.id, e.target.src)}
                             />
                         </button>
                     ))}
