@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   ShoppingCart, DollarSign, Clock, CheckCircle,
   TrendingUp, Filter, Download, ChevronLeft, ChevronRight,
-  Eye, Plus, Search, ArrowUp, ClipboardCheck
+  Eye, Plus, Search, ArrowUp, ClipboardCheck, Trash2
 } from 'lucide-react';
 
 const OP_STATUS = {
@@ -73,6 +73,15 @@ export default function PedidosPage() {
       (o.profiles?.city && o.profiles.city.toLowerCase().includes(safeSearch));
     return matchStatus && matchSearch;
   });
+
+  const deleteOrder = async (orderId, orderNumber) => {
+    if (!window.confirm(`¿Eliminar pedido #${orderNumber} permanentemente?`)) return;
+    const supabaseClient = createClient();
+    await supabaseClient.from('order_items').delete().eq('order_id', orderId);
+    const { error } = await supabaseClient.from('orders').delete().eq('id', orderId);
+    if (error) { alert('Error: ' + error.message); return; }
+    setOrders(prev => prev.filter(o => o.id !== orderId));
+  };
 
   const counts = {};
   orders.forEach(o => { counts[o.status] = (counts[o.status] || 0) + 1; });
@@ -256,9 +265,17 @@ export default function PedidosPage() {
                           )}
                         </td>
                         <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 rounded-r-2xl border-y border-r border-transparent group-hover:border-[#6a9a04]/10 text-center transition-colors">
-                          <Link href={`/dashboard/pedidos/${order.id}`} className="p-2 hover:bg-white rounded-lg transition-colors inline-flex cursor-pointer border-none bg-transparent" title="Ver detalle">
-                            <Eye className="w-5 h-5 text-slate-400 hover:text-[#6a9a04]" />
-                          </Link>
+                          <div className="flex items-center justify-center gap-1">
+                            <Link href={`/dashboard/pedidos/${order.id}`} className="p-2 hover:bg-white rounded-lg transition-colors inline-flex cursor-pointer border-none bg-transparent" title="Ver detalle">
+                              <Eye className="w-5 h-5 text-slate-400 hover:text-[#6a9a04]" />
+                            </Link>
+                            {isAdmin && ['cancelled', 'rejected'].includes(order.status) && (
+                              <button onClick={() => deleteOrder(order.id, order.order_number)}
+                                className="p-2 hover:bg-red-50 rounded-lg transition-colors inline-flex cursor-pointer border-none bg-transparent" title="Eliminar pedido">
+                                <Trash2 className="w-4 h-4 text-slate-300 hover:text-red-500" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
