@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // SKUs that need object-contain (wide/panoramic images)
@@ -24,20 +24,25 @@ export default function ProductGallery({ sku, productName }) {
     const [baseImage, setBaseImage] = useState({ url: `/productos/${sku}.jpg`, isPng: false, failed: false });
     const [currentIndex, setCurrentIndex] = useState(0);
 
-    const handleImageError = (index) => {
+    const handleImageError = (index, failedSrc) => {
+        if (!failedSrc) return;
+        // Synchronous guard to prevent double-processing
+        if (handleImageError._handled.has(failedSrc)) return;
+        handleImageError._handled.add(failedSrc);
         setImages(prev => {
             const newImages = [...prev];
             if (!newImages[index].isPng) {
                 // If JPG failed, try PNG next
-                newImages[index].url = `/productos/${sku}-P${index + 1}.png`;
-                newImages[index].isPng = true;
+                newImages[index] = { ...newImages[index], url: `/productos/${sku}-P${index + 1}.png`, isPng: true };
             } else {
                 // If PNG also failed, mark as totally failed
-                newImages[index].failed = true;
+                newImages[index] = { ...newImages[index], failed: true };
             }
             return newImages;
         });
     };
+    // Initialize the guard set
+    if (!handleImageError._handled) handleImageError._handled = new Set();
 
     const handleBaseImageError = () => {
         setBaseImage(prev => {
@@ -94,7 +99,7 @@ export default function ProductGallery({ sku, productName }) {
                 src={validImages[safeCurrentIndex].url}
                 alt={`${productName} - Vista ${safeCurrentIndex + 1}`}
                 className={`w-full h-full ${objectFit} transition-opacity duration-300`}
-                onError={() => handleImageError(images.findIndex(img => img.id === validImages[safeCurrentIndex].id))}
+                onError={(e) => handleImageError(images.findIndex(img => img.id === validImages[safeCurrentIndex].id), e.target.src)}
             />
 
             {validImages.length > 1 && (

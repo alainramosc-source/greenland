@@ -1,14 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-// SKUs that need object-contain (wide/panoramic images that get cropped with object-cover)
+// SKUs that need object-contain (wide/panoramic images)
 const CONTAIN_SKUS = ['GL06'];
 
 export default function InteractiveGallery({ sku, productName }) {
     const objectFit = CONTAIN_SKUS.includes(sku) ? 'object-contain' : 'object-cover';
-    // Array of up to 5 images — tries JPG first, then PNG on error
+
     const [images, setImages] = useState([
         { id: 1, url: `/productos/${sku}-P1.jpg`, failed: false, isPng: false },
         { id: 2, url: `/productos/${sku}-P2.jpg`, failed: false, isPng: false },
@@ -18,18 +18,22 @@ export default function InteractiveGallery({ sku, productName }) {
     ]);
 
     const [currentIndex, setCurrentIndex] = useState(0);
-
-    // Zoom state
     const [zoomStyle, setZoomStyle] = useState({ display: 'none' });
 
-    const handleImageError = (imageId) => {
+    // Synchronous guard to prevent double-processing the same error
+    const handledErrors = useRef(new Set());
+
+    const handleImageError = (imageId, failedSrc) => {
+        // Use the actual src that failed as the key — this is synchronous
+        // so even if React batches, the second call for the same src is blocked
+        if (handledErrors.current.has(failedSrc)) return;
+        handledErrors.current.add(failedSrc);
+
         setImages(prev => prev.map(img => {
             if (img.id !== imageId) return img;
             if (!img.isPng) {
-                // JPG failed → try PNG
                 return { ...img, url: `/productos/${sku}-P${img.id}.png`, isPng: true };
             }
-            // PNG also failed → mark as failed
             return { ...img, failed: true };
         }));
     };
@@ -70,7 +74,6 @@ export default function InteractiveGallery({ sku, productName }) {
         setZoomStyle({ display: 'none' });
     };
 
-    // If no numbered images exist, show placeholder
     if (validImages.length === 0) {
         return (
             <div className="interactive-gallery w-full flex flex-col gap-4">
@@ -96,10 +99,9 @@ export default function InteractiveGallery({ sku, productName }) {
                     src={validImages[safeCurrentIndex].url}
                     alt={`${productName} - Vista ${safeCurrentIndex + 1}`}
                     className={`w-full h-full ${objectFit} transition-opacity duration-300 mix-blend-multiply`}
-                    onError={() => handleImageError(validImages[safeCurrentIndex].id)}
+                    onError={(e) => handleImageError(validImages[safeCurrentIndex].id, e.target.src)}
                 />
 
-                {/* Navigation Arrows */}
                 {validImages.length > 1 && (
                     <>
                         <button
@@ -119,7 +121,6 @@ export default function InteractiveGallery({ sku, productName }) {
                     </>
                 )}
 
-                {/* Zoom Lens Overlay */}
                 <div
                     className="zoom-lens absolute inset-0 pointer-events-none transition-opacity duration-200"
                     style={{
@@ -147,7 +148,7 @@ export default function InteractiveGallery({ sku, productName }) {
                                 src={img.url}
                                 alt={`Miniatura ${idx + 1}`}
                                 className={`w-full h-full ${objectFit} mix-blend-multiply`}
-                                onError={() => handleImageError(img.id)}
+                                onError={(e) => handleImageError(img.id, e.target.src)}
                             />
                         </button>
                     ))}
