@@ -3,7 +3,11 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
+// SKUs that need object-contain (wide/panoramic images)
+const CONTAIN_SKUS = ['GL06', 'GL03'];
+
 export default function ProductGallery({ sku, productName }) {
+    const objectFit = CONTAIN_SKUS.includes(sku) ? 'object-contain' : 'object-cover';
     // Determine how many images a product has based on the naming convention (GL01-P1.jpg, GL01-P2.jpg, etc.)
     // We will attempt to load up to 10 images. If an image doesn't exist, the onError handler will mark it as failed.
     const maxImages = 10;
@@ -88,7 +92,7 @@ export default function ProductGallery({ sku, productName }) {
             <img
                 src={validImages[safeCurrentIndex].url}
                 alt={`${productName} - Vista ${safeCurrentIndex + 1}`}
-                className="w-full h-full object-cover transition-opacity duration-300"
+                className={`w-full h-full ${objectFit} transition-opacity duration-300`}
                 onError={() => handleImageError(images.findIndex(img => img.id === validImages[safeCurrentIndex].id))}
             />
 

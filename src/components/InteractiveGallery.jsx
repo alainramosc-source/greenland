@@ -3,7 +3,11 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
+// SKUs that need object-contain (wide/panoramic images that get cropped with object-cover)
+const CONTAIN_SKUS = ['GL06', 'GL03'];
+
 export default function InteractiveGallery({ sku, productName }) {
+    const objectFit = CONTAIN_SKUS.includes(sku) ? 'object-contain' : 'object-cover';
     // Array of up to 5 images — tries JPG first, then PNG on error
     const [images, setImages] = useState([
         { id: 1, url: `/productos/${sku}-P1.jpg`, failed: false, isPng: false },
@@ -90,7 +94,7 @@ export default function InteractiveGallery({ sku, productName }) {
                 <img
                     src={validImages[safeCurrentIndex].url}
                     alt={`${productName} - Vista ${safeCurrentIndex + 1}`}
-                    className="w-full h-full object-cover transition-opacity duration-300 mix-blend-multiply"
+                    className={`w-full h-full ${objectFit} transition-opacity duration-300 mix-blend-multiply`}
                     onError={() => handleImageError(validImages[safeCurrentIndex].id)}
                 />
 
@@ -140,7 +144,7 @@ export default function InteractiveGallery({ sku, productName }) {
                             <img
                                 src={img.url}
                                 alt={`Miniatura ${idx + 1}`}
-                                className="w-full h-full object-cover mix-blend-multiply"
+                                className={`w-full h-full ${objectFit} mix-blend-multiply`}
                                 onError={() => handleImageError(img.id)}
                             />
                         </button>
