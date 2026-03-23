@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck, Eye, EyeOff, ArrowLeft, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck, Eye, EyeOff, ArrowLeft, MessageSquare, Truck, FileBox, FolderOpen } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) => {
@@ -78,6 +78,12 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
       { name: 'Inbox', href: '/dashboard/inbox', icon: MessageSquare },
       { name: 'Pedidos', href: '/dashboard/pedidos', icon: ShoppingCart },
     ]
+    : userRole === 'supplier'
+    ? [
+      { name: 'Tablero', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'Mis Órdenes', href: '/dashboard/mis-ordenes', icon: FileBox },
+      { name: 'Mis Contratos', href: '/dashboard/mis-contratos', icon: FolderOpen },
+    ]
     : [
       { name: 'Tablero', href: '/dashboard', icon: LayoutDashboard },
       { name: 'Mis Pedidos', href: '/dashboard/pedidos', icon: ShoppingCart },
@@ -97,6 +103,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
     { name: 'CMS Landing', href: '/dashboard/cms?v=sync', icon: FileText, roles: ['super_admin'] },
     { name: 'Expedientes', href: '/dashboard/expedientes', icon: ClipboardCheck, roles: ['super_admin'] },
     { name: 'Auditoría', href: '/dashboard/auditoria', icon: ScrollText, roles: ['super_admin'] },
+    { name: 'Proveedores', href: '/dashboard/proveedores', icon: Truck, roles: ['super_admin'] },
   ];
 
   const adminItems = userRole === 'admin'
@@ -128,7 +135,9 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
         <div className="p-6 flex-1 overflow-y-auto">
           <div className="flex flex-col items-center justify-center mb-8">
             <img src="/logo-new.jpg" alt="GreenLand Products" className="h-16 w-auto object-contain mb-2" style={{ mixBlendMode: 'multiply' }} />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6a9a04]">Portal de Distribuidores</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6a9a04]">
+              {userRole === 'supplier' ? 'Portal de Proveedores' : 'Portal de Distribuidores'}
+            </span>
           </div>
 
           <nav className="space-y-2">
@@ -217,6 +226,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
                       : subRole === 'accountant' ? 'Contabilidad'
                         : subRole === 'viewer' ? 'Solo Lectura'
                           : 'Administrador')
+                  : userRole === 'supplier' ? 'Proveedor'
                   : 'Distribuidor'}
               </p>
             </div>
