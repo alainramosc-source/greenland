@@ -206,7 +206,7 @@ export default function PedidosPage() {
                 placeholder="Buscar pedidos, clientes..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full glass-panel pl-12 pr-4 py-3 rounded-2xl focus:ring-2 focus:ring-[#6a9a04]/30 border-none placeholder:text-slate-400 outline-none"
+                className="w-full glass-panel pl-12 pr-4 py-3 rounded-2xl focus:ring-2 focus:ring-[#6a9a04]/30 border-none placeholder:text-slate-400 outline-none text-slate-800"
               />
             </div>
           </div>
