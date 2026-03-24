@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   ShoppingCart, DollarSign, Clock, CheckCircle,
   TrendingUp, Filter, Download, ChevronLeft, ChevronRight,
-  Eye, Plus, Search, ArrowUp, ClipboardCheck, Trash2
+  Eye, Plus, Search, ArrowUp, ClipboardCheck, Trash2, Printer
 } from 'lucide-react';
 
 const OP_STATUS = {
@@ -93,6 +93,100 @@ export default function PedidosPage() {
   orders.forEach(o => { counts[o.status] = (counts[o.status] || 0) + 1; });
   const totalAmount = orders.filter(o => !['cancelled', 'rejected'].includes(o.status)).reduce((acc, order) => acc + Number(order.total_amount || 0), 0);
   const pendingPayment = orders.filter(o => o.payment_status !== 'paid' && !['cancelled', 'rejected'].includes(o.status)).reduce((acc, o) => acc + Number(o.total_amount || 0), 0);
+
+  const handlePrintOrders = async () => {
+    // Only print active orders (exclude cancelled/rejected)
+    const activeStatuses = ['pending', 'confirmed', 'in_fulfillment', 'shipped'];
+    const printOrders = filteredOrders.filter(o => activeStatuses.includes(o.status));
+    if (printOrders.length === 0) { alert('No hay pedidos activos para imprimir.'); return; }
+
+    // Fetch order items for each order
+    const orderIds = printOrders.map(o => o.id);
+    const { data: items } = await supabase
+      .from('order_items')
+      .select('order_id, quantity, products:product_id(name, sku)')
+      .in('order_id', orderIds);
+
+    const itemsByOrder = {};
+    (items || []).forEach(item => {
+      if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+      itemsByOrder[item.order_id].push(item);
+    });
+
+    const today = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    const ordersHtml = printOrders.map(order => {
+      const opSc = OP_STATUS[order.status] || OP_STATUS.pending;
+      const orderItems = itemsByOrder[order.id] || [];
+      const itemsRows = orderItems.map(item => `
+        <tr>
+          <td style="padding:4px 8px;border-bottom:1px solid #e5e7eb;font-size:11px;font-family:monospace;">${item.products?.sku || '—'}</td>
+          <td style="padding:4px 8px;border-bottom:1px solid #e5e7eb;font-size:11px;">${item.products?.name || 'Producto'}</td>
+          <td style="padding:4px 8px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:700;font-size:13px;">${item.quantity}</td>
+          <td style="padding:4px 8px;border-bottom:1px solid #e5e7eb;text-align:center;">☐</td>
+        </tr>`).join('');
+      const totalPcs = orderItems.reduce((s, i) => s + i.quantity, 0);
+      return `
+        <div style="page-break-inside:avoid;border:1px solid #d1d5db;border-radius:8px;padding:12px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;border-bottom:2px solid #1e293b;padding-bottom:8px;">
+            <div>
+              <strong style="font-size:14px;">#${order.order_number}</strong>
+              <span style="color:#64748b;font-size:11px;margin-left:8px;">${new Date(order.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</span>
+            </div>
+            <div style="text-align:right;">
+              <span style="background:#f1f5f9;padding:2px 10px;border-radius:12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">${opSc.label}</span>
+            </div>
+          </div>
+          <div style="font-size:12px;margin-bottom:8px;">
+            <strong>${order.profiles?.full_name || '—'}</strong>
+            <span style="color:#64748b;margin-left:8px;">${order.profiles?.city || ''}</span>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead>
+              <tr style="background:#f8fafc;">
+                <th style="padding:4px 8px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;">SKU</th>
+                <th style="padding:4px 8px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;">Producto</th>
+                <th style="padding:4px 8px;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;">Cant</th>
+                <th style="padding:4px 8px;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;">✓</th>
+              </tr>
+            </thead>
+            <tbody>${itemsRows}</tbody>
+          </table>
+          <div style="text-align:right;margin-top:4px;font-size:11px;font-weight:700;color:#334155;">
+            ${totalPcs} pzas · $${Number(order.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+          </div>
+        </div>`;
+    }).join('');
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html><head><title>Revisión de Pedidos — ${today}</title>
+      <style>
+        @page { size: letter; margin: 1cm; }
+        body { font-family: -apple-system, 'Segoe UI', sans-serif; margin: 0; padding: 16px; color: #1e293b; }
+        @media print { body { padding: 0; } }
+      </style></head><body>
+        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1e293b;padding-bottom:12px;margin-bottom:16px;">
+          <div>
+            <h1 style="margin:0;font-size:20px;">Hoja de Revisión de Pedidos</h1>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">GreenLand Products · ${today}</p>
+          </div>
+          <div style="text-align:right;font-size:11px;">
+            <strong>${printOrders.length}</strong> pedidos · 
+            Filtro: <strong>${statusFilter === 'all' ? 'Activos' : (OP_STATUS[statusFilter]?.label || statusFilter)}</strong>
+          </div>
+        </div>
+        ${ordersHtml}
+        <div style="margin-top:20px;border-top:2px solid #1e293b;padding-top:12px;display:flex;justify-content:space-between;font-size:12px;">
+          <div>Revisado por: ________________________</div>
+          <div>Firma: ________________________</div>
+          <div>Fecha: ________________________</div>
+        </div>
+      </body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 400);
+  };
 
   return (
     <>
@@ -195,6 +289,15 @@ export default function PedidosPage() {
               >
                 <Plus className="w-5 h-5 mr-2" /> Crear Pedido
               </Link>
+              {isAdmin && (
+                <button
+                  onClick={handlePrintOrders}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 bg-white/50 border border-white/80 hover:bg-white cursor-pointer transition-all backdrop-blur-md shadow-sm"
+                  title="Imprimir hoja de revisión"
+                >
+                  <Printer className="w-4 h-4" /> Imprimir
+                </button>
+              )}
             </div>
           </div>
 
