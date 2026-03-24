@@ -78,8 +78,14 @@ export default function PedidosPage() {
     if (!window.confirm(`¿Eliminar pedido #${orderNumber} permanentemente?`)) return;
     const supabaseClient = createClient();
     await supabaseClient.from('order_items').delete().eq('order_id', orderId);
-    const { error } = await supabaseClient.from('orders').delete().eq('id', orderId);
-    if (error) { alert('Error: ' + error.message); return; }
+    const { error, count } = await supabaseClient.from('orders').delete().eq('id', orderId).select();
+    if (error) { alert('Error al eliminar: ' + error.message); return; }
+    // Re-fetch to confirm deletion actually took effect
+    const { data: check } = await supabaseClient.from('orders').select('id').eq('id', orderId).maybeSingle();
+    if (check) {
+      alert('No se pudo eliminar el pedido. Permisos insuficientes.');
+      return;
+    }
     setOrders(prev => prev.filter(o => o.id !== orderId));
   };
 
