@@ -96,7 +96,7 @@ export default function PedidosPage() {
 
   const handlePrintOrders = async () => {
     // Only print active orders (exclude cancelled/rejected)
-    const activeStatuses = ['pending', 'confirmed', 'in_fulfillment', 'shipped'];
+    const activeStatuses = ['pending', 'confirmed', 'in_fulfillment'];
     const printOrders = filteredOrders.filter(o => activeStatuses.includes(o.status));
     if (printOrders.length === 0) { alert('No hay pedidos activos para imprimir.'); return; }
 
