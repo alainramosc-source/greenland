@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck, Eye, EyeOff, ArrowLeft, MessageSquare, Truck, FileBox, FolderOpen } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck, Eye, EyeOff, ArrowLeft, MessageSquare, Truck, FileBox, FolderOpen, Globe } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) => {
@@ -17,6 +17,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
   const [impersonatedName, setImpersonatedName] = useState('');
 
   const isSuperAdmin = actualRole === 'admin' && subRole === 'super_admin';
+  const isDistributorPro = userRole === 'distributor' && subRole === 'distributor_pro';
 
   // Load distributors list and check current impersonation state
   useEffect(() => {
@@ -70,8 +71,21 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
     router.refresh();
   };
 
-  // Distributor: only their modules
-  // Admin: full navigation
+  // Build navigation items based on role
+  const baseDistributorItems = [
+    { name: 'Tablero', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Mis Pedidos', href: '/dashboard/pedidos', icon: ShoppingCart },
+    { name: 'Mis Pagos', href: '/dashboard/mis-pagos', icon: CreditCard },
+    { name: 'Mi Inventario', href: '/dashboard/mi-inventario', icon: Package },
+    { name: 'Mis Direcciones', href: '/dashboard/direcciones', icon: MapPin },
+    { name: 'Mi Expediente', href: '/dashboard/onboarding', icon: ClipboardCheck },
+  ];
+
+  // Distributor PRO gets zone management items
+  const proItems = isDistributorPro ? [
+    { name: 'Pedidos de Zona', href: '/dashboard/pedidos-zona', icon: Globe },
+  ] : [];
+
   const navItems = userRole === 'admin'
     ? [
       { name: 'Tablero', href: '/dashboard', icon: LayoutDashboard },
@@ -84,14 +98,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
       { name: 'Mis Órdenes', href: '/dashboard/mis-ordenes', icon: FileBox },
       { name: 'Mis Contratos', href: '/dashboard/mis-contratos', icon: FolderOpen },
     ]
-    : [
-      { name: 'Tablero', href: '/dashboard', icon: LayoutDashboard },
-      { name: 'Mis Pedidos', href: '/dashboard/pedidos', icon: ShoppingCart },
-      { name: 'Mis Pagos', href: '/dashboard/mis-pagos', icon: CreditCard },
-      { name: 'Mi Inventario', href: '/dashboard/mi-inventario', icon: Package },
-      { name: 'Mis Direcciones', href: '/dashboard/direcciones', icon: MapPin },
-      { name: 'Mi Expediente', href: '/dashboard/onboarding', icon: ClipboardCheck },
-    ];
+    : [...baseDistributorItems, ...proItems];
 
   const allAdminItems = [
     { name: 'Inventarios', href: '/dashboard/inventarios', icon: Package, roles: ['super_admin', 'warehouse_admin'] },

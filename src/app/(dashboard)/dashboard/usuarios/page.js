@@ -64,24 +64,33 @@ export default function UsersPage() {
 
   const handleSaveUser = async () => {
     setUpdating(true);
+    const updateData = {
+      role: selectedUser.role,
+      is_active: selectedUser.is_active,
+      full_name: selectedUser.full_name,
+      city: selectedUser.city,
+      phone: selectedUser.phone,
+      company_name: selectedUser.company_name,
+      address: selectedUser.address,
+      sub_role: selectedUser.role === 'admin' ? (selectedUser.sub_role || 'viewer')
+             : selectedUser.role === 'distributor' ? (selectedUser.sub_role || null)
+             : null,
+    };
+    // Only include parent_distributor_id for distributors
+    if (selectedUser.role === 'distributor') {
+      updateData.parent_distributor_id = selectedUser.parent_distributor_id || null;
+    } else {
+      updateData.parent_distributor_id = null;
+    }
     const { error } = await supabase
       .from('profiles')
-      .update({
-        role: selectedUser.role,
-        is_active: selectedUser.is_active,
-        full_name: selectedUser.full_name,
-        city: selectedUser.city,
-        phone: selectedUser.phone,
-        company_name: selectedUser.company_name,
-        address: selectedUser.address,
-        sub_role: selectedUser.role === 'admin' ? (selectedUser.sub_role || 'viewer') : null,
-      })
+      .update(updateData)
       .eq('id', selectedUser.id);
 
     if (error) {
       alert('Error updating user: ' + error.message);
     } else {
-      setUsers(users.map(u => (u.id === selectedUser.id ? selectedUser : u)));
+      setUsers(users.map(u => (u.id === selectedUser.id ? { ...selectedUser, ...updateData } : u)));
       setIsModalOpen(false);
     }
     setUpdating(false);
@@ -366,8 +375,14 @@ export default function UsersPage() {
                           {getInitials(user)}
                         </div>
                         <div>
-                          <p className="font-bold text-slate-900 group-hover:text-[#6a9a04] transition-colors m-0">{user.full_name || 'Sin nombre'}</p>
-                          <p className="text-xs text-slate-500 m-0">{user.company_name ? `${user.company_name} • ${user.email}` : user.email}</p>
+                          <p className="font-bold text-slate-900 group-hover:text-[#6a9a04] transition-colors m-0">
+                            {user.full_name || 'Sin nombre'}
+                            {user.sub_role === 'distributor_pro' && <span className="ml-1.5 text-[9px] font-black bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full align-middle">PRO</span>}
+                          </p>
+                          <p className="text-xs text-slate-500 m-0">
+                            {user.company_name ? `${user.company_name} • ${user.email}` : user.email}
+                            {user.parent_distributor_id && (() => { const parent = users.find(u => u.id === user.parent_distributor_id); return parent ? <span className="ml-1 text-purple-500">→ {parent.full_name || parent.city || 'PRO'}</span> : null; })()}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -529,6 +544,34 @@ export default function UsersPage() {
                   </select>
                 </div>
               </div>
+              {selectedUser.role === 'distributor' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Tipo Distribuidor</label>
+                    <select
+                      value={selectedUser.sub_role || ''}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, sub_role: e.target.value || null })}
+                      className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
+                    >
+                      <option value="">Distribuidor Regular</option>
+                      <option value="distributor_pro">Distribuidor PRO (gestiona zona)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Zona / Distribuidor PRO</label>
+                    <select
+                      value={selectedUser.parent_distributor_id || ''}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, parent_distributor_id: e.target.value || null })}
+                      className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
+                    >
+                      <option value="">Sin asignar (directo a Greenland)</option>
+                      {users.filter(u => u.role === 'distributor' && u.sub_role === 'distributor_pro' && u.id !== selectedUser.id).map(pro => (
+                        <option key={pro.id} value={pro.id}>🏢 {pro.full_name || pro.email} {pro.city ? `— ${pro.city}` : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
             {selectedUser.role === 'admin' && (
               <div>
