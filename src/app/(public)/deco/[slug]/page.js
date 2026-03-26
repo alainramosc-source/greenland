@@ -65,10 +65,10 @@ const PRODUCT_DATA = {
     gallery: [
       { src: '/deco/wpc-exterior/facade.png', title: 'Fachada Residencial', desc: 'Cladding teca con diseño horizontal', large: true },
       { src: '/deco/wpc-exterior/closeup.png', title: 'Detalle Co-extruido', desc: 'Capa protectora UV de doble capa' },
-      { src: '/deco/wpc-exterior/profiles.png', title: 'Perfiles y Vigas', desc: 'Cladding, tubos y esquineros' },
+      { src: '/deco/wpc-exterior/cladding-profiles.png', title: 'Wall Cladding', desc: 'Paneles CM-21926 con cámaras huecas' },
+      { src: '/deco/wpc-exterior/lambrin-profiles.png', title: 'Lambrín Exterior', desc: 'Siding CM-15520 tipo traslape' },
       { src: '/deco/wpc-exterior/commercial.png', title: 'Comercial', desc: 'Fachada gris oscuro con iluminación' },
       { src: '/deco/wpc-exterior/pergola.png', title: 'Pérgola WPC', desc: 'Vigas estructurales en nogal' },
-      { src: '/deco/wpc-exterior/color-card.png', title: 'Carta de Colores', desc: 'Acabados para exterior' },
     ],
     specs: [
       { label: 'Material', value: 'WPC Co-extruido' },
@@ -94,7 +94,10 @@ const PRODUCT_DATA = {
       { icon: 'recycle', title: 'Material reciclable', desc: 'Al final de su vida útil se recicla completamente sin impacto ambiental.' },
     ],
     profileImages: [
-      '/deco/wpc-exterior/profiles.png',
+      '/deco/wpc-exterior/cladding-profiles.png',
+      '/deco/wpc-exterior/lambrin-profiles.png',
+      '/deco/wpc-exterior/esquineros.png',
+      '/deco/wpc-exterior/vigas.png',
     ],
     applications: [
       { src: '/deco/wpc-exterior/facade.png', label: 'Fachadas residenciales' },
