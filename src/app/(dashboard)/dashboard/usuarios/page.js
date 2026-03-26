@@ -1,9 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Search, Filter, Edit2, Shield, AlertCircle, X, Save, UserPlus, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, Loader2, ShieldAlert } from 'lucide-react';
+import { Search, Filter, Edit2, Shield, AlertCircle, X, Save, UserPlus, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, Loader2, ShieldAlert, DollarSign, Users, CreditCard, TrendingUp, ExternalLink } from 'lucide-react';
 
 export default function UsersPage() {
+  const [activeTab, setActiveTab] = useState('clientes');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -21,6 +22,11 @@ export default function UsersPage() {
   const [creatingCollab, setCreatingCollab] = useState(false);
   const [currentUserSubRole, setCurrentUserSubRole] = useState(null);
   const [unauthorized, setUnauthorized] = useState(false);
+  // CxC state
+  const [cxcData, setCxcData] = useState([]);
+  const [cxcLoading, setCxcLoading] = useState(false);
+  const [cxcSearch, setCxcSearch] = useState('');
+  const [cxcSort, setCxcSort] = useState({ key: 'balance', dir: 'desc' });
 
   const supabase = createClient();
 
@@ -46,6 +52,8 @@ export default function UsersPage() {
       .order('created_at', { ascending: false });
     if (!error && data) setUsers(data);
     setLoading(false);
+    // Also fetch CxC data
+    fetchCxC();
   };
 
   if (unauthorized) {
@@ -231,6 +239,70 @@ export default function UsersPage() {
     return user.email ? user.email.substring(0, 2).toUpperCase() : '??';
   };
 
+  // --- CxC Data Fetch ---
+  const fetchCxC = async () => {
+    setCxcLoading(true);
+    // Get all distributors
+    const { data: distributors } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, city, company_name, client_number, phone')
+      .eq('role', 'distributor')
+      .eq('is_active', true)
+      .order('full_name');
+
+    if (!distributors) { setCxcLoading(false); return; }
+
+    // Get all non-cancelled orders with their payments
+    const { data: orders } = await supabase
+      .from('orders')
+      .select('id, distributor_id, total_amount, status, payment_status, created_at')
+      .not('status', 'in', '(cancelled,rejected)');
+
+    const { data: payments } = await supabase
+      .from('payments')
+      .select('id, order_id, amount, payment_date')
+      .order('payment_date', { ascending: false });
+
+    // Build per-distributor summary
+    const summary = distributors.map(dist => {
+      const distOrders = (orders || []).filter(o => o.distributor_id === dist.id);
+      const totalFacturado = distOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+      const orderIds = distOrders.map(o => o.id);
+      const distPayments = (payments || []).filter(p => orderIds.includes(p.order_id));
+      const totalPagado = distPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+      const lastPayment = distPayments.length > 0 ? distPayments[0].payment_date : null;
+      return {
+        ...dist,
+        totalFacturado,
+        totalPagado,
+        balance: totalFacturado - totalPagado,
+        orderCount: distOrders.length,
+        lastPayment,
+      };
+    }).filter(d => d.orderCount > 0 || d.balance !== 0);
+
+    setCxcData(summary);
+    setCxcLoading(false);
+  };
+
+  // CxC filtered & sorted
+  const filteredCxc = cxcData.filter(d => {
+    if (!cxcSearch) return true;
+    const s = cxcSearch.toLowerCase();
+    return (d.full_name || '').toLowerCase().includes(s)
+      || (d.company_name || '').toLowerCase().includes(s)
+      || (d.city || '').toLowerCase().includes(s)
+      || (d.client_number || '').toLowerCase().includes(s);
+  }).sort((a, b) => {
+    const av = a[cxcSort.key] ?? 0;
+    const bv = b[cxcSort.key] ?? 0;
+    return cxcSort.dir === 'desc' ? bv - av : av - bv;
+  });
+
+  const totalGlobalFacturado = cxcData.reduce((s, d) => s + d.totalFacturado, 0);
+  const totalGlobalPagado = cxcData.reduce((s, d) => s + d.totalPagado, 0);
+  const totalGlobalBalance = totalGlobalFacturado - totalGlobalPagado;
+
   return (
     <>
       {/* Page Header */}
@@ -265,6 +337,20 @@ export default function UsersPage() {
         </div>
       </header>
 
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 bg-white/60 backdrop-blur-md rounded-xl p-1 border border-white/50 shadow-sm w-fit">
+        {[{ key: 'clientes', label: 'Clientes', icon: Users }, { key: 'cxc', label: 'Cuentas por Cobrar', icon: DollarSign }].map(t => (
+          <button key={t.key} onClick={() => setActiveTab(t.key)}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all border-none cursor-pointer ${activeTab === t.key
+              ? 'bg-[#6a9a04] text-white shadow-md'
+              : 'bg-transparent text-slate-500 hover:text-slate-700 hover:bg-white/50'
+            }`}>
+            <t.icon size={16} /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'clientes' && (<>
       {/* Filters & Search */}
       <section className="bg-white/60 backdrop-blur-md shadow-sm border border-white/50 rounded-2xl p-4 mb-6 flex flex-wrap items-center gap-4">
         <div className="flex-1 min-w-[300px]">
@@ -702,6 +788,110 @@ export default function UsersPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+      </>)}
+
+      {/* ===== CUENTAS POR COBRAR TAB ===== */}
+      {activeTab === 'cxc' && (
+        <div>
+          {/* CxC Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white/60 backdrop-blur-md rounded-2xl border border-white/50 shadow-sm p-5">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider m-0">Total Facturado</p>
+              <p className="text-2xl font-black text-slate-900 m-0 mt-1">${totalGlobalFacturado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div className="bg-white/60 backdrop-blur-md rounded-2xl border border-white/50 shadow-sm p-5">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider m-0">Total Cobrado</p>
+              <p className="text-2xl font-black text-green-600 m-0 mt-1">${totalGlobalPagado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div className="bg-white/60 backdrop-blur-md rounded-2xl border border-white/50 shadow-sm p-5">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider m-0">Saldo Pendiente</p>
+              <p className={`text-2xl font-black m-0 mt-1 ${totalGlobalBalance > 0 ? 'text-red-500' : 'text-green-600'}`}>
+                ${totalGlobalBalance.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+          </div>
+
+          {/* CxC Search */}
+          <div className="bg-white/60 backdrop-blur-md rounded-2xl border border-white/50 shadow-sm p-4 mb-6">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input type="text" placeholder="Buscar distribuidor..." value={cxcSearch}
+                onChange={(e) => setCxcSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm" />
+            </div>
+          </div>
+
+          {/* CxC Table */}
+          {cxcLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-500 gap-4">
+              <div className="w-10 h-10 border-3 border-slate-300 border-l-[#6a9a04] rounded-full animate-spin" />
+              <p>Calculando saldos...</p>
+            </div>
+          ) : (
+            <div className="bg-white/60 backdrop-blur-md rounded-2xl border border-white/50 shadow-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[#6a9a04]/5 border-b border-[#6a9a04]/10">
+                      <th className="px-5 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Distribuidor</th>
+                      <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Ciudad</th>
+                      <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center">Pedidos</th>
+                      <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 text-right cursor-pointer select-none hover:bg-[#6a9a04]/10 transition-colors"
+                        onClick={() => setCxcSort(s => ({ key: 'totalFacturado', dir: s.key === 'totalFacturado' && s.dir === 'desc' ? 'asc' : 'desc' }))}>
+                        Facturado {cxcSort.key === 'totalFacturado' && (cxcSort.dir === 'desc' ? '↓' : '↑')}
+                      </th>
+                      <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 text-right cursor-pointer select-none hover:bg-[#6a9a04]/10 transition-colors"
+                        onClick={() => setCxcSort(s => ({ key: 'totalPagado', dir: s.key === 'totalPagado' && s.dir === 'desc' ? 'asc' : 'desc' }))}>
+                        Pagado {cxcSort.key === 'totalPagado' && (cxcSort.dir === 'desc' ? '↓' : '↑')}
+                      </th>
+                      <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 text-right cursor-pointer select-none hover:bg-[#6a9a04]/10 transition-colors"
+                        onClick={() => setCxcSort(s => ({ key: 'balance', dir: s.key === 'balance' && s.dir === 'desc' ? 'asc' : 'desc' }))}>
+                        Saldo {cxcSort.key === 'balance' && (cxcSort.dir === 'desc' ? '↓' : '↑')}
+                      </th>
+                      <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Último Pago</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredCxc.length === 0 ? (
+                      <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400">No se encontraron distribuidores con saldo.</td></tr>
+                    ) : (
+                      filteredCxc.map(d => (
+                        <tr key={d.id} className="hover:bg-white/50 transition-colors">
+                          <td className="px-5 py-4">
+                            <p className="font-bold text-sm text-slate-900 m-0">{d.full_name || d.email}</p>
+                            <p className="text-[11px] text-slate-400 m-0">{d.company_name || ''} {d.client_number ? `• #${d.client_number}` : ''}</p>
+                          </td>
+                          <td className="px-4 py-4 text-sm text-slate-600">{d.city || '—'}</td>
+                          <td className="px-4 py-4 text-center">
+                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-sm font-bold text-slate-700">{d.orderCount}</span>
+                          </td>
+                          <td className="px-4 py-4 text-right font-medium text-slate-700">
+                            ${d.totalFacturado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="px-4 py-4 text-right font-medium text-green-600">
+                            ${d.totalPagado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="px-4 py-4 text-right">
+                            <span className={`font-black text-sm ${d.balance > 0 ? 'text-red-500' : d.balance === 0 ? 'text-green-600' : 'text-slate-500'}`}>
+                              ${d.balance.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 text-sm text-slate-500">
+                            {d.lastPayment ? new Date(d.lastPayment).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : <span className="text-slate-300">Sin pagos</span>}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-200 flex items-center justify-between">
+                <p className="text-xs text-slate-500 m-0">{filteredCxc.length} distribuidores con movimientos</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>
