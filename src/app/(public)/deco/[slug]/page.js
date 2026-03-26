@@ -33,20 +33,7 @@ const PRODUCT_DATA = {
       { label: 'Pintura', value: 'No requiere — color integrado' },
       { label: 'Resistencia UV', value: 'Protección anti-decoloración' },
     ],
-    colors: [
-      { name: 'Roble Natural', hex: '#c8a876' },
-      { name: 'Nogal', hex: '#6b4226' },
-      { name: 'Teca', hex: '#b8860b' },
-      { name: 'Cerezo', hex: '#9e3e2a' },
-      { name: 'Café Espresso', hex: '#3c2415' },
-      { name: 'Gris Claro', hex: '#b0b0b0' },
-      { name: 'Gris Oscuro', hex: '#5a5a5a' },
-      { name: 'Carbón', hex: '#2d2d2d' },
-      { name: 'Blanco', hex: '#f0efe8' },
-      { name: 'Negro', hex: '#1a1a1a' },
-      { name: 'Miel', hex: '#d4a948' },
-      { name: 'Arce', hex: '#d4a574' },
-    ],
+    colorCardImage: '/deco/wpc-interior/color-card.png',
     advantages: [
       { icon: 'droplets', title: 'Resistente al agua', desc: 'Ideal para baños, cocinas y zonas húmedas sin riesgo de hincharse o pudrirse.' },
       { icon: 'shield', title: 'Anti-plagas', desc: 'Inmune a termitas, polillas y hongos. No requiere tratamientos químicos.' },
@@ -57,15 +44,9 @@ const PRODUCT_DATA = {
       { icon: 'recycle', title: 'Material reciclable', desc: 'Al final de su vida útil se recicla completamente sin residuos tóxicos.' },
       { icon: 'sparkles', title: 'Acabado premium', desc: 'Textura y veta idénticas a la madera natural. Múltiples diseños y colores.' },
     ],
-    models: [
-      { name: 'CM-20020', size: '200 × 20 mm', grooves: 5 },
-      { name: 'CM-16818', size: '168 × 18 mm', grooves: 6 },
-      { name: 'CM-1509', size: '150 × 9 mm', grooves: 4 },
-      { name: 'CM-16822', size: '168 × 22 mm', grooves: 4 },
-      { name: 'CM-17816', size: '178 × 16 mm', grooves: 5 },
-      { name: 'CM-15518', size: '155 × 18 mm', grooves: 4 },
-      { name: 'CM-22013', size: '220 × 13 mm', grooves: 3 },
-      { name: 'CM-2109', size: '210 × 9 mm', grooves: 2 },
+    profileImages: [
+      '/deco/wpc-interior/profiles-1.png',
+      '/deco/wpc-interior/profiles-2.png',
     ],
     applications: [
       { src: '/deco/wpc-interior/living-room.png', label: 'Salas de estar' },
@@ -162,18 +143,11 @@ export default function ProductDetailPage({ params }) {
         <span className="pdp-section-label" style={{ color: product.color }}>PERFILES DISPONIBLES</span>
         <h2>Modelos y dimensiones</h2>
         <p>Diferentes perfiles acanalados para crear el diseño exacto que necesitas.</p>
-        <div className="pdp-models-grid">
-          {product.models.map((m, i) => (
-            <div key={i} className="pdp-model-card">
-              <div className="pdp-model-visual" style={{ background: '#f8f6f1' }}>
-                <div className="grooves">
-                  {Array.from({ length: m.grooves }).map((_, g) => (
-                    <div key={g} className="groove" style={{ background: `hsl(30, 25%, ${55 + g * 5}%)` }} />
-                  ))}
-                </div>
-              </div>
-              <p className="pdp-model-name">{m.name}</p>
-              <p className="pdp-model-size">{m.size}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '40px' }}>
+          {product.profileImages.map((src, i) => (
+            <div key={i} className="pdp-gallery-item" onClick={() => setLightbox(src)}
+              style={{ borderRadius: '16px', overflow: 'hidden', cursor: 'pointer' }}>
+              <img src={src} alt={`Perfiles WPC Set ${i + 1}`} style={{ width: '100%', height: 'auto', display: 'block' }} />
             </div>
           ))}
         </div>
@@ -183,16 +157,15 @@ export default function ProductDetailPage({ params }) {
       <section className="pdp-specs-bg">
         <div className="pdp-section">
           <span className="pdp-section-label" style={{ color: product.color }}>COLORES DISPONIBLES</span>
-          <h2>Paleta de tonalidades</h2>
-          <p>Más de 24 tonos disponibles entre series de madera, mármol, metálico, piel y sólidos.</p>
-          <div className="pdp-colors-grid">
-            {product.colors.map((c, i) => (
-              <div key={i} className="pdp-color-card">
-                <div className="pdp-color-swatch" style={{ background: c.hex }} />
-                <div className="pdp-color-name">{c.name}</div>
-              </div>
-            ))}
+          <h2>Carta de colores</h2>
+          <p>Series disponibles: Quasi molecular, Veta de madera, Full Sky Star, Metálico, Skin Feel, Tela, Sólidos anti-rayones, Mármol, Piel.</p>
+          <div style={{ marginTop: '40px', borderRadius: '20px', overflow: 'hidden', cursor: 'pointer' }}
+            onClick={() => setLightbox(product.colorCardImage)}>
+            <img src={product.colorCardImage} alt="Carta de colores WPC" style={{ width: '100%', height: 'auto', display: 'block' }} />
           </div>
+          <p style={{ marginTop: '16px', fontSize: '13px', color: '#94a3b8', fontWeight: 600 }}>
+            Para más colores y acabados, contáctanos.
+          </p>
         </div>
       </section>
 
