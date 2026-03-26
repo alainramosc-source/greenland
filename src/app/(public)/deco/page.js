@@ -295,8 +295,8 @@ export default function DecoPage() {
                                         </ul>
                                     </div>
 
-                                    <Link href="/distribuidores" className="deco-product-cta" style={{ background: prod.color }}>
-                                        Cotizar {prod.name} <ArrowRight size={16} />
+                                    <Link href={`/deco/${prod.id}`} className="deco-product-cta" style={{ background: prod.color }}>
+                                        Ver Detalles de {prod.name} <ArrowRight size={16} />
                                     </Link>
                                 </div>
                             </div>
