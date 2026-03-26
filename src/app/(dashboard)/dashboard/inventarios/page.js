@@ -502,10 +502,10 @@ export default function InventariosPage() {
 
               {/* Products Table with Warehouse Columns */}
               <div className="glass-panel bg-white/60 backdrop-blur-md rounded-2xl border border-white/50 shadow-xl overflow-hidden">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto max-h-[75vh] overflow-y-auto">
                   <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50/50 border-b border-slate-200">
+                    <thead className="sticky top-0 z-10">
+                      <tr className="bg-slate-50 border-b border-slate-200">
                         <th className="px-5 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Producto</th>
                         <th className="px-3 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">SKU</th>
                         {warehouses.filter(wh => !hiddenWarehouses.includes(wh.id)).map(wh => (
