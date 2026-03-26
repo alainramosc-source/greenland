@@ -1,7 +1,7 @@
 'use client';
 import { useState, use } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Check, Droplets, Shield, Paintbrush, Leaf, Wrench, Clock, Thermometer, Recycle, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Droplets, Shield, Paintbrush, Leaf, Wrench, Clock, Thermometer, Recycle, Sparkles, Sun, Wind, Flame, Hammer } from 'lucide-react';
 import './product-detail.css';
 
 // Product data registry - expandable for future products
@@ -55,6 +55,53 @@ const PRODUCT_DATA = {
       { src: '/deco/wpc-interior/restaurant.png', label: 'Restaurantes y bares' },
     ],
   },
+  'wpc-exterior': {
+    number: '02',
+    name: 'WPC Exterior',
+    subtitle: 'Wall Cladding y Lambrín Exterior',
+    tagline: 'Revestimiento exterior de WPC co-extruido diseñado para fachadas comerciales y residenciales. Alta resistencia UV, impermeabilidad total y acabados que mantienen su color por años. Incluye cladding, lambrín exterior, vigas WPC y esquineros para proyectos integrales de fachada.',
+    color: '#5C7A3A',
+    heroImage: '/deco/wpc-exterior/facade.png',
+    gallery: [
+      { src: '/deco/wpc-exterior/facade.png', title: 'Fachada Residencial', desc: 'Cladding teca con diseño horizontal', large: true },
+      { src: '/deco/wpc-exterior/closeup.png', title: 'Detalle Co-extruido', desc: 'Capa protectora UV de doble capa' },
+      { src: '/deco/wpc-exterior/profiles.png', title: 'Perfiles y Vigas', desc: 'Cladding, tubos y esquineros' },
+      { src: '/deco/wpc-exterior/commercial.png', title: 'Comercial', desc: 'Fachada gris oscuro con iluminación' },
+      { src: '/deco/wpc-exterior/pergola.png', title: 'Pérgola WPC', desc: 'Vigas estructurales en nogal' },
+      { src: '/deco/wpc-exterior/color-card.png', title: 'Carta de Colores', desc: 'Acabados para exterior' },
+    ],
+    specs: [
+      { label: 'Material', value: 'WPC Co-extruido' },
+      { label: 'Composición', value: '35% PVC + 60% Fibra de madera + 5% Aditivos' },
+      { label: 'Protección UV', value: 'Capa exterior anti-decoloración' },
+      { label: 'Impermeabilidad', value: '100% resistente al agua' },
+      { label: 'Resistencia', value: '-40°C a +60°C' },
+      { label: 'Instalación', value: 'Sistema de rieles / clips ocultos' },
+      { label: 'Garantía de color', value: '10 – 15 años' },
+      { label: 'Clasificación fuego', value: 'Ignífugo clase B1' },
+      { label: 'Mantenimiento', value: 'Casi nulo' },
+      { label: 'Ecológico', value: '100% reciclable' },
+    ],
+    colorCardImage: '/deco/wpc-exterior/color-card.png',
+    advantages: [
+      { icon: 'sun', title: 'Resistencia UV máxima', desc: 'Capa co-extruida que protege contra decoloración por exposición solar continua.' },
+      { icon: 'droplets', title: 'Impermeabilidad total', desc: 'Resistente a lluvia, nieve y condiciones de alta humedad sin deformarse.' },
+      { icon: 'thermometer', title: 'Estabilidad extrema', desc: 'Funciona desde -40°C hasta +60°C. Ideal para cualquier clima.' },
+      { icon: 'flame', title: 'Ignífugo clase B1', desc: 'Material auto-extinguible. Seguro para fachadas comerciales y residenciales.' },
+      { icon: 'hammer', title: 'Instalación mecánica', desc: 'Sistema de clips ocultos. Sin pegamentos ni obra húmeda.' },
+      { icon: 'shield', title: 'Anti-plagas', desc: 'Inmune a termitas, hongos y pudrición. No requiere tratamientos químicos.' },
+      { icon: 'wind', title: 'Resistencia a viento', desc: 'Sistema de fijación mecánica que soporta vientos de alta velocidad.' },
+      { icon: 'recycle', title: 'Material reciclable', desc: 'Al final de su vida útil se recicla completamente sin impacto ambiental.' },
+    ],
+    profileImages: [
+      '/deco/wpc-exterior/profiles.png',
+    ],
+    applications: [
+      { src: '/deco/wpc-exterior/facade.png', label: 'Fachadas residenciales' },
+      { src: '/deco/wpc-exterior/commercial.png', label: 'Fachadas comerciales' },
+      { src: '/deco/wpc-exterior/pergola.png', label: 'Pérgolas y estructuras' },
+    ],
+  },
 };
 
 const ICON_MAP = {
@@ -67,6 +114,10 @@ const ICON_MAP = {
   thermometer: Thermometer,
   recycle: Recycle,
   sparkles: Sparkles,
+  sun: Sun,
+  wind: Wind,
+  flame: Flame,
+  hammer: Hammer,
 };
 
 export default function ProductDetailPage({ params }) {

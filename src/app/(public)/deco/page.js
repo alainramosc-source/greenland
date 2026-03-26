@@ -35,9 +35,9 @@ const PRODUCTS = [
     {
         id: 'wpc-exterior',
         name: 'WPC Exterior',
-        subtitle: 'Cladding y Fachada',
+        subtitle: 'Wall Cladding y Lambrín Exterior',
         tagline: 'Fachadas que resisten y deslumbran',
-        description: 'Revestimiento exterior de WPC diseñado para fachadas comerciales y residenciales. Alta resistencia UV, impermeabilidad total y acabados que mantienen su color por años. La solución ideal para renovar exteriores sin sacrificar estética ni durabilidad.',
+        description: 'Revestimiento exterior de WPC co-extruido diseñado para fachadas comerciales y residenciales. Alta resistencia UV, impermeabilidad total y acabados que mantienen su color por años. Incluye cladding, lambrín exterior, vigas WPC y esquineros para proyectos integrales.',
         image: '/deco/wpc-exterior.png',
         color: '#5C7A3A',
         specs: [
