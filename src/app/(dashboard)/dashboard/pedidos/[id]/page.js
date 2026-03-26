@@ -324,8 +324,13 @@ export default function OrderDetailsPage() {
     setActionLoading(null);
   };
 
+  // --- Transport data for loading sheet ---
+  const [showTransportModal, setShowTransportModal] = useState(false);
+  const [transportData, setTransportData] = useState({ placas: '', operador: '', sello: '' });
+  const [pendingPrintWindow, setPendingPrintWindow] = useState(null);
+
   // --- Print Loading Sheet (Hoja de Carga) ---
-  const printLoadingSheet = (printWindow) => {
+  const printLoadingSheet = (printWindow, transport = {}) => {
     const addr = order.shipping_address;
     const addrText = addr && typeof addr === 'object'
       ? `${addr.label || ''} — ${addr.street || ''}, ${addr.city || ''}, ${addr.state || ''} ${addr.zip_code || ''}`
@@ -372,6 +377,10 @@ export default function OrderDetailsPage() {
     .info-box h4 { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:#94a3b8; font-weight:700; margin-bottom:6px; }
     .info-box p { font-size:13px; color:#1e293b; font-weight:500; }
     .info-box .big { font-size:15px; font-weight:700; }
+    .transport-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:20px; }
+    .transport-box { background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:14px; }
+    .transport-box h4 { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:#0284c7; font-weight:700; margin-bottom:6px; }
+    .transport-box p { font-size:14px; color:#0c4a6e; font-weight:700; min-height:20px; }
     table { width:100%; border-collapse:collapse; margin-bottom:16px; }
     thead th { background:#f1f5f9; padding:10px 12px; text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#64748b; font-weight:700; border-bottom:2px solid #cbd5e1; }
     .totals { display:flex; justify-content:flex-end; gap:24px; padding:12px 0; border-top:2px solid #1e293b; margin-bottom:20px; }
@@ -416,6 +425,22 @@ export default function OrderDetailsPage() {
       <p class="big">${addrText}</p>
     </div>
   </div>
+
+  ${(transport.placas || transport.operador || transport.sello) ? `
+  <div class="transport-grid">
+    <div class="transport-box">
+      <h4>🚛 Placas</h4>
+      <p>${transport.placas || '—'}</p>
+    </div>
+    <div class="transport-box">
+      <h4>👤 Nombre del Operador</h4>
+      <p>${transport.operador || '—'}</p>
+    </div>
+    <div class="transport-box">
+      <h4>🔒 Número de Sello</h4>
+      <p>${transport.sello || '—'}</p>
+    </div>
+  </div>` : ''}
 
   <table>
     <thead>
@@ -512,7 +537,9 @@ export default function OrderDetailsPage() {
       sendStatusEmail(newStatus);
       // Write loading sheet to the already-opened window
       if (newStatus === 'in_fulfillment' && printWindow) {
-        printLoadingSheet(printWindow);
+        setTransportData({ placas: '', operador: '', sello: '' });
+        setPendingPrintWindow(printWindow);
+        setShowTransportModal(true);
       }
     }
     setActionLoading(null);
@@ -908,7 +935,9 @@ export default function OrderDetailsPage() {
                 onClick={() => {
                   const pw = window.open('', '_blank');
                   if (pw) {
-                    printLoadingSheet(pw);
+                    setTransportData({ placas: '', operador: '', sello: '' });
+                    setPendingPrintWindow(pw);
+                    setShowTransportModal(true);
                   } else {
                     alert('El navegador bloqueó la ventana emergente. Permite las ventanas emergentes e intenta de nuevo.');
                   }
@@ -1848,6 +1877,71 @@ export default function OrderDetailsPage() {
           </div>
         </div>
       </div>
+
+      {/* Transport Data Modal */}
+      {showTransportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">🚛 Datos de Transporte</h3>
+            <p className="text-sm text-slate-500 mb-5">Opcional — solo para envíos por camión. Deja en blanco para paquetería.</p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Placas</label>
+                <input
+                  type="text"
+                  value={transportData.placas}
+                  onChange={(e) => setTransportData(prev => ({ ...prev, placas: e.target.value.toUpperCase() }))}
+                  placeholder="Ej. ABC-123-A"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold outline-none focus:ring-2 focus:ring-blue-500/30"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nombre del Operador</label>
+                <input
+                  type="text"
+                  value={transportData.operador}
+                  onChange={(e) => setTransportData(prev => ({ ...prev, operador: e.target.value }))}
+                  placeholder="Nombre completo del chofer"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold outline-none focus:ring-2 focus:ring-blue-500/30"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Número de Sello</label>
+                <input
+                  type="text"
+                  value={transportData.sello}
+                  onChange={(e) => setTransportData(prev => ({ ...prev, sello: e.target.value.toUpperCase() }))}
+                  placeholder="Ej. SELLO-0001"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold outline-none focus:ring-2 focus:ring-blue-500/30"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => {
+                  // Print without transport data
+                  if (pendingPrintWindow) printLoadingSheet(pendingPrintWindow, {});
+                  setShowTransportModal(false);
+                  setPendingPrintWindow(null);
+                }}
+                className="px-5 py-2.5 rounded-xl text-slate-600 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all"
+              >
+                Saltar (Paquetería)
+              </button>
+              <button
+                onClick={() => {
+                  if (pendingPrintWindow) printLoadingSheet(pendingPrintWindow, transportData);
+                  setShowTransportModal(false);
+                  setPendingPrintWindow(null);
+                }}
+                className="px-5 py-2.5 rounded-xl text-white font-bold bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30 cursor-pointer transition-all border-none"
+              >
+                🖨️ Imprimir con datos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
