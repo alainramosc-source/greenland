@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, use } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Check, Droplets, Shield, Paintbrush, Leaf, Wrench, Clock, Thermometer, Recycle, Sparkles } from 'lucide-react';
 import './product-detail.css';
@@ -89,8 +89,9 @@ const ICON_MAP = {
 };
 
 export default function ProductDetailPage({ params }) {
+  const { slug } = use(params);
   const [lightbox, setLightbox] = useState(null);
-  const product = PRODUCT_DATA[params.slug];
+  const product = PRODUCT_DATA[slug];
 
   if (!product) {
     return (
