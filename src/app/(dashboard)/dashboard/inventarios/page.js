@@ -526,8 +526,9 @@ export default function InventariosPage() {
                         <tr><td colSpan={6 + warehouses.filter(wh => !hiddenWarehouses.includes(wh.id)).length} className="px-6 py-12 text-center text-slate-400">No se encontraron productos.</td></tr>
                       ) : (
                         filteredProducts.map(product => {
-                          const totalStock = product.stock_quantity || 0;
-                          const totalReserved = product.reserved_quantity || 0;
+                          // Calculate total from warehouse_stock (source of truth) instead of products table
+                          const totalStock = warehouses.reduce((sum, wh) => sum + (getWhStock(product.id, wh.id).stock || 0), 0);
+                          const totalReserved = warehouses.reduce((sum, wh) => sum + (getWhStock(product.id, wh.id).reserved || 0), 0);
                           const available = totalStock - totalReserved;
                           const status = getStockStatus(available);
                           return (
