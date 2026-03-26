@@ -259,7 +259,7 @@ export default function UsersPage() {
       .not('status', 'in', '(cancelled,rejected)');
 
     const { data: payments } = await supabase
-      .from('payments')
+      .from('order_payments')
       .select('id, order_id, amount, payment_date')
       .order('payment_date', { ascending: false });
 
