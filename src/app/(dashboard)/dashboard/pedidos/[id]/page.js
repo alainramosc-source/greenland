@@ -1006,7 +1006,7 @@ export default function OrderDetailsPage() {
                           )}
                         </td>
                         <td className="py-4 text-center">
-                          {isAdmin && order.status === 'pending' ? (
+                          {isAdmin && (order.status === 'pending' || (isSuperAdmin && !['cancelled', 'rejected'].includes(order.status))) ? (
                             <div className="inline-flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-1">
                               <button
                                 onClick={() => {
