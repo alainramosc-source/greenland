@@ -65,8 +65,8 @@ const PRODUCT_DATA = {
     gallery: [
       { src: '/deco/wpc-exterior/facade.png', title: 'Fachada Residencial', desc: 'Cladding teca con diseño horizontal', large: true },
       { src: '/deco/wpc-exterior/closeup.png', title: 'Detalle Co-extruido', desc: 'Capa protectora UV de doble capa' },
-      { src: '/deco/wpc-exterior/cladding-profiles.png', title: 'Wall Cladding', desc: 'Paneles CM-21926 con cámaras huecas' },
-      { src: '/deco/wpc-exterior/lambrin-profiles.png', title: 'Lambrín Exterior', desc: 'Siding CM-15520 tipo traslape' },
+      { src: '/deco/wpc-exterior/lambrin-profiles.png', title: 'Wall Cladding', desc: 'Paneles CM-21926 con cámaras huecas' },
+      { src: '/deco/wpc-exterior/cladding-profiles.png', title: 'Lambrín Exterior', desc: 'Siding CM-15520 tipo traslape' },
       { src: '/deco/wpc-exterior/commercial.png', title: 'Comercial', desc: 'Fachada gris oscuro con iluminación' },
       { src: '/deco/wpc-exterior/pergola.png', title: 'Pérgola WPC', desc: 'Vigas estructurales en nogal' },
     ],
