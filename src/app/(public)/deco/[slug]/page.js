@@ -132,7 +132,7 @@ const PRODUCT_DATA = {
       { label: 'Garantía', value: '20 – 25 años' },
       { label: 'Ecológico', value: '100% reciclable' },
     ],
-    colorCardImage: '/deco/deck/color-card.png',
+    colorCardImage: '/deco/deck/deck-colors.png',
     advantages: [
       { icon: 'shield', title: 'Apto para pies descalzos', desc: 'No se astilla como la madera natural. Superficie suave y segura.' },
       { icon: 'droplets', title: 'Anti-deslizante', desc: 'Textura certificada anti-derrapante. Seguro alrededor de albercas.' },
