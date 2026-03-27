@@ -116,9 +116,9 @@ const PRODUCT_DATA = {
       { src: '/deco/deck/terrace.png', title: 'Terraza Rooftop', desc: 'Deck teca con vista panorámica', large: true },
       { src: '/deco/deck/closeup.png', title: 'Detalle Co-extruido', desc: 'Textura antideslizante y doble capa' },
       { src: '/deco/deck/profiles.png', title: 'Perfiles de Deck', desc: 'Tablas 140×25mm con cámaras huecas' },
-      { src: '/deco/deck/pool.png', title: 'Área de Alberca', desc: 'Superficie segura para pies descalzos' },
-      { src: '/deco/deck/garden.png', title: 'Jardín Residencial', desc: 'Deck nogal con iluminación ambiental' },
-      { src: '/deco/deck/color-card.png', title: 'Carta de Colores', desc: 'Acabados para exterior' },
+      { src: '/deco/deck/poolside.png', title: 'Área de Alberca', desc: 'Superficie segura para pies descalzos' },
+      { src: '/deco/deck/patio.png', title: 'Patio Residencial', desc: 'Deck café con iluminación ambiental' },
+      { src: '/deco/deck/garden.png', title: 'Jardín', desc: 'Deck nogal con paisajismo' },
     ],
     specs: [
       { label: 'Tecnología', value: 'Co-extrusión de doble capa' },
@@ -148,8 +148,9 @@ const PRODUCT_DATA = {
     ],
     applications: [
       { src: '/deco/deck/terrace.png', label: 'Terrazas y rooftops' },
-      { src: '/deco/deck/pool.png', label: 'Áreas de alberca' },
-      { src: '/deco/deck/garden.png', label: 'Jardines y patios' },
+      { src: '/deco/deck/poolside.png', label: 'Áreas de alberca' },
+      { src: '/deco/deck/patio.png', label: 'Patios y comedores' },
+      { src: '/deco/deck/garden.png', label: 'Jardines y andadores' },
     ],
   },
 };
