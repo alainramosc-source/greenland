@@ -1,7 +1,7 @@
 'use client';
 import { useState, use } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Check, Droplets, Shield, Paintbrush, Leaf, Wrench, Clock, Thermometer, Recycle, Sparkles, Sun, Wind, Flame, Hammer } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Droplets, Shield, Paintbrush, Leaf, Wrench, Clock, Thermometer, Recycle, Sparkles, Sun, Wind, Flame, Hammer, Volume2 } from 'lucide-react';
 import './product-detail.css';
 
 // Product data registry - expandable for future products
@@ -201,6 +201,50 @@ const PRODUCT_DATA = {
       { src: '/deco/uv-marble/hotel.png', label: 'Hoteles y lobbies' },
     ],
   },
+  'acoustic-panel': {
+    number: '05',
+    name: 'Panel Acústico',
+    subtitle: 'Acoustic Slat Wall Panel',
+    tagline: 'Panel decorativo de listones de MDF con respaldo de fieltro de poliéster para absorción acústica. Combina estética contemporánea con funcionalidad de control de sonido. Construcción de 3 capas: chapa de madera (1mm) + MDF ecológico (12mm) + fieltro acústico de poliéster (9mm). Disponible en acabados de chapa natural, chapa técnica, PVC y esmerilado.',
+    color: '#6B5B4B',
+    heroImage: '/deco/acoustic-panel/living.png',
+    gallery: [
+      { src: '/deco/acoustic-panel/living.png', title: 'Sala de Estar', desc: 'Panel de listones en roble natural', large: true },
+      { src: '/deco/acoustic-panel/hero.png', title: 'Ambiente Residencial', desc: 'Muro de acento con absorción acústica' },
+      { src: '/deco/acoustic-panel/office.png', title: 'Oficina Corporativa', desc: 'Control acústico en espacio abierto' },
+    ],
+    specs: [
+      { label: 'Material', value: 'Fibra poliéster + listones MDF + chapa de madera' },
+      { label: 'Ancho total', value: '600 mm (también 405 mm)' },
+      { label: 'Largo', value: '2440 mm' },
+      { label: 'Espesor total', value: '21 mm (9mm fieltro + 12mm listón)' },
+      { label: 'Ancho de listón', value: '27 mm' },
+      { label: 'Separación', value: '13 mm' },
+      { label: 'Peso', value: '8 kg / m²' },
+      { label: 'Clasificación fuego', value: 'B1 (retardante de flama)' },
+      { label: 'Acabado', value: 'Melamina / Chapa natural / PVC / Esmerilado' },
+      { label: 'Instalación', value: 'Pegamento, bastidor o pistola de clavos' },
+    ],
+    colorCardImage: '/deco/acoustic-panel/hero.png',
+    advantages: [
+      { icon: 'volume2', title: 'Absorción acústica', desc: 'El fieltro de poliéster absorbe ruido y reduce reverberación en frecuencias medias y altas.' },
+      { icon: 'flame', title: 'Retardante de flama', desc: 'Clasificación B1. El fieltro acústico cumple norma ASTM E84 clase A.' },
+      { icon: 'paintbrush', title: 'Variedad de acabados', desc: 'Chapa natural, chapa técnica, melamina, PVC y acabado esmerilado (frosted).' },
+      { icon: 'hammer', title: 'Fácil instalación', desc: 'Se fija con pegamento, bastidor de madera o pistola de clavos. Corte con herramientas estándar.' },
+      { icon: 'leaf', title: 'MDF ecológico', desc: 'Tablero de fibra de densidad media con bajo contenido de emisiones. Material sustentable.' },
+      { icon: 'sparkles', title: 'Estética premium', desc: 'Patrón de listones lineales que aportan textura, profundidad y un look moderno a cualquier muro.' },
+      { icon: 'wrench', title: 'Personalizable', desc: 'Diferentes anchos de listón y separación. Especificaciones a medida según el proyecto.' },
+      { icon: 'shield', title: '3 lados cubiertos', desc: 'Los listones vienen cubiertos en 3 caras para un acabado limpio sin bordes expuestos.' },
+    ],
+    profileImages: [
+      '/deco/acoustic-panel/hero.png',
+    ],
+    applications: [
+      { src: '/deco/acoustic-panel/living.png', label: 'Salas y dormitorios' },
+      { src: '/deco/acoustic-panel/office.png', label: 'Oficinas y salas de juntas' },
+      { src: '/deco/acoustic-panel/hero.png', label: 'Restaurantes y hoteles' },
+    ],
+  },
 };
 
 const ICON_MAP = {
@@ -217,6 +261,7 @@ const ICON_MAP = {
   wind: Wind,
   flame: Flame,
   hammer: Hammer,
+  volume2: Volume2,
 };
 
 export default function ProductDetailPage({ params }) {
