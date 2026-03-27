@@ -105,6 +105,53 @@ const PRODUCT_DATA = {
       { src: '/deco/wpc-exterior/pergola.png', label: 'Pérgolas y estructuras' },
     ],
   },
+  'deck': {
+    number: '03',
+    name: 'Deck Coextruido',
+    subtitle: 'Pisos para Exterior',
+    tagline: 'Deck de WPC coextruido con tecnología de doble capa que protege contra decoloración, manchas y humedad. Perfecto para terrazas, albercas, jardines y áreas comerciales. Textura antideslizante con apariencia de madera natural, apto para pies descalzos y resistente a agua salada.',
+    color: '#A67C52',
+    heroImage: '/deco/deck/terrace.png',
+    gallery: [
+      { src: '/deco/deck/terrace.png', title: 'Terraza Rooftop', desc: 'Deck teca con vista panorámica', large: true },
+      { src: '/deco/deck/closeup.png', title: 'Detalle Co-extruido', desc: 'Textura antideslizante y doble capa' },
+      { src: '/deco/deck/profiles.png', title: 'Perfiles de Deck', desc: 'Tablas 140×25mm con cámaras huecas' },
+      { src: '/deco/deck/pool.png', title: 'Área de Alberca', desc: 'Superficie segura para pies descalzos' },
+      { src: '/deco/deck/garden.png', title: 'Jardín Residencial', desc: 'Deck nogal con iluminación ambiental' },
+      { src: '/deco/deck/color-card.png', title: 'Carta de Colores', desc: 'Acabados para exterior' },
+    ],
+    specs: [
+      { label: 'Tecnología', value: 'Co-extrusión de doble capa' },
+      { label: 'Dimensiones', value: '140 × 25 mm (largo estándar 2.9m)' },
+      { label: 'Composición', value: '35% PVC + 60% Fibra de madera + 5% Aditivos' },
+      { label: 'Superficie', value: 'Anti-deslizante texturizada' },
+      { label: 'Resistencia UV', value: 'Capa exterior anti-decoloración' },
+      { label: 'Carga', value: 'Hasta 500 kg/m²' },
+      { label: 'Resistencia', value: '-40°C a +60°C' },
+      { label: 'Instalación', value: 'Clips ocultos de acero inoxidable' },
+      { label: 'Garantía', value: '20 – 25 años' },
+      { label: 'Ecológico', value: '100% reciclable' },
+    ],
+    colorCardImage: '/deco/deck/color-card.png',
+    advantages: [
+      { icon: 'shield', title: 'Apto para pies descalzos', desc: 'No se astilla como la madera natural. Superficie suave y segura.' },
+      { icon: 'droplets', title: 'Anti-deslizante', desc: 'Textura certificada anti-derrapante. Seguro alrededor de albercas.' },
+      { icon: 'sun', title: 'Resistencia UV máxima', desc: 'Capa co-extruida que protege contra decoloración por exposición solar.' },
+      { icon: 'sparkles', title: 'Anti-manchas', desc: 'Resistente a manchas de grasa, vino, cloro y productos químicos.' },
+      { icon: 'thermometer', title: 'Estabilidad extrema', desc: 'Funciona desde -40°C hasta +60°C sin deformarse ni agrietarse.' },
+      { icon: 'hammer', title: 'Instalación rápida', desc: 'Sistema de clips ocultos de acero. Sin pegamentos ni tornillos visibles.' },
+      { icon: 'recycle', title: '100% reciclable', desc: 'Material ecológico que al final de su vida útil se recicla completamente.' },
+      { icon: 'clock', title: 'Cero mantenimiento', desc: 'No requiere barniz, sellador ni pintura. Solo limpieza con agua.' },
+    ],
+    profileImages: [
+      '/deco/deck/profiles.png',
+    ],
+    applications: [
+      { src: '/deco/deck/terrace.png', label: 'Terrazas y rooftops' },
+      { src: '/deco/deck/pool.png', label: 'Áreas de alberca' },
+      { src: '/deco/deck/garden.png', label: 'Jardines y patios' },
+    ],
+  },
 };
 
 const ICON_MAP = {
