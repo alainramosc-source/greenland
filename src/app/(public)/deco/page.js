@@ -82,8 +82,8 @@ const PRODUCTS = [
     },
     {
         id: 'uv-marble',
-        name: 'Panel Mármol UV',
-        subtitle: 'UV Marble Sheet',
+        name: 'Panel PVC Mármol UV',
+        subtitle: 'Láminas Decorativas de Gran Formato',
         tagline: 'Mármol premium a una fracción del costo',
         description: 'Hojas decorativas de gran formato con acabado de mármol y recubrimiento UV de alta brillantez. Instalación ultra rápida sobre cualquier superficie existente. Efecto espejo con aspecto idéntico al mármol natural a una fracción del costo y sin la complejidad de la instalación tradicional.',
         image: '/deco/uv-marble.png',
