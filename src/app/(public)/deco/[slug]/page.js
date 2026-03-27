@@ -299,7 +299,7 @@ export default function ProductDetailPage({ params }) {
         <div className="pdp-section" style={{ padding: '0' }}>
           <span className="pdp-section-label" style={{ color: '#6a9a04' }}>APLICACIONES</span>
           <h2>Espacios que transforma</h2>
-          <p>El WPC interior se adapta a cualquier concepto de diseño. Desde hogares hasta proyectos comerciales.</p>
+          <p>El {product.name} se adapta a cualquier concepto de diseño. Desde hogares hasta proyectos comerciales.</p>
           <div className="pdp-applications-grid">
             {product.applications.map((app, i) => (
               <div key={i} className="pdp-app-card">
