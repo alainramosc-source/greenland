@@ -161,12 +161,12 @@ const PRODUCT_DATA = {
     color: '#7A7A8E',
     heroImage: '/deco/uv-marble/bathroom.png',
     gallery: [
-      { src: '/deco/uv-marble/bathroom.png', title: 'Baño Carrara', desc: 'Panel mármol blanco con vetas grises', large: true },
+      { src: '/deco/uv-marble/bathroom.png', title: 'Baño Residencial', desc: 'Panel mármol blanco con vetas grises', large: true },
       { src: '/deco/uv-marble/closeup.png', title: 'Detalle del Panel', desc: 'Espesor ultra delgado con acabado espejo UV' },
-      { src: '/deco/uv-marble/living.png', title: 'Sala Nero Marquina', desc: 'Muro de acento negro con vetas doradas' },
-      { src: '/deco/uv-marble/kitchen.png', title: 'Cocina Calacatta', desc: 'Backsplash mármol blanco con vetas oro' },
-      { src: '/deco/uv-marble/hotel.png', title: 'Lobby de Hotel', desc: 'Emperador oscuro para espacios premium' },
-      { src: '/deco/uv-marble/color-card.png', title: 'Diseños Disponibles', desc: '12+ patrones de mármol con acabado UV' },
+      { src: '/deco/uv-marble/living.png', title: 'Muro de Acento', desc: 'Panel oscuro con vetas claras para sala' },
+      { src: '/deco/uv-marble/kitchen.png', title: 'Cocina', desc: 'Backsplash mármol blanco con vetas doradas' },
+      { src: '/deco/uv-marble/hotel.png', title: 'Lobby de Hotel', desc: 'Panel oscuro para espacios premium' },
+      { src: '/deco/uv-marble/color-card.png', title: 'Diseños Disponibles', desc: 'Variedad de patrones de mármol con acabado UV' },
     ],
     specs: [
       { label: 'Material', value: 'PVC + polvo de piedra (SPC)' },
