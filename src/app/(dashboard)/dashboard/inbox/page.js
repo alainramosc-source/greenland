@@ -1208,25 +1208,32 @@ export default function InboxPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { router.push('/login'); return; }
 
+        // Check if user is admin (admins share a single inbox)
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        const isAdmin = profile?.role === 'admin';
+
         // Check if user has connected channels
-        const { data: channelData } = await supabase
+        let channelQuery = supabase
           .from('inbox_channels')
           .select('id')
-          .eq('distributor_id', user.id)
           .eq('is_active', true)
           .limit(1);
+        if (!isAdmin) channelQuery = channelQuery.eq('distributor_id', user.id);
+        const { data: channelData } = await channelQuery;
         setHasChannels(channelData && channelData.length > 0);
 
         // Try to fetch real conversations
-        const { data: convData } = await supabase
+        // Admins see ALL conversations (shared inbox), distributors see only theirs
+        let convQuery = supabase
           .from('inbox_conversations')
           .select(`
             *,
             inbox_contacts!inner(display_name, phone, email, notes, created_at),
             inbox_channels!inner(platform)
           `)
-          .eq('distributor_id', user.id)
           .order('last_message_at', { ascending: false });
+        if (!isAdmin) convQuery = convQuery.eq('distributor_id', user.id);
+        const { data: convData } = await convQuery;
 
         if (convData && convData.length > 0) {
           const mapped = convData.map(c => ({
@@ -1255,9 +1262,7 @@ export default function InboxPage() {
             }
           }
         } else {
-          // Only show demo data for admin users, distributors see empty state
-          const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-          const isAdmin = profile?.role === 'admin';
+          // Show demo data for admin users when no real conversations exist
           if (isAdmin) {
             setConversations(getDemoConversations());
           }
@@ -1370,15 +1375,19 @@ export default function InboxPage() {
       try {
         const { data: { user: pollUser } } = await supabase.auth.getUser();
         if (!pollUser) return;
-        const { data: freshConvs } = await supabase
+        // Use same admin-aware query for polling
+        const { data: pollProfile } = await supabase.from('profiles').select('role').eq('id', pollUser.id).single();
+        const isPollAdmin = pollProfile?.role === 'admin';
+        let pollQuery = supabase
           .from('inbox_conversations')
           .select(`
             *,
             inbox_contacts!inner(display_name, phone, email, notes, created_at),
             inbox_channels!inner(platform)
           `)
-          .eq('distributor_id', pollUser.id)
           .order('last_message_at', { ascending: false });
+        if (!isPollAdmin) pollQuery = pollQuery.eq('distributor_id', pollUser.id);
+        const { data: freshConvs } = await pollQuery;
         if (freshConvs && freshConvs.length > 0) {
           const mapped = freshConvs.map(c => ({
             id: c.id,

@@ -44,8 +44,11 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
     }
 
-    // Verify the user owns this conversation
-    if (conversation.distributor_id !== user.id) {
+    // Verify the user owns this conversation (or is an admin)
+    const { data: senderProfile } = await getAdminClient()
+      .from('profiles').select('role').eq('id', user.id).single();
+    const isAdmin = senderProfile?.role === 'admin';
+    if (!isAdmin && conversation.distributor_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
