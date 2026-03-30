@@ -135,8 +135,12 @@ export async function POST(request) {
 // WHATSAPP — Send via Cloud API
 // ============================================================
 async function sendWhatsApp(channel, contact, content, contentType) {
-  const phoneNumberId = channel.platform_account_id;
+  // Use env token (confirmed working) as primary, fallback to DB token
+  const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN || channel.access_token;
+  const phoneNumberId = process.env.META_PHONE_NUMBER_ID || channel.platform_account_id;
   const recipientPhone = contact.platform_user_id;
+
+  console.log('[WhatsApp Send] phoneNumberId:', phoneNumberId, 'recipient:', recipientPhone, 'tokenSource:', process.env.META_WHATSAPP_ACCESS_TOKEN ? 'ENV' : 'DB');
 
   let messagePayload;
 
@@ -177,7 +181,7 @@ async function sendWhatsApp(channel, contact, content, contentType) {
   const res = await fetch(`${GRAPH_API}/${phoneNumberId}/messages`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${channel.access_token}`,
+      'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(messagePayload),
