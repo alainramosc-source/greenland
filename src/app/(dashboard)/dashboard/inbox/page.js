@@ -1440,7 +1440,18 @@ export default function InboxPage() {
         table: 'inbox_messages',
         filter: `conversation_id=eq.${activeConversation.id}`,
       }, (payload) => {
-        setMessages(prev => [...prev, payload.new]);
+        setMessages(prev => {
+          // Skip if this message already exists (from optimistic update)
+          if (prev.some(m => m.id === payload.new.id)) return prev;
+          // Replace optimistic message with same content if found
+          const optIdx = prev.findIndex(m => m.id?.startsWith('opt-') && m.content === payload.new.content && m.direction === payload.new.direction);
+          if (optIdx >= 0) {
+            const updated = [...prev];
+            updated[optIdx] = payload.new;
+            return updated;
+          }
+          return [...prev, payload.new];
+        });
       })
       .subscribe();
 
@@ -1488,6 +1499,18 @@ export default function InboxPage() {
       return;
     }
 
+    // Optimistic: show message in UI immediately
+    const optimisticId = `opt-${Date.now()}`;
+    const optimisticMsg = {
+      id: optimisticId,
+      direction: 'outbound',
+      content,
+      content_type: 'text',
+      status: 'sending',
+      created_at: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+
     try {
       const res = await fetch('/api/inbox/send', {
         method: 'POST',
@@ -1501,10 +1524,21 @@ export default function InboxPage() {
       if (!res.ok) {
         const err = await res.json();
         console.error('Send error:', err);
+        // Mark optimistic message as failed
+        setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, status: 'failed' } : m));
         alert(`⚠️ Error al enviar mensaje:\n${err.detail || err.error || 'Error desconocido'}\n\nPlataforma: ${err.platform || 'N/A'}`);
+      } else {
+        const data = await res.json();
+        // Replace optimistic message with real one from server
+        if (data.message) {
+          setMessages(prev => prev.map(m => m.id === optimisticId ? { ...data.message } : m));
+        } else {
+          setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, status: 'sent' } : m));
+        }
       }
     } catch (err) {
       console.error('Send error:', err);
+      setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, status: 'failed' } : m));
       alert('⚠️ Error de red al enviar mensaje. Verifica tu conexión.');
     }
   }, [activeConversation]);
