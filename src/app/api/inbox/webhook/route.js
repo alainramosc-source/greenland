@@ -104,19 +104,22 @@ async function handleWhatsApp(body) {
           case 'image':
             contentType = 'image';
             content = msg.image?.caption || '[Imagen]';
-            mediaUrl = await getMediaUrl(msg.image?.id, channel.access_token);
+            mediaUrl = await getMediaUrl(msg.image?.id, process.env.META_WHATSAPP_ACCESS_TOKEN || channel.access_token);
             break;
           case 'video':
             contentType = 'video';
             content = msg.video?.caption || '[Video]';
+            mediaUrl = await getMediaUrl(msg.video?.id, process.env.META_WHATSAPP_ACCESS_TOKEN || channel.access_token);
             break;
           case 'audio':
             contentType = 'audio';
             content = '[Audio]';
+            mediaUrl = await getMediaUrl(msg.audio?.id, process.env.META_WHATSAPP_ACCESS_TOKEN || channel.access_token);
             break;
           case 'document':
             contentType = 'document';
             content = msg.document?.filename || '[Documento]';
+            mediaUrl = await getMediaUrl(msg.document?.id, process.env.META_WHATSAPP_ACCESS_TOKEN || channel.access_token);
             break;
           case 'location':
             contentType = 'location';
@@ -334,16 +337,10 @@ async function updateMessageStatus(platformMessageId, status) {
 }
 
 async function getMediaUrl(mediaId, accessToken) {
-  if (!mediaId || !accessToken) return null;
-  try {
-    const res = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    const data = await res.json();
-    return data.url || null;
-  } catch {
-    return null;
-  }
+  if (!mediaId) return null;
+  // Return a proxy URL that will download the media on demand
+  // This is more reliable than Meta's temporary direct URLs
+  return `/api/inbox/media?id=${mediaId}`;
 }
 
 async function getMessengerProfile(userId, accessToken) {

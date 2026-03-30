@@ -583,7 +583,25 @@ function ChatView({ conversation, messages, onSendMessage, templates, onCreateOr
                   {msg.content_type === 'image' && msg.media_url && (
                     <img src={msg.media_url} alt="" className="rounded-xl mb-2 max-w-full" />
                   )}
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  {msg.content_type === 'audio' && msg.media_url ? (
+                    <div className="flex items-center gap-2 min-w-[200px]">
+                      <audio controls preload="none" className="w-full h-8" style={{ filter: isOutbound ? 'invert(1) brightness(2)' : 'none' }}>
+                        <source src={msg.media_url} />
+                      </audio>
+                    </div>
+                  ) : msg.content_type === 'audio' ? (
+                    <div className={`flex items-center gap-2 px-2 py-1 rounded-lg text-xs italic ${isOutbound ? 'text-white/70' : 'text-slate-400'}`}>
+                      🎤 Audio (sin reproducción disponible)
+                    </div>
+                  ) : null}
+                  {msg.content_type === 'video' && msg.media_url && (
+                    <video controls preload="none" className="rounded-xl mb-2 max-w-full max-h-64">
+                      <source src={msg.media_url} />
+                    </video>
+                  )}
+                  {(msg.content_type === 'text' || (msg.content && msg.content_type !== 'audio')) && (
+                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  )}
                   <div className={`flex items-center justify-end gap-1 mt-1 ${isOutbound ? 'text-white/60' : 'text-slate-400'}`}>
                     <span className="text-[10px]">
                       {msg.created_at ? new Date(msg.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : ''}
@@ -1450,9 +1468,7 @@ export default function InboxPage() {
         filter: `conversation_id=eq.${activeConversation.id}`,
       }, (payload) => {
         setMessages(prev => {
-          // Skip if this message already exists (from optimistic update)
           if (prev.some(m => m.id === payload.new.id)) return prev;
-          // Replace optimistic message with same content if found
           const optIdx = prev.findIndex(m => m.id?.startsWith('opt-') && m.content === payload.new.content && m.direction === payload.new.direction);
           if (optIdx >= 0) {
             const updated = [...prev];
@@ -1464,7 +1480,33 @@ export default function InboxPage() {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    // Message polling fallback (3 seconds) — ensures messages always appear
+    const msgPoll = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from('inbox_messages')
+          .select('*')
+          .eq('conversation_id', activeConversation.id)
+          .order('created_at', { ascending: true });
+        if (data) {
+          setMessages(prev => {
+            // Keep optimistic messages that haven't been replaced yet
+            const optimistic = prev.filter(m => m.id?.startsWith('opt-'));
+            const serverIds = new Set(data.map(m => m.id));
+            const unreplacedOpt = optimistic.filter(o => !data.some(d => d.content === o.content && d.direction === o.direction));
+            if (data.length + unreplacedOpt.length !== prev.length || data.some((m, i) => prev[i]?.id !== m.id)) {
+              return [...data, ...unreplacedOpt];
+            }
+            return prev;
+          });
+        }
+      } catch (e) { /* ignore poll errors */ }
+    }, 3000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(msgPoll);
+    };
   }, [activeConversation?.id]);
 
   // Filter conversations
