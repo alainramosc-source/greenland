@@ -1501,9 +1501,11 @@ export default function InboxPage() {
       if (!res.ok) {
         const err = await res.json();
         console.error('Send error:', err);
+        alert(`⚠️ Error al enviar mensaje:\n${err.detail || err.error || 'Error desconocido'}\n\nPlataforma: ${err.platform || 'N/A'}`);
       }
     } catch (err) {
       console.error('Send error:', err);
+      alert('⚠️ Error de red al enviar mensaje. Verifica tu conexión.');
     }
   }, [activeConversation]);
 

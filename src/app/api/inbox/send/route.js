@@ -71,8 +71,27 @@ export async function POST(request) {
           throw new Error(`Unsupported platform: ${channel.platform}`);
       }
     } catch (sendError) {
-      console.error(`[Send] Failed to send via ${channel.platform}:`, sendError);
+      console.error(`[Send] ❌ Failed to send via ${channel.platform}:`, sendError.message);
       sendStatus = 'failed';
+      
+      // Store the message as failed and return the error detail to the client
+      await getAdminClient()
+        .from('inbox_messages')
+        .insert({
+          conversation_id,
+          direction: 'outbound',
+          content,
+          content_type,
+          media_url,
+          platform_message_id: null,
+          status: 'failed',
+        });
+      
+      return NextResponse.json({
+        error: 'Message delivery failed',
+        detail: sendError.message,
+        platform: channel.platform,
+      }, { status: 502 });
     }
 
     // Store message in database
@@ -165,8 +184,9 @@ async function sendWhatsApp(channel, contact, content, contentType) {
   });
 
   const data = await res.json();
+  console.log('[WhatsApp Send] Response:', JSON.stringify(data));
   if (data.error) {
-    throw new Error(data.error.message || 'WhatsApp API error');
+    throw new Error(`WhatsApp API: ${data.error.message} (code: ${data.error.code}, type: ${data.error.type})`);
   }
   return data.messages?.[0]?.id || null;
 }
