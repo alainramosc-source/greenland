@@ -161,6 +161,13 @@ async function sendWhatsApp(channel, contact, content, contentType) {
       type: 'image',
       image: { link: content },
     };
+  } else if (contentType === 'document') {
+    messagePayload = {
+      messaging_product: 'whatsapp',
+      to: recipientPhone,
+      type: 'document',
+      document: { link: content },
+    };
   } else if (contentType === 'template') {
     // Template messages require pre-approved templates
     messagePayload = {

@@ -474,10 +474,55 @@ function ConfirmSalePanel({ conversation, supabase, onClose, onSaleCreated }) {
 // ============================================================
 // CHAT VIEW (Center Panel)
 // ============================================================
-function ChatView({ conversation, messages, onSendMessage, templates, onCreateOrder, onToggleBot }) {
+function ChatView({ conversation, messages, onSendMessage, onSendMedia, templates, onCreateOrder, onToggleBot }) {
   const [inputValue, setInputValue] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [mediaPreview, setMediaPreview] = useState(null);
   const messagesEndRef = useRef(null);
+  const imageInputRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  // Handle file selection and upload
+  const handleFileSelect = async (e, type) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = ''; // reset input
+
+    // Validate size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('El archivo es muy grande. Máximo 10 MB.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const supabase = (await import('@/utils/supabase/client')).createClient();
+      const ext = file.name.split('.').pop();
+      const fileName = `${conversation.id}/${Date.now()}.${ext}`;
+
+      const { data, error } = await supabase.storage
+        .from('inbox-media')
+        .upload(fileName, file, { cacheControl: '3600', upsert: false });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage
+        .from('inbox-media')
+        .getPublicUrl(fileName);
+
+      const publicUrl = urlData.publicUrl;
+
+      // Send media message
+      if (onSendMedia) {
+        await onSendMedia(publicUrl, type === 'image' ? 'image' : 'document', file.name);
+      }
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Error al subir archivo: ' + (err.message || 'Intenta de nuevo'));
+    }
+    setUploading(false);
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -612,7 +657,15 @@ function ChatView({ conversation, messages, onSendMessage, templates, onCreateOr
                       <source src={msg.media_url} />
                     </video>
                   )}
-                  {(msg.content_type === 'text' || (msg.content && msg.content_type !== 'audio')) && (
+                  {msg.content_type === 'document' && msg.media_url && (
+                    <a href={msg.media_url} target="_blank" rel="noopener noreferrer"
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-1 text-xs font-bold no-underline ${
+                        isOutbound ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      } transition-colors`}>
+                      📄 {msg.content || 'Documento'}
+                    </a>
+                  )}
+                  {(msg.content_type === 'text' || (msg.content && !['audio', 'image', 'document', 'video'].includes(msg.content_type))) && (
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                   )}
                   <div className={`flex items-center justify-end gap-1 mt-1 ${isOutbound ? 'text-white/60' : 'text-slate-400'}`}>
@@ -645,13 +698,46 @@ function ChatView({ conversation, messages, onSendMessage, templates, onCreateOr
         </div>
       )}
 
+      {/* Upload indicator */}
+      {uploading && (
+        <div className="px-4 py-2 border-t border-slate-200/50 bg-amber-50 flex items-center gap-2">
+          <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-bold text-amber-700">Subiendo archivo...</span>
+        </div>
+      )}
+
       {/* Input area */}
       <div className="px-4 py-3 border-t border-slate-200/50 bg-white/60 backdrop-blur-md">
+        {/* Hidden file inputs */}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => handleFileSelect(e, 'image')}
+        />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+          className="hidden"
+          onChange={(e) => handleFileSelect(e, 'document')}
+        />
         <div className="flex items-end gap-2">
-          <button className="p-2 hover:bg-slate-100 rounded-xl transition-colors shrink-0 cursor-pointer" title="Adjuntar archivo">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="p-2 hover:bg-slate-100 rounded-xl transition-colors shrink-0 cursor-pointer disabled:opacity-30"
+            title="Adjuntar archivo"
+          >
             <Paperclip className="w-5 h-5 text-slate-400" />
           </button>
-          <button className="p-2 hover:bg-slate-100 rounded-xl transition-colors shrink-0 cursor-pointer" title="Enviar imagen">
+          <button
+            onClick={() => imageInputRef.current?.click()}
+            disabled={uploading}
+            className="p-2 hover:bg-slate-100 rounded-xl transition-colors shrink-0 cursor-pointer disabled:opacity-30"
+            title="Enviar imagen"
+          >
             <ImageIcon className="w-5 h-5 text-slate-400" />
           </button>
           <div className="flex-1 relative">
@@ -1635,6 +1721,66 @@ export default function InboxPage() {
     }
   }, [activeConversation, supabase]);
 
+  // Handle sending media (image/document)
+  const handleSendMedia = useCallback(async (mediaUrl, contentType, fileName) => {
+    if (!activeConversation) return;
+
+    // Auto-disable bot when human sends media
+    if (activeConversation.chatbot_active && !activeConversation.id?.startsWith('demo-')) {
+      setActiveConversation(prev => ({ ...prev, chatbot_active: false }));
+      setConversations(prev => prev.map(c => c.id === activeConversation.id ? { ...c, chatbot_active: false } : c));
+      supabase
+        .from('inbox_conversations')
+        .update({ chatbot_active: false })
+        .eq('id', activeConversation.id)
+        .then(() => console.log('[Chatbot] Bot auto-disabled — human sent media'));
+    }
+
+    // Optimistic: show media in UI
+    const optimisticId = `opt-${Date.now()}`;
+    const isImage = contentType === 'image';
+    const optimisticMsg = {
+      id: optimisticId,
+      direction: 'outbound',
+      content: isImage ? mediaUrl : fileName || 'Archivo',
+      content_type: contentType,
+      media_url: mediaUrl,
+      status: 'sending',
+      created_at: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+
+    try {
+      const res = await fetch('/api/inbox/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: activeConversation.id,
+          content: mediaUrl,
+          content_type: contentType,
+          media_url: mediaUrl,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        console.error('Send media error:', err);
+        setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, status: 'failed' } : m));
+        alert(`\u26a0\ufe0f Error al enviar archivo:\n${err.detail || err.error || 'Error desconocido'}`);
+      } else {
+        const data = await res.json();
+        if (data.message) {
+          setMessages(prev => prev.map(m => m.id === optimisticId ? { ...data.message } : m));
+        } else {
+          setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, status: 'sent' } : m));
+        }
+      }
+    } catch (err) {
+      console.error('Send media error:', err);
+      setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, status: 'failed' } : m));
+      alert('\u26a0\ufe0f Error de red al enviar archivo.');
+    }
+  }, [activeConversation, supabase]);
+
   // Handle conversation select
   const handleSelectConversation = async (conv) => {
     setActiveConversation(conv);
@@ -1733,6 +1879,7 @@ export default function InboxPage() {
               conversation={activeConversation}
               messages={messages}
               onSendMessage={handleSendMessage}
+              onSendMedia={handleSendMedia}
               templates={templates}
               onCreateOrder={() => setShowSalePanel(true)}
               onToggleBot={handleToggleBot}
@@ -1798,6 +1945,7 @@ export default function InboxPage() {
                 conversation={activeConversation}
                 messages={messages}
                 onSendMessage={handleSendMessage}
+                onSendMedia={handleSendMedia}
                 templates={templates}
                 onCreateOrder={() => setShowSalePanel(true)}
                 onToggleBot={handleToggleBot}
