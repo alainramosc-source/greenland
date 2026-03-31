@@ -497,25 +497,23 @@ function ChatView({ conversation, messages, onSendMessage, onSendMedia, template
 
     setUploading(true);
     try {
-      const supabase = (await import('@/utils/supabase/client')).createClient();
-      const ext = file.name.split('.').pop();
-      const fileName = `${conversation.id}/${Date.now()}.${ext}`;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('conversation_id', conversation.id);
 
-      const { data, error } = await supabase.storage
-        .from('inbox-media')
-        .upload(fileName, file, { cacheControl: '3600', upsert: false });
+      const res = await fetch('/api/inbox/upload', {
+        method: 'POST',
+        body: formData,
+      });
 
-      if (error) throw error;
-
-      const { data: urlData } = supabase.storage
-        .from('inbox-media')
-        .getPublicUrl(fileName);
-
-      const publicUrl = urlData.publicUrl;
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'Upload failed');
+      }
 
       // Send media message
       if (onSendMedia) {
-        await onSendMedia(publicUrl, type === 'image' ? 'image' : 'document', file.name);
+        await onSendMedia(result.url, type === 'image' ? 'image' : 'document', file.name);
       }
     } catch (err) {
       console.error('Upload error:', err);
