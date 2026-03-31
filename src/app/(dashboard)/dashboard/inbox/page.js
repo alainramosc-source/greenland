@@ -8,7 +8,7 @@ import {
   Smile, MoreVertical, Phone, Video, ArrowLeft, Hash, Tag, User,
   Clock, CheckCheck, Check, X, Plus, ChevronDown, Star, Archive,
   Zap, FileText, MapPin, ShoppingBag, Edit3, Trash2, MessageCircle,
-  Settings, Wifi, WifiOff, List, GitBranch, GripVertical, ChevronLeft, ChevronRight
+  Settings, Wifi, WifiOff, List, GitBranch, GripVertical, ChevronLeft, ChevronRight, Bot
 } from 'lucide-react';
 
 // Platform config
@@ -474,7 +474,7 @@ function ConfirmSalePanel({ conversation, supabase, onClose, onSaleCreated }) {
 // ============================================================
 // CHAT VIEW (Center Panel)
 // ============================================================
-function ChatView({ conversation, messages, onSendMessage, templates, onCreateOrder }) {
+function ChatView({ conversation, messages, onSendMessage, templates, onCreateOrder, onToggleBot }) {
   const [inputValue, setInputValue] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
   const messagesEndRef = useRef(null);
@@ -551,6 +551,19 @@ function ChatView({ conversation, messages, onSendMessage, templates, onCreateOr
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Bot toggle */}
+          <button
+            onClick={() => onToggleBot && onToggleBot()}
+            className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-[10px] font-bold border ${
+              conversation.chatbot_active
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100'
+            }`}
+            title={conversation.chatbot_active ? 'Bot activo — click para desactivar' : 'Bot inactivo — click para activar'}
+          >
+            <Bot className="w-3.5 h-3.5" />
+            {conversation.chatbot_active ? '🟢 Bot' : '⚪ Bot'}
+          </button>
           <button onClick={onCreateOrder} className="p-2 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer" title="Confirmar venta">
             <ShoppingBag className="w-4 h-4 text-slate-500" />
           </button>
@@ -1266,6 +1279,7 @@ export default function InboxPage() {
             last_message_preview: c.last_message_preview,
             unread_count: c.unread_count,
             funnel_stage_id: c.funnel_stage_id,
+            chatbot_active: c.chatbot_active !== false, // default true
             tags: [],
           }));
           setConversations(mapped);
@@ -1521,8 +1535,35 @@ export default function InboxPage() {
   }, [conversations, searchTerm, platformFilter]);
 
   // Handle send message
+  // Toggle chatbot for active conversation
+  const handleToggleBot = useCallback(async () => {
+    if (!activeConversation || activeConversation.id?.startsWith('demo-')) return;
+    const newState = !activeConversation.chatbot_active;
+    
+    // Update local state
+    setActiveConversation(prev => ({ ...prev, chatbot_active: newState }));
+    setConversations(prev => prev.map(c => c.id === activeConversation.id ? { ...c, chatbot_active: newState } : c));
+    
+    // Update in database
+    await supabase
+      .from('inbox_conversations')
+      .update({ chatbot_active: newState })
+      .eq('id', activeConversation.id);
+  }, [activeConversation, supabase]);
+
   const handleSendMessage = useCallback(async (content) => {
     if (!activeConversation) return;
+
+    // 🤖 Auto-disable bot when human responds
+    if (activeConversation.chatbot_active && !activeConversation.id?.startsWith('demo-')) {
+      setActiveConversation(prev => ({ ...prev, chatbot_active: false }));
+      setConversations(prev => prev.map(c => c.id === activeConversation.id ? { ...c, chatbot_active: false } : c));
+      supabase
+        .from('inbox_conversations')
+        .update({ chatbot_active: false })
+        .eq('id', activeConversation.id)
+        .then(() => console.log('[Chatbot] Bot auto-disabled — human took over'));
+    }
 
     // Demo mode — add locally
     if (activeConversation.id?.startsWith('demo-')) {
@@ -1592,7 +1633,7 @@ export default function InboxPage() {
       setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, status: 'failed' } : m));
       alert('⚠️ Error de red al enviar mensaje. Verifica tu conexión.');
     }
-  }, [activeConversation]);
+  }, [activeConversation, supabase]);
 
   // Handle conversation select
   const handleSelectConversation = async (conv) => {
@@ -1694,6 +1735,7 @@ export default function InboxPage() {
               onSendMessage={handleSendMessage}
               templates={templates}
               onCreateOrder={() => setShowSalePanel(true)}
+              onToggleBot={handleToggleBot}
             />
           </div>
 
@@ -1758,6 +1800,7 @@ export default function InboxPage() {
                 onSendMessage={handleSendMessage}
                 templates={templates}
                 onCreateOrder={() => setShowSalePanel(true)}
+                onToggleBot={handleToggleBot}
               />
               {showSalePanel && (
                 <div className="w-80 shrink-0 border-l border-slate-200/50">

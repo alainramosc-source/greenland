@@ -313,7 +313,7 @@ async function storeInboundMessage(conversationId, content, contentType, mediaUr
   // Update conversation with last message info and increment unread
   const { data: conv } = await getAdminClient()
     .from('inbox_conversations')
-    .select('unread_count')
+    .select('unread_count, chatbot_active, contact_id')
     .eq('id', conversationId)
     .single();
 
@@ -327,6 +327,38 @@ async function storeInboundMessage(conversationId, content, contentType, mediaUr
     .eq('id', conversationId);
 
   console.log(`[Inbox] 📩 New message in conversation ${conversationId}`);
+
+  // 🤖 Trigger chatbot if active (only for text messages)
+  if (conv?.chatbot_active && contentType === 'text' && content) {
+    try {
+      // Get contact phone for WhatsApp reply
+      let phoneNumber = null;
+      if (conv.contact_id) {
+        const { data: contact } = await getAdminClient()
+          .from('inbox_contacts')
+          .select('phone, platform_user_id')
+          .eq('id', conv.contact_id)
+          .single();
+        phoneNumber = contact?.phone || contact?.platform_user_id;
+      }
+
+      // Call bot engine asynchronously (don't block webhook response)
+      const botUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://greenland-products.com.mx'}/api/inbox/chatbot`;
+      fetch(botUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          message: content,
+          phone_number: phoneNumber,
+        }),
+      }).catch(err => console.error('[Chatbot] Trigger error:', err));
+
+      console.log(`[Chatbot] 🤖 Bot triggered for conversation ${conversationId}`);
+    } catch (err) {
+      console.error('[Chatbot] Error triggering bot:', err);
+    }
+  }
 }
 
 async function updateMessageStatus(platformMessageId, status) {
