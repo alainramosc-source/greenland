@@ -343,7 +343,7 @@ async function storeInboundMessage(conversationId, content, contentType, mediaUr
       }
 
       // Call bot engine asynchronously (don't block webhook response)
-      const botUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://greenland-products.com.mx'}/api/inbox/chatbot`;
+      const botUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.greenland-products.com.mx'}/api/inbox/chatbot`;
       fetch(botUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
