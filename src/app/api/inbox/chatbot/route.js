@@ -214,7 +214,10 @@ export async function POST(request) {
 
     // Setup Gemini with function calling
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        thinkingConfig: { thinkingBudget: 0 }, // Disable thinking for speed (fits 10s timeout)
+      },
       systemInstruction: GREENLAND_KNOWLEDGE + `
 
 ## FUNCIONES DISPONIBLES
