@@ -40,11 +40,12 @@ BEGIN
   -- Create the lastmile order
   INSERT INTO lastmile_orders (
     distributor_id, conversation_id, checkout_token, order_number,
-    delivery_type, items, subtotal, total, notes, status
+    delivery_type, items, subtotal, total, notes, status, warehouse_name
   ) VALUES (
     auth.uid(), p_conversation_id, v_token, v_order_number,
     p_delivery_type, p_items, v_subtotal, v_subtotal, p_notes,
-    CASE WHEN p_delivery_type = 'pickup' THEN 'confirmed' ELSE 'pending' END
+    CASE WHEN p_delivery_type = 'pickup' THEN 'confirmed' ELSE 'pending' END,
+    v_wh_name
   )
   RETURNING id INTO v_order_id;
 

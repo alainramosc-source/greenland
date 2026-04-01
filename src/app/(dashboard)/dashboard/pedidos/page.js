@@ -5,8 +5,21 @@ import Link from 'next/link';
 import {
   ShoppingCart, DollarSign, Clock, CheckCircle,
   TrendingUp, Filter, Download, ChevronLeft, ChevronRight,
-  Eye, Plus, Search, ArrowUp, ClipboardCheck, Trash2, Printer
+  Eye, Plus, Search, ArrowUp, ClipboardCheck, Trash2, Printer,
+  Store, Package, CreditCard, Calendar
 } from 'lucide-react';
+
+const RETAIL_STATUS = {
+  pending: { label: 'Pendiente', className: 'bg-amber-100/60 text-amber-700 border-amber-200' },
+  confirmed: { label: 'Confirmado', className: 'bg-blue-100/60 text-blue-700 border-blue-200' },
+  delivered: { label: 'Entregado', className: 'bg-emerald-100/60 text-emerald-700 border-emerald-200' },
+  cancelled: { label: 'Cancelado', className: 'bg-red-100/60 text-red-600 border-red-200' },
+};
+
+const RETAIL_PAY = {
+  unpaid: { label: 'Por Cobrar', className: 'bg-red-50 text-red-600 border-red-200' },
+  paid: { label: 'Pagado', className: 'bg-green-50 text-green-600 border-green-200' },
+};
 
 const OP_STATUS = {
   pending: { label: 'Pendiente', className: 'bg-amber-100/60 text-amber-700 border-amber-200' },
@@ -30,6 +43,9 @@ export default function PedidosPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('distributor');
+  const [retailOrders, setRetailOrders] = useState([]);
+  const [retailLoading, setRetailLoading] = useState(true);
   const supabase = createClient();
 
   useEffect(() => {
@@ -62,6 +78,17 @@ export default function PedidosPage() {
       setLoading(false);
     }
     fetchOrders();
+
+    // Fetch retail orders
+    async function fetchRetailOrders() {
+      const { data } = await supabase
+        .from('lastmile_orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (data) setRetailOrders(data);
+      setRetailLoading(false);
+    }
+    fetchRetailOrders();
   }, []);
 
   const filteredOrders = orders.filter(o => {
@@ -193,7 +220,7 @@ export default function PedidosPage() {
       {/* Main Content Area */}
       <div className="relative z-10 w-full">
         {/* Page Header (Search) */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-4xl font-black text-[#000000] tracking-tight">{isAdmin ? 'Pedidos' : 'Mis Pedidos'}</h1>
             <p className="text-[#747474] mt-1 font-medium">{isAdmin ? 'Gestiona y monitorea las órdenes en tiempo real.' : 'Consulta tus pedidos y realiza nuevos pedidos.'}</p>
@@ -212,55 +239,74 @@ export default function PedidosPage() {
           </div>
         </header>
 
-        {/* KPI Cards */}
+        {/* Tab Switcher */}
+        {isAdmin && (
+          <div className="flex gap-2 mb-8">
+            <button
+              onClick={() => setActiveTab('distributor')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer border ${
+                activeTab === 'distributor'
+                  ? 'bg-[#6a9a04] text-white border-[#6a9a04] shadow-lg shadow-[#6a9a04]/20'
+                  : 'bg-white/50 text-slate-600 border-white/80 hover:bg-white'
+              }`}
+            >
+              <Package className="w-4 h-4" /> Distribuidores
+            </button>
+            <button
+              onClick={() => setActiveTab('retail')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer border ${
+                activeTab === 'retail'
+                  ? 'bg-[#6a9a04] text-white border-[#6a9a04] shadow-lg shadow-[#6a9a04]/20'
+                  : 'bg-white/50 text-slate-600 border-white/80 hover:bg-white'
+              }`}
+            >
+              <Store className="w-4 h-4" /> Venta a Público
+              {retailOrders.length > 0 && (
+                <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                  activeTab === 'retail' ? 'bg-white/20 text-white' : 'bg-[#6a9a04]/10 text-[#6a9a04]'
+                }`}>{retailOrders.length}</span>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* KPI Cards — only show for distributor tab */}
+        {activeTab === 'distributor' && (
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          {/* Total Pedidos */}
           <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-blue-100 rounded-2xl">
-                <ShoppingCart className="w-6 h-6 text-blue-600" />
-              </div>
+              <div className="p-3 bg-blue-100 rounded-2xl"><ShoppingCart className="w-6 h-6 text-blue-600" /></div>
             </div>
             <h3 className="text-slate-500 text-sm font-medium">Total Pedidos</h3>
             <p className="text-2xl font-bold text-[#000000] mt-1">{orders.length.toLocaleString('es-MX')}</p>
           </div>
-
-          {/* Ingresos / Compras Totales */}
           <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-purple-100 rounded-2xl">
-                <DollarSign className="w-6 h-6 text-purple-600" />
-              </div>
+              <div className="p-3 bg-purple-100 rounded-2xl"><DollarSign className="w-6 h-6 text-purple-600" /></div>
             </div>
             <h3 className="text-slate-500 text-sm font-medium">{isAdmin ? 'Ingresos Totales' : 'Compras Totales'}</h3>
             <p className="text-2xl font-bold text-[#000000] mt-1">${totalAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
-
-          {/* Pendientes + Confirmados */}
           <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-orange-100 rounded-2xl">
-                <Clock className="w-6 h-6 text-orange-600" />
-              </div>
+              <div className="p-3 bg-orange-100 rounded-2xl"><Clock className="w-6 h-6 text-orange-600" /></div>
               <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">Activos</span>
             </div>
             <h3 className="text-slate-500 text-sm font-medium">En Proceso</h3>
             <p className="text-2xl font-bold text-[#000000] mt-1">{(counts['pending'] || 0) + (counts['confirmed'] || 0) + (counts['in_fulfillment'] || 0)}</p>
           </div>
-
-          {/* Cuentas por Cobrar */}
           <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-red-100 rounded-2xl">
-                <TrendingUp className="w-6 h-6 text-red-600" />
-              </div>
+              <div className="p-3 bg-red-100 rounded-2xl"><TrendingUp className="w-6 h-6 text-red-600" /></div>
             </div>
             <h3 className="text-slate-500 text-sm font-medium">{isAdmin ? 'Cuentas por Cobrar' : 'Mi Saldo Pendiente'}</h3>
             <p className="text-2xl font-bold text-[#000000] mt-1">${pendingPayment.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
         </section>
+        )}
 
         {/* Orders Table Section */}
+        {activeTab === 'distributor' && (
         <section className="glass-panel rounded-[2.5rem] p-8 mt-6 border border-white/40 shadow-xl overflow-hidden">
           <div className="flex flex-wrap items-center justify-between mb-8 gap-4">
             <div>
@@ -410,6 +456,167 @@ export default function PedidosPage() {
             </div>
           </div>
         </section>
+        )}
+      {/* ========== RETAIL SALES TAB ========== */}
+      {isAdmin && activeTab === 'retail' && (() => {
+        const today = new Date().toISOString().slice(0, 10);
+        const thisWeek = new Date(Date.now() - 7 * 86400000).toISOString();
+        const retailActive = retailOrders.filter(o => o.status !== 'cancelled');
+        const totalRetail = retailActive.reduce((s, o) => s + Number(o.total || 0), 0);
+        const todaySales = retailActive.filter(o => o.created_at?.slice(0, 10) === today);
+        const todayTotal = todaySales.reduce((s, o) => s + Number(o.total || 0), 0);
+        const unpaidTotal = retailActive.filter(o => o.payment_status !== 'paid').reduce((s, o) => s + Number(o.total || 0), 0);
+
+        const filteredRetail = retailOrders.filter(o => {
+          const s = searchTerm?.toLowerCase() || '';
+          if (!s) return true;
+          return (o.order_number || '').toLowerCase().includes(s) || (o.notes || '').toLowerCase().includes(s);
+        });
+
+        const toggleRetailPayment = async (order) => {
+          const newStatus = order.payment_status === 'paid' ? 'unpaid' : 'paid';
+          await supabase.from('lastmile_orders').update({ payment_status: newStatus }).eq('id', order.id);
+          setRetailOrders(prev => prev.map(o => o.id === order.id ? { ...o, payment_status: newStatus } : o));
+        };
+
+        const updateRetailStatus = async (order, newStatus) => {
+          await supabase.from('lastmile_orders').update({ status: newStatus }).eq('id', order.id);
+          setRetailOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: newStatus } : o));
+        };
+
+        return (
+          <>
+            {/* Retail KPI Cards */}
+            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+              <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-green-100 rounded-2xl"><Store className="w-6 h-6 text-green-600" /></div>
+                </div>
+                <h3 className="text-slate-500 text-sm font-medium">Total Ventas</h3>
+                <p className="text-2xl font-bold text-[#000000] mt-1">{retailActive.length}</p>
+              </div>
+
+              <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-purple-100 rounded-2xl"><DollarSign className="w-6 h-6 text-purple-600" /></div>
+                </div>
+                <h3 className="text-slate-500 text-sm font-medium">Monto Total</h3>
+                <p className="text-2xl font-bold text-[#000000] mt-1">${totalRetail.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+              </div>
+
+              <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-blue-100 rounded-2xl"><Calendar className="w-6 h-6 text-blue-600" /></div>
+                  <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">Hoy</span>
+                </div>
+                <h3 className="text-slate-500 text-sm font-medium">Ventas Hoy</h3>
+                <p className="text-2xl font-bold text-[#000000] mt-1">{todaySales.length} · ${todayTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+              </div>
+
+              <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-red-100 rounded-2xl"><CreditCard className="w-6 h-6 text-red-600" /></div>
+                </div>
+                <h3 className="text-slate-500 text-sm font-medium">Pendiente de Cobro</h3>
+                <p className="text-2xl font-bold text-[#000000] mt-1">${unpaidTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </section>
+
+            {/* Retail Table */}
+            <section className="glass-panel rounded-[2.5rem] p-8 mt-6 border border-white/40 shadow-xl overflow-hidden">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h2 className="text-2xl font-bold text-[#000000]">Ventas a Público</h2>
+                  <p className="text-[#747474] text-sm mt-1">Ventas registradas desde el chat. Click en pago para marcar como cobrado.</p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-separate border-spacing-y-3">
+                  <thead>
+                    <tr className="text-slate-400 text-xs uppercase tracking-widest font-bold">
+                      <th className="px-4 py-2">Orden</th>
+                      <th className="px-4 py-2">Fecha</th>
+                      <th className="px-4 py-2">Productos</th>
+                      <th className="px-4 py-2">Total</th>
+                      <th className="px-4 py-2">Bodega</th>
+                      <th className="px-4 py-2 text-center">Entrega</th>
+                      <th className="px-4 py-2 text-center">Pago</th>
+                      <th className="px-4 py-2 text-center">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {retailLoading ? (
+                      <tr><td colSpan="8" className="px-4 py-12 text-center text-slate-400">Cargando...</td></tr>
+                    ) : filteredRetail.length === 0 ? (
+                      <tr><td colSpan="8" className="px-4 py-12 text-center text-slate-400">No hay ventas registradas. Crea una desde el chat del inbox.</td></tr>
+                    ) : filteredRetail.map(order => {
+                      const items = order.items || [];
+                      const itemsSummary = items.map(i => `${i.quantity}x ${i.name || i.sku}`).join(', ');
+                      const rtSt = RETAIL_STATUS[order.status] || RETAIL_STATUS.pending;
+                      const rtPay = RETAIL_PAY[order.payment_status] || RETAIL_PAY.unpaid;
+                      return (
+                        <tr key={order.id} className="table-row-glass transition-all rounded-2xl group">
+                          <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 rounded-l-2xl border-y border-l border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
+                            <span className="font-bold text-slate-800">#{order.order_number}</span>
+                            {order.notes && <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[120px]">{order.notes}</p>}
+                          </td>
+                          <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
+                            <span className="text-sm text-slate-600">{new Date(order.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</span>
+                            <p className="text-[10px] text-slate-400">{new Date(order.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
+                          </td>
+                          <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
+                            <p className="text-xs text-slate-700 truncate max-w-[200px]" title={itemsSummary}>{itemsSummary || '—'}</p>
+                            <p className="text-[10px] text-slate-400">{items.reduce((s, i) => s + (i.quantity || 0), 0)} pzas</p>
+                          </td>
+                          <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
+                            <span className="font-black text-[#000000]">${Number(order.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                          </td>
+                          <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
+                            <span className="text-xs text-slate-600">{order.warehouse_name || '—'}</span>
+                          </td>
+                          <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center">
+                            <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border ${order.delivery_type === 'pickup' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+                              {order.delivery_type === 'pickup' ? '🏪 Sitio' : '🚚 Envío'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center">
+                            <button
+                              onClick={() => toggleRetailPayment(order)}
+                              className={`px-3 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border cursor-pointer transition-all hover:scale-105 ${rtPay.className}`}
+                              title="Click para cambiar estado de pago"
+                            >
+                              {rtPay.label}
+                            </button>
+                          </td>
+                          <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 rounded-r-2xl border-y border-r border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center">
+                            <select
+                              value={order.status}
+                              onChange={(e) => updateRetailStatus(order, e.target.value)}
+                              className={`px-2 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border cursor-pointer outline-none ${rtSt.className}`}
+                            >
+                              <option value="pending">Pendiente</option>
+                              <option value="confirmed">Confirmado</option>
+                              <option value="delivered">Entregado</option>
+                              <option value="cancelled">Cancelado</option>
+                            </select>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex items-center justify-between mt-8 border-t border-slate-200/50 pt-6">
+                <p className="text-sm text-[#747474] m-0">
+                  Mostrando <span className="font-bold text-slate-800">{filteredRetail.length}</span> ventas
+                </p>
+              </div>
+            </section>
+          </>
+        );
+      })()}
       </div>
 
       <style jsx>{`
