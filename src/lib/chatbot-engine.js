@@ -60,6 +60,56 @@ async function sendWhatsAppMessage(phoneNumber, text) {
   }
 }
 
+// 📧 Send email notification to admins when bot transfers to human
+async function sendTransferNotification(contactName, contactPhone, reason, conversationId) {
+  const resendKey = process.env.RESEND_API_KEY;
+  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean);
+
+  if (!resendKey || adminEmails.length === 0) {
+    console.warn('[Bot] No Resend key or admin emails for notification');
+    return;
+  }
+
+  const portalUrl = `https://greenland-products.com.mx/dashboard/inbox?conv=${conversationId}`;
+
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Greenland Bot <no-reply@greenland-products.com.mx>',
+        to: adminEmails,
+        subject: `🤖→👤 Transferencia a humano — ${contactName || 'Cliente'}`,
+        html: `
+          <div style="font-family: -apple-system, system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+            <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 16px; padding: 24px; color: white; margin-bottom: 16px;">
+              <h2 style="margin: 0 0 4px; font-size: 18px;">🤖→👤 Transferencia a Humano</h2>
+              <p style="margin: 0; font-size: 12px; color: #94a3b8;">El chatbot necesita asistencia humana</p>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+              <p style="margin: 0 0 8px; font-size: 12px; color: #64748b; font-weight: 700; text-transform: uppercase;">Cliente</p>
+              <p style="margin: 0; font-size: 16px; font-weight: 700; color: #1e293b;">${contactName || 'Sin nombre'}</p>
+              ${contactPhone ? `<p style="margin: 4px 0 0; font-size: 13px; color: #475569;">📱 ${contactPhone}</p>` : ''}
+            </div>
+            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+              <p style="margin: 0 0 8px; font-size: 12px; color: #92400e; font-weight: 700; text-transform: uppercase;">Razón</p>
+              <p style="margin: 0; font-size: 14px; color: #78350f;">${reason}</p>
+            </div>
+            <a href="${portalUrl}" style="display: block; text-align: center; background: #6a9a04; color: white; text-decoration: none; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 14px;">💬 Ver conversación en portal</a>
+            <p style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 16px;">Greenland Products — Chatbot AI</p>
+          </div>
+        `,
+      }),
+    });
+    console.log(`[Bot] 📧 Transfer notification sent to ${adminEmails.join(', ')}`);
+  } catch (err) {
+    console.error('[Bot] Email notification error:', err);
+  }
+}
+
 /**
  * Create checkout link — queries products and creates a lastmile_order
  */
@@ -233,6 +283,29 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
           .from('inbox_conversations')
           .update({ chatbot_active: false })
           .eq('id', conversationId);
+
+        // Get contact info for notification
+        const { data: conv } = await supabase
+          .from('inbox_conversations')
+          .select('contact_id')
+          .eq('id', conversationId)
+          .single();
+        let contactName = null;
+        let contactPhone = phoneNumber;
+        if (conv?.contact_id) {
+          const { data: contact } = await supabase
+            .from('inbox_contacts')
+            .select('name, phone')
+            .eq('id', conv.contact_id)
+            .single();
+          contactName = contact?.name;
+          contactPhone = contactPhone || contact?.phone;
+        }
+
+        // Send email notification to admins
+        await sendTransferNotification(
+          contactName, contactPhone, functionCall.args.reason, conversationId
+        );
 
         functionResult = {
           success: true,
