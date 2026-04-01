@@ -786,18 +786,38 @@ function ChatView({ conversation, messages, onSendMessage, onSendMedia, template
 // ============================================================
 // CONTACT PANEL (Right Panel)
 // ============================================================
-function ContactPanel({ conversation, tags, onAddTag, onRemoveTag, onUpdateNotes }) {
+function ContactPanel({ conversation, onUpdateNotes, onUpdateTags, onCreateOrder }) {
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
+  const [showTagInput, setShowTagInput] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+
+  const TAG_COLORS = ['#6a9a04', '#e67e22', '#3498db', '#9b59b6', '#e74c3c', '#1abc9c', '#f39c12', '#2c3e50'];
 
   useEffect(() => {
-    setNotesValue(conversation?.contact_notes || '');
+    setNotesValue(conversation?.notes || '');
     setIsEditingNotes(false);
   }, [conversation?.id]);
 
   if (!conversation) return null;
 
   const platform = PLATFORM_CONFIG[conversation.platform] || PLATFORM_CONFIG.whatsapp;
+  const tags = conversation.tags || [];
+
+  const handleAddTag = () => {
+    const name = tagInput.trim();
+    if (!name) return;
+    const color = TAG_COLORS[tags.length % TAG_COLORS.length];
+    const newTags = [...tags, { name, color }];
+    onUpdateTags && onUpdateTags(newTags);
+    setTagInput('');
+    setShowTagInput(false);
+  };
+
+  const handleRemoveTag = (idx) => {
+    const newTags = tags.filter((_, i) => i !== idx);
+    onUpdateTags && onUpdateTags(newTags);
+  };
 
   return (
     <div className="flex flex-col h-full bg-white/60 backdrop-blur-md border-l border-slate-200/50 overflow-y-auto">
@@ -816,7 +836,7 @@ function ContactPanel({ conversation, tags, onAddTag, onRemoveTag, onUpdateNotes
 
       {/* Contact info */}
       <div className="p-4 border-b border-slate-200/50">
-        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Información</p>
+        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Informaci\u00f3n</p>
         <div className="space-y-2">
           {conversation.contact_phone && (
             <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -832,7 +852,7 @@ function ContactPanel({ conversation, tags, onAddTag, onRemoveTag, onUpdateNotes
           )}
           <div className="flex items-center gap-2 text-sm text-slate-600">
             <Clock className="w-3.5 h-3.5 text-slate-400" />
-            <span>Desde {conversation.contact_created ? formatDate(conversation.contact_created) : '—'}</span>
+            <span>Desde {conversation.contact_created ? formatDate(conversation.contact_created) : '\u2014'}</span>
           </div>
         </div>
       </div>
@@ -841,20 +861,34 @@ function ContactPanel({ conversation, tags, onAddTag, onRemoveTag, onUpdateNotes
       <div className="p-4 border-b border-slate-200/50">
         <div className="flex items-center justify-between mb-2">
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Etiquetas</p>
-          <button className="p-1 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
+          <button onClick={() => setShowTagInput(!showTagInput)} className="p-1 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
             <Plus className="w-3.5 h-3.5 text-slate-400" />
           </button>
         </div>
+        {showTagInput && (
+          <div className="flex gap-1.5 mb-2">
+            <input
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+              placeholder="Nueva etiqueta..."
+              className="flex-1 px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#6a9a04]/20"
+              autoFocus
+            />
+            <button onClick={handleAddTag} className="px-2 py-1 text-[10px] font-bold bg-[#6a9a04] text-white rounded-lg hover:bg-[#5a8a00] transition-colors cursor-pointer">+</button>
+          </div>
+        )}
         <div className="flex gap-1.5 flex-wrap">
-          {conversation.tags && conversation.tags.length > 0 ? (
-            conversation.tags.map((tag, i) => (
+          {tags.length > 0 ? (
+            tags.map((tag, i) => (
               <span
                 key={i}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer hover:opacity-80 transition-opacity"
                 style={{ backgroundColor: `${tag.color}20`, color: tag.color }}
               >
                 {tag.name}
-                <X className="w-2.5 h-2.5" onClick={() => onRemoveTag && onRemoveTag(tag.id)} />
+                <X className="w-2.5 h-2.5" onClick={() => handleRemoveTag(i)} />
               </span>
             ))
           ) : (
@@ -904,20 +938,20 @@ function ContactPanel({ conversation, tags, onAddTag, onRemoveTag, onUpdateNotes
           />
         ) : (
           <p className="text-sm text-slate-600 whitespace-pre-wrap">
-            {conversation.contact_notes || 'Sin notas'}
+            {conversation.notes || 'Sin notas'}
           </p>
         )}
       </div>
 
-      {/* Last-mile orders */}
+      {/* Orders */}
       <div className="p-4">
         <div className="flex items-center justify-between mb-2">
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Pedidos</p>
-          <button className="p-1 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer" title="Crear pedido de última milla">
+          <button onClick={() => onCreateOrder && onCreateOrder()} className="p-1 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer" title="Crear pedido">
             <Plus className="w-3.5 h-3.5 text-slate-400" />
           </button>
         </div>
-        <p className="text-xs text-slate-400">Sin pedidos aún</p>
+        <p className="text-xs text-slate-400">Sin pedidos a\u00fan</p>
       </div>
     </div>
   );
@@ -1933,7 +1967,17 @@ export default function InboxPage() {
             ) : (
               <ContactPanel
                 conversation={activeConversation}
-                tags={[]}
+                onUpdateNotes={async (notes) => {
+                  await supabase.from('inbox_conversations').update({ notes }).eq('id', activeConversation.id);
+                  setActiveConversation(prev => ({ ...prev, notes }));
+                  setConversations(prev => prev.map(c => c.id === activeConversation.id ? { ...c, notes } : c));
+                }}
+                onUpdateTags={async (tags) => {
+                  await supabase.from('inbox_conversations').update({ tags }).eq('id', activeConversation.id);
+                  setActiveConversation(prev => ({ ...prev, tags }));
+                  setConversations(prev => prev.map(c => c.id === activeConversation.id ? { ...c, tags } : c));
+                }}
+                onCreateOrder={() => setShowSalePanel(true)}
               />
             )}
           </div>
