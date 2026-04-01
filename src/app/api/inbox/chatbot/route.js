@@ -221,15 +221,21 @@ export async function POST(request) {
       systemInstruction: GREENLAND_KNOWLEDGE + `
 
 ## FUNCIONES DISPONIBLES
-Tienes acceso a las siguientes funciones:
-- **create_checkout_link**: Úsala cuando el cliente confirme que quiere comprar. Necesitas los SKUs y cantidades.
-- **transfer_to_human**: Úsala cuando el cliente tenga un problema, queja, pida hablar con alguien, o muestre interés en ser distribuidor.
+Tienes estas funciones:
+- **create_checkout_link**: Cuando el cliente confirme que quiere comprar productos específicos con cantidades.
+- **transfer_to_human**: SOLO cuando el cliente EXPLÍCITAMENTE pida hablar con una persona real, o quiera ser distribuidor/mayorista.
+
+## REGLAS CRÍTICAS
+- NUNCA uses transfer_to_human por tu cuenta. Solo si el cliente lo pide directamente.
+- Si no sabes algo, responde con honestidad pero NO transfieras. Di "No tengo esa información exacta, pero puedo poner a un asesor en contacto contigo si quieres."
+- Siempre intenta responder con lo que sabes del catálogo de productos.
+- Mantén respuestas cortas y amigables (máximo 3-4 líneas).
+- Usa emojis con moderación.
 
 ## CONTEXTO ACTUAL
 - Estás respondiendo mensajes por WhatsApp
 - La fecha actual es: ${new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
 - Si el cliente quiere comprar, confirma los productos y cantidades antes de generar el link
-- Si el cliente quiere ser distribuidor, dale info general y transfiere a humano
 `,
       tools: [{
         functionDeclarations: [
@@ -258,11 +264,11 @@ Tienes acceso a las siguientes funciones:
           },
           {
             name: 'transfer_to_human',
-            description: 'Transfiere la conversación a un agente humano. Usa esto cuando: (1) el cliente tenga un reclamo o problema, (2) pida hablar con una persona, (3) muestre interés en ser distribuidor/mayorista, (4) haga preguntas que no puedes responder.',
+            description: 'Transfiere la conversación a un agente humano. SOLO usa esto cuando el cliente DIGA EXPLÍCITAMENTE que quiere hablar con una persona, o cuando muestre interés en ser distribuidor mayorista. NUNCA lo uses por tu cuenta.',
             parameters: {
               type: 'object',
               properties: {
-                reason: { type: 'string', description: 'Razón por la que se transfiere (para contexto del agente)' },
+                reason: { type: 'string', description: 'Razón por la que se transfiere' },
               },
               required: ['reason'],
             },
