@@ -9,7 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GREENLAND_KNOWLEDGE, PRODUCT_CATALOG } from '@/lib/chatbot-knowledge';
 
-// Allow up to 30s for Gemini API calls
+// Serverless function — max duration for Vercel Pro (ignored on Hobby 10s cap)
 export const maxDuration = 30;
 
 const supabaseAdmin = createClient(

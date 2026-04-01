@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { processBotMessage } from '@/lib/chatbot-engine';
 
 // Lazy-initialized admin client (avoids build-time env errors)
 function getAdminClient() {
@@ -343,17 +344,10 @@ async function storeInboundMessage(conversationId, content, contentType, mediaUr
         phoneNumber = contact?.phone || contact?.platform_user_id;
       }
 
-      // Call bot engine asynchronously (don't block webhook response)
-      const botUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.greenland-products.com.mx'}/api/inbox/chatbot`;
-      fetch(botUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversation_id: conversationId,
-          message: content,
-          phone_number: phoneNumber,
-        }),
-      }).catch(err => console.error('[Chatbot] Trigger error:', err));
+      // Call bot engine directly (no separate HTTP call = no extra cold start)
+      processBotMessage(conversationId, content, phoneNumber)
+        .then(r => console.log(`[Chatbot] Bot reply:`, r.success ? 'OK' : r.error))
+        .catch(err => console.error('[Chatbot] Bot error:', err));
 
       console.log(`[Chatbot] 🤖 Bot triggered for conversation ${conversationId}`);
     } catch (err) {
