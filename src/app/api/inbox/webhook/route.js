@@ -354,10 +354,9 @@ async function storeInboundMessage(conversationId, content, contentType, mediaUr
         phoneNumber = contact?.phone || contact?.platform_user_id;
       }
 
-      // Call bot engine directly (no separate HTTP call = no extra cold start)
-      processBotMessage(conversationId, content, phoneNumber)
-        .then(r => console.log(`[Chatbot] Bot reply:`, r.success ? 'OK' : r.error))
-        .catch(err => console.error('[Chatbot] Bot error:', err));
+      // MUST await — Vercel kills unawaited promises when function returns
+      const botResult = await processBotMessage(conversationId, content, phoneNumber);
+      console.log(`[Chatbot] Bot result:`, botResult.success ? 'OK' : botResult.error);
 
       console.log(`[Chatbot] 🤖 Bot triggered for conversation ${conversationId}`);
     } catch (err) {
