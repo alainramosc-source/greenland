@@ -280,7 +280,17 @@ async function findOrCreateConversation(channel, contact) {
     .neq('status', 'archived')
     .single();
 
-  if (existing) return existing;
+  if (existing) {
+    // Re-enable bot if it was disabled (customer messaging again = new intent)
+    if (!existing.chatbot_active) {
+      await getAdminClient()
+        .from('inbox_conversations')
+        .update({ chatbot_active: true })
+        .eq('id', existing.id);
+      existing.chatbot_active = true;
+    }
+    return existing;
+  }
 
   // Create new conversation
   const { data: newConv } = await getAdminClient()

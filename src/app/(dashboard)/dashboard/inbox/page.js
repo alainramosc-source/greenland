@@ -1416,7 +1416,8 @@ export default function InboxPage() {
             unread_count: c.unread_count,
             funnel_stage_id: c.funnel_stage_id,
             chatbot_active: c.chatbot_active !== false, // default true
-            tags: [],
+            tags: c.tags || [],
+            notes: c.notes || '',
           }));
           setConversations(mapped);
 
