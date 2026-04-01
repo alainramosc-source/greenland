@@ -289,6 +289,7 @@ async function findOrCreateConversation(channel, contact) {
       contact_id: contact.id,
       distributor_id: channel.distributor_id,
       status: 'open',
+      chatbot_active: true,
     })
     .select()
     .single();
