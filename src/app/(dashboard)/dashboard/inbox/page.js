@@ -154,11 +154,25 @@ function ConfirmSalePanel({ conversation, supabase, onClose, onSaleCreated }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [cart, setCart] = useState([]);
-  const [deliveryType, setDeliveryType] = useState('delivery');
+  const [deliveryType, setDeliveryType] = useState('pickup');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [warehouses, setWarehouses] = useState([]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState(null);
+
+  // Load warehouses
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('warehouses').select('id, name, code').eq('is_active', true).order('name');
+      if (data && data.length > 0) {
+        setWarehouses(data);
+        const vitoAlessio = data.find(w => w.code === 'vito-alessio');
+        setSelectedWarehouse(vitoAlessio?.id || data[0].id);
+      }
+    })();
+  }, [supabase]);
 
   // Search products
   useEffect(() => {
@@ -212,8 +226,9 @@ function ConfirmSalePanel({ conversation, supabase, onClose, onSaleCreated }) {
         sale_price: parseFloat(item.sale_price),
       }));
 
-      const { data, error } = await supabase.rpc('create_lastmile_sale', {
+      const { data, error } = await supabase.rpc('create_retail_sale', {
         p_conversation_id: conversation?.id?.startsWith('demo') ? null : conversation?.id || null,
+        p_warehouse_id: selectedWarehouse,
         p_delivery_type: deliveryType,
         p_items: items,
         p_notes: notes || null,
@@ -426,6 +441,22 @@ function ConfirmSalePanel({ conversation, supabase, onClose, onSaleCreated }) {
                 🚚 Envío a domicilio
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Warehouse selector */}
+        {cart.length > 0 && (
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Bodega de salida</p>
+            <select
+              value={selectedWarehouse || ''}
+              onChange={(e) => setSelectedWarehouse(e.target.value)}
+              className="w-full px-3 py-2.5 text-xs bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#6a9a04]/20 cursor-pointer font-medium text-slate-700"
+            >
+              {warehouses.map(w => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
           </div>
         )}
 
