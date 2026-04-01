@@ -340,8 +340,8 @@ async function storeInboundMessage(conversationId, content, contentType, mediaUr
 
   console.log(`[Inbox] 📩 New message in conversation ${conversationId}`);
 
-  // 🤖 Trigger chatbot if active (only for text messages)
-  if (conv?.chatbot_active && contentType === 'text' && content) {
+  // 🤖 Always trigger chatbot for text messages
+  if (contentType === 'text' && content) {
     try {
       // Get contact phone for WhatsApp reply
       let phoneNumber = null;

@@ -202,6 +202,7 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
       supabase.from('inbox_conversations').update({
         last_message_preview: botReply.substring(0, 100),
         last_message_at: new Date().toISOString(),
+        chatbot_active: true, // Keep bot active after responding
       }).eq('id', conversationId),
     ]);
 
