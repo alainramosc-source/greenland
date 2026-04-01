@@ -474,10 +474,11 @@ function ConfirmSalePanel({ conversation, supabase, onClose, onSaleCreated }) {
 // ============================================================
 // CHAT VIEW (Center Panel)
 // ============================================================
-function ChatView({ conversation, messages, onSendMessage, onSendMedia, templates, onCreateOrder, onToggleBot }) {
+function ChatView({ conversation, messages, onSendMessage, onSendMedia, templates, onCreateOrder, onToggleBot, onDeleteConversation }) {
   const [inputValue, setInputValue] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [mediaPreview, setMediaPreview] = useState(null);
   const messagesEndRef = useRef(null);
   const imageInputRef = useRef(null);
@@ -610,9 +611,26 @@ function ChatView({ conversation, messages, onSendMessage, onSendMedia, template
           <button onClick={onCreateOrder} className="p-2 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer" title="Confirmar venta">
             <ShoppingBag className="w-4 h-4 text-slate-500" />
           </button>
-          <button className="p-2 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer" title="Más opciones">
-            <MoreVertical className="w-4 h-4 text-slate-500" />
-          </button>
+          <div className="relative">
+            <button onClick={() => setShowMenu(!showMenu)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer" title="Más opciones">
+              <MoreVertical className="w-4 h-4 text-slate-500" />
+            </button>
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1">
+                <button
+                  onClick={() => {
+                    setShowMenu(false);
+                    if (confirm('¿Borrar esta conversación y todos sus mensajes? Esta acción no se puede deshacer.')) {
+                      onDeleteConversation && onDeleteConversation(conversation.id);
+                    }
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" /> Borrar conversación
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1779,6 +1797,24 @@ export default function InboxPage() {
     }
   }, [activeConversation, supabase]);
 
+  // Handle delete conversation
+  const handleDeleteConversation = useCallback(async (convId) => {
+    try {
+      // Delete messages first (foreign key)
+      await supabase.from('inbox_messages').delete().eq('conversation_id', convId);
+      // Delete conversation
+      await supabase.from('inbox_conversations').delete().eq('id', convId);
+      // Update UI
+      setConversations(prev => prev.filter(c => c.id !== convId));
+      setActiveConversation(null);
+      setMessages([]);
+      setShowMobileChat(false);
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Error al borrar conversación');
+    }
+  }, [supabase]);
+
   // Handle conversation select
   const handleSelectConversation = async (conv) => {
     setActiveConversation(conv);
@@ -1881,6 +1917,7 @@ export default function InboxPage() {
               templates={templates}
               onCreateOrder={() => setShowSalePanel(true)}
               onToggleBot={handleToggleBot}
+              onDeleteConversation={handleDeleteConversation}
             />
           </div>
 
@@ -1947,6 +1984,7 @@ export default function InboxPage() {
                 templates={templates}
                 onCreateOrder={() => setShowSalePanel(true)}
                 onToggleBot={handleToggleBot}
+                onDeleteConversation={handleDeleteConversation}
               />
               {showSalePanel && (
                 <div className="w-80 shrink-0 border-l border-slate-200/50">
