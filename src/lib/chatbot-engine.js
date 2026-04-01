@@ -61,6 +61,75 @@ async function sendWhatsAppMessage(phoneNumber, text) {
 }
 
 /**
+ * Create checkout link — queries products and creates a lastmile_order
+ */
+async function createCheckoutLink(supabase, conversationId, items) {
+  try {
+    const orderItems = [];
+    for (const item of items) {
+      const product = PRODUCT_CATALOG.find(
+        p => p.sku.toLowerCase() === item.sku?.toLowerCase() ||
+             p.name.toLowerCase().includes(item.name?.toLowerCase() || '')
+      );
+      if (!product) continue;
+
+      const { data: prod } = await supabase
+        .from('products')
+        .select('id, name, sku, price')
+        .eq('sku', product.sku)
+        .single();
+      if (!prod) continue;
+
+      orderItems.push({
+        product_id: prod.id,
+        sku: prod.sku,
+        name: prod.name,
+        quantity: item.quantity || 1,
+        sale_price: prod.price,
+      });
+    }
+
+    if (orderItems.length === 0) {
+      return { success: false, error: 'No se encontraron productos válidos' };
+    }
+
+    const token = [...Array(16)].map(() => Math.random().toString(36)[2]).join('');
+    const orderNumber = `LM-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${token.slice(0, 4).toUpperCase()}`;
+    const subtotal = orderItems.reduce((sum, i) => sum + (i.quantity * i.sale_price), 0);
+
+    const { data, error } = await supabase
+      .from('lastmile_orders')
+      .insert({
+        conversation_id: conversationId,
+        checkout_token: token,
+        order_number: orderNumber,
+        delivery_type: 'delivery',
+        items: orderItems,
+        subtotal, total: subtotal,
+        notes: 'Venta generada por chatbot AI',
+        status: 'pending',
+      })
+      .select('id, checkout_token, order_number, total')
+      .single();
+
+    if (error) {
+      console.error('[Bot] Checkout error:', error);
+      return { success: false, error: error.message };
+    }
+
+    return {
+      success: true,
+      checkout_url: `https://www.greenland-products.com.mx/entrega/${data.checkout_token}`,
+      order_number: data.order_number,
+      total: data.total,
+    };
+  } catch (err) {
+    console.error('[Bot] Checkout exception:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
  * Process a bot message — called directly from webhook
  * @param {string} conversationId
  * @param {string} message - inbound message text
@@ -170,11 +239,15 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
           message: `Conversación transferida. Razón: ${functionCall.args.reason}`,
         };
       } else if (functionCall.name === 'create_checkout_link') {
-        // Simplified checkout — just acknowledge for now
-        functionResult = {
-          success: true,
-          message: 'Link de checkout generado. El cliente recibirá instrucciones.',
-        };
+        const checkoutResult = await createCheckoutLink(supabase, conversationId, functionCall.args.items);
+        if (checkoutResult.success) {
+          functionResult = {
+            success: true,
+            message: `Link generado: ${checkoutResult.checkout_url} — Orden: ${checkoutResult.order_number} — Total: $${checkoutResult.total?.toLocaleString('es-MX')} MXN`,
+          };
+        } else {
+          functionResult = { success: false, error: checkoutResult.error };
+        }
       }
 
       result = await chat.sendMessage([{
