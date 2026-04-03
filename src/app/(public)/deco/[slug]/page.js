@@ -209,9 +209,12 @@ const PRODUCT_DATA = {
     color: '#6B5B4B',
     heroImage: '/deco/acoustic-panel/living.png',
     gallery: [
-      { src: '/deco/acoustic-panel/living.png', title: 'Sala de Estar', desc: 'Panel de listones en roble natural', large: true },
-      { src: '/deco/acoustic-panel/hero.png', title: 'Ambiente Residencial', desc: 'Muro de acento con absorción acústica' },
-      { src: '/deco/acoustic-panel/office.png', title: 'Oficina Corporativa', desc: 'Control acústico en espacio abierto' },
+      { src: '/deco/acoustic-panel/living.png', title: 'Sala de Estar', desc: 'Panel de listones walnut con fieltro acústico', large: true },
+      { src: '/deco/acoustic-panel/closeup.png', title: 'Estructura 3 Capas', desc: 'Chapa de madera + MDF + fieltro poliéster' },
+      { src: '/deco/acoustic-panel/color-card.png', title: 'Paleta de Colores', desc: 'Chapa natural, técnica, PVC y esmerilado' },
+      { src: '/deco/acoustic-panel/office.png', title: 'Oficina Corporativa', desc: 'Control acústico en sala de juntas' },
+      { src: '/deco/acoustic-panel/restaurant.png', title: 'Restaurante', desc: 'Absorción de sonido para ambientes gastronómicos' },
+      { src: '/deco/acoustic-panel/bedroom.png', title: 'Recámara', desc: 'Muro cabecera con panel roble natural' },
     ],
     specs: [
       { label: 'Material', value: 'Fibra poliéster + listones MDF + chapa de madera' },
@@ -225,7 +228,7 @@ const PRODUCT_DATA = {
       { label: 'Acabado', value: 'Melamina / Chapa natural / PVC / Esmerilado' },
       { label: 'Instalación', value: 'Pegamento, bastidor o pistola de clavos' },
     ],
-    colorCardImage: '/deco/acoustic-panel/hero.png',
+    colorCardImage: '/deco/acoustic-panel/color-card.png',
     advantages: [
       { icon: 'volume2', title: 'Absorción acústica', desc: 'El fieltro de poliéster absorbe ruido y reduce reverberación en frecuencias medias y altas.' },
       { icon: 'flame', title: 'Retardante de flama', desc: 'Clasificación B1. El fieltro acústico cumple norma ASTM E84 clase A.' },
@@ -237,12 +240,13 @@ const PRODUCT_DATA = {
       { icon: 'shield', title: '3 lados cubiertos', desc: 'Los listones vienen cubiertos en 3 caras para un acabado limpio sin bordes expuestos.' },
     ],
     profileImages: [
-      '/deco/acoustic-panel/hero.png',
+      '/deco/acoustic-panel/closeup.png',
     ],
     applications: [
       { src: '/deco/acoustic-panel/living.png', label: 'Salas y dormitorios' },
       { src: '/deco/acoustic-panel/office.png', label: 'Oficinas y salas de juntas' },
-      { src: '/deco/acoustic-panel/hero.png', label: 'Restaurantes y hoteles' },
+      { src: '/deco/acoustic-panel/restaurant.png', label: 'Restaurantes y hoteles' },
+      { src: '/deco/acoustic-panel/bedroom.png', label: 'Recámaras y home theaters' },
     ],
   },
   'spc-flooring': {
