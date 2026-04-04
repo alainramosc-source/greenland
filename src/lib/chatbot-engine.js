@@ -135,8 +135,25 @@ async function sendBotReply(conversationId, recipientId, text) {
       return sendWhatsAppMessage(conv.inbox_contacts?.phone || contactId, text);
     case 'messenger':
       return sendMessengerMessage(contactId, text, channelToken);
-    case 'instagram':
-      return sendInstagramMessage(contactId, text, channelToken, conv.inbox_channels.platform_account_id);
+    case 'instagram': {
+      // Instagram Send API uses the Facebook Page endpoint + Page token (same as Messenger)
+      const { data: messengerChannel } = await supabase
+        .from('inbox_channels')
+        .select('access_token, platform_account_id')
+        .eq('platform', 'messenger')
+        .eq('is_active', true)
+        .single();
+
+      if (!messengerChannel) {
+        console.error('[Bot] No messenger channel found for Instagram send — needed for Page token');
+        return false;
+      }
+
+      const pageId = messengerChannel.platform_account_id;
+      const pageToken = messengerChannel.access_token;
+      console.log(`[Bot] Instagram: using Page ID ${pageId} for send`);
+      return sendInstagramMessage(contactId, text, pageToken, pageId);
+    }
     default:
       console.warn('[Bot] Unknown platform:', platform);
       return false;

@@ -67,9 +67,18 @@ export async function POST(request) {
         case 'messenger':
           platformMessageId = await sendMessenger(channel, contact, content, content_type);
           break;
-        case 'instagram':
-          platformMessageId = await sendInstagram(channel, contact, content, content_type);
+        case 'instagram': {
+          // Instagram Send API uses the Facebook Page endpoint + Page token
+          const { data: msgChannel } = await getAdminClient()
+            .from('inbox_channels')
+            .select('access_token, platform_account_id')
+            .eq('platform', 'messenger')
+            .eq('is_active', true)
+            .single();
+          if (!msgChannel) throw new Error('No messenger channel found for Instagram send');
+          platformMessageId = await sendInstagram(channel, contact, content, content_type, msgChannel.access_token, msgChannel.platform_account_id);
           break;
+        }
         default:
           throw new Error(`Unsupported platform: ${channel.platform}`);
       }
@@ -251,8 +260,10 @@ async function sendMessenger(channel, contact, content, contentType) {
 // ============================================================
 // INSTAGRAM — Send via IG Messaging API
 // ============================================================
-async function sendInstagram(channel, contact, content, contentType) {
+async function sendInstagram(channel, contact, content, contentType, pageToken, pageId) {
   const recipientId = contact.platform_user_id;
+  const token = pageToken || channel.access_token;
+  const accountId = pageId || channel.platform_account_id;
 
   let messagePayload;
 
@@ -278,7 +289,7 @@ async function sendInstagram(channel, contact, content, contentType) {
     };
   }
 
-  const res = await fetch(`${GRAPH_API}/${channel.platform_account_id}/messages?access_token=${channel.access_token}`, {
+  const res = await fetch(`${GRAPH_API}/${accountId}/messages?access_token=${token}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(messagePayload),
