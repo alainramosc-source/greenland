@@ -19,21 +19,26 @@ export async function GET(request) {
   const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
 
-  const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN || 'greenland_inbox_verify_2024';
+  // Accept any of these verify tokens
+  const acceptedTokens = [
+    process.env.META_WEBHOOK_VERIFY_TOKEN,
+    'greenland_whatsapp_verify_2024',
+    'greenland_inbox_verify_2024',
+  ].filter(Boolean);
 
-  console.log('[Webhook] GET received — mode:', mode, 'token:', token ? `${token.substring(0, 10)}...` : 'null', 'expected:', verifyToken ? `${verifyToken.substring(0, 10)}...` : 'null', 'challenge:', challenge ? 'yes' : 'no');
+  console.log('[Webhook] GET — mode:', mode, 'token:', JSON.stringify(token), 'challenge:', challenge ? 'yes' : 'no');
 
-  if (mode === 'subscribe' && token === verifyToken) {
+  if (mode === 'subscribe' && acceptedTokens.includes(token)) {
     console.log('[Webhook] ✅ Verification successful');
     return new Response(challenge, { status: 200 });
   }
 
-  // If no params at all, it's a health check — return 200
+  // Health check (no params)
   if (!mode && !token && !challenge) {
     return new Response('OK', { status: 200 });
   }
 
-  console.warn('[Webhook] ❌ Verification failed — received token does not match env var');
+  console.warn('[Webhook] ❌ Verification failed — token received:', JSON.stringify(token), 'accepted:', JSON.stringify(acceptedTokens));
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 }
 
