@@ -20,12 +20,20 @@ export async function GET(request) {
   const challenge = searchParams.get('hub.challenge');
 
   const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN || 'greenland_inbox_verify_2024';
+
+  console.log('[Webhook] GET received — mode:', mode, 'token:', token ? `${token.substring(0, 10)}...` : 'null', 'expected:', verifyToken ? `${verifyToken.substring(0, 10)}...` : 'null', 'challenge:', challenge ? 'yes' : 'no');
+
   if (mode === 'subscribe' && token === verifyToken) {
     console.log('[Webhook] ✅ Verification successful');
     return new Response(challenge, { status: 200 });
   }
 
-  console.warn('[Webhook] ❌ Verification failed — invalid token');
+  // If no params at all, it's a health check — return 200
+  if (!mode && !token && !challenge) {
+    return new Response('OK', { status: 200 });
+  }
+
+  console.warn('[Webhook] ❌ Verification failed — received token does not match env var');
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 }
 
