@@ -278,7 +278,7 @@ async function sendInstagram(channel, contact, content, contentType) {
     };
   }
 
-  const res = await fetch(`${GRAPH_API}/me/messages?access_token=${channel.access_token}`, {
+  const res = await fetch(`${GRAPH_API}/${channel.platform_account_id}/messages?access_token=${channel.access_token}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(messagePayload),

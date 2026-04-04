@@ -85,11 +85,11 @@ async function sendMessengerMessage(recipientId, text, accessToken) {
   }
 }
 
-async function sendInstagramMessage(recipientId, text, accessToken) {
-  if (!recipientId || !accessToken) return false;
+async function sendInstagramMessage(recipientId, text, accessToken, accountId) {
+  if (!recipientId || !accessToken || !accountId) return false;
   try {
     const res = await fetch(
-      `https://graph.facebook.com/v21.0/me/messages?access_token=${accessToken}`,
+      `https://graph.facebook.com/v21.0/${accountId}/messages?access_token=${accessToken}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -115,7 +115,7 @@ async function sendBotReply(conversationId, recipientId, text) {
   const supabase = getSupabase();
   const { data: conv } = await supabase
     .from('inbox_conversations')
-    .select('channel_id, contact_id, inbox_channels(platform, access_token), inbox_contacts(platform_user_id, phone)')
+    .select('channel_id, contact_id, inbox_channels(platform, access_token, platform_account_id), inbox_contacts(platform_user_id, phone)')
     .eq('id', conversationId)
     .single();
 
@@ -136,7 +136,7 @@ async function sendBotReply(conversationId, recipientId, text) {
     case 'messenger':
       return sendMessengerMessage(contactId, text, channelToken);
     case 'instagram':
-      return sendInstagramMessage(contactId, text, channelToken);
+      return sendInstagramMessage(contactId, text, channelToken, conv.inbox_channels.platform_account_id);
     default:
       console.warn('[Bot] Unknown platform:', platform);
       return false;
