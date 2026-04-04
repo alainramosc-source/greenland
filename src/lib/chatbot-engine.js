@@ -60,6 +60,89 @@ async function sendWhatsAppMessage(phoneNumber, text) {
   }
 }
 
+async function sendMessengerMessage(recipientId, text, accessToken) {
+  if (!recipientId || !accessToken) return false;
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/me/messages?access_token=${accessToken}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          message: { text },
+        }),
+      }
+    );
+    if (!res.ok) {
+      console.error('[Bot] Messenger send error:', await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Bot] Messenger exception:', err);
+    return false;
+  }
+}
+
+async function sendInstagramMessage(recipientId, text, accessToken) {
+  if (!recipientId || !accessToken) return false;
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/me/messages?access_token=${accessToken}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          message: { text },
+        }),
+      }
+    );
+    if (!res.ok) {
+      console.error('[Bot] Instagram send error:', await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Bot] Instagram exception:', err);
+    return false;
+  }
+}
+
+// Route bot reply to the correct platform based on conversation's channel
+async function sendBotReply(conversationId, recipientId, text) {
+  const supabase = getSupabase();
+  const { data: conv } = await supabase
+    .from('inbox_conversations')
+    .select('channel_id, contact_id, inbox_channels(platform, access_token), inbox_contacts(platform_user_id, phone)')
+    .eq('id', conversationId)
+    .single();
+
+  if (!conv?.inbox_channels) {
+    console.warn('[Bot] No channel found for conversation', conversationId);
+    return false;
+  }
+
+  const platform = conv.inbox_channels.platform;
+  const contactId = conv.inbox_contacts?.platform_user_id || recipientId;
+  const channelToken = conv.inbox_channels.access_token;
+
+  console.log(`[Bot] Sending reply via ${platform} to ${contactId}`);
+
+  switch (platform) {
+    case 'whatsapp':
+      return sendWhatsAppMessage(conv.inbox_contacts?.phone || contactId, text);
+    case 'messenger':
+      return sendMessengerMessage(contactId, text, channelToken);
+    case 'instagram':
+      return sendInstagramMessage(contactId, text, channelToken);
+    default:
+      console.warn('[Bot] Unknown platform:', platform);
+      return false;
+  }
+}
+
 // 📧 Send email notification to admins when bot transfers to human
 async function sendTransferNotification(contactName, contactPhone, reason, conversationId) {
   const resendKey = process.env.RESEND_API_KEY;
@@ -223,7 +306,7 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
 - Responde siempre en español.
 
 ## CONTEXTO
-- Canal: WhatsApp
+- Canal: Mensajería (WhatsApp, Messenger o Instagram)
 - Fecha: ${new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
 `,
       tools: [{
@@ -334,9 +417,9 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
 
     botReply = response.text() || 'Disculpa, ¿podrías repetirlo?';
 
-    // Send WhatsApp + save to DB in parallel
+    // Send reply via the correct platform + save to DB in parallel
     await Promise.all([
-      phoneNumber ? sendWhatsAppMessage(phoneNumber, botReply) : Promise.resolve(),
+      sendBotReply(conversationId, phoneNumber, botReply),
       supabase.from('inbox_messages').insert({
         conversation_id: conversationId,
         direction: 'outbound',
