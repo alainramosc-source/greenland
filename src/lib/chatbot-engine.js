@@ -333,10 +333,11 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
 
 ## FUNCIONES DISPONIBLES
 - **create_checkout_link**: Cuando el cliente confirme que quiere comprar productos específicos con cantidades.
-- **transfer_to_human**: SOLO cuando el cliente EXPLÍCITAMENTE pida hablar con una persona real, o quiera ser distribuidor.
+- **transfer_to_human**: Cuando el cliente pida hablar con una persona real, quiera cotización detallada, o quiera ser distribuidor.
 
 ## REGLAS CRÍTICAS
-- NUNCA uses transfer_to_human por tu cuenta. Solo si el cliente lo pide directamente.
+- Cuando el cliente pida hablar con un humano, SIEMPRE usa la función transfer_to_human SIN IMPORTAR LA HORA. No intentes manejar la transferencia tú solo con un mensaje — DEBES llamar la función para que llegue la notificación al equipo.
+- Si es fuera de horario, PRIMERO llama transfer_to_human Y en tu respuesta menciona que el horario es de 9am a 6pm y que un asesor dará seguimiento a primera hora.
 - Si no sabes algo, di "No tengo esa información exacta, pero puedo poner a un asesor contigo si quieres."
 - Mantén respuestas cortas (máximo 3-4 líneas).
 - Responde siempre en español.
@@ -345,8 +346,7 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
 - Nuestro horario de atención con asesores humanos es de **lunes a viernes de 9:00 AM a 6:00 PM** (hora centro de México).
 - Ahora mismo es ${dayName} y son las ${mxTime.getHours()}:${String(mxTime.getMinutes()).padStart(2, '0')}.
 - ${isBusinessHours && !isWeekend ? 'ESTAMOS EN HORARIO DE ATENCIÓN.' : 'ESTAMOS FUERA DE HORARIO.'}
-- Si el cliente necesita hablar con un humano fuera de horario, dile: "Nuestro horario de atención es de lunes a viernes de 9am a 6pm. Tu mensaje fue recibido y un asesor te dará seguimiento a primera hora. 👍"
-- El bot SIEMPRE responde, sin importar la hora. Solo las transferencias a humano son las que dependen del horario.
+- El bot SIEMPRE responde, sin importar la hora. Solo menciona el horario cuando el cliente pida hablar con un humano fuera de horario.
 
 ## CONTEXTO
 - Canal: Mensajería (WhatsApp, Messenger o Instagram)
