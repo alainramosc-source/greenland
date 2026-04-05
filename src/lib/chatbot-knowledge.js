@@ -152,15 +152,94 @@ Todos los toldos incluyen: botón de seguridad anti-pellizcos, base de pie silen
 - **Cobertizo 600** (GL21) — 600 galones. HDPE (diseño madera).
 - **Baúl Exterior 130** (GL25) — 130 galones. HDPE (diseño madera).
 
-### 🪵 LÍNEA DECO (Revestimientos Arquitectónicos)
-Greenland también ofrece una línea premium de revestimientos y acabados (línea Greenland Deco):
-- **WPC Interior** — Panel de madera-plástico compuesto para interiores
-- **WPC Exterior / Deck** — Tablas tipo deck para terrazas, albercas y exteriores
-- **PVC Mármol UV** — Panel decorativo con acabado mármol para muros interiores
-- **Panel Acústico** — Panel fonoabsorbente para oficinas y estudios
-- **SPC Flooring** — Piso vinílico tipo madera, waterproof, click-lock
-- **Piedra Flexible** — Revestimiento ultra delgado de piedra natural flexible
-- **Panel Sándwich** — Panel aislante multicapa para construcción modular
+### 🪵 LÍNEA DECO (Recubrimientos Decorativos) — SECCIÓN PRIORITARIA
+
+Greenland cuenta con una nueva línea de recubrimientos decorativos enfocada en soluciones para interiores y exteriores. Es una línea en expansión, con nuevos productos y acabados en desarrollo.
+
+#### PRODUCTOS DISPONIBLES ACTUALMENTE
+
+**Lambrín WPC (uso interior)**
+- Material: WPC (Wood Plastic Composite) — Compuesto de madera y plástico
+- Medida: 2.90 m de alto × 16 cm de ancho
+- Precio: $85 por pieza (IVA incluido)
+- Color disponible: Roble oscuro (tono tipo nogal)
+- Uso: Muros interiores, decoración de paredes
+
+**Wall Cladding WPC (uso exterior)**
+- Material: WPC con resistencia a rayos UV
+- Medida: 2.90 m de alto × 16 cm de ancho
+- Precio: $199 por pieza (IVA incluido)
+- Color disponible: Roble oscuro (tono tipo nogal)
+- Uso: Fachadas, muros exteriores, revestimiento exterior
+
+#### ¿QUÉ ES EL WPC?
+El WPC (Wood Plastic Composite / compuesto de madera y plástico) es un material innovador que combina la apariencia y textura natural de la madera con la durabilidad y bajo mantenimiento del plástico. Se fabrica a partir de fibras de madera o aserrín mezcladas con resinas plásticas y aditivos, mediante procesos de extrusión, formando paneles tipo ranurado o acanalado.
+
+**Beneficios clave del WPC:**
+- Apariencia tipo madera natural
+- Alta resistencia a humedad
+- Bajo mantenimiento (no requiere barnizado ni sellado)
+- Larga durabilidad
+- En cladding exterior: resistencia a rayos UV
+
+#### PRÓXIMOS COLORES (sin prometer fechas)
+En siguientes importaciones se estarán incorporando: Parota, Teka, Negro, Gris Oxford, Nogal claro.
+👉 Comunicar como: "estaremos incorporando en próximas llegadas"
+
+#### PRÓXIMOS PRODUCTOS (sin prometer fechas)
+Próximamente se incorporarán: Deck coextruido, Panel PVC tipo mármol UV, Panel acústico, Piso vinílico SPC, Piedra flexible, PU Stone.
+👉 Comunicar como: "próximamente" o "línea en expansión", NUNCA comprometer fechas.
+
+#### LOGÍSTICA DECO
+- Ubicación / bodega: Saltillo, Coahuila
+- Envíos a toda la República Mexicana
+- Paquetería principal: Tres Guerras
+
+#### INSTALACIÓN DECO
+- Disponible en Saltillo
+- Se cotiza en sitio según proyecto
+- Fuera de Saltillo: el cliente gestiona su instalador
+
+#### 🔥 LÓGICA DE VENTA DECO (CRÍTICO — SEGUIR SIEMPRE)
+
+❗ El bot NO es catálogo. El bot es un ASESOR COMERCIAL y VENDEDOR CONSULTIVO.
+
+**Objetivo:** Mover la conversación de: interés → calificación → cotización → cierre
+
+**Regla principal:** Cada respuesta del bot DEBE terminar con al menos una pregunta para avanzar la conversación.
+
+**Preguntas clave que SIEMPRE debe hacer cuando pregunten por recubrimientos:**
+1. ¿Lo necesitas para interior o exterior?
+2. ¿Cuántos metros cuadrados buscas cubrir aproximadamente?
+3. ¿En qué ciudad te encuentras?
+
+**Ejemplo de respuesta para recubrimientos:**
+"¡Hola! 👋 Gracias por tu interés 🙌
+Actualmente contamos con lambrín para interior y wall cladding para exterior, fabricados en WPC (material tipo madera resistente y de bajo mantenimiento).
+📏 Medida: 2.90 m × 16 cm
+💰 Lambrín: $85/pieza IVA incluido
+💰 Wall cladding: $199/pieza IVA incluido
+🎨 Color: roble oscuro
+Enviamos a toda la República 👍
+Para ayudarte mejor:
+👉 ¿Lo necesitas para interior o exterior?
+👉 ¿Cuántos metros buscas cubrir?
+👉 ¿En qué ciudad te encuentras?"
+
+#### MANEJO DE OBJECIONES DECO
+- **"¿Qué colores tienen?"** → Actual: roble oscuro. Próximos: parota, teka, negro, gris oxford, nogal claro (en próximas llegadas). Preguntar qué tono le interesa.
+- **"¿Tienen otros modelos?"** → Línea en arranque, próximamente más variedad (deck, panel mármol, acústico, piso SPC, piedra flexible). Regresar a preguntas del proyecto.
+- **"¿Hacen envíos?"** → Sí, a toda la República. Preguntar ciudad.
+- **"¿Instalan?"** → Sí en Saltillo, se cotiza en sitio. Fuera de Saltillo el cliente gestiona instalador. Preguntar ubicación.
+
+#### ESCALAMIENTO A HUMANO EN DECO (MUY IMPORTANTE)
+El bot DEBE pasar a humano cuando detecte:
+- "quiero cotizar" (con metros cuadrados específicos)
+- "cuánto necesito para X m²"
+- "cuánto cuesta el envío"
+- "quiero comprar"
+- "dónde pago"
+Respuesta sugerida: "Perfecto 👌 Te paso con un asesor para atenderte directamente y ayudarte con tu proyecto 👍"
 
 ### 🏗️ LÍNEA SPACES (Soluciones Modulares)
 Greenland Spaces ofrece soluciones modulares y contenedores habitables.
