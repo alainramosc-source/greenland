@@ -158,26 +158,37 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Only run during business hours
-  if (!isBusinessHours()) {
+  const { searchParams } = new URL(request.url);
+  const specificConvId = searchParams.get('conv');
+
+  // Only enforce business hours for the daily batch cron (no conv param)
+  if (!specificConvId && !isBusinessHours()) {
+    return NextResponse.json({ status: 'skipped', reason: 'outside_business_hours' });
+  }
+
+  // For specific conv follow-ups, still check business hours
+  if (specificConvId && !isBusinessHours()) {
     return NextResponse.json({ status: 'skipped', reason: 'outside_business_hours' });
   }
 
   const supabase = getAdminClient();
 
   try {
-    // Find conversations where:
-    // 1. Bot is active (chatbot_active = true)
-    // 2. Bot was the last to reply (bot_last_replied_at is set)
-    // 3. Haven't reached max followups (< 3)
-    // 4. Status is 'open'
-    const { data: conversations, error } = await supabase
+    // Build query
+    let query = supabase
       .from('inbox_conversations')
       .select('id, channel_id, contact_id, bot_followup_count, bot_last_replied_at, last_message_at')
       .eq('chatbot_active', true)
       .eq('status', 'open')
       .not('bot_last_replied_at', 'is', null)
-      .lt('bot_followup_count', 3)
+      .lt('bot_followup_count', 3);
+
+    // If specific conversation, filter to just that one
+    if (specificConvId) {
+      query = query.eq('id', specificConvId);
+    }
+
+    const { data: conversations, error } = await query
       .order('bot_last_replied_at', { ascending: true });
 
     if (error) {

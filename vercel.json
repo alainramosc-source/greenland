@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/inbox/followup",
-      "schedule": "*/3 * * * *"
+      "schedule": "0 9 * * *"
     }
   ]
 }

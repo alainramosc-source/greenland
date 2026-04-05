@@ -494,10 +494,31 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
     ]);
 
     console.log(`[Bot] ✅ Replied to ${conversationId}`);
+
+    // Schedule follow-up checks (fire-and-forget, won't block response)
+    scheduleFollowup(conversationId);
+
     return { success: true, reply: botReply };
 
   } catch (err) {
     console.error('[Bot] Error:', err.message);
     return { success: false, error: err.message };
+  }
+}
+
+// Schedule follow-up pings — calls the followup endpoint after delays
+function scheduleFollowup(conversationId) {
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.greenland-products.com.mx';
+  const cronSecret = process.env.CRON_SECRET || '';
+
+  // Schedule checks at 2min, 5min, 8min
+  const delays = [2 * 60 * 1000, 5 * 60 * 1000, 8 * 60 * 1000];
+
+  for (const delay of delays) {
+    setTimeout(() => {
+      fetch(`${baseUrl}/api/inbox/followup?conv=${conversationId}`, {
+        headers: { 'Authorization': `Bearer ${cronSecret}` },
+      }).catch(err => console.error('[Bot] Followup ping error:', err.message));
+    }, delay);
   }
 }
