@@ -29,7 +29,7 @@ function isBusinessHours() {
   const mxTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
   const hour = mxTime.getHours();
   const day = mxTime.getDay();
-  return hour >= 9 && hour < 18 && day >= 1 && day <= 5;
+  return hour >= 9 && hour < 23 && day >= 0 && day <= 6; // TEMP: extended for testing — revert to hour < 18 && day >= 1 && day <= 5
 }
 
 // Follow-up message templates
