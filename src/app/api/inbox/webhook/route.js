@@ -322,6 +322,19 @@ async function findOrCreateConversation(channel, contact) {
 }
 
 async function storeInboundMessage(conversationId, content, contentType, mediaUrl, platformMessageId) {
+  // Duplicate protection — Meta sometimes resends webhooks
+  if (platformMessageId) {
+    const { data: existing } = await getAdminClient()
+      .from('inbox_messages')
+      .select('id')
+      .eq('platform_message_id', platformMessageId)
+      .maybeSingle();
+    if (existing) {
+      console.log(`[Inbox] ⏭️ Duplicate message skipped: ${platformMessageId}`);
+      return;
+    }
+  }
+
   // Insert message
   await getAdminClient()
     .from('inbox_messages')
@@ -353,8 +366,8 @@ async function storeInboundMessage(conversationId, content, contentType, mediaUr
 
   console.log(`[Inbox] 📩 New message in conversation ${conversationId}`);
 
-  // 🤖 Always trigger chatbot for text messages
-  if (contentType === 'text' && content) {
+  // 🤖 Trigger chatbot only for text messages and when bot is active
+  if (contentType === 'text' && content && conv?.chatbot_active) {
     try {
       // Get contact phone for WhatsApp reply
       let phoneNumber = null;
@@ -375,6 +388,8 @@ async function storeInboundMessage(conversationId, content, contentType, mediaUr
     } catch (err) {
       console.error('[Chatbot] Error triggering bot:', err);
     }
+  } else if (!conv?.chatbot_active) {
+    console.log(`[Inbox] 🙅 Bot disabled for conversation ${conversationId} — human takeover`);
   }
 }
 

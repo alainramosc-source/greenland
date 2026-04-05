@@ -164,49 +164,60 @@ async function sendBotReply(conversationId, recipientId, text) {
 async function sendTransferNotification(contactName, contactPhone, reason, conversationId) {
   const resendKey = process.env.RESEND_API_KEY;
   const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean);
-
-  if (!resendKey || adminEmails.length === 0) {
-    console.warn('[Bot] No Resend key or admin emails for notification');
-    return;
-  }
+  const adminPhones = (process.env.ADMIN_PHONES || '').split(',').map(p => p.trim()).filter(Boolean);
 
   const portalUrl = `https://greenland-products.com.mx/dashboard/inbox?conv=${conversationId}`;
 
-  try {
-    await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${resendKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'Greenland Bot <no-reply@greenland-products.com.mx>',
-        to: adminEmails,
-        subject: `🤖→👤 Transferencia a humano — ${contactName || 'Cliente'}`,
-        html: `
-          <div style="font-family: -apple-system, system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-            <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 16px; padding: 24px; color: white; margin-bottom: 16px;">
-              <h2 style="margin: 0 0 4px; font-size: 18px;">🤖→👤 Transferencia a Humano</h2>
-              <p style="margin: 0; font-size: 12px; color: #94a3b8;">El chatbot necesita asistencia humana</p>
+  // 📧 Email notification
+  if (resendKey && adminEmails.length > 0) {
+    try {
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'Greenland Bot <no-reply@greenland-products.com.mx>',
+          to: adminEmails,
+          subject: `🤖→👤 Transferencia a humano — ${contactName || 'Cliente'}`,
+          html: `
+            <div style="font-family: -apple-system, system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+              <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 16px; padding: 24px; color: white; margin-bottom: 16px;">
+                <h2 style="margin: 0 0 4px; font-size: 18px;">🤖→👤 Transferencia a Humano</h2>
+                <p style="margin: 0; font-size: 12px; color: #94a3b8;">El chatbot necesita asistencia humana</p>
+              </div>
+              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                <p style="margin: 0 0 8px; font-size: 12px; color: #64748b; font-weight: 700; text-transform: uppercase;">Cliente</p>
+                <p style="margin: 0; font-size: 16px; font-weight: 700; color: #1e293b;">${contactName || 'Sin nombre'}</p>
+                ${contactPhone ? `<p style="margin: 4px 0 0; font-size: 13px; color: #475569;">📱 ${contactPhone}</p>` : ''}
+              </div>
+              <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                <p style="margin: 0 0 8px; font-size: 12px; color: #92400e; font-weight: 700; text-transform: uppercase;">Razón</p>
+                <p style="margin: 0; font-size: 14px; color: #78350f;">${reason}</p>
+              </div>
+              <a href="${portalUrl}" style="display: block; text-align: center; background: #6a9a04; color: white; text-decoration: none; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 14px;">💬 Ver conversación en portal</a>
+              <p style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 16px;">Greenland Products — Chatbot AI</p>
             </div>
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
-              <p style="margin: 0 0 8px; font-size: 12px; color: #64748b; font-weight: 700; text-transform: uppercase;">Cliente</p>
-              <p style="margin: 0; font-size: 16px; font-weight: 700; color: #1e293b;">${contactName || 'Sin nombre'}</p>
-              ${contactPhone ? `<p style="margin: 4px 0 0; font-size: 13px; color: #475569;">📱 ${contactPhone}</p>` : ''}
-            </div>
-            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
-              <p style="margin: 0 0 8px; font-size: 12px; color: #92400e; font-weight: 700; text-transform: uppercase;">Razón</p>
-              <p style="margin: 0; font-size: 14px; color: #78350f;">${reason}</p>
-            </div>
-            <a href="${portalUrl}" style="display: block; text-align: center; background: #6a9a04; color: white; text-decoration: none; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 14px;">💬 Ver conversación en portal</a>
-            <p style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 16px;">Greenland Products — Chatbot AI</p>
-          </div>
-        `,
-      }),
-    });
-    console.log(`[Bot] 📧 Transfer notification sent to ${adminEmails.join(', ')}`);
-  } catch (err) {
-    console.error('[Bot] Email notification error:', err);
+          `,
+        }),
+      });
+      console.log(`[Bot] 📧 Transfer notification sent to ${adminEmails.join(', ')}`);
+    } catch (err) {
+      console.error('[Bot] Email notification error:', err);
+    }
+  }
+
+  // 📱 WhatsApp notification to admin phones
+  for (const phone of adminPhones) {
+    try {
+      await sendWhatsAppMessage(phone,
+        `🤖→👤 *Transferencia a humano*\n\n👤 Cliente: ${contactName || 'Sin nombre'}\n${contactPhone ? `📱 Tel: ${contactPhone}\n` : ''}📝 Razón: ${reason}\n\n👉 Ver en portal:\n${portalUrl}`
+      );
+      console.log(`[Bot] 📱 WhatsApp notification sent to ${phone}`);
+    } catch (err) {
+      console.error(`[Bot] WhatsApp notification error to ${phone}:`, err);
+    }
   }
 }
 
@@ -304,6 +315,14 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
       parts: [{ text: m.content || '' }],
     })).filter(m => m.parts[0].text);
 
+    // Check if within business hours (9am-6pm Mexico City time)
+    const now = new Date();
+    const mxTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+    const hour = mxTime.getHours();
+    const isBusinessHours = hour >= 9 && hour < 18;
+    const dayName = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][mxTime.getDay()];
+    const isWeekend = mxTime.getDay() === 0 || mxTime.getDay() === 6;
+
     // Setup Gemini
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash',
@@ -322,9 +341,16 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
 - Mantén respuestas cortas (máximo 3-4 líneas).
 - Responde siempre en español.
 
+## HORARIO DE ATENCIÓN
+- Nuestro horario de atención con asesores humanos es de **lunes a viernes de 9:00 AM a 6:00 PM** (hora centro de México).
+- Ahora mismo es ${dayName} y son las ${mxTime.getHours()}:${String(mxTime.getMinutes()).padStart(2, '0')}.
+- ${isBusinessHours && !isWeekend ? 'ESTAMOS EN HORARIO DE ATENCIÓN.' : 'ESTAMOS FUERA DE HORARIO.'}
+- Si el cliente necesita hablar con un humano fuera de horario, dile: "Nuestro horario de atención es de lunes a viernes de 9am a 6pm. Tu mensaje fue recibido y un asesor te dará seguimiento a primera hora. 👍"
+- El bot SIEMPRE responde, sin importar la hora. Solo las transferencias a humano son las que dependen del horario.
+
 ## CONTEXTO
 - Canal: Mensajería (WhatsApp, Messenger o Instagram)
-- Fecha: ${new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+- Fecha: ${now.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
 `,
       tools: [{
         functionDeclarations: [
@@ -366,73 +392,86 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
       }],
     });
 
-    // Chat with Gemini
+    // Chat with Gemini — with timeout protection
     const chat = model.startChat({ history });
-    let result = await chat.sendMessage(message);
-    let response = result.response;
     let botReply = '';
 
-    // Handle function calls
-    const functionCall = response.functionCalls()?.[0];
+    try {
+      // Race between Gemini response and 15s timeout
+      const geminiPromise = chat.sendMessage(message);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('GEMINI_TIMEOUT')), 15000)
+      );
 
-    if (functionCall) {
-      let functionResult;
+      let result = await Promise.race([geminiPromise, timeoutPromise]);
+      let response = result.response;
 
-      if (functionCall.name === 'transfer_to_human') {
-        await supabase
-          .from('inbox_conversations')
-          .update({ chatbot_active: false })
-          .eq('id', conversationId);
+      // Handle function calls
+      const functionCall = response.functionCalls()?.[0];
 
-        // Get contact info for notification
-        const { data: conv } = await supabase
-          .from('inbox_conversations')
-          .select('contact_id')
-          .eq('id', conversationId)
-          .single();
-        let contactName = null;
-        let contactPhone = phoneNumber;
-        if (conv?.contact_id) {
-          const { data: contact } = await supabase
-            .from('inbox_contacts')
-            .select('name, phone')
-            .eq('id', conv.contact_id)
+      if (functionCall) {
+        let functionResult;
+
+        if (functionCall.name === 'transfer_to_human') {
+          await supabase
+            .from('inbox_conversations')
+            .update({ chatbot_active: false })
+            .eq('id', conversationId);
+
+          // Get contact info for notification
+          const { data: conv } = await supabase
+            .from('inbox_conversations')
+            .select('contact_id')
+            .eq('id', conversationId)
             .single();
-          contactName = contact?.name;
-          contactPhone = contactPhone || contact?.phone;
-        }
+          let contactName = null;
+          let contactPhone = phoneNumber;
+          if (conv?.contact_id) {
+            const { data: contact } = await supabase
+              .from('inbox_contacts')
+              .select('name, phone')
+              .eq('id', conv.contact_id)
+              .single();
+            contactName = contact?.name;
+            contactPhone = contactPhone || contact?.phone;
+          }
 
-        // Send email notification to admins
-        await sendTransferNotification(
-          contactName, contactPhone, functionCall.args.reason, conversationId
-        );
+          // Send email + WhatsApp notification to admins
+          await sendTransferNotification(
+            contactName, contactPhone, functionCall.args.reason, conversationId
+          );
 
-        functionResult = {
-          success: true,
-          message: `Conversación transferida. Razón: ${functionCall.args.reason}`,
-        };
-      } else if (functionCall.name === 'create_checkout_link') {
-        const checkoutResult = await createCheckoutLink(supabase, conversationId, functionCall.args.items);
-        if (checkoutResult.success) {
           functionResult = {
             success: true,
-            message: `Link generado: ${checkoutResult.checkout_url} — Orden: ${checkoutResult.order_number} — Total: $${checkoutResult.total?.toLocaleString('es-MX')} MXN`,
+            message: `Conversación transferida. Razón: ${functionCall.args.reason}`,
           };
-        } else {
-          functionResult = { success: false, error: checkoutResult.error };
+        } else if (functionCall.name === 'create_checkout_link') {
+          const checkoutResult = await createCheckoutLink(supabase, conversationId, functionCall.args.items);
+          if (checkoutResult.success) {
+            functionResult = {
+              success: true,
+              message: `Link generado: ${checkoutResult.checkout_url} — Orden: ${checkoutResult.order_number} — Total: $${checkoutResult.total?.toLocaleString('es-MX')} MXN`,
+            };
+          } else {
+            functionResult = { success: false, error: checkoutResult.error };
+          }
         }
+
+        result = await chat.sendMessage([{
+          functionResponse: {
+            name: functionCall.name,
+            response: functionResult,
+          },
+        }]);
+        response = result.response;
       }
 
-      result = await chat.sendMessage([{
-        functionResponse: {
-          name: functionCall.name,
-          response: functionResult,
-        },
-      }]);
-      response = result.response;
+      botReply = response.text() || 'Disculpa, ¿podrías repetirlo?';
+    } catch (geminiErr) {
+      // Fallback message if Gemini times out or fails
+      console.error('[Bot] Gemini error:', geminiErr.message);
+      botReply = '¡Hola! Disculpa la demora 😊 ¿En qué puedo ayudarte? Puedo darte información sobre nuestros productos o ponerte en contacto con un asesor.';
     }
-
-    botReply = response.text() || 'Disculpa, ¿podrías repetirlo?';
 
     // Send reply via the correct platform + save to DB in parallel
     await Promise.all([
@@ -448,7 +487,9 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
       supabase.from('inbox_conversations').update({
         last_message_preview: botReply.substring(0, 100),
         last_message_at: new Date().toISOString(),
-        chatbot_active: true, // Keep bot active after responding
+        bot_last_replied_at: new Date().toISOString(),
+        bot_followup_count: 0, // Reset followup counter on new bot reply
+        chatbot_active: true,
       }).eq('id', conversationId),
     ]);
 
