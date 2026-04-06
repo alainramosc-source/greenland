@@ -61,8 +61,12 @@ async function sendWhatsAppMessage(phoneNumber, text) {
 }
 
 async function sendMessengerMessage(recipientId, text, accessToken) {
-  if (!recipientId || !accessToken) return false;
+  if (!recipientId || !accessToken) {
+    console.error(`[Bot] Messenger: missing params — recipientId=${!!recipientId}, token=${!!accessToken}`);
+    return false;
+  }
   try {
+    console.log(`[Bot] Messenger: sending to ${recipientId}, token length=${accessToken?.length}`);
     const res = await fetch(
       `https://graph.facebook.com/v21.0/me/messages?access_token=${accessToken}`,
       {
@@ -74,10 +78,12 @@ async function sendMessengerMessage(recipientId, text, accessToken) {
         }),
       }
     );
+    const responseText = await res.text();
     if (!res.ok) {
-      console.error('[Bot] Messenger send error:', await res.text());
+      console.error(`[Bot] Messenger send error (${res.status}):`, responseText);
       return false;
     }
+    console.log(`[Bot] Messenger: sent OK —`, responseText);
     return true;
   } catch (err) {
     console.error('[Bot] Messenger exception:', err);
