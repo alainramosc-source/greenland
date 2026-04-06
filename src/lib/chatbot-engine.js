@@ -60,24 +60,25 @@ async function sendWhatsAppMessage(phoneNumber, text) {
   }
 }
 
-async function sendMessengerMessage(recipientId, text, accessToken) {
+async function sendMessengerMessage(recipientId, text, accessToken, pageId) {
   if (!recipientId || !accessToken) {
-    console.error(`[Bot] Messenger: missing params — recipientId=${!!recipientId}, token=${!!accessToken}`);
+    console.error(`[Bot] Messenger: missing params — recipientId=${!!recipientId}, token=${!!accessToken}, pageId=${pageId}`);
     return false;
   }
   try {
-    console.log(`[Bot] Messenger: sending to ${recipientId}, token length=${accessToken?.length}`);
-    const res = await fetch(
-      `https://graph.facebook.com/v21.0/me/messages?access_token=${accessToken}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipient: { id: recipientId },
-          message: { text },
-        }),
-      }
-    );
+    // Use Page ID instead of 'me' — /me doesn't resolve correctly with all token types
+    const endpoint = pageId
+      ? `https://graph.facebook.com/v21.0/${pageId}/messages?access_token=${accessToken}`
+      : `https://graph.facebook.com/v21.0/me/messages?access_token=${accessToken}`;
+    console.log(`[Bot] Messenger: sending to ${recipientId} via page ${pageId || 'me'}, token length=${accessToken?.length}`);
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: { text },
+      }),
+    });
     const responseText = await res.text();
     if (!res.ok) {
       console.error(`[Bot] Messenger send error (${res.status}):`, responseText);
@@ -140,7 +141,7 @@ async function sendBotReply(conversationId, recipientId, text) {
     case 'whatsapp':
       return sendWhatsAppMessage(conv.inbox_contacts?.phone || contactId, text);
     case 'messenger':
-      return sendMessengerMessage(contactId, text, channelToken);
+      return sendMessengerMessage(contactId, text, channelToken, conv.inbox_channels.platform_account_id);
     case 'instagram': {
       // Instagram Send API uses the Facebook Page endpoint + Page token (same as Messenger)
       const { data: messengerChannel } = await supabase
