@@ -7,6 +7,15 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ProductGallery from '@/components/ProductGallery';
 
+// Product weights in kg per unit (from manufacturer specs)
+const PRODUCT_WEIGHTS = {
+  GL01: 12.35, GL02: 8.45, GL03: 4.3, GL04: 11.1, GL05: 9.7,
+  GL06: 18.25, GL07: 19.7, GL08: 16.15, GL09: 10.65, GL10: 14.5,
+  GL11: 18, GL12: 23.7, GL13: 32.9, GL14: 4.3, GL15: 13,
+  GL16: 11.1, GL17: 4.5, GL18: 21.55, GL19: 4.5, GL20: 12.35,
+  GL21: 0, GL22: 4.3, GL23: 4.3, GL24: 0, GL25: 0,
+};
+
 export default function NuevoPedidoPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -208,6 +217,8 @@ export default function NuevoPedidoPage() {
   };
 
   const cartTotal = cart.reduce((acc, item) => acc + ((Number(item.price) || 0) * item.quantity), 0);
+  const cartTotalWeight = cart.reduce((acc, item) => acc + (PRODUCT_WEIGHTS[item.sku] || 0) * (item.quantity || 0), 0);
+  const cartTotalPieces = cart.reduce((acc, item) => acc + (item.quantity || 0), 0);
 
   // Submit Order
   const handleSubmitOrder = async () => {
@@ -434,7 +445,14 @@ export default function NuevoPedidoPage() {
                 {cart.map(item => (
                   <div key={item.id} className="flex flex-col gap-2 pb-4 border-b border-slate-100">
                     <div className="flex justify-between items-start">
-                      <h4 className="font-bold text-sm text-slate-800 m-0 pr-4 leading-tight">{item.name}</h4>
+                      <div>
+                        <h4 className="font-bold text-sm text-slate-800 m-0 pr-4 leading-tight">{item.name}</h4>
+                        {PRODUCT_WEIGHTS[item.sku] > 0 && (
+                          <span className="text-[11px] text-slate-400 font-medium">
+                            {(PRODUCT_WEIGHTS[item.sku] * item.quantity).toFixed(1)} kg
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="font-black text-[#6a9a04] text-sm">${item.price * item.quantity}</span>
                         <button
@@ -533,6 +551,20 @@ export default function NuevoPedidoPage() {
                 className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 resize-none"
               />
             </div>
+
+            {/* Weight Summary */}
+            {cart.length > 0 && cartTotalWeight > 0 && (
+              <div className="flex justify-between items-center mb-3 pb-3 border-b border-slate-200/50">
+                <div>
+                  <span className="text-sm font-medium text-slate-600">Peso Estimado</span>
+                  <span className="text-xs text-slate-400 ml-1">({cartTotalPieces} pzs)</span>
+                </div>
+                <span className={`text-sm font-black ${cartTotalWeight > 1000 ? 'text-red-600' : cartTotalWeight > 500 ? 'text-amber-600' : 'text-slate-700'}`}>
+                  {cartTotalWeight.toFixed(1)} kg
+                  {cartTotalWeight >= 1000 && <span className="text-xs font-medium text-slate-400 ml-1">({(cartTotalWeight / 1000).toFixed(2)} ton)</span>}
+                </span>
+              </div>
+            )}
 
             <div className="flex justify-between items-center mb-4">
               <span className="font-medium text-slate-600">Total Estimado</span>
