@@ -973,7 +973,7 @@ export default function OrderDetailsPage() {
                       <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Cantidad</th>
                       {isAdmin && <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Bodega</th>}
                       <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Subtotal</th>
-                      {isAdmin && <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Peso</th>}
+                      <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Peso</th>
                       {isAdmin && order.status === 'pending' && <th className="pb-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center" style={{ width: '50px' }}></th>}
                     </tr>
                   </thead>
@@ -1129,7 +1129,7 @@ export default function OrderDetailsPage() {
                             ${Number((editingItems[item.id] ?? item.quantity) * item.unit_price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </td>
-                        {isAdmin && (() => {
+                        {(() => {
                           const unitW = PRODUCT_WEIGHTS[item.products?.sku] || 0;
                           const qty = editingItems[item.id] ?? item.quantity;
                           const lineWeight = unitW * qty;
@@ -1167,8 +1167,8 @@ export default function OrderDetailsPage() {
                 </table>
               </div>
 
-              {/* Total Weight Summary (admin only) */}
-              {isAdmin && (() => {
+              {/* Total Weight Summary */}
+              {(() => {
                 const totalWeight = order.order_items.reduce((sum, item) => {
                   const w = PRODUCT_WEIGHTS[item.products?.sku] || 0;
                   const qty = editingItems[item.id] ?? item.quantity;
