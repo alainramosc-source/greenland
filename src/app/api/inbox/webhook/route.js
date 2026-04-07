@@ -294,13 +294,33 @@ async function findOrCreateConversation(channel, contact) {
     .single();
 
   if (existing) {
-    // Re-enable bot if it was disabled (customer messaging again = new intent)
+    // Only re-enable bot if no human agent replied recently (2h window)
     if (!existing.chatbot_active) {
-      await getAdminClient()
-        .from('inbox_conversations')
-        .update({ chatbot_active: true })
-        .eq('id', existing.id);
-      existing.chatbot_active = true;
+      const { data: lastHumanMsg } = await getAdminClient()
+        .from('inbox_messages')
+        .select('created_at')
+        .eq('conversation_id', existing.id)
+        .eq('direction', 'outbound')
+        .or('metadata->>sent_by.is.null,metadata->>sent_by.neq.chatbot')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const humanReplyAge = lastHumanMsg
+        ? (Date.now() - new Date(lastHumanMsg.created_at).getTime()) / (1000 * 60)
+        : Infinity;
+
+      if (humanReplyAge > 120) {
+        // No human reply in 2+ hours — safe to re-enable bot
+        await getAdminClient()
+          .from('inbox_conversations')
+          .update({ chatbot_active: true })
+          .eq('id', existing.id);
+        existing.chatbot_active = true;
+        console.log(`[Inbox] 🤖 Bot re-enabled for ${existing.id} (no human reply in ${Math.round(humanReplyAge)}min)`);
+      } else {
+        console.log(`[Inbox] 🙅 Bot stays disabled for ${existing.id} — human replied ${Math.round(humanReplyAge)}min ago`);
+      }
     }
     return existing;
   }

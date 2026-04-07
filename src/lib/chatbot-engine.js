@@ -350,10 +350,12 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
 - Responde siempre en español.
 
 ## HORARIO DE ATENCIÓN
-- Nuestro horario de atención con asesores humanos es de **lunes a viernes de 9:00 AM a 6:00 PM** (hora centro de México).
 - Ahora mismo es ${dayName} y son las ${mxTime.getHours()}:${String(mxTime.getMinutes()).padStart(2, '0')}.
-- ${isBusinessHours && !isWeekend ? 'ESTAMOS EN HORARIO DE ATENCIÓN.' : 'ESTAMOS FUERA DE HORARIO.'}
-- El bot SIEMPRE responde, sin importar la hora. Solo menciona el horario cuando el cliente pida hablar con un humano fuera de horario.
+- ${isBusinessHours && !isWeekend
+  ? 'ESTAMOS ABIERTOS AHORITA. Si preguntan por horario, di que estamos abiertos en este momento y pueden comunicarse o visitarnos. NO recites el horario completo, solo confirma que ESTAMOS ABIERTOS.'
+  : 'ESTAMOS FUERA DE HORARIO. Nuestro horario de atención con asesores humanos es de lunes a viernes de 9:00 AM a 6:00 PM (hora centro de México). Menciona esto si preguntan.'}
+- NUNCA menciones el horario si no te lo preguntan.
+- El bot SIEMPRE responde, sin importar la hora.
 
 ## CONTEXTO
 - Canal: Mensajería (WhatsApp, Messenger o Instagram)
