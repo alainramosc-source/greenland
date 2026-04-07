@@ -29,8 +29,9 @@ export default function MisPagosPage() {
   const [form, setForm] = useState({
     amount: '', payment_method: 'transferencia', reference: '',
     payment_date: new Date().toISOString().split('T')[0],
-    notes: '', order_id: '', receipt_url: ''
+    notes: '', receipt_url: ''
   });
+  const [allocations, setAllocations] = useState([]); // [{order_id, amount}]
 
   useEffect(() => { fetchData(); }, []);
 
@@ -64,14 +65,21 @@ export default function MisPagosPage() {
       .order('created_at', { ascending: false });
     if (payData) setPayments(payData);
 
-    // Orders for dropdown
+    // Orders with payment info for balance calculation
     const { data: ordData } = await supabase
       .from('orders')
-      .select('id, total_amount, status, created_at')
+      .select('id, order_number, total_amount, status, payment_status, created_at, order_payments(amount)')
       .eq('distributor_id', targetUserId)
       .not('status', 'in', '("cancelled","rejected")')
       .order('created_at', { ascending: false });
-    if (ordData) setOrders(ordData);
+    if (ordData) {
+      // Calculate paid amount per order
+      ordData.forEach(o => {
+        o.total_paid = (o.order_payments || []).reduce((s, p) => s + Number(p.amount), 0);
+        o.balance = Number(o.total_amount) - o.total_paid;
+      });
+      setOrders(ordData);
+    }
 
     // Calculate balance
     const approved = (payData || []).filter(p => p.status === 'approved').reduce((s, p) => s + Number(p.amount), 0);
@@ -115,11 +123,42 @@ export default function MisPagosPage() {
     }
   };
 
+  // Toggle order in allocations
+  const toggleOrderAllocation = (orderId) => {
+    setAllocations(prev => {
+      const exists = prev.find(a => a.order_id === orderId);
+      if (exists) return prev.filter(a => a.order_id !== orderId);
+      return [...prev, { order_id: orderId, amount: '' }];
+    });
+  };
+
+  const updateAllocationAmount = (orderId, amount) => {
+    setAllocations(prev => prev.map(a => a.order_id === orderId ? { ...a, amount } : a));
+  };
+
+  const allocTotal = allocations.reduce((s, a) => s + (Number(a.amount) || 0), 0);
+
   const handleSubmit = async () => {
     const validAmount = validateAmount(form.amount);
     if (!validAmount) { alert('Ingresa un monto válido (mayor a 0)'); return; }
-    if (!form.order_id) { alert('Selecciona un pedido para aplicar el pago'); return; }
+    if (allocations.length === 0) { alert('Selecciona al menos un pedido para aplicar el pago'); return; }
+
+    // Validate each allocation has an amount
+    for (const alloc of allocations) {
+      if (!alloc.amount || Number(alloc.amount) <= 0) {
+        alert('Ingresa el monto a aplicar para cada pedido seleccionado');
+        return;
+      }
+    }
+
+    // Validate total allocations don't exceed payment
+    if (allocTotal > validAmount) {
+      alert(`La suma de asignaciones ($${allocTotal.toFixed(2)}) excede el monto del pago ($${validAmount.toFixed(2)})`);
+      return;
+    }
+
     setSubmitting(true);
+    const allocsPayload = allocations.map(a => ({ order_id: a.order_id, amount: Number(a.amount) }));
     const { data, error } = await supabase.rpc('submit_distributor_payment', {
       p_amount: validAmount,
       p_payment_method: form.payment_method,
@@ -127,13 +166,15 @@ export default function MisPagosPage() {
       p_payment_date: form.payment_date,
       p_receipt_url: form.receipt_url || null,
       p_notes: sanitizeText(form.notes, 500) || null,
-      p_order_id: form.order_id || null
+      p_order_id: allocsPayload[0]?.order_id || null,
+      p_allocations: allocsPayload
     });
     setSubmitting(false);
     if (error) { alert('Error: ' + error.message); return; }
     if (data && !data.success) { alert(data.error); return; }
     setShowModal(false);
-    setForm({ amount: '', payment_method: 'transferencia', reference: '', payment_date: new Date().toISOString().split('T')[0], notes: '', order_id: '', receipt_url: '' });
+    setForm({ amount: '', payment_method: 'transferencia', reference: '', payment_date: new Date().toISOString().split('T')[0], notes: '', receipt_url: '' });
+    setAllocations([]);
     fetchData();
   };
 
@@ -158,7 +199,7 @@ export default function MisPagosPage() {
           </p>
         </div>
         <button
-          onClick={() => { setForm(f => ({ ...f, reference: clientNumber || '' })); setShowModal(true); }}
+          onClick={() => { setForm(f => ({ ...f, reference: clientNumber || '' })); setAllocations([]); setShowModal(true); }}
           className="flex items-center gap-2 bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-lg shadow-[#6a9a04]/20 transition-all border-none cursor-pointer"
         >
           <Plus size={18} /> Registrar Pago
@@ -288,22 +329,99 @@ export default function MisPagosPage() {
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#6a9a04] outline-none" />
               </div>
 
-              {/* Apply to */}
+              {/* Apply to Orders (Multi-select) */}
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Aplicar a Pedido *</label>
-                <select value={form.order_id} onChange={e => setForm(f => ({ ...f, order_id: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#6a9a04] outline-none" required>
-                  <option value="">— Selecciona un pedido —</option>
-                  {orders.map(o => (
-                    <option key={o.id} value={o.id}>
-                      Pedido {new Date(o.created_at).toLocaleDateString('es-MX')} — ${Number(o.total_amount).toLocaleString()}
-                    </option>
-                  ))}
-                </select>
-                {orders.length === 0 && (
+                <label className="block text-sm font-bold text-slate-700 mb-2">Aplicar a Pedidos *</label>
+                {orders.length === 0 ? (
                   <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
                     <AlertTriangle size={12} /> No tienes pedidos activos
                   </p>
+                ) : (
+                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                    {orders.filter(o => o.balance > 0).map(o => {
+                      const isSelected = allocations.some(a => a.order_id === o.id);
+                      const alloc = allocations.find(a => a.order_id === o.id);
+                      return (
+                        <div key={o.id}
+                          className={`rounded-xl border transition-all ${
+                            isSelected
+                              ? 'border-[#6a9a04] bg-[#6a9a04]/5'
+                              : 'border-slate-200 bg-white hover:border-slate-300'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleOrderAllocation(o.id)}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left bg-transparent border-none cursor-pointer"
+                          >
+                            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                              isSelected ? 'border-[#6a9a04] bg-[#6a9a04]' : 'border-slate-300 bg-white'
+                            }`}>
+                              {isSelected && <CheckCircle size={14} className="text-white" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-slate-800 m-0">
+                                Pedido #{o.order_number || new Date(o.created_at).toLocaleDateString('es-MX')}
+                              </p>
+                              <p className="text-xs text-slate-400 m-0">
+                                Total: ${Number(o.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                <span className={`ml-2 font-bold ${o.balance > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                  Saldo: ${o.balance.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                </span>
+                              </p>
+                            </div>
+                          </button>
+                          {isSelected && (
+                            <div className="px-4 pb-3 flex items-center gap-2">
+                              <span className="text-xs text-slate-500 font-medium shrink-0">Aplicar:</span>
+                              <div className="relative flex-1">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">$</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={alloc?.amount || ''}
+                                  onChange={e => updateAllocationAmount(o.id, e.target.value)}
+                                  placeholder={o.balance.toFixed(2)}
+                                  className="w-full pl-7 pr-3 py-2 rounded-lg border border-slate-200 focus:border-[#6a9a04] outline-none text-sm font-bold"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => updateAllocationAmount(o.id, String(Math.min(o.balance, Number(form.amount || 0) - allocTotal + (Number(alloc?.amount) || 0))))}
+                                className="text-[10px] font-bold text-[#6a9a04] bg-[#6a9a04]/10 hover:bg-[#6a9a04]/20 px-2 py-1 rounded-lg border-none cursor-pointer transition-all shrink-0"
+                                title="Aplicar el máximo posible a este pedido"
+                              >Max</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {orders.filter(o => o.balance > 0).length === 0 && (
+                      <p className="text-xs text-green-600 text-center py-3 flex items-center justify-center gap-1">
+                        <CheckCircle size={12} /> Todos tus pedidos están pagados
+                      </p>
+                    )}
+                  </div>
+                )}
+                {/* Allocation Summary */}
+                {allocations.length > 0 && (
+                  <div className={`mt-3 p-3 rounded-xl text-sm font-bold flex justify-between items-center ${
+                    allocTotal > Number(form.amount || 0)
+                      ? 'bg-red-50 border border-red-200 text-red-600'
+                      : allocTotal === Number(form.amount || 0) && allocTotal > 0
+                        ? 'bg-green-50 border border-green-200 text-green-700'
+                        : 'bg-slate-50 border border-slate-200 text-slate-600'
+                  }`}>
+                    <span>Asignado: ${allocTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                    <span>
+                      {allocTotal > Number(form.amount || 0)
+                        ? '⚠️ Excede el monto'
+                        : allocTotal === Number(form.amount || 0) && allocTotal > 0
+                          ? '✓ Completo'
+                          : `Restante: $${(Number(form.amount || 0) - allocTotal).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
+                      }
+                    </span>
+                  </div>
                 )}
               </div>
 
@@ -345,10 +463,10 @@ export default function MisPagosPage() {
                   className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all cursor-pointer bg-white">
                   Cancelar
                 </button>
-                <button onClick={handleSubmit} disabled={submitting || uploadingReceipt}
+                <button onClick={handleSubmit} disabled={submitting || uploadingReceipt || allocations.length === 0 || allocTotal <= 0 || allocTotal > Number(form.amount || 0)}
                   className="flex-1 py-3 rounded-xl bg-[#6a9a04] text-white font-bold text-sm hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer flex items-center justify-center gap-2">
                   {submitting ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
-                  {submitting ? 'Enviando...' : 'Registrar Pago'}
+                  {submitting ? 'Enviando...' : allocations.length > 1 ? `Registrar Pago (${allocations.length} pedidos)` : 'Registrar Pago'}
                 </button>
               </div>
             </div>
@@ -386,7 +504,9 @@ function PaymentRow({ p, onViewReceipt }) {
           <p className="text-xs text-slate-400 truncate">
             {new Date(p.payment_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
             {p.reference && ` — Ref: ${p.reference}`}
-            {p.order_id && ` — Pedido vinculado`}
+            {p.allocations && p.allocations.length > 1
+              ? ` — Aplicado a ${p.allocations.length} pedidos`
+              : p.order_id && ` — Pedido vinculado`}
           </p>
         </div>
       </div>

@@ -60,7 +60,7 @@ export default function AdminPagosPage() {
     setLoading(true);
     const { data: payData } = await supabase
       .from('distributor_payments')
-      .select('*, profiles!distributor_id(full_name, client_number), orders(id, total_amount)')
+      .select('*, profiles!distributor_id(full_name, client_number), orders(id, order_number, total_amount)')
       .order('created_at', { ascending: false });
     if (payData) setPayments(payData);
 
@@ -487,6 +487,15 @@ export default function AdminPagosPage() {
                               {p.reference && ` · Ref: ${p.reference}`}
                             </p>
                             {p.notes && <p className="text-xs text-slate-400 mt-0.5">📝 {p.notes}</p>}
+                            {p.allocations && p.allocations.length > 1 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {p.allocations.map((alloc, i) => (
+                                  <span key={i} className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
+                                    #{alloc.order_id?.substring(0, 8)} → ${Number(alloc.amount).toLocaleString('es-MX')}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
