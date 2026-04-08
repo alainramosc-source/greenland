@@ -463,7 +463,7 @@ export default function MisPagosPage() {
                   className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all cursor-pointer bg-white">
                   Cancelar
                 </button>
-                <button onClick={handleSubmit} disabled={submitting || uploadingReceipt || allocations.length === 0 || allocTotal <= 0 || allocTotal > Number(form.amount || 0)}
+                <button onClick={handleSubmit} disabled={submitting || uploadingReceipt || allocations.length === 0 || allocTotal <= 0 || allocTotal !== Number(form.amount || 0)}
                   className="flex-1 py-3 rounded-xl bg-[#6a9a04] text-white font-bold text-sm hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer flex items-center justify-center gap-2">
                   {submitting ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
                   {submitting ? 'Enviando...' : allocations.length > 1 ? `Registrar Pago (${allocations.length} pedidos)` : 'Registrar Pago'}
