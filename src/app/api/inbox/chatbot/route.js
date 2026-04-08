@@ -12,12 +12,22 @@ import { GREENLAND_KNOWLEDGE, PRODUCT_CATALOG } from '@/lib/chatbot-knowledge';
 // Serverless function — max duration for Vercel Pro (ignored on Hobby 10s cap)
 export const maxDuration = 30;
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+let _supabaseAdmin;
+function getSupabaseAdmin() {
+  if (!_supabaseAdmin) {
+    _supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+  }
+  return _supabaseAdmin;
+}
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY);
+let _genAI;
+function getGenAI() {
+  if (!_genAI) _genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY);
+  return _genAI;
+}
 
 // Send WhatsApp message via Meta API
 async function sendWhatsAppMessage(phoneNumber, text) {
@@ -131,7 +141,7 @@ async function createCheckoutLink(conversationId, items) {
       if (!product) continue;
       
       // Get product details from DB
-      const { data: prod } = await supabaseAdmin
+      const { data: prod } = await getSupabaseAdmin()
         .from('products')
         .select('id, name, sku, price')
         .eq('sku', product.sku)
@@ -158,7 +168,7 @@ async function createCheckoutLink(conversationId, items) {
     
     const subtotal = orderItems.reduce((sum, item) => sum + (item.quantity * item.sale_price), 0);
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await getSupabaseAdmin()
       .from('lastmile_orders')
       .insert({
         conversation_id: conversationId,
@@ -200,7 +210,7 @@ export async function POST(request) {
     }
 
     // Get conversation history (last 15 messages)
-    const { data: messages } = await supabaseAdmin
+    const { data: messages } = await getSupabaseAdmin()
       .from('inbox_messages')
       .select('direction, content, created_at')
       .eq('conversation_id', conversation_id)
@@ -213,7 +223,7 @@ export async function POST(request) {
     })).filter(m => m.parts[0].text);
 
     // Setup Gemini with function calling
-    const model = genAI.getGenerativeModel({
+    const model = getGenAI().getGenerativeModel({
       model: 'gemini-2.5-flash',
       generationConfig: {
         thinkingConfig: { thinkingBudget: 0 }, // Disable thinking for speed (fits 10s timeout)
@@ -302,13 +312,13 @@ Tienes estas funciones:
         }
       } else if (functionCall.name === 'transfer_to_human') {
         // Deactivate bot for this conversation
-        await supabaseAdmin
+        await getSupabaseAdmin()
           .from('inbox_conversations')
           .update({ chatbot_active: false })
           .eq('id', conversation_id);
 
         // Get contact info for notification
-        const { data: conv } = await supabaseAdmin
+        const { data: conv } = await getSupabaseAdmin()
           .from('inbox_conversations')
           .select('contact_id')
           .eq('id', conversation_id)
@@ -317,7 +327,7 @@ Tienes estas funciones:
         let contactName = 'Cliente';
         let contactPhone = phone_number || '';
         if (conv?.contact_id) {
-          const { data: contact } = await supabaseAdmin
+          const { data: contact } = await getSupabaseAdmin()
             .from('inbox_contacts')
             .select('display_name, phone')
             .eq('id', conv.contact_id)
@@ -357,7 +367,7 @@ Tienes estas funciones:
     }
 
     // Save bot response as outbound message
-    await supabaseAdmin.from('inbox_messages').insert({
+    await getSupabaseAdmin().from('inbox_messages').insert({
       conversation_id,
       direction: 'outbound',
       content: botReply,
@@ -367,7 +377,7 @@ Tienes estas funciones:
     });
 
     // Update conversation last_message
-    await supabaseAdmin
+    await getSupabaseAdmin()
       .from('inbox_conversations')
       .update({
         last_message_preview: botReply?.substring(0, 100),
