@@ -35,6 +35,7 @@ const PRODUCT_WEIGHTS = {
   GL11: 18, GL12: 23.7, GL13: 32.9, GL14: 4.3, GL15: 13,
   GL16: 11.1, GL17: 4.5, GL18: 21.55, GL19: 4.5, GL20: 12.35,
   GL21: 0, GL22: 4.3, GL23: 4.3, GL24: 0, GL25: 0,
+  GL26: 2.581, GL27: 0.58, GL28: 5.075, GL29: 2.03,
 };
 
 export default function OrderDetailsPage() {
