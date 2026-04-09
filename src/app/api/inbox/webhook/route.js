@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { processBotMessage } from '@/lib/chatbot-engine';
 
+export const maxDuration = 60;
+
 // Lazy-initialized admin client (avoids build-time env errors)
 function getAdminClient() {
   return createClient(

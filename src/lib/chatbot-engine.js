@@ -409,7 +409,7 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
       // Race between Gemini response and 15s timeout
       const geminiPromise = chat.sendMessage(message);
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('GEMINI_TIMEOUT')), 15000)
+        setTimeout(() => reject(new Error('GEMINI_TIMEOUT')), 30000)
       );
 
       let result = await Promise.race([geminiPromise, timeoutPromise]);
