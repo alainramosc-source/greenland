@@ -691,6 +691,7 @@ function NewRetailSaleModal({ supabase, onClose, onSaleCreated }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [warehouses, setWarehouses] = useState([]);
   const [selectedWarehouse, setSelectedWarehouse] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
   const searchInputRef = useRef(null);
 
   useEffect(() => {
@@ -750,17 +751,26 @@ function NewRetailSaleModal({ supabase, onClose, onSaleCreated }) {
         quantity: parseInt(item.quantity), sale_price: parseFloat(item.sale_price),
       }));
 
+      const noteText = (customerName ? `Cliente: ${customerName}. ` : '') + (notes || '');
       const { data, error } = await supabase.rpc('create_retail_sale', {
         p_conversation_id: null,
         p_warehouse_id: selectedWarehouse,
         p_delivery_type: deliveryType,
         p_items: items,
-        p_notes: (customerName ? `Cliente: ${customerName}. ` : '') + (notes || ''),
+        p_notes: noteText,
       });
 
       if (error) throw error;
       if (data?.success) {
-        alert(`✅ Venta ${data.order_number} registrada — $${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`);
+        // Save payment_method and auto-mark as paid
+        if (data.order_id) {
+          await supabase.from('lastmile_orders').update({
+            payment_method: paymentMethod,
+            payment_status: 'paid',
+          }).eq('id', data.order_id);
+        }
+        const methodLabel = paymentMethod === 'cash' ? 'Efectivo' : 'Transferencia';
+        alert(`✅ Venta ${data.order_number} registrada (${methodLabel}) — $${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`);
         onSaleCreated && onSaleCreated();
       } else {
         alert('Error: ' + (data?.error || 'Desconocido'));
@@ -902,6 +912,24 @@ function NewRetailSaleModal({ supabase, onClose, onSaleCreated }) {
                       deliveryType === 'delivery' ? 'bg-green-50 border-green-300 text-green-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
                     }`}
                   >🚚 Envío</button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-500 mb-1.5 block">Método de pago</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPaymentMethod('cash')}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer border ${
+                      paymentMethod === 'cash' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                    }`}
+                  >💵 Efectivo</button>
+                  <button
+                    onClick={() => setPaymentMethod('transfer')}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer border ${
+                      paymentMethod === 'transfer' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                    }`}
+                  >🏦 Transferencia</button>
                 </div>
               </div>
 
