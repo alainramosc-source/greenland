@@ -132,32 +132,87 @@ export default function AdminPagosPage() {
 
   const handleApprove = async (paymentId) => {
     setActionLoading(paymentId);
-    const { data, error } = await supabase.rpc('review_distributor_payment', {
-      p_payment_id: paymentId, p_action: 'approve'
-    });
+    try {
+      // 1. Get the payment
+      const { data: payment, error: fetchErr } = await supabase
+        .from('distributor_payments')
+        .select('*')
+        .eq('id', paymentId)
+        .eq('status', 'pending')
+        .single();
+      if (fetchErr || !payment) { alert('Pago no encontrado o ya fue revisado'); setActionLoading(null); return; }
+
+      // 2. Approve the payment
+      const { error: updateErr } = await supabase
+        .from('distributor_payments')
+        .update({ status: 'approved', reviewed_by: (await supabase.auth.getUser()).data.user.id, reviewed_at: new Date().toISOString() })
+        .eq('id', paymentId);
+      if (updateErr) { alert('Error: ' + updateErr.message); setActionLoading(null); return; }
+
+      // 3. Process allocations or legacy order_id
+      const allocations = payment.allocations && payment.allocations.length > 0
+        ? payment.allocations
+        : payment.order_id ? [{ order_id: payment.order_id, amount: payment.amount }] : [];
+
+      for (const alloc of allocations) {
+        // Insert into order_payments
+        await supabase.from('order_payments').insert({
+          order_id: alloc.order_id,
+          amount: alloc.amount,
+          payment_method: payment.payment_method,
+          reference: payment.reference,
+          payment_date: payment.payment_date,
+          notes: 'Aprobado desde pagos distribuidor'
+        });
+
+        // Update order payment_status
+        const { data: orderPayments } = await supabase
+          .from('order_payments')
+          .select('amount')
+          .eq('order_id', alloc.order_id);
+        const totalPaid = (orderPayments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+
+        const { data: order } = await supabase
+          .from('orders')
+          .select('total_amount')
+          .eq('id', alloc.order_id)
+          .single();
+
+        if (order) {
+          const newStatus = totalPaid >= order.total_amount ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid';
+          await supabase.from('orders').update({ payment_status: newStatus }).eq('id', alloc.order_id);
+        }
+      }
+
+      // Send email notification
+      const p = payments.find(p => p.id === paymentId);
+      if (p) sendPaymentNotification(p, 'approved');
+      fetchData();
+    } catch (err) {
+      alert('Error: ' + err.message);
+    }
     setActionLoading(null);
-    if (error) { alert('Error: ' + error.message); return; }
-    if (data && !data.success) { alert(data.error); return; }
-    // Send email notification
-    const payment = payments.find(p => p.id === paymentId);
-    if (payment) sendPaymentNotification(payment, 'approved');
-    fetchData();
   };
 
   const handleReject = async () => {
     if (!rejectModal) return;
     setActionLoading(rejectModal);
-    const { data, error } = await supabase.rpc('review_distributor_payment', {
-      p_payment_id: rejectModal, p_action: 'reject', p_rejection_reason: rejectReason || 'Sin motivo especificado'
-    });
+    const reason = rejectReason || 'Sin motivo especificado';
+    const { error } = await supabase
+      .from('distributor_payments')
+      .update({
+        status: 'rejected',
+        reviewed_by: (await supabase.auth.getUser()).data.user.id,
+        reviewed_at: new Date().toISOString(),
+        rejection_reason: reason
+      })
+      .eq('id', rejectModal)
+      .eq('status', 'pending');
     const rejectedPayment = payments.find(p => p.id === rejectModal);
     setActionLoading(null);
     setRejectModal(null);
-    const reason = rejectReason || 'Sin motivo especificado';
     setRejectReason('');
     if (error) { alert('Error: ' + error.message); return; }
-    if (data && !data.success) { alert(data.error); return; }
-    // Send email notification
     if (rejectedPayment) sendPaymentNotification(rejectedPayment, 'rejected', reason);
     fetchData();
   };
