@@ -478,7 +478,7 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
       botReply = response.text() || 'Disculpa, ¿podrías repetirlo?';
     } catch (geminiErr) {
       // Fallback message if Gemini times out or fails
-      console.error('[Bot] Gemini error:', geminiErr.message);
+      console.error('[Bot] Gemini error:', geminiErr.message, geminiErr.stack?.substring(0, 300));
       botReply = '¡Hola! Disculpa la demora 😊 ¿En qué puedo ayudarte? Puedo darte información sobre nuestros productos o ponerte en contacto con un asesor.';
     }
 

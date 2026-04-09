@@ -71,7 +71,7 @@ VALUES (
     category_id = EXCLUDED.category_id;
 
 -- 3. Verificar
-SELECT sku, name, price, c.name as category
+SELECT p.sku, p.name, p.price, c.name as category
 FROM products p
 LEFT JOIN categories c ON p.category_id = c.id
 WHERE sku IN ('GL26', 'GL27', 'GL28', 'GL29');
