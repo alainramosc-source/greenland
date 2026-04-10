@@ -1,10 +1,11 @@
 'use client';
+import React from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import {
   ShoppingCart, DollarSign, Clock, CheckCircle,
-  TrendingUp, Filter, Download, ChevronLeft, ChevronRight,
+  TrendingUp, Filter, Download, ChevronLeft, ChevronRight, ChevronDown,
   Eye, Plus, Search, ArrowUp, ClipboardCheck, Trash2, Printer,
   Store, Package, CreditCard, Calendar, X, ShoppingBag, Loader2
 } from 'lucide-react';
@@ -47,6 +48,7 @@ export default function PedidosPage() {
   const [retailOrders, setRetailOrders] = useState([]);
   const [retailLoading, setRetailLoading] = useState(true);
   const [showNewSale, setShowNewSale] = useState(false);
+  const [expandedRetail, setExpandedRetail] = useState({});
   const supabase = createClient();
 
   // Refresh retail orders
@@ -539,12 +541,38 @@ export default function PedidosPage() {
                   <h2 className="text-2xl font-bold text-[#000000]">Ventas a Público</h2>
                   <p className="text-[#747474] text-sm mt-1">Click en pago para marcar como cobrado.</p>
                 </div>
-                <button
-                  onClick={() => setShowNewSale(true)}
-                  className="bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white px-6 py-2.5 rounded-xl flex items-center text-sm font-bold shadow-lg shadow-[#6a9a04]/20 transition-all cursor-pointer border-none"
-                >
-                  <Plus className="w-5 h-5 mr-2" /> Nueva Venta
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const rows = ['Orden,Fecha,SKU,Producto,Cantidad,Precio Unit.,Subtotal,Total Orden,Bodega,Entrega,Pago,Estado,Notas'];
+                      filteredRetail.forEach(o => {
+                        const items = o.items || [];
+                        const date = new Date(o.created_at).toLocaleDateString('es-MX');
+                        if (items.length === 0) {
+                          rows.push(`${o.order_number},${date},,,,,,$${o.total},${o.warehouse_name || ''},${o.delivery_type},${o.payment_status},${o.status},"${(o.notes || '').replace(/"/g, '""')}"`);
+                        } else {
+                          items.forEach(item => {
+                            const sub = (item.quantity * (item.sale_price || 0)).toFixed(2);
+                            rows.push(`${o.order_number},${date},${item.sku || ''},"${item.name || ''}",${item.quantity},${item.sale_price || 0},${sub},$${o.total},${o.warehouse_name || ''},${o.delivery_type},${o.payment_status},${o.status},"${(o.notes || '').replace(/"/g, '""')}"`);
+                          });
+                        }
+                      });
+                      const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a'); a.href = url; a.download = `ventas_publico_${new Date().toISOString().slice(0,10)}.csv`;
+                      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    }}
+                    className="bg-white hover:bg-slate-50 text-slate-600 px-4 py-2.5 rounded-xl flex items-center text-sm font-bold border border-slate-200 transition-all cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 mr-2" /> Exportar
+                  </button>
+                  <button
+                    onClick={() => setShowNewSale(true)}
+                    className="bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white px-6 py-2.5 rounded-xl flex items-center text-sm font-bold shadow-lg shadow-[#6a9a04]/20 transition-all cursor-pointer border-none"
+                  >
+                    <Plus className="w-5 h-5 mr-2" /> Nueva Venta
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -568,22 +596,29 @@ export default function PedidosPage() {
                       <tr><td colSpan="8" className="px-4 py-12 text-center text-slate-400">No hay ventas registradas. Crea una desde el chat del inbox.</td></tr>
                     ) : filteredRetail.map(order => {
                       const items = order.items || [];
-                      const itemsSummary = items.map(i => `${i.quantity}x ${i.name || i.sku}`).join(', ');
+                      const itemsSummary = items.map(i => `${i.quantity}x ${i.sku || i.name}`).join(', ');
                       const rtSt = RETAIL_STATUS[order.status] || RETAIL_STATUS.pending;
                       const rtPay = RETAIL_PAY[order.payment_status] || RETAIL_PAY.unpaid;
+                      const isExpanded = expandedRetail[order.id];
                       return (
-                        <tr key={order.id} className="table-row-glass transition-all rounded-2xl group">
+                        <React.Fragment key={order.id}>
+                        <tr className="table-row-glass transition-all rounded-2xl group cursor-pointer" onClick={() => setExpandedRetail(prev => ({ ...prev, [order.id]: !prev[order.id] }))}>
                           <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 rounded-l-2xl border-y border-l border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
-                            <span className="font-bold text-slate-800">#{order.order_number}</span>
-                            {order.notes && <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[120px]">{order.notes}</p>}
+                            <div className="flex items-center gap-2">
+                              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              <div>
+                                <span className="font-bold text-slate-800">#{order.order_number}</span>
+                                {order.notes && <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[120px]">{order.notes}</p>}
+                              </div>
+                            </div>
                           </td>
                           <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
                             <span className="text-sm text-slate-600">{new Date(order.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</span>
                             <p className="text-[10px] text-slate-400">{new Date(order.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
                           </td>
                           <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
-                            <p className="text-xs text-slate-700 truncate max-w-[200px]" title={itemsSummary}>{itemsSummary || '—'}</p>
-                            <p className="text-[10px] text-slate-400">{items.reduce((s, i) => s + (i.quantity || 0), 0)} pzas</p>
+                            <p className="text-xs text-slate-700 font-medium">{items.length} producto{items.length !== 1 ? 's' : ''}</p>
+                            <p className="text-[10px] text-slate-400">{items.reduce((s, i) => s + (i.quantity || 0), 0)} pzas total</p>
                           </td>
                           <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
                             <span className="font-black text-[#000000]">${Number(order.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
@@ -596,7 +631,7 @@ export default function PedidosPage() {
                               {order.delivery_type === 'pickup' ? '🏪 Sitio' : '🚚 Envío'}
                             </span>
                           </td>
-                          <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center">
+                          <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => toggleRetailPayment(order)}
                               className={`px-3 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border cursor-pointer transition-all hover:scale-105 ${rtPay.className}`}
@@ -605,7 +640,7 @@ export default function PedidosPage() {
                               {rtPay.label}
                             </button>
                           </td>
-                          <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 rounded-r-2xl border-y border-r border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center">
+                          <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 rounded-r-2xl border-y border-r border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center" onClick={(e) => e.stopPropagation()}>
                             <select
                               value={order.status}
                               onChange={(e) => updateRetailStatus(order, e.target.value)}
@@ -618,6 +653,37 @@ export default function PedidosPage() {
                             </select>
                           </td>
                         </tr>
+                        {isExpanded && (
+                          <tr>
+                            <td colSpan="8" className="px-4 pb-4 pt-0">
+                              <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden ml-6">
+                                <table className="w-full text-left">
+                                  <thead>
+                                    <tr className="bg-slate-100 border-b border-slate-200">
+                                      <th className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-slate-500">SKU</th>
+                                      <th className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-slate-500">Producto</th>
+                                      <th className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-slate-500 text-center">Cantidad</th>
+                                      <th className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-slate-500 text-right">Precio Unit.</th>
+                                      <th className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-slate-500 text-right">Subtotal</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {items.map((item, idx) => (
+                                      <tr key={idx} className="hover:bg-white/50">
+                                        <td className="px-4 py-2.5 font-mono text-xs text-[#6a9a04] font-bold">{item.sku || '—'}</td>
+                                        <td className="px-4 py-2.5 text-sm text-slate-800">{item.name || '—'}</td>
+                                        <td className="px-4 py-2.5 text-sm text-slate-800 text-center font-bold">{item.quantity}</td>
+                                        <td className="px-4 py-2.5 text-sm text-slate-600 text-right">${Number(item.sale_price || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                                        <td className="px-4 py-2.5 text-sm text-slate-900 text-right font-bold">${(item.quantity * (item.sale_price || 0)).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
