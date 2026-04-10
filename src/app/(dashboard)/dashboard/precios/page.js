@@ -194,20 +194,31 @@ export default function PreciosPage() {
                     continue;
                 }
 
-                // Upsert: insert or update
-                const { error } = await supabase
-                    .from('distributor_prices')
-                    .upsert({
-                        distributor_id: selectedDistributor,
-                        product_id: productId,
-                        address_id: addressId,
-                        custom_price: validPrice,
-                        updated_at: new Date().toISOString()
-                    }, {
-                        onConflict: addressId
-                            ? 'distributor_id,product_id,address_id'
-                            : 'distributor_id,product_id'
-                    });
+                // Check if row already exists
+                let findQuery = supabase.from('distributor_prices').select('id')
+                    .eq('distributor_id', selectedDistributor)
+                    .eq('product_id', productId);
+                if (addressId) {
+                    findQuery = findQuery.eq('address_id', addressId);
+                } else {
+                    findQuery = findQuery.is('address_id', null);
+                }
+                const { data: existing } = await findQuery.maybeSingle();
+
+                let error;
+                if (existing) {
+                    ({ error } = await supabase.from('distributor_prices')
+                        .update({ custom_price: validPrice, updated_at: new Date().toISOString() })
+                        .eq('id', existing.id));
+                } else {
+                    ({ error } = await supabase.from('distributor_prices')
+                        .insert({
+                            distributor_id: selectedDistributor,
+                            product_id: productId,
+                            address_id: addressId,
+                            custom_price: validPrice,
+                        }));
+                }
                 if (error) errors.push(error.message);
             }
 
