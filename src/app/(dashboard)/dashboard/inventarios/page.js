@@ -83,7 +83,7 @@ export default function InventariosPage() {
       .from('products')
       .select('*')
       .eq('is_active', true)
-      .order('name');
+      .order('sku');
     setProducts(productsData || []);
 
     // Fetch warehouses
