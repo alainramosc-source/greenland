@@ -31,6 +31,8 @@ export default function InventariosPage() {
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [skuFilter, setSkuFilter] = useState([]);
+  const [showSkuFilter, setShowSkuFilter] = useState(false);
   // Transfer modal
   const [showTransfer, setShowTransfer] = useState(null);
   const [transferFrom, setTransferFrom] = useState('');
@@ -219,9 +221,11 @@ export default function InventariosPage() {
 
   const filteredProducts = products.filter(p => {
     const safeSearch = searchTerm?.toLowerCase() || '';
-    return !safeSearch ||
+    const matchesSearch = !safeSearch ||
       (p.name && p.name.toLowerCase().includes(safeSearch)) ||
       (p.sku && p.sku.toLowerCase().includes(safeSearch));
+    const matchesSku = skuFilter.length === 0 || skuFilter.includes(p.sku);
+    return matchesSearch && matchesSku;
   });
 
   const totalItems = products.reduce((sum, p) => sum + Math.max((p.stock_quantity || 0) - (p.reserved_quantity || 0), 0), 0);
@@ -448,6 +452,46 @@ export default function InventariosPage() {
                   <input type="text" placeholder="Buscar por SKU o nombre..." value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-12 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm placeholder:text-slate-400 text-slate-800 outline-none w-72 shadow-sm" />
+                </div>
+                {/* SKU multi-select filter */}
+                <div className="relative">
+                  <button onClick={() => setShowSkuFilter(!showSkuFilter)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border cursor-pointer transition-all shadow-sm ${
+                      skuFilter.length > 0 ? 'bg-[#6a9a04] text-white border-[#6a9a04]' : 'bg-white text-slate-600 border-slate-200 hover:border-[#6a9a04]/50'
+                    }`}>
+                    <Filter className="w-4 h-4" /> SKUs
+                    {skuFilter.length > 0 && <span className="bg-white/30 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">{skuFilter.length}</span>}
+                  </button>
+                  {showSkuFilter && (
+                    <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 min-w-[240px] max-h-[360px] flex flex-col">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-2 m-0 border-b border-slate-100">Filtrar por SKU</p>
+                      <div className="overflow-y-auto flex-1 p-1">
+                        {products.map(p => {
+                          const isSelected = skuFilter.includes(p.sku);
+                          return (
+                            <button key={p.id} onClick={() => {
+                              setSkuFilter(prev => isSelected ? prev.filter(s => s !== p.sku) : [...prev, p.sku]);
+                            }}
+                              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm border-none cursor-pointer transition-all ${
+                                isSelected ? 'bg-[#6a9a04]/10 text-slate-900 font-bold' : 'bg-transparent text-slate-600 hover:bg-slate-50'
+                              }`}>
+                              <span className={`w-4 h-4 rounded border-2 flex items-center justify-center text-[10px] shrink-0 ${
+                                isSelected ? 'bg-[#6a9a04] border-[#6a9a04] text-white' : 'border-slate-300 bg-white'
+                              }`}>{isSelected ? '✓' : ''}</span>
+                              <span className="font-mono text-[11px] text-slate-400 w-10 shrink-0">{p.sku}</span>
+                              <span className="truncate text-xs">{p.name}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {skuFilter.length > 0 && (
+                        <button onClick={() => setSkuFilter([])}
+                          className="w-full text-center text-xs text-[#6a9a04] font-bold py-2.5 border-t border-slate-100 bg-transparent border-l-0 border-r-0 border-b-0 cursor-pointer hover:underline">
+                          Limpiar filtro
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {/* Warehouse visibility toggle */}
                 <div className="relative">
