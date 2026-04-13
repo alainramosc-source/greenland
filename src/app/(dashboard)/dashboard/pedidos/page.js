@@ -634,12 +634,20 @@ export default function PedidosPage() {
                               {order.delivery_type === 'pickup' ? '🏪 Sitio' : '🚚 Envío'}
                             </span>
                           </td>
-                          <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center">
-                            <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border ${
-                              order.payment_method === 'cash' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : order.payment_method === 'transfer' ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-slate-50 text-slate-400 border-slate-200'
-                            }`}>
+                          <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={async () => {
+                                const newMethod = order.payment_method === 'cash' ? 'transfer' : 'cash';
+                                await supabase.from('lastmile_orders').update({ payment_method: newMethod }).eq('id', order.id);
+                                refreshRetailOrders();
+                              }}
+                              className={`px-2 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border cursor-pointer transition-all hover:scale-105 ${
+                                order.payment_method === 'cash' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : order.payment_method === 'transfer' ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-slate-50 text-slate-400 border-slate-200'
+                              }`}
+                              title="Click para cambiar método de pago"
+                            >
                               {order.payment_method === 'cash' ? '💵 Efectivo' : order.payment_method === 'transfer' ? '🏦 Transfer.' : '—'}
-                            </span>
+                            </button>
                           </td>
                           <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center" onClick={(e) => e.stopPropagation()}>
                             <button
