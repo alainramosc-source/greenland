@@ -544,16 +544,18 @@ export default function PedidosPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
-                      const rows = ['Orden,Fecha,SKU,Producto,Cantidad,Precio Unit.,Subtotal,Total Orden,Bodega,Entrega,Pago,Estado,Notas'];
+                      const rows = ['Orden,Fecha,SKU,Producto,Cantidad,Precio Unit.,Subtotal,Total Orden,Bodega,Entrega,Método Pago,Pago,Estado,Notas'];
                       filteredRetail.forEach(o => {
                         const items = o.items || [];
                         const date = new Date(o.created_at).toLocaleDateString('es-MX');
                         if (items.length === 0) {
-                          rows.push(`${o.order_number},${date},,,,,,$${o.total},${o.warehouse_name || ''},${o.delivery_type},${o.payment_status},${o.status},"${(o.notes || '').replace(/"/g, '""')}"`);
+                          const pm = o.payment_method === 'transfer' ? 'Transferencia' : o.payment_method === 'cash' ? 'Efectivo' : '';
+                          rows.push(`${o.order_number},${date},,,,,,$${o.total},${o.warehouse_name || ''},${o.delivery_type},${pm},${o.payment_status},${o.status},"${(o.notes || '').replace(/"/g, '""')}"`);
                         } else {
                           items.forEach(item => {
                             const sub = (item.quantity * (item.sale_price || 0)).toFixed(2);
-                            rows.push(`${o.order_number},${date},${item.sku || ''},"${item.name || ''}",${item.quantity},${item.sale_price || 0},${sub},$${o.total},${o.warehouse_name || ''},${o.delivery_type},${o.payment_status},${o.status},"${(o.notes || '').replace(/"/g, '""')}"`);
+                            const pm = o.payment_method === 'transfer' ? 'Transferencia' : o.payment_method === 'cash' ? 'Efectivo' : '';
+                            rows.push(`${o.order_number},${date},${item.sku || ''},"${item.name || ''}",${item.quantity},${item.sale_price || 0},${sub},$${o.total},${o.warehouse_name || ''},${o.delivery_type},${pm},${o.payment_status},${o.status},"${(o.notes || '').replace(/"/g, '""')}"`);
                           });
                         }
                       });
@@ -585,15 +587,16 @@ export default function PedidosPage() {
                       <th className="px-4 py-2">Total</th>
                       <th className="px-4 py-2">Bodega</th>
                       <th className="px-4 py-2 text-center">Entrega</th>
+                      <th className="px-4 py-2 text-center">Método</th>
                       <th className="px-4 py-2 text-center">Pago</th>
                       <th className="px-4 py-2 text-center">Estado</th>
                     </tr>
                   </thead>
                   <tbody>
                     {retailLoading ? (
-                      <tr><td colSpan="8" className="px-4 py-12 text-center text-slate-400">Cargando...</td></tr>
+                      <tr><td colSpan="9" className="px-4 py-12 text-center text-slate-400">Cargando...</td></tr>
                     ) : filteredRetail.length === 0 ? (
-                      <tr><td colSpan="8" className="px-4 py-12 text-center text-slate-400">No hay ventas registradas. Crea una desde el chat del inbox.</td></tr>
+                      <tr><td colSpan="9" className="px-4 py-12 text-center text-slate-400">No hay ventas registradas. Crea una desde el chat del inbox.</td></tr>
                     ) : filteredRetail.map(order => {
                       const items = order.items || [];
                       const itemsSummary = items.map(i => `${i.quantity}x ${i.sku || i.name}`).join(', ');
@@ -631,6 +634,13 @@ export default function PedidosPage() {
                               {order.delivery_type === 'pickup' ? '🏪 Sitio' : '🚚 Envío'}
                             </span>
                           </td>
+                          <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center">
+                            <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border ${
+                              order.payment_method === 'cash' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : order.payment_method === 'transfer' ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-slate-50 text-slate-400 border-slate-200'
+                            }`}>
+                              {order.payment_method === 'cash' ? '💵 Efectivo' : order.payment_method === 'transfer' ? '🏦 Transfer.' : '—'}
+                            </span>
+                          </td>
                           <td className="px-4 py-4 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => toggleRetailPayment(order)}
@@ -655,7 +665,7 @@ export default function PedidosPage() {
                         </tr>
                         {isExpanded && (
                           <tr>
-                            <td colSpan="8" className="px-4 pb-4 pt-0">
+                            <td colSpan="9" className="px-4 pb-4 pt-0">
                               <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden ml-6">
                                 <table className="w-full text-left">
                                   <thead>
