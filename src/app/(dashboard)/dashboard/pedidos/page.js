@@ -7,7 +7,7 @@ import {
   ShoppingCart, DollarSign, Clock, CheckCircle,
   TrendingUp, Filter, Download, ChevronLeft, ChevronRight, ChevronDown,
   Eye, Plus, Search, ArrowUp, ClipboardCheck, Trash2, Printer,
-  Store, Package, CreditCard, Calendar, X, ShoppingBag, Loader2
+  Store, Package, CreditCard, Calendar, X, ShoppingBag, Loader2, AlertTriangle
 } from 'lucide-react';
 
 const RETAIL_STATUS = {
