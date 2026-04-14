@@ -471,11 +471,17 @@ export default function PedidosPage() {
         )}
       {/* ========== RETAIL SALES TAB ========== */}
       {isAdmin && activeTab === 'retail' && (() => {
-        const today = new Date().toISOString().slice(0, 10);
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const thisWeek = new Date(Date.now() - 7 * 86400000).toISOString();
         const retailActive = retailOrders.filter(o => o.status !== 'cancelled');
         const totalRetail = retailActive.reduce((s, o) => s + Number(o.total || 0), 0);
-        const todaySales = retailActive.filter(o => o.created_at?.slice(0, 10) === today);
+        const todaySales = retailActive.filter(o => {
+          if (!o.created_at) return false;
+          const d = new Date(o.created_at);
+          const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          return local === today;
+        });
         const todayTotal = todaySales.reduce((s, o) => s + Number(o.total || 0), 0);
         const unpaidTotal = retailActive.filter(o => o.payment_status !== 'paid').reduce((s, o) => s + Number(o.total || 0), 0);
 
