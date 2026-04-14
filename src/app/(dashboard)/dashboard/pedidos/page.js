@@ -283,6 +283,40 @@ export default function PedidosPage() {
         )}
 
         {/* KPI Cards — only show for distributor tab */}
+        {activeTab === 'distributor' && isAdmin && (() => {
+          const fourteenDaysAgo = new Date(Date.now() - 14 * 86400000);
+          const overdueOrders = orders.filter(o => 
+            o.payment_status !== 'paid' && 
+            o.status !== 'cancelled' && 
+            o.status !== 'rejected' && 
+            new Date(o.created_at) < fourteenDaysAgo
+          );
+          if (overdueOrders.length === 0) return null;
+          const overdueTotal = overdueOrders.reduce((s, o) => s + Number(o.total_amount || 0), 0);
+          return (
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6 flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-red-800">
+                  ⚠️ {overdueOrders.length} pedido{overdueOrders.length !== 1 ? 's' : ''} con más de 14 días sin pago
+                  <span className="font-normal text-red-600 ml-2">(${overdueTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })})</span>
+                </p>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {overdueOrders.slice(0, 8).map(o => (
+                    <span key={o.id} className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">
+                      #{o.order_number} · {o.profiles?.full_name?.split(' ')[0] || '—'} · ${Number(o.total_amount).toLocaleString('es-MX')}
+                    </span>
+                  ))}
+                  {overdueOrders.length > 8 && (
+                    <span className="text-[10px] text-red-500 font-bold">+{overdueOrders.length - 8} más</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         {activeTab === 'distributor' && (
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
@@ -858,6 +892,21 @@ function NewRetailSaleModal({ supabase, onClose, onSaleCreated }) {
             payment_method: paymentMethod,
             payment_status: 'paid',
           }).eq('id', data.order_id);
+
+          // Auto-insert cash entry if payment is cash
+          if (paymentMethod === 'cash') {
+            const { data: { user } } = await supabase.auth.getUser();
+            await supabase.from('cash_movements').insert({
+              type: 'entry',
+              amount: subtotal,
+              concept: `Venta a público: ${data.order_number}${customerName ? ` — ${customerName}` : ''}`,
+              responsible: 'Venta directa',
+              reference_id: data.order_id,
+              reference_type: 'retail_sale',
+              movement_date: new Date().toISOString().split('T')[0],
+              created_by: user?.id
+            });
+          }
         }
         const methodLabel = paymentMethod === 'cash' ? 'Efectivo' : 'Transferencia';
         alert(`✅ Venta ${data.order_number} registrada (${methodLabel}) — $${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`);

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   DollarSign, CheckCircle, XCircle, Clock, Loader2, Eye,
   ChevronDown, ChevronUp, AlertTriangle, CreditCard, Users, Filter,
-  Upload, FileSpreadsheet, Zap, ArrowRight, X
+  Upload, FileSpreadsheet, Zap, ArrowRight, X, Banknote, ArrowDownCircle, ArrowUpCircle, Wallet, Plus, Calendar
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AlertCircle, Link2 } from 'lucide-react';
@@ -37,6 +37,16 @@ export default function AdminPagosPage() {
   const [unmatchedFromDB, setUnmatchedFromDB] = useState([]);
   const [manualMatchModal, setManualMatchModal] = useState(null);
   const [manualMatchPaymentId, setManualMatchPaymentId] = useState('');
+  // Cash control
+  const [cashReceivedBy, setCashReceivedBy] = useState({});
+  const [cashMovements, setCashMovements] = useState([]);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [exitForm, setExitForm] = useState({ amount: '', concept: '', responsible: '', notes: '', movement_date: new Date().toISOString().split('T')[0] });
+  const [exitSubmitting, setExitSubmitting] = useState(false);
+  const [cajaDateFrom, setCajaDateFrom] = useState(() => {
+    const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0];
+  });
+  const [cajaDateTo, setCajaDateTo] = useState(new Date().toISOString().split('T')[0]);
 
   // Generate signed URL for receipt viewing
   const handleViewReceipt = async (receiptUrl) => {
@@ -92,6 +102,14 @@ export default function AdminPagosPage() {
       .order('uploaded_at', { ascending: false });
     if (unmatchedData) setUnmatchedFromDB(unmatchedData);
 
+    // Fetch cash movements
+    const { data: cashData } = await supabase
+      .from('cash_movements')
+      .select('*')
+      .order('movement_date', { ascending: false })
+      .order('created_at', { ascending: false });
+    if (cashData) setCashMovements(cashData);
+
     setLoading(false);
   };
 
@@ -142,10 +160,28 @@ export default function AdminPagosPage() {
         .single();
       if (fetchErr || !payment) { alert('Pago no encontrado o ya fue revisado'); setActionLoading(null); return; }
 
+      // Check received_by for cash payments
+      const receivedBy = cashReceivedBy[paymentId] || '';
+      if (payment.payment_method === 'efectivo' && !receivedBy.trim()) {
+        alert('Para pagos en efectivo, debes llenar el campo "Recibido por"');
+        setActionLoading(null);
+        return;
+      }
+
+      const userId = (await supabase.auth.getUser()).data.user.id;
+
       // 2. Approve the payment
+      const updateData = {
+        status: 'approved',
+        reviewed_by: userId,
+        reviewed_at: new Date().toISOString()
+      };
+      if (payment.payment_method === 'efectivo') {
+        updateData.received_by = receivedBy.trim();
+      }
       const { error: updateErr } = await supabase
         .from('distributor_payments')
-        .update({ status: 'approved', reviewed_by: (await supabase.auth.getUser()).data.user.id, reviewed_at: new Date().toISOString() })
+        .update(updateData)
         .eq('id', paymentId);
       if (updateErr) { alert('Error: ' + updateErr.message); setActionLoading(null); return; }
 
@@ -184,14 +220,55 @@ export default function AdminPagosPage() {
         }
       }
 
+      // 4. Auto-insert cash entry if payment method is cash
+      if (payment.payment_method === 'efectivo') {
+        const distName = payments.find(p => p.id === paymentId)?.profiles?.full_name || 'Distribuidor';
+        await supabase.from('cash_movements').insert({
+          type: 'entry',
+          amount: payment.amount,
+          concept: `Pago distribuidor: ${distName}`,
+          responsible: receivedBy.trim(),
+          reference_id: paymentId,
+          reference_type: 'distributor_payment',
+          movement_date: payment.payment_date || new Date().toISOString().split('T')[0],
+          created_by: userId
+        });
+      }
+
       // Send email notification
       const p = payments.find(p => p.id === paymentId);
       if (p) sendPaymentNotification(p, 'approved');
+      setCashReceivedBy(prev => { const n = { ...prev }; delete n[paymentId]; return n; });
       fetchData();
     } catch (err) {
       alert('Error: ' + err.message);
     }
     setActionLoading(null);
+  };
+
+  // Register cash exit
+  const handleRegisterExit = async () => {
+    const amount = parseFloat(exitForm.amount);
+    if (!amount || amount <= 0) { alert('Ingresa un monto válido'); return; }
+    if (!exitForm.concept.trim()) { alert('Ingresa un concepto'); return; }
+    if (!exitForm.responsible.trim()) { alert('Ingresa quién retiró el efectivo'); return; }
+    setExitSubmitting(true);
+    const userId = (await supabase.auth.getUser()).data.user.id;
+    const { error } = await supabase.from('cash_movements').insert({
+      type: 'exit',
+      amount,
+      concept: exitForm.concept.trim(),
+      responsible: exitForm.responsible.trim(),
+      notes: exitForm.notes.trim() || null,
+      reference_type: 'manual',
+      movement_date: exitForm.movement_date,
+      created_by: userId
+    });
+    setExitSubmitting(false);
+    if (error) { alert('Error: ' + error.message); return; }
+    setShowExitModal(false);
+    setExitForm({ amount: '', concept: '', responsible: '', notes: '', movement_date: new Date().toISOString().split('T')[0] });
+    fetchData();
   };
 
   const handleReject = async () => {
@@ -422,6 +499,10 @@ export default function AdminPagosPage() {
             className={`px-4 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${activeTab === 'pagos' ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700'}`}>
             <CreditCard size={14} className="inline mr-1.5" style={{ verticalAlign: '-2px' }} /> Pagos
           </button>
+          <button onClick={() => setActiveTab('caja')}
+            className={`px-4 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${activeTab === 'caja' ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700'}`}>
+            <Wallet size={14} className="inline mr-1.5" style={{ verticalAlign: '-2px' }} /> Caja
+          </button>
           <button onClick={() => setActiveTab('conciliacion')}
             className={`px-4 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${activeTab === 'conciliacion' ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700'}`}>
             <FileSpreadsheet size={14} className="inline mr-1.5" style={{ verticalAlign: '-2px' }} /> Conciliación
@@ -562,16 +643,31 @@ export default function AdminPagosPage() {
                             </button>
                           )}
                           {p.status === 'pending' && (
-                            <>
-                              <button onClick={() => handleApprove(p.id)} disabled={!!actionLoading}
-                                className="flex items-center gap-1 px-3 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white text-xs font-bold border-none cursor-pointer disabled:opacity-50 transition-colors">
-                                {actionLoading === p.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />} Aprobar
-                              </button>
-                              <button onClick={() => { setRejectModal(p.id); setRejectReason(''); }} disabled={!!actionLoading}
-                                className="flex items-center gap-1 px-3 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-bold border-none cursor-pointer disabled:opacity-50 transition-colors">
-                                <XCircle size={14} /> Rechazar
-                              </button>
-                            </>
+                            <div className="flex flex-col gap-2">
+                              {p.payment_method === 'efectivo' && (
+                                <div className="flex items-center gap-1.5">
+                                  <Banknote size={12} className="text-emerald-500 shrink-0" />
+                                  <input
+                                    type="text"
+                                    placeholder="Recibido por..."
+                                    value={cashReceivedBy[p.id] || ''}
+                                    onChange={e => setCashReceivedBy(prev => ({ ...prev, [p.id]: e.target.value }))}
+                                    onClick={e => e.stopPropagation()}
+                                    className="px-2 py-1.5 text-xs rounded-lg border border-emerald-200 focus:border-emerald-400 outline-none w-36 bg-emerald-50/50 placeholder:text-emerald-300 text-slate-800 font-medium"
+                                  />
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => handleApprove(p.id)} disabled={!!actionLoading || (p.payment_method === 'efectivo' && !(cashReceivedBy[p.id] || '').trim())}
+                                  className="flex items-center gap-1 px-3 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white text-xs font-bold border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                                  {actionLoading === p.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />} Aprobar
+                                </button>
+                                <button onClick={() => { setRejectModal(p.id); setRejectReason(''); }} disabled={!!actionLoading}
+                                  className="flex items-center gap-1 px-3 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-bold border-none cursor-pointer disabled:opacity-50 transition-colors">
+                                  <XCircle size={14} /> Rechazar
+                                </button>
+                              </div>
+                            </div>
                           )}
                           {p.status !== 'pending' && (
                             <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ color: st.color, background: st.bg }}>
@@ -580,6 +676,11 @@ export default function AdminPagosPage() {
                           )}
                         </div>
                       </div>
+                      {p.status === 'approved' && p.received_by && (
+                        <p className="text-xs text-emerald-600 mt-1 ml-[52px] flex items-center gap-1">
+                          <Banknote size={12} /> Recibido por: <span className="font-bold">{p.received_by}</span>
+                        </p>
+                      )}
                       {p.status === 'rejected' && p.rejection_reason && (
                         <p className="text-xs text-red-500 mt-2 ml-[52px]">Motivo: {p.rejection_reason}</p>
                       )}
@@ -591,6 +692,121 @@ export default function AdminPagosPage() {
           </div>
         </>
       )}
+
+      {/* =============== TAB: CAJA =============== */}
+      {activeTab === 'caja' && (() => {
+        const filteredCash = cashMovements.filter(m => m.movement_date >= cajaDateFrom && m.movement_date <= cajaDateTo);
+        const totalEntries = filteredCash.filter(m => m.type === 'entry').reduce((s, m) => s + Number(m.amount), 0);
+        const totalExits = filteredCash.filter(m => m.type === 'exit').reduce((s, m) => s + Number(m.amount), 0);
+        const saldoDebido = totalEntries - totalExits;
+        // Global balance (all time)
+        const allEntries = cashMovements.filter(m => m.type === 'entry').reduce((s, m) => s + Number(m.amount), 0);
+        const allExits = cashMovements.filter(m => m.type === 'exit').reduce((s, m) => s + Number(m.amount), 0);
+        const globalBalance = allEntries - allExits;
+
+        return (
+          <div className="space-y-5">
+            {/* Caja KPIs */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center"><Wallet size={20} className="text-blue-600" /></div>
+                  <span className="text-sm text-slate-500 font-medium">Saldo Debido en Caja</span>
+                </div>
+                <p className={`text-2xl font-black ${globalBalance >= 0 ? 'text-slate-900' : 'text-red-600'}`}>${globalBalance.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+                <p className="text-[10px] text-slate-400 mt-1">Histórico total</p>
+              </div>
+              <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center"><ArrowDownCircle size={20} className="text-emerald-500" /></div>
+                  <span className="text-sm text-slate-500 font-medium">Entradas Periodo</span>
+                </div>
+                <p className="text-2xl font-black text-emerald-600">${totalEntries.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center"><ArrowUpCircle size={20} className="text-red-500" /></div>
+                  <span className="text-sm text-slate-500 font-medium">Salidas Periodo</span>
+                </div>
+                <p className="text-2xl font-black text-red-600">${totalExits.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center"><DollarSign size={20} className="text-purple-500" /></div>
+                  <span className="text-sm text-slate-500 font-medium">Balance Periodo</span>
+                </div>
+                <p className={`text-2xl font-black ${saldoDebido >= 0 ? 'text-purple-600' : 'text-red-600'}`}>${saldoDebido.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </div>
+
+            {/* Date Filter + Actions */}
+            <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
+              <div className="flex flex-wrap items-end gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Desde</label>
+                  <input type="date" value={cajaDateFrom} onChange={e => setCajaDateFrom(e.target.value)}
+                    className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#6a9a04]" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Hasta</label>
+                  <input type="date" value={cajaDateTo} onChange={e => setCajaDateTo(e.target.value)}
+                    className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#6a9a04]" />
+                </div>
+                <div className="ml-auto">
+                  <button onClick={() => setShowExitModal(true)}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer shadow-lg shadow-red-500/20 transition-all">
+                    <ArrowUpCircle size={16} /> Registrar Salida
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Movements History */}
+            <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-200">
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Wallet className="w-5 h-5 text-[#6a9a04]" /> Movimientos de Caja
+                  <span className="text-xs font-normal text-slate-400 ml-1">({filteredCash.length})</span>
+                </h2>
+              </div>
+              {filteredCash.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <Wallet size={40} className="mx-auto mb-3 opacity-30" />
+                  <p className="font-medium">No hay movimientos en este periodo</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {filteredCash.map(m => (
+                    <div key={m.id} className="px-5 py-4 flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${m.type === 'entry' ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                        {m.type === 'entry'
+                          ? <ArrowDownCircle size={18} className="text-emerald-500" />
+                          : <ArrowUpCircle size={18} className="text-red-500" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-900">
+                          <span className={m.type === 'entry' ? 'text-emerald-600' : 'text-red-600'}>
+                            {m.type === 'entry' ? '+' : '-'}${Number(m.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                          </span>
+                          <span className="font-normal text-slate-400 ml-2 text-xs capitalize">{m.type === 'entry' ? 'Entrada' : 'Salida'}</span>
+                        </p>
+                        <p className="text-xs text-slate-600 font-medium">{m.concept}</p>
+                        <p className="text-[10px] text-slate-400">
+                          {m.movement_date} · {m.responsible}
+                          {m.notes && ` · ${m.notes}`}
+                        </p>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${m.type === 'entry' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                        {m.reference_type === 'distributor_payment' ? 'Pago Dist.' : m.reference_type === 'retail_sale' ? 'Venta Retail' : 'Manual'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* =============== TAB: CONCILIACIÓN =============== */}
       {activeTab === 'conciliacion' && (
@@ -858,6 +1074,63 @@ export default function AdminPagosPage() {
                 className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold text-sm border-none cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
                 {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />} Rechazar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cash Exit Modal */}
+      {showExitModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowExitModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2"><ArrowUpCircle size={20} className="text-red-500" /> Registrar Salida de Caja</h3>
+            <p className="text-sm text-slate-500 mb-5">Registra retiros de efectivo de la caja.</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Monto *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                  <input type="number" step="0.01" value={exitForm.amount}
+                    onChange={e => setExitForm(f => ({ ...f, amount: e.target.value }))}
+                    className="w-full pl-8 pr-4 py-3 rounded-xl border border-slate-200 focus:border-red-400 focus:ring-2 focus:ring-red-400/20 outline-none text-lg font-bold"
+                    placeholder="0.00" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Concepto *</label>
+                <input type="text" value={exitForm.concept}
+                  onChange={e => setExitForm(f => ({ ...f, concept: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-red-400 outline-none"
+                  placeholder="Ej: Compra tungsteno, nómina, gastos..." />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">¿Quién retiró el efectivo? *</label>
+                <input type="text" value={exitForm.responsible}
+                  onChange={e => setExitForm(f => ({ ...f, responsible: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-red-400 outline-none"
+                  placeholder="Nombre de quien se lo llevó" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Fecha</label>
+                <input type="date" value={exitForm.movement_date}
+                  onChange={e => setExitForm(f => ({ ...f, movement_date: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-red-400 outline-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Notas (opcional)</label>
+                <input type="text" value={exitForm.notes}
+                  onChange={e => setExitForm(f => ({ ...f, notes: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-red-400 outline-none"
+                  placeholder="Detalles adicionales..." />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setShowExitModal(false)}
+                  className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm cursor-pointer bg-white hover:bg-slate-50">Cancelar</button>
+                <button onClick={handleRegisterExit} disabled={exitSubmitting}
+                  className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold text-sm border-none cursor-pointer hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {exitSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowUpCircle size={16} />} Registrar Salida
+                </button>
+              </div>
             </div>
           </div>
         </div>
