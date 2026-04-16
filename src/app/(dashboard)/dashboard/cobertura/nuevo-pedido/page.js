@@ -201,7 +201,7 @@ export default function NuevoPedidoPage() {
         console.log('[PO] Saving PO:', poNumber, 'items:', allItems.length, 'supplier:', selectedSupplier?.short_name);
 
         const { data: po, error: poErr } = await supabase.from('purchase_orders').insert({
-            po_number: poNumber, supplier_id: selectedSupplier.id, status: 'draft',
+            po_number: poNumber, supplier_id: selectedSupplier.id, status: 'sent',
             destination_code: destination.code, destination_port: destination.port,
             notes: notes || null, created_by: user.id,
         }).select().single();
