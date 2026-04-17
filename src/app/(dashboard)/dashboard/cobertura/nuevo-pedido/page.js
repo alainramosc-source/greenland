@@ -71,11 +71,15 @@ export default function NuevoPedidoPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { router.push('/login'); return; }
         const [suppRes, prodRes, mapRes, whRes] = await Promise.all([
-            supabase.from('suppliers').select('*').eq('is_active', true).order('short_name'),
+            supabase.from('suppliers').select('*').eq('is_active', true),
             supabase.from('products').select('id, name, sku, container_capacity').eq('is_active', true).order('sku'),
             supabase.from('supplier_sku_mapping').select('*'),
             supabase.from('warehouses').select('id, name').eq('is_active', true),
         ]);
+        if (suppRes.error) console.error('[PO] Suppliers error:', suppRes.error);
+        if (prodRes.error) console.error('[PO] Products error:', prodRes.error);
+        if (mapRes.error) console.error('[PO] SKU mapping error:', mapRes.error);
+        console.log('[PO] Suppliers:', suppRes.data?.length, 'Products:', prodRes.data?.length, 'Mappings:', mapRes.data?.length);
         setSuppliers(suppRes.data || []);
         setProducts(prodRes.data || []);
         setSkuMapping(mapRes.data || []);
