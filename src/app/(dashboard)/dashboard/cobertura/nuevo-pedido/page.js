@@ -35,10 +35,7 @@ const BUYER_INFO = {
     taxId: 'GPR230911971',
 };
 
-const LEAD_TIMES = {
-    'Shinaier': { weeks: 12 },  // 8 prod + 5 transit - Shinaier is 12 actually 
-    'Freeman': { weeks: 9 },    // 4 prod + 5 transit
-};
+// Lead times are now stored in the suppliers table (production_lead_weeks + transit_lead_weeks)
 
 export default function NuevoPedidoPage() {
     const supabase = createClient();
@@ -71,7 +68,7 @@ export default function NuevoPedidoPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { router.push('/login'); return; }
         const [suppRes, prodRes, mapRes, whRes] = await Promise.all([
-            supabase.from('suppliers').select('*').eq('is_active', true),
+            supabase.from('suppliers').select('*').eq('is_active', true).eq('type', 'manufacturer'),
             supabase.from('products').select('id, name, sku, container_capacity').eq('is_active', true).order('sku'),
             supabase.from('supplier_sku_mapping').select('*'),
             supabase.from('warehouses').select('id, name').eq('is_active', true),
@@ -260,8 +257,7 @@ export default function NuevoPedidoPage() {
 
         // Auto-create transit_shipments for coverage system
         if (savedCount > 0 || itemErr === null) {
-            const leadTimeConfig = LEAD_TIMES[selectedSupplier.short_name];
-            const leadWeeks = leadTimeConfig?.weeks || 9;
+            const leadWeeks = (selectedSupplier.production_lead_weeks || 4) + (selectedSupplier.transit_lead_weeks || 5);
             const arrivalDate = new Date();
             arrivalDate.setDate(arrivalDate.getDate() + (leadWeeks * 7));
             const arrivalStr = arrivalDate.toISOString().split('T')[0];

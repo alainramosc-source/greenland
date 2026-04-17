@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck, Eye, EyeOff, ArrowLeft, MessageSquare, Truck, FileBox, FolderOpen, Globe } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck, Eye, EyeOff, ArrowLeft, MessageSquare, Truck, FileBox, FolderOpen, Globe, Factory, Box } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) => {
@@ -110,6 +110,8 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
     { name: 'CMS Landing', href: '/dashboard/cms?v=sync', icon: FileText, roles: ['super_admin'] },
     { name: 'Expedientes', href: '/dashboard/expedientes', icon: ClipboardCheck, roles: ['super_admin'] },
     { name: 'Auditoría', href: '/dashboard/auditoria', icon: ScrollText, roles: ['super_admin'] },
+    { name: 'Fabricantes', href: '/dashboard/fabricantes', icon: Factory, roles: ['super_admin'] },
+    { name: 'Productos', href: '/dashboard/productos', icon: Box, roles: ['super_admin'] },
     { name: 'Proveedores', href: '/dashboard/proveedores', icon: Truck, roles: ['super_admin'] },
   ];
 

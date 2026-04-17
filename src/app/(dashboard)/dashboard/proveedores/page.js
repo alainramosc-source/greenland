@@ -34,6 +34,7 @@ export default function SuppliersPage() {
     const { data, error } = await supabase
       .from('suppliers')
       .select('*')
+      .or('type.eq.service,type.is.null')
       .order('created_at', { ascending: false });
     if (data) setSuppliers(data);
     setLoading(false);
