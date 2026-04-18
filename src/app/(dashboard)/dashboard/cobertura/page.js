@@ -58,13 +58,15 @@ export default function CoberturaPage() {
     const checkAdminAndFetch = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { router.push('/login'); return; }
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-        if (profile?.role !== 'admin') { router.push('/dashboard'); return; }
-        setIsAdmin(true);
-        await fetchBaseData();
+        const { data: profile } = await supabase.from('profiles').select('role, sub_role, assigned_warehouse_id').eq('id', user.id).single();
+        const isAdminUser = profile?.role === 'admin';
+        const isProUser = profile?.role === 'distributor' && profile?.sub_role === 'distributor_pro' && profile?.assigned_warehouse_id;
+        if (!isAdminUser && !isProUser) { router.push('/dashboard'); return; }
+        setIsAdmin(isAdminUser);
+        await fetchBaseData(isProUser ? profile.assigned_warehouse_id : null);
     };
 
-    const fetchBaseData = async () => {
+    const fetchBaseData = async (proWarehouseId = null) => {
         setLoading(true);
         const [whRes, prodRes] = await Promise.all([
             supabase.from('warehouses').select('*').eq('is_active', true).order('sort_order'),
@@ -74,10 +76,26 @@ export default function CoberturaPage() {
         const allWarehouses = whRes.data || [];
         const saltilloIds = allWarehouses.filter(w => SALTILLO_BODEGAS.includes(w.name)).map(w => w.id);
         setSaltilloWarehouseIds(saltilloIds);
-        const wh = allWarehouses.filter(w => !SALTILLO_BODEGAS.includes(w.name));
-        // Add virtual Saltillo tab at the beginning if both bodegas exist
-        const saltilloTab = saltilloIds.length > 0 ? [{ id: 'saltillo-combined', name: 'Saltillo', isCombined: true }] : [];
-        const finalWarehouses = [...saltilloTab, ...wh];
+
+        let finalWarehouses;
+        if (proWarehouseId) {
+            // PRO user: show only their assigned warehouse
+            const proWh = allWarehouses.find(w => w.id === proWarehouseId);
+            if (saltilloIds.includes(proWarehouseId)) {
+                // Assigned to a Saltillo warehouse → show combined Saltillo tab
+                finalWarehouses = [{ id: 'saltillo-combined', name: 'Saltillo', isCombined: true }];
+            } else if (proWh) {
+                finalWarehouses = [proWh];
+            } else {
+                finalWarehouses = [];
+            }
+        } else {
+            // Admin: show all warehouses
+            const wh = allWarehouses.filter(w => !SALTILLO_BODEGAS.includes(w.name));
+            const saltilloTab = saltilloIds.length > 0 ? [{ id: 'saltillo-combined', name: 'Saltillo', isCombined: true }] : [];
+            finalWarehouses = [...saltilloTab, ...wh];
+        }
+
         setWarehouses(finalWarehouses);
         setProducts(prodRes.data || []);
         if (finalWarehouses.length > 0) {

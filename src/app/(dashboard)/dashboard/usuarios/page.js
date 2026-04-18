@@ -27,6 +27,7 @@ export default function UsersPage() {
   const [cxcLoading, setCxcLoading] = useState(false);
   const [cxcSearch, setCxcSearch] = useState('');
   const [cxcSort, setCxcSort] = useState({ key: 'balance', dir: 'desc' });
+  const [allWarehouses, setAllWarehouses] = useState([]);
 
   const supabase = createClient();
 
@@ -51,6 +52,9 @@ export default function UsersPage() {
       .select('*')
       .order('created_at', { ascending: false });
     if (!error && data) setUsers(data);
+    // Fetch warehouses for PRO assignment
+    const { data: whData } = await supabase.from('warehouses').select('id, name').eq('is_active', true).order('name');
+    setAllWarehouses(whData || []);
     setLoading(false);
     // Also fetch CxC data
     fetchCxC();
@@ -84,11 +88,13 @@ export default function UsersPage() {
              : selectedUser.role === 'distributor' ? (selectedUser.sub_role || null)
              : null,
     };
-    // Only include parent_distributor_id for distributors
+    // Only include parent_distributor_id and assigned_warehouse_id for distributors
     if (selectedUser.role === 'distributor') {
       updateData.parent_distributor_id = selectedUser.parent_distributor_id || null;
+      updateData.assigned_warehouse_id = selectedUser.sub_role === 'distributor_pro' ? (selectedUser.assigned_warehouse_id || null) : null;
     } else {
       updateData.parent_distributor_id = null;
+      updateData.assigned_warehouse_id = null;
     }
     const { error } = await supabase
       .from('profiles')
@@ -631,6 +637,7 @@ export default function UsersPage() {
                 </div>
               </div>
               {selectedUser.role === 'distributor' && (
+                <>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-600 mb-1">Tipo Distribuidor</label>
@@ -657,6 +664,23 @@ export default function UsersPage() {
                     </select>
                   </div>
                 </div>
+                {selectedUser.sub_role === 'distributor_pro' && (
+                  <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mt-4">
+                    <label className="block text-xs font-bold text-purple-700 uppercase tracking-wider mb-2">🏭 Almacén Asignado (Cobertura)</label>
+                    <select
+                      value={selectedUser.assigned_warehouse_id || ''}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, assigned_warehouse_id: e.target.value || null })}
+                      className="w-full px-4 py-3 bg-white border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 text-slate-800 outline-none"
+                    >
+                      <option value="">Sin almacén asignado</option>
+                      {allWarehouses.map(wh => (
+                        <option key={wh.id} value={wh.id}>{wh.name}</option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-purple-500 mt-1">El distribuidor PRO verá la cobertura de este almacén en su portal</p>
+                  </div>
+                )}
+                </>
               )}
             </div>
             {selectedUser.role === 'admin' && (

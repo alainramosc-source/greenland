@@ -84,6 +84,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
   // Distributor PRO gets zone management items
   const proItems = isDistributorPro ? [
     { name: 'Pedidos de Zona', href: '/dashboard/pedidos-zona', icon: Globe },
+    { name: 'Cobertura', href: '/dashboard/cobertura', icon: ShieldCheck },
   ] : [];
 
   const navItems = userRole === 'admin'
