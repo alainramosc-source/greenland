@@ -572,7 +572,7 @@ export default function CoberturaPage() {
             <p>Cargando cobertura...</p>
         </div>
     );
-    if (!isAdmin) return null;
+
 
     return (
         <>
