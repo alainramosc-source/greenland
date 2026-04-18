@@ -861,7 +861,7 @@ export default function CoberturaPage() {
                     <span className="text-slate-300">|</span>
                     <span className="flex items-center gap-1.5 text-orange-500 font-bold">
                         <span className="w-3 h-3 rounded border-2 border-orange-300 inline-block" />
-                        🚢 {selectedManufacturer.name}: {selectedManufacturer.production}p + {selectedManufacturer.transit}t = {LEAD_TIME_WEEKS}sem · Ciclo: {ORDER_CYCLE_WEEKS}sem
+                        🚢 {selectedManufacturer?.short_name || '—'}: {selectedManufacturer?.production_lead_weeks || 4}p + {(selectedWarehouse?.transit_lead_weeks || selectedManufacturer?.transit_lead_weeks || 5)}t = {LEAD_TIME_WEEKS}sem · Ciclo: {ORDER_CYCLE_WEEKS}sem
                     </span>
                 </div>
             </div>
@@ -963,7 +963,7 @@ export default function CoberturaPage() {
                                     <select value={transitForm.origin} onChange={e => setTransitForm(f => ({ ...f, origin: e.target.value }))}
                                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-200 bg-white">
                                         <option value="">—</option>
-                                        {MANUFACTURERS.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                                        {manufacturers.map(m => <option key={m.id} value={m.short_name}>{m.short_name}</option>)}
                                     </select>
                                 </div>
                             </div>
