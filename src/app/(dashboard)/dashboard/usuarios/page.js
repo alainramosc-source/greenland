@@ -557,14 +557,14 @@ export default function UsersPage() {
       {/* Edit User Modal */}
       {isModalOpen && selectedUser && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center px-4">
-          <div className="bg-white/90 backdrop-blur-xl border border-white max-w-[500px] w-full rounded-2xl shadow-2xl overflow-hidden">
+          <div className="bg-white/90 backdrop-blur-xl border border-white max-w-[500px] w-full rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div className="p-6 border-b border-slate-200/50 flex justify-between items-center bg-white/50">
               <h3 className="text-lg font-bold text-slate-900 m-0">Editar Cliente</h3>
               <button onClick={() => setIsModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 bg-transparent border border-transparent transition-colors cursor-pointer text-slate-500 hover:text-slate-900">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-sm font-medium text-slate-600 mb-1">Nombre Completo</label>
                 <input type="text" value={selectedUser.full_name || ''}
@@ -650,8 +650,9 @@ export default function UsersPage() {
                       <option value="distributor_pro">Distribuidor PRO (gestiona zona)</option>
                     </select>
                   </div>
+                  {selectedUser.sub_role !== 'distributor_pro' && (
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1">Zona / Distribuidor PRO</label>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Asignar a PRO</label>
                     <select
                       value={selectedUser.parent_distributor_id || ''}
                       onChange={(e) => setSelectedUser({ ...selectedUser, parent_distributor_id: e.target.value || null })}
@@ -663,6 +664,7 @@ export default function UsersPage() {
                       ))}
                     </select>
                   </div>
+                  )}
                 </div>
                 {selectedUser.sub_role === 'distributor_pro' && (
                   <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mt-4">
