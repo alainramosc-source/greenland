@@ -34,13 +34,19 @@ export default function CoberturaPage() {
     const [transitCsvText, setTransitCsvText] = useState('');
     const [transitCsvImporting, setTransitCsvImporting] = useState(false);
 
-    // Manufacturer lead time configs
-    const MANUFACTURERS = [
-        { id: 'freeman', name: 'Freeman', production: 4, transit: 5, total: 9 },
-        { id: 'shinaier', name: 'Shinaier', production: 8, transit: 5, total: 12 },
-    ];
-    const [selectedManufacturer, setSelectedManufacturer] = useState(MANUFACTURERS[0]);
-    const LEAD_TIME_WEEKS = selectedManufacturer.total;
+    // Manufacturer lead time configs — loaded from DB
+    const [manufacturers, setManufacturers] = useState([]);
+    const [selectedManufacturer, setSelectedManufacturer] = useState(null);
+
+    // Compute lead time dynamically based on manufacturer + warehouse transit override
+    const getLeadTimeWeeks = () => {
+        if (!selectedManufacturer) return 9;
+        const production = selectedManufacturer.production_lead_weeks || 4;
+        // Use warehouse transit override if available, otherwise manufacturer's default
+        const transit = selectedWarehouse?.transit_lead_weeks || selectedManufacturer.transit_lead_weeks || 5;
+        return production + transit;
+    };
+    const LEAD_TIME_WEEKS = getLeadTimeWeeks();
 
     // Dynamic: weeks remaining until end of 2026
     const NUM_WEEKS = Math.ceil((new Date('2026-12-31') - new Date()) / (7 * 24 * 60 * 60 * 1000));
@@ -68,10 +74,14 @@ export default function CoberturaPage() {
 
     const fetchBaseData = async (proWarehouseId = null) => {
         setLoading(true);
-        const [whRes, prodRes] = await Promise.all([
+        const [whRes, prodRes, mfgRes] = await Promise.all([
             supabase.from('warehouses').select('*').eq('is_active', true).order('sort_order'),
             supabase.from('products').select('id, name, sku, container_capacity').eq('is_active', true).order('sku'),
+            supabase.from('suppliers').select('id, short_name, production_lead_weeks, transit_lead_weeks').eq('type', 'manufacturer').eq('is_active', true).order('short_name'),
         ]);
+        const mfgs = mfgRes.data || [];
+        setManufacturers(mfgs);
+        if (mfgs.length > 0 && !selectedManufacturer) setSelectedManufacturer(mfgs[0]);
         const SALTILLO_BODEGAS = ['Bodega Vito Alessio', 'Bodega Echeverría'];
         const allWarehouses = whRes.data || [];
         const saltilloIds = allWarehouses.filter(w => SALTILLO_BODEGAS.includes(w.name)).map(w => w.id);
@@ -600,13 +610,17 @@ export default function CoberturaPage() {
                     <div className="flex gap-2 flex-wrap">
                         {/* Manufacturer toggle */}
                         <div className="flex items-center bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                            {MANUFACTURERS.map(m => (
-                                <button key={m.id} onClick={() => setSelectedManufacturer(m)}
-                                    className={`px-3 py-2.5 text-xs font-bold transition-all border-none cursor-pointer ${selectedManufacturer.id === m.id
-                                        ? 'bg-orange-500 text-white' : 'bg-transparent text-slate-500 hover:bg-slate-50'}`}>
-                                    {m.name} ({m.total}s)
-                                </button>
-                            ))}
+                            {manufacturers.map(m => {
+                                const transit = selectedWarehouse?.transit_lead_weeks || m.transit_lead_weeks || 5;
+                                const total = (m.production_lead_weeks || 4) + transit;
+                                return (
+                                    <button key={m.id} onClick={() => setSelectedManufacturer(m)}
+                                        className={`px-3 py-2.5 text-xs font-bold transition-all border-none cursor-pointer ${selectedManufacturer?.id === m.id
+                                            ? 'bg-orange-500 text-white' : 'bg-transparent text-slate-500 hover:bg-slate-50'}`}>
+                                        {m.short_name} ({total}s)
+                                    </button>
+                                );
+                            })}
                         </div>
                         <button onClick={() => transitFileRef.current?.click()} disabled={transitCsvImporting}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-orange-200 bg-orange-50 text-orange-700 font-bold text-sm hover:bg-orange-100 cursor-pointer transition-all shadow-sm disabled:opacity-50">
