@@ -1,17 +1,25 @@
 'use client';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
     ShieldCheck, MapPin, Package, Upload, Edit3, X, Save,
     RefreshCw, AlertTriangle, CheckCircle, TrendingDown, Warehouse, FileSpreadsheet, History,
-    Clock, Truck, Calendar, ArrowRight, Plus, Trash2, Ship, Loader2, ChevronRight
+    Clock, Truck, Calendar, ArrowRight, Plus, Trash2, Ship, Loader2, ChevronRight, Eye, ArrowLeft
 } from 'lucide-react';
 
-export default function CoberturaPage() {
+export default function CoberturaPageWrapper() {
+    return <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]"><div className="w-10 h-10 border-3 border-slate-300 border-l-[#6a9a04] rounded-full animate-spin" /></div>}><CoberturaPage /></Suspense>;
+}
+
+function CoberturaPage() {
     const supabase = createClient();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const fileInputRef = useRef(null);
+
+    // Simulation mode
+    const [simulationData, setSimulationData] = useState(null);
 
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
@@ -55,6 +63,16 @@ export default function CoberturaPage() {
     const SAFETY_STOCK_WEEKS = 0; // Desactivado por ahora — se activará por SKU después
 
     useEffect(() => { checkAdminAndFetch(); }, []);
+
+    // Load simulation data from sessionStorage
+    useEffect(() => {
+        if (searchParams.get('simulate') === 'true') {
+            try {
+                const raw = sessionStorage.getItem('po_simulation');
+                if (raw) setSimulationData(JSON.parse(raw));
+            } catch (e) { console.warn('Failed to parse simulation data'); }
+        }
+    }, [searchParams]);
 
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
@@ -109,10 +127,26 @@ export default function CoberturaPage() {
         setWarehouses(finalWarehouses);
         setProducts(prodRes.data || []);
         if (finalWarehouses.length > 0) {
-            setSelectedWarehouse(finalWarehouses[0]);
+            // If simulation mode, auto-select the simulated warehouse
+            let simRaw = null;
+            try { simRaw = sessionStorage.getItem('po_simulation'); } catch(e) {}
+            const simParsed = simRaw ? JSON.parse(simRaw) : null;
+            const simWarehouseId = simParsed?.warehouse_id;
+            let defaultWh = finalWarehouses[0];
+            if (simWarehouseId) {
+                // Check if it matches a Saltillo warehouse
+                if (saltilloIds.includes(simWarehouseId)) {
+                    const saltilloTab = finalWarehouses.find(w => w.isCombined);
+                    if (saltilloTab) defaultWh = saltilloTab;
+                } else {
+                    const match = finalWarehouses.find(w => w.id === simWarehouseId);
+                    if (match) defaultWh = match;
+                }
+            }
+            setSelectedWarehouse(defaultWh);
             await Promise.all([
-                fetchCoverage(finalWarehouses[0], saltilloIds),
-                fetchTransits(finalWarehouses[0], saltilloIds),
+                fetchCoverage(defaultWh, saltilloIds),
+                fetchTransits(defaultWh, saltilloIds),
             ]);
         }
         setLoading(false);
@@ -199,9 +233,12 @@ export default function CoberturaPage() {
             const stockBodega = coverage?.stock_bodega || 0;
             const weeklyDemand = coverage?.weekly_demand || 0;
 
-            // Get transit shipments for this product
+            // Get transit shipments for this product (real + simulated)
             const productTransits = transitShipments.filter(t => t.product_id === product.id);
-            const totalTransitQty = productTransits.reduce((s, t) => s + t.quantity, 0);
+            // Inject simulated transits
+            const simTransits = simulationData?.items?.filter(t => t.product_id === product.id) || [];
+            const allTransits = [...productTransits, ...simTransits.map(s => ({ ...s, isSimulated: true }))];
+            const totalTransitQty = allTransits.reduce((s, t) => s + t.quantity, 0);
 
             // Calculate which week each transit arrives
             const getTransitWeek = (arrivalDate) => {
@@ -219,7 +256,7 @@ export default function CoberturaPage() {
             let running = stockBodega; // Start with bodega only, NOT transit
             for (let i = 0; i < NUM_WEEKS; i++) {
                 // Inject transits arriving this week
-                for (const t of productTransits) {
+                for (const t of allTransits) {
                     if (getTransitWeek(t.estimated_arrival) === i) {
                         running += t.quantity;
                     }
@@ -273,7 +310,7 @@ export default function CoberturaPage() {
                 nextArrival: productTransits[0]?.estimated_arrival || null
             };
         });
-    }, [products, coverageData, transitShipments, LEAD_TIME_WEEKS]);
+    }, [products, coverageData, transitShipments, simulationData, LEAD_TIME_WEEKS]);
 
     // KPIs
     const kpis = useMemo(() => {
@@ -586,6 +623,34 @@ export default function CoberturaPage() {
 
     return (
         <>
+        {/* Simulation Banner */}
+        {simulationData && (
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 flex items-center justify-between gap-4 shadow-lg">
+                <div className="flex items-center gap-3">
+                    <Eye size={20} className="shrink-0" />
+                    <div>
+                        <span className="font-black text-sm">🔮 MODO SIMULACIÓN</span>
+                        <span className="ml-3 text-purple-200 text-xs font-medium">
+                            {simulationData.supplier} → {simulationData.destination} · {simulationData.items?.length || 0} productos · Llegada estimada en {simulationData.lead_weeks} semanas
+                        </span>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => { setSimulationData(null); sessionStorage.removeItem('po_simulation'); router.replace('/dashboard/cobertura'); }}
+                        className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition-all cursor-pointer border-none text-white"
+                    >
+                        Salir de Simulación
+                    </button>
+                    <button
+                        onClick={() => router.push('/dashboard/cobertura/nuevo-pedido')}
+                        className="flex items-center gap-1.5 px-4 py-1.5 bg-white text-purple-700 rounded-lg text-xs font-bold transition-all cursor-pointer border-none hover:bg-purple-50 shadow-sm"
+                    >
+                        <ArrowLeft size={14} /> Volver al Pedido
+                    </button>
+                </div>
+            </div>
+        )}
         <div className="relative p-4 md:p-6">
             {/* Toast */}
             {toast && (

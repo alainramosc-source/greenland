@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
     ArrowLeft, FileSpreadsheet, Save, Send, Package, Plus, Trash2,
-    CheckCircle, AlertTriangle, Search, Loader2, Container, ChevronDown, ChevronUp
+    CheckCircle, AlertTriangle, Search, Loader2, Container, ChevronDown, ChevronUp, Eye
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 
@@ -190,6 +190,33 @@ export default function NuevoPedidoPage() {
         const d = now.getDate().toString().padStart(2, '0');
         const r = Math.floor(Math.random() * 100).toString().padStart(2, '0');
         return `PO-${y}${m}${d}-${r}`;
+    };
+
+    // Simulate coverage — save PO to sessionStorage and navigate to cobertura
+    const simulateCoverage = () => {
+        if (allItems.length === 0) { showToast('Agrega productos primero', 'error'); return; }
+        // Aggregate quantities per product
+        const productQtys = {};
+        allItems.forEach(i => {
+            productQtys[i.productId] = (productQtys[i.productId] || 0) + i.quantity;
+        });
+        const warehouseId = getWarehouseForDestination(destination.code);
+        const leadWeeks = (selectedSupplier?.production_lead_weeks || 4) + (selectedSupplier?.transit_lead_weeks || 5);
+        const arrivalDate = new Date();
+        arrivalDate.setDate(arrivalDate.getDate() + (leadWeeks * 7));
+        const simData = {
+            items: Object.entries(productQtys).map(([productId, qty]) => ({
+                product_id: productId,
+                quantity: qty,
+                estimated_arrival: arrivalDate.toISOString().split('T')[0],
+            })),
+            warehouse_id: warehouseId,
+            destination: destination.city,
+            supplier: selectedSupplier?.short_name || selectedSupplier?.name || 'Fabricante',
+            lead_weeks: leadWeeks,
+        };
+        sessionStorage.setItem('po_simulation', JSON.stringify(simData));
+        router.push('/dashboard/cobertura?simulate=true');
     };
 
     // Save draft — returns poNumber on success
@@ -529,6 +556,10 @@ export default function NuevoPedidoPage() {
                         <p className="text-slate-500 mt-1 font-medium m-0">Agrupa productos por contenedor y exporta tu orden de compra</p>
                     </div>
                     <div className="flex gap-2 flex-wrap">
+                        <button onClick={simulateCoverage} disabled={allItems.length === 0}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-purple-200 bg-purple-50 text-purple-700 font-bold text-sm hover:bg-purple-100 cursor-pointer transition-all shadow-sm disabled:opacity-50">
+                            <Eye size={16} /> Simular Cobertura
+                        </button>
                         <button onClick={saveDraft} disabled={saving || allItems.length === 0}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 cursor-pointer transition-all shadow-sm disabled:opacity-50">
                             <Save size={16} /> Guardar Borrador
