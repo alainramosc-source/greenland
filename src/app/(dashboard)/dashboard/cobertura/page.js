@@ -637,12 +637,6 @@ function CoberturaPage() {
                 </div>
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={() => { setSimulationData(null); sessionStorage.removeItem('po_simulation'); router.replace('/dashboard/cobertura'); }}
-                        className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition-all cursor-pointer border-none text-white"
-                    >
-                        Salir de Simulación
-                    </button>
-                    <button
                         onClick={() => router.push('/dashboard/cobertura/nuevo-pedido')}
                         className="flex items-center gap-1.5 px-4 py-1.5 bg-white text-purple-700 rounded-lg text-xs font-bold transition-all cursor-pointer border-none hover:bg-purple-50 shadow-sm"
                     >

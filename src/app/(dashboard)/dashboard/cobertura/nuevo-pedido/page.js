@@ -81,7 +81,26 @@ export default function NuevoPedidoPage() {
         setProducts(prodRes.data || []);
         setSkuMapping(mapRes.data || []);
         setAllWarehouses(whRes.data || []);
-        if (suppRes.data?.length > 0) setSelectedSupplier(suppRes.data[0]);
+        // Restore draft state from simulation if available
+        let restored = false;
+        try {
+            const draftRaw = sessionStorage.getItem('po_draft_state');
+            if (draftRaw) {
+                const draft = JSON.parse(draftRaw);
+                const restoredSupplier = (suppRes.data || []).find(s => s.id === draft.supplierId);
+                if (restoredSupplier) setSelectedSupplier(restoredSupplier);
+                const restoredDest = DESTINATIONS.find(d => d.code === draft.destinationCode);
+                if (restoredDest) setDestination(restoredDest);
+                if (draft.containers?.length > 0) {
+                    setContainers(draft.containers);
+                    setNextContainerId(draft.nextContainerId || draft.containers.length + 1);
+                }
+                if (draft.notes) setNotes(draft.notes);
+                sessionStorage.removeItem('po_draft_state');
+                restored = true;
+            }
+        } catch (e) { console.warn('Failed to restore draft state'); }
+        if (!restored && suppRes.data?.length > 0) setSelectedSupplier(suppRes.data[0]);
         setLoading(false);
     };
 
@@ -216,6 +235,14 @@ export default function NuevoPedidoPage() {
             lead_weeks: leadWeeks,
         };
         sessionStorage.setItem('po_simulation', JSON.stringify(simData));
+        // Save full form state so it restores on return
+        sessionStorage.setItem('po_draft_state', JSON.stringify({
+            supplierId: selectedSupplier?.id,
+            destinationCode: destination.code,
+            containers,
+            nextContainerId,
+            notes,
+        }));
         router.push('/dashboard/cobertura?simulate=true');
     };
 
