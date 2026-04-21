@@ -1274,7 +1274,7 @@ export default function InventariosPage() {
                         return (
                           <button key={p.id} onClick={() => {
                             if (avail <= 0) return;
-                            setSaleItems(prev => [...prev, { productId: p.id, quantity: 1 }]);
+                            setSaleItems(prev => [...prev, { productId: p.id, quantity: 1, price: Number(p.price || 0) }]);
                             setSaleSearch('');
                           }}
                             disabled={avail <= 0}
@@ -1314,28 +1314,47 @@ export default function InventariosPage() {
                     const avail = ws.stock - ws.reserved;
                     if (!product) return null;
                     return (
-                      <div key={item.productId} className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-slate-800 m-0 truncate">{product.name}</p>
-                          <p className="text-[10px] text-slate-400 m-0 font-mono">{product.sku} · Disponible: {avail}</p>
+                      <div key={item.productId} className="bg-white border border-slate-200 rounded-xl p-3 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-slate-800 m-0 truncate">{product.name}</p>
+                            <p className="text-[10px] text-slate-400 m-0 font-mono">{product.sku} · Disponible: {avail}</p>
+                          </div>
+                          <button onClick={() => setSaleItems(prev => prev.filter((_, i) => i !== idx))}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 cursor-pointer bg-transparent border-none transition-colors">
+                            <Trash2 size={14} />
+                          </button>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => setSaleItems(prev => prev.map((si, i) => i === idx ? { ...si, quantity: Math.max(1, si.quantity - 1) } : si))}
-                            className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 cursor-pointer bg-transparent font-bold text-sm">−</button>
-                          <input type="number" min="1" max={avail} value={item.quantity}
-                            onChange={(e) => {
-                              const val = Math.min(Math.max(1, parseInt(e.target.value) || 1), avail);
-                              setSaleItems(prev => prev.map((si, i) => i === idx ? { ...si, quantity: val } : si));
-                            }}
-                            className="w-14 text-center py-1 border border-slate-200 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-green-500/20"
-                          />
-                          <button onClick={() => setSaleItems(prev => prev.map((si, i) => i === idx ? { ...si, quantity: Math.min(avail, si.quantity + 1) } : si))}
-                            className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 cursor-pointer bg-transparent font-bold text-sm">+</button>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-slate-400 font-medium">Cant:</span>
+                            <button onClick={() => setSaleItems(prev => prev.map((si, i) => i === idx ? { ...si, quantity: Math.max(1, si.quantity - 1) } : si))}
+                              className="w-6 h-6 rounded border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 cursor-pointer bg-transparent font-bold text-xs">−</button>
+                            <input type="number" min="1" max={avail} value={item.quantity}
+                              onChange={(e) => {
+                                const val = Math.min(Math.max(1, parseInt(e.target.value) || 1), avail);
+                                setSaleItems(prev => prev.map((si, i) => i === idx ? { ...si, quantity: val } : si));
+                              }}
+                              className="w-12 text-center py-0.5 border border-slate-200 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-green-500/20"
+                            />
+                            <button onClick={() => setSaleItems(prev => prev.map((si, i) => i === idx ? { ...si, quantity: Math.min(avail, si.quantity + 1) } : si))}
+                              className="w-6 h-6 rounded border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 cursor-pointer bg-transparent font-bold text-xs">+</button>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-slate-400 font-medium">Precio:</span>
+                            <span className="text-slate-400 text-sm">$</span>
+                            <input type="number" min="0" step="0.01" value={item.price}
+                              onChange={(e) => {
+                                const val = Math.max(0, parseFloat(e.target.value) || 0);
+                                setSaleItems(prev => prev.map((si, i) => i === idx ? { ...si, price: val } : si));
+                              }}
+                              className="w-20 text-right py-0.5 border border-slate-200 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-green-500/20"
+                            />
+                          </div>
+                          <div className="ml-auto text-right">
+                            <p className="text-xs font-black text-green-700 m-0">${(item.quantity * item.price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+                          </div>
                         </div>
-                        <button onClick={() => setSaleItems(prev => prev.filter((_, i) => i !== idx))}
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 cursor-pointer bg-transparent border-none transition-colors">
-                          <Trash2 size={14} />
-                        </button>
                       </div>
                     );
                   })}
@@ -1359,7 +1378,10 @@ export default function InventariosPage() {
               <div className="p-5 border-t border-slate-200 bg-slate-50/50">
                 <div className="flex items-center justify-between mb-3">
                   <div className="text-sm text-slate-600">
-                    <span className="font-bold">{saleItems.length}</span> productos · <span className="font-bold">{saleItems.reduce((s, i) => s + i.quantity, 0)}</span> unidades total
+                    <span className="font-bold">{saleItems.length}</span> productos · <span className="font-bold">{saleItems.reduce((s, i) => s + i.quantity, 0)}</span> unidades
+                  </div>
+                  <div className="text-lg font-black text-green-700">
+                    Total: ${saleItems.reduce((s, i) => s + (i.quantity * i.price), 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                   </div>
                 </div>
                 <div className="flex gap-3">
@@ -1372,7 +1394,9 @@ export default function InventariosPage() {
                       setSaleSaving(true);
                       const whId = proWarehouseId || warehouses[0]?.id;
                       let success = 0, failed = 0;
-                      const reason = saleNote.trim() ? `Venta a público — ${saleNote.trim()}` : 'Venta a público';
+                      const reason = saleNote.trim()
+                        ? `Venta a público — ${saleNote.trim()} — Total: $${saleItems.reduce((s, i) => s + (i.quantity * i.price), 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
+                        : `Venta a público — Total: $${saleItems.reduce((s, i) => s + (i.quantity * i.price), 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
                       for (const item of saleItems) {
                         const { error } = await supabase.rpc('adjust_warehouse_stock', {
                           p_product_id: item.productId,
