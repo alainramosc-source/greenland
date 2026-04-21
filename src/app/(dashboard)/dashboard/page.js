@@ -23,9 +23,10 @@ function DistributorDashboard({ userId, profile }) {
           .select('id, order_number, status, total_amount, created_at, confirmed_at, shipped_at')
           .eq('distributor_id', userId)
           .order('created_at', { ascending: false }),
-        supabase.from('order_payments')
+        supabase.from('distributor_payments')
           .select('*')
           .eq('distributor_id', userId)
+          .eq('status', 'approved')
           .order('created_at', { ascending: false })
       ]);
       setOrders(ordersRes.data || []);
@@ -180,7 +181,7 @@ function DistributorDashboard({ userId, profile }) {
                       <p className="text-[10px] text-slate-400 m-0">{formatDate(payment.created_at)}</p>
                     </div>
                     <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
-                      Registrado
+                      Aprobado
                     </span>
                   </div>
                 ))}
