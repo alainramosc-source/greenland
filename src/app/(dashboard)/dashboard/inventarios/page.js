@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   Package, History, X, Search, AlertTriangle, Shield, ArrowRightLeft, Warehouse,
   ClipboardList, Plus, Loader2, ChevronRight, Calendar, User, Lock, Eye, EyeOff, Filter,
-  Upload, FileSpreadsheet, CheckCircle2, XCircle, Download
+  Upload, FileSpreadsheet, CheckCircle2, XCircle, Download, ShoppingCart, Trash2, Check
 } from 'lucide-react';
 import { useRef } from 'react';
 
@@ -67,6 +67,12 @@ export default function InventariosPage() {
   const [csvResult, setCsvResult] = useState(null);
   const [csvComment, setCsvComment] = useState('');
   const csvInputRef = useRef(null);
+  // Bulk sale (PRO)
+  const [showBulkSale, setShowBulkSale] = useState(false);
+  const [saleItems, setSaleItems] = useState([]); // [{productId, quantity}]
+  const [saleSearch, setSaleSearch] = useState('');
+  const [saleSaving, setSaleSaving] = useState(false);
+  const [saleNote, setSaleNote] = useState('');
 
   const supabase = createClient();
   const router = useRouter();
@@ -437,6 +443,13 @@ export default function InventariosPage() {
               <h1 className="text-3xl font-black tracking-tight text-slate-900 m-0">{isProUser ? `Inventario — ${warehouses[0]?.name || 'Mi Zona'}` : 'Inventario'}</h1>
               <p className="text-slate-500 mt-1 font-medium m-0">{isProUser ? 'Stock de tu almacén asignado. Registra ventas a público.' : 'Gestión de stock por bodega y conteos físicos.'}</p>
             </div>
+            {isProUser && (
+              <button onClick={() => { setShowBulkSale(true); setSaleItems([]); setSaleSearch(''); setSaleNote(''); }}
+                className="flex items-center gap-2 px-5 py-3 rounded-xl bg-green-600 text-white font-bold text-sm hover:bg-green-700 cursor-pointer transition-all shadow-lg shadow-green-600/25 border-none"
+              >
+                <ShoppingCart size={18} /> Venta a Público
+              </button>
+            )}
           </div>
 
           {/* Tabs — PRO only sees Stock */}
@@ -1221,6 +1234,172 @@ export default function InventariosPage() {
           </div>
         )
       }
+
+      {/* ===== BULK SALE MODAL (PRO) ===== */}
+      {showBulkSale && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center px-4">
+          <div className="bg-white/95 backdrop-blur-xl w-full max-w-[600px] rounded-2xl shadow-2xl border border-white overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-green-50">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 m-0 flex items-center gap-2"><ShoppingCart size={20} className="text-green-600" /> Venta a Público</h3>
+                <p className="text-xs text-slate-500 m-0 mt-0.5">{warehouses[0]?.name || 'Almacén'} — Agrega los productos vendidos</p>
+              </div>
+              <button onClick={() => setShowBulkSale(false)} className="p-1.5 rounded-lg hover:bg-white bg-transparent border-none cursor-pointer">
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="p-5 flex-1 overflow-y-auto space-y-4">
+              {/* Product search & add */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={saleSearch}
+                  onChange={(e) => setSaleSearch(e.target.value)}
+                  placeholder="Buscar producto por nombre o SKU..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-green-500/20 text-sm placeholder:text-slate-400 text-slate-800 outline-none shadow-sm"
+                />
+                {saleSearch.length > 1 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 max-h-[200px] overflow-y-auto">
+                    {products
+                      .filter(p => {
+                        const s = saleSearch.toLowerCase();
+                        return (p.name?.toLowerCase().includes(s) || p.sku?.toLowerCase().includes(s)) && !saleItems.find(si => si.productId === p.id);
+                      })
+                      .slice(0, 8)
+                      .map(p => {
+                        const ws = getWhStock(p.id, proWarehouseId || warehouses[0]?.id);
+                        const avail = ws.stock - ws.reserved;
+                        return (
+                          <button key={p.id} onClick={() => {
+                            if (avail <= 0) return;
+                            setSaleItems(prev => [...prev, { productId: p.id, quantity: 1 }]);
+                            setSaleSearch('');
+                          }}
+                            disabled={avail <= 0}
+                            className={`w-full flex items-center justify-between px-4 py-2.5 text-left border-none text-sm transition-all ${avail > 0 ? 'hover:bg-green-50 cursor-pointer bg-transparent' : 'bg-slate-50 text-slate-400 cursor-not-allowed'}`}
+                          >
+                            <div>
+                              <span className="font-bold text-slate-800">{p.name}</span>
+                              <span className="ml-2 font-mono text-[10px] text-slate-400">{p.sku}</span>
+                            </div>
+                            <span className={`text-xs font-bold ${avail > 0 ? 'text-green-600' : 'text-red-400'}`}>
+                              {avail > 0 ? `${avail} disp.` : 'Agotado'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    {products.filter(p => {
+                      const s = saleSearch.toLowerCase();
+                      return (p.name?.toLowerCase().includes(s) || p.sku?.toLowerCase().includes(s)) && !saleItems.find(si => si.productId === p.id);
+                    }).length === 0 && (
+                      <p className="px-4 py-3 text-sm text-slate-400 m-0">No se encontraron productos</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Sale items list */}
+              {saleItems.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">
+                  <ShoppingCart size={40} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-sm font-medium m-0">Busca y agrega productos arriba</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {saleItems.map((item, idx) => {
+                    const product = products.find(p => p.id === item.productId);
+                    const ws = getWhStock(item.productId, proWarehouseId || warehouses[0]?.id);
+                    const avail = ws.stock - ws.reserved;
+                    if (!product) return null;
+                    return (
+                      <div key={item.productId} className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-slate-800 m-0 truncate">{product.name}</p>
+                          <p className="text-[10px] text-slate-400 m-0 font-mono">{product.sku} · Disponible: {avail}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => setSaleItems(prev => prev.map((si, i) => i === idx ? { ...si, quantity: Math.max(1, si.quantity - 1) } : si))}
+                            className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 cursor-pointer bg-transparent font-bold text-sm">−</button>
+                          <input type="number" min="1" max={avail} value={item.quantity}
+                            onChange={(e) => {
+                              const val = Math.min(Math.max(1, parseInt(e.target.value) || 1), avail);
+                              setSaleItems(prev => prev.map((si, i) => i === idx ? { ...si, quantity: val } : si));
+                            }}
+                            className="w-14 text-center py-1 border border-slate-200 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-green-500/20"
+                          />
+                          <button onClick={() => setSaleItems(prev => prev.map((si, i) => i === idx ? { ...si, quantity: Math.min(avail, si.quantity + 1) } : si))}
+                            className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 cursor-pointer bg-transparent font-bold text-sm">+</button>
+                        </div>
+                        <button onClick={() => setSaleItems(prev => prev.filter((_, i) => i !== idx))}
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 cursor-pointer bg-transparent border-none transition-colors">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Note */}
+              {saleItems.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Nota (opcional)</label>
+                  <input type="text" value={saleNote} onChange={(e) => setSaleNote(e.target.value)}
+                    placeholder="Ej. Cliente Juan Pérez, factura #123..."
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-green-500/20"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            {saleItems.length > 0 && (
+              <div className="p-5 border-t border-slate-200 bg-slate-50/50">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm text-slate-600">
+                    <span className="font-bold">{saleItems.length}</span> productos · <span className="font-bold">{saleItems.reduce((s, i) => s + i.quantity, 0)}</span> unidades total
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => setShowBulkSale(false)}
+                    className="flex-1 px-4 py-2.5 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm"
+                  >Cancelar</button>
+                  <button
+                    disabled={saleSaving || saleItems.length === 0}
+                    onClick={async () => {
+                      setSaleSaving(true);
+                      const whId = proWarehouseId || warehouses[0]?.id;
+                      let success = 0, failed = 0;
+                      const reason = saleNote.trim() ? `Venta a público — ${saleNote.trim()}` : 'Venta a público';
+                      for (const item of saleItems) {
+                        const { error } = await supabase.rpc('adjust_warehouse_stock', {
+                          p_product_id: item.productId,
+                          p_warehouse_id: whId,
+                          p_quantity_change: -Math.abs(item.quantity),
+                          p_reason: reason
+                        });
+                        if (error) failed++; else success++;
+                      }
+                      setSaleSaving(false);
+                      if (failed > 0) {
+                        alert(`${success} productos actualizados, ${failed} con error.`);
+                      }
+                      await fetchData();
+                      setShowBulkSale(false);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700 cursor-pointer transition-all shadow-lg shadow-green-600/20 border-none disabled:opacity-50"
+                  >
+                    {saleSaving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                    {saleSaving ? 'Procesando...' : 'Confirmar Venta'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
