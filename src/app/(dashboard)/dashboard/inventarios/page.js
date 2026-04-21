@@ -25,6 +25,8 @@ export default function InventariosPage() {
   const [warehouseStock, setWarehouseStock] = useState({});
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isProUser, setIsProUser] = useState(false);
+  const [proWarehouseId, setProWarehouseId] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedWarehouse, setSelectedWarehouse] = useState('');
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
@@ -74,9 +76,12 @@ export default function InventariosPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push('/login'); return; }
 
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    if (profile?.role !== 'admin') { router.push('/dashboard/pedidos'); return; }
-    setIsAdmin(true);
+    const { data: profile } = await supabase.from('profiles').select('role, sub_role, assigned_warehouse_id').eq('id', user.id).single();
+    const isPro = profile?.role === 'distributor' && profile?.sub_role === 'distributor_pro' && profile?.assigned_warehouse_id;
+    if (profile?.role !== 'admin' && !isPro) { router.push('/dashboard/pedidos'); return; }
+    setIsAdmin(profile?.role === 'admin');
+    setIsProUser(!!isPro);
+    if (isPro) setProWarehouseId(profile.assigned_warehouse_id);
 
     // Fetch products
     const { data: productsData } = await supabase
@@ -86,8 +91,10 @@ export default function InventariosPage() {
       .order('sku');
     setProducts(productsData || []);
 
-    // Fetch warehouses
-    const { data: whData } = await supabase.from('warehouses').select('*').eq('is_active', true).order('name');
+    // Fetch warehouses (PRO only sees their assigned warehouse)
+    let whQuery = supabase.from('warehouses').select('*').eq('is_active', true).order('name');
+    if (isPro) whQuery = whQuery.eq('id', profile.assigned_warehouse_id);
+    const { data: whData } = await whQuery;
     setWarehouses(whData || []);
 
     // Fetch all warehouse stock
@@ -152,16 +159,18 @@ export default function InventariosPage() {
 
     const qty = parseInt(adjustmentAmount);
     if (isNaN(qty) || qty === 0) {
-      alert('Ingresa una cantidad válida (positiva para agregar, negativa para restar).');
+      alert('Ingresa una cantidad válida.');
       return;
     }
 
-    // Prevent negative resulting stock
-    if (qty < 0) {
+    // For PRO sales, negate the quantity (user enters positive, we subtract)
+    const finalQty = isProUser ? -Math.abs(qty) : qty;
+
+    if (finalQty < 0) {
       const ws = getWhStock(selectedProduct.id, selectedWarehouse);
       const currentStock = ws.stock - ws.reserved;
-      if (currentStock + qty < 0) {
-        alert(`No puedes restar ${Math.abs(qty)} unidades. Stock disponible: ${currentStock}`);
+      if (currentStock + finalQty < 0) {
+        alert(`No puedes vender ${Math.abs(finalQty)} unidades. Stock disponible: ${currentStock}`);
         return;
       }
     }
@@ -170,8 +179,8 @@ export default function InventariosPage() {
     const { data, error } = await supabase.rpc('adjust_warehouse_stock', {
       p_product_id: selectedProduct.id,
       p_warehouse_id: selectedWarehouse,
-      p_quantity_change: qty,
-      p_reason: sanitizeText(adjustmentReason, 300) || 'Ajuste manual'
+      p_quantity_change: finalQty,
+      p_reason: sanitizeText(adjustmentReason, 300) || (isProUser ? 'Venta a público' : 'Ajuste manual')
     });
 
     if (error) {
@@ -425,14 +434,14 @@ export default function InventariosPage() {
           {/* Title */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-6">
             <div>
-              <h1 className="text-3xl font-black tracking-tight text-slate-900 m-0">Inventario</h1>
-              <p className="text-slate-500 mt-1 font-medium m-0">Gestión de stock por bodega y conteos físicos.</p>
+              <h1 className="text-3xl font-black tracking-tight text-slate-900 m-0">{isProUser ? `Inventario — ${warehouses[0]?.name || 'Mi Zona'}` : 'Inventario'}</h1>
+              <p className="text-slate-500 mt-1 font-medium m-0">{isProUser ? 'Stock de tu almacén asignado. Registra ventas a público.' : 'Gestión de stock por bodega y conteos físicos.'}</p>
             </div>
           </div>
 
-          {/* Tabs */}
+          {/* Tabs — PRO only sees Stock */}
           <div className="flex gap-1 mb-6 bg-white/60 backdrop-blur-md rounded-xl p-1 border border-white/50 shadow-sm w-fit">
-            {[{ key: 'stock', label: 'Stock', icon: Package }, { key: 'historial', label: 'Historial', icon: History }, { key: 'conteos', label: 'Conteos', icon: ClipboardList }].map(t => (
+            {[{ key: 'stock', label: 'Stock', icon: Package }, ...(isAdmin ? [{ key: 'historial', label: 'Historial', icon: History }, { key: 'conteos', label: 'Conteos', icon: ClipboardList }] : [])].map(t => (
               <button key={t.key} onClick={() => setActiveTab(t.key)}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all border-none cursor-pointer ${activeTab === t.key
                   ? 'bg-[#6a9a04] text-white shadow-md'
@@ -530,6 +539,8 @@ export default function InventariosPage() {
                     </div>
                   )}
                 </div>
+                {isAdmin && (
+                <>
                 {/* CSV Upload Button */}
                 <input type="file" ref={csvInputRef} accept=".csv,.txt" onChange={handleCsvFile} className="hidden" />
                 <button onClick={() => csvInputRef.current?.click()}
@@ -542,6 +553,8 @@ export default function InventariosPage() {
                 >
                   <Download className="w-4 h-4" /> Plantilla
                 </button>
+                </>
+                )}
               </div>
 
               {/* Products Table with Warehouse Columns */}
@@ -623,6 +636,17 @@ export default function InventariosPage() {
                               </td>
                               <td className="px-3 py-3 text-right">
                                 <div className="flex items-center gap-1.5 justify-end">
+                                  {isProUser && available > 0 && (
+                                    <button
+                                      className="px-2.5 py-1.5 rounded-lg border border-green-300 text-[11px] font-bold text-green-700 hover:bg-green-50 transition-all cursor-pointer bg-transparent flex items-center gap-1"
+                                      onClick={() => { setSelectedProduct(product); setSelectedWarehouse(proWarehouseId); setAdjustmentReason('Venta a público'); }}
+                                      title="Registrar venta a público"
+                                    >
+                                      <Plus className="w-3 h-3" /> Venta
+                                    </button>
+                                  )}
+                                  {isAdmin && (
+                                  <>
                                   <button
                                     className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-white hover:text-[#6a9a04] transition-all cursor-pointer bg-transparent flex items-center gap-1"
                                     onClick={() => setSelectedProduct(product)}
@@ -637,6 +661,8 @@ export default function InventariosPage() {
                                   >
                                     <ArrowRightLeft className="w-3 h-3" /> Transferir
                                   </button>
+                                  </>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -859,12 +885,13 @@ export default function InventariosPage() {
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center">
             <div className="bg-white/90 backdrop-blur-xl w-full max-w-[450px] rounded-2xl shadow-2xl border border-white overflow-hidden">
               <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-                <h3 className="text-lg font-bold text-slate-900 m-0">Ajustar Stock: {selectedProduct.name}</h3>
-                <button onClick={() => { setSelectedProduct(null); setSelectedWarehouse(''); }} className="p-1 rounded-lg hover:bg-slate-100 bg-transparent border-none cursor-pointer">
+                <h3 className="text-lg font-bold text-slate-900 m-0">{isProUser ? '💰 Venta a Público' : 'Ajustar Stock'}: {selectedProduct.name}</h3>
+                <button onClick={() => { setSelectedProduct(null); setSelectedWarehouse(''); setAdjustmentReason(''); setAdjustmentAmount(''); }} className="p-1 rounded-lg hover:bg-slate-100 bg-transparent border-none cursor-pointer">
                   <X className="w-5 h-5 text-slate-500" />
                 </button>
               </div>
               <form onSubmit={handleAdjustStock} className="p-6 space-y-5">
+                {!isProUser && (
                 <div>
                   <label className="block text-sm font-medium text-slate-600 mb-1">Bodega *</label>
                   <select
@@ -884,18 +911,28 @@ export default function InventariosPage() {
                     })}
                   </select>
                 </div>
+                )}
+                {isProUser && selectedWarehouse && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-700 font-medium">
+                    🏢 {warehouses.find(w => w.id === selectedWarehouse)?.name} — Disponible: <strong>{getWhStock(selectedProduct.id, selectedWarehouse).stock - getWhStock(selectedProduct.id, selectedWarehouse).reserved}</strong> uds
+                  </div>
+                )}
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Cantidad a AJUSTAR (+ agregar, - restar)</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">{isProUser ? 'Cantidad vendida' : 'Cantidad a AJUSTAR (+ agregar, - restar)'}</label>
                   <input
                     type="number"
                     value={adjustmentAmount}
                     onChange={(e) => setAdjustmentAmount(e.target.value)}
-                    placeholder="Ej. 10 o -5"
+                    placeholder={isProUser ? 'Ej. 5' : 'Ej. 10 o -5'}
+                    min={isProUser ? '1' : undefined}
                     autoFocus
                     required
                     className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none text-lg shadow-sm"
                   />
-                  <small className="block mt-1 text-xs text-slate-400">Positivos para agregar stock, negativos para restar.</small>
+                  {isProUser
+                    ? <small className="block mt-1 text-xs text-green-600 font-medium">Ingresa la cantidad de piezas vendidas. Se restará del inventario.</small>
+                    : <small className="block mt-1 text-xs text-slate-400">Positivos para agregar stock, negativos para restar.</small>
+                  }
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-600 mb-1">Motivo</label>
@@ -908,11 +945,11 @@ export default function InventariosPage() {
                   />
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
-                  <button type="button" onClick={() => { setSelectedProduct(null); setSelectedWarehouse(''); }}
+                  <button type="button" onClick={() => { setSelectedProduct(null); setSelectedWarehouse(''); setAdjustmentReason(''); setAdjustmentAmount(''); }}
                     className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm"
                   >Cancelar</button>
                   <button type="submit" disabled={submitting || !selectedWarehouse}
-                    className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#6a9a04] hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/30 cursor-pointer transition-all border-none disabled:opacity-50"
+                    className={`px-5 py-2.5 rounded-xl text-white font-bold shadow-lg cursor-pointer transition-all border-none disabled:opacity-50 ${isProUser ? 'bg-green-600 hover:bg-green-700 shadow-green-600/30' : 'bg-[#6a9a04] hover:bg-[#6a9a04]/90 shadow-[#6a9a04]/30'}`}
                   >
                     {submitting ? 'Guardando...' : 'Guardar Movimiento'}
                   </button>
