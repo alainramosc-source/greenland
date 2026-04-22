@@ -51,10 +51,31 @@ export default function NuevoPedidoPage() {
           .eq('is_active', true)
           .order('name');
 
-        // Calculate available stock for each product
+        // Fetch Saltillo warehouse IDs to filter stock for regular distributors
+        const SALTILLO_BODEGAS = ['Bodega Vito Alessio', 'Bodega Echeverría'];
+        const { data: saltilloWarehouses } = await supabase
+          .from('warehouses')
+          .select('id, name')
+          .eq('is_active', true)
+          .in('name', SALTILLO_BODEGAS);
+        const saltilloIds = (saltilloWarehouses || []).map(w => w.id);
+
+        // Fetch warehouse stock ONLY from Saltillo bodegas
+        let stockMap = {}; // { product_id: total_available }
+        if (saltilloIds.length > 0) {
+          const { data: wsData } = await supabase
+            .from('warehouse_stock')
+            .select('product_id, stock_quantity')
+            .in('warehouse_id', saltilloIds);
+          (wsData || []).forEach(ws => {
+            stockMap[ws.product_id] = (stockMap[ws.product_id] || 0) + (ws.stock_quantity || 0);
+          });
+        }
+
+        // Calculate available stock from Saltillo warehouses only
         if (productsData) {
           productsData.forEach(p => {
-            p.available_stock = (p.stock_quantity || 0) - (p.reserved_quantity || 0);
+            p.available_stock = stockMap[p.id] || 0;
           });
         }
 
