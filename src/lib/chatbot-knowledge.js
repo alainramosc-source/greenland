@@ -54,7 +54,7 @@ Nuestra bodega principal está en **Saltillo, Coahuila**.
 | Morelia | Antonio Pulido | (443) 369 1844 | Michoacán y pueblos cercanos |
 | Querétaro | Gerardo Vargas | (442) 613 1365 | Querétaro |
 | Altamira | Sofía Hernández | (222) 598 1243 | Altamira y zona |
-| Nuevo León | Leticia Martínez | (811) 807 1502 | Nuevo León |
+| Nuevo León | Oscar Espinoza | (811) 019 2549 | Nuevo León |
 
 IMPORTANTE: Cuando canalices al representante, dile al cliente algo como: "En tu zona contamos con [Nombre], nuestro encargado de zona, quien te puede atender directamente. Te comparto su número: [teléfono]. ¿Gustas que le informemos que te va a contactar?"
 
