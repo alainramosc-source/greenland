@@ -387,10 +387,13 @@ export default function PreciosPage() {
 
                 if (isNaN(price) || price <= 0) { errors.push(`Fila ${i + 1}: Precio inválido "${cols[priceIdx]}"`); continue; }
 
+                // Normalize: strip accents for fuzzy matching
+                const norm = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
                 let addressId = null;
                 let addressName = 'Por defecto';
-                if (addrAlias && addrAlias.toLowerCase() !== 'default' && addrAlias.toLowerCase() !== 'por defecto') {
-                    const addr = allAddresses.find(a => a.distributor_id === dist.id && a.label?.toLowerCase() === addrAlias.toLowerCase());
+                if (addrAlias && norm(addrAlias) !== 'default' && norm(addrAlias) !== 'por defecto') {
+                    const addr = allAddresses.find(a => a.distributor_id === dist.id && norm(a.label) === norm(addrAlias));
                     if (!addr) { errors.push(`Fila ${i + 1}: Dirección "${addrAlias}" no encontrada para ${clientNum}`); continue; }
                     addressId = addr.id;
                     addressName = addr.label;
