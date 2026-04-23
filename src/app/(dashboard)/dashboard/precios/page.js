@@ -85,8 +85,8 @@ export default function PreciosPage() {
         // Fetch all addresses for bulk upload
         const { data: allAddr } = await supabase
             .from('distributor_addresses')
-            .select('id, distributor_id, alias, city, state')
-            .order('alias');
+            .select('id, distributor_id, label, city, state')
+            .order('label');
         setAllAddresses(allAddr || []);
 
         setLoading(false);
@@ -357,7 +357,7 @@ export default function PreciosPage() {
             const headersLower = headers.map(h => h.toLowerCase());
 
             const clientIdx = headersLower.findIndex(h => ['id_cliente', 'id cliente', 'cliente', 'client_number', 'distribuidor'].includes(h));
-            const addrIdx = headersLower.findIndex(h => ['dirección', 'direccion', 'address', 'alias'].includes(h));
+            const addrIdx = headersLower.findIndex(h => ['dirección', 'direccion', 'address', 'alias', 'label', 'etiqueta'].includes(h));
             const skuIdx = headersLower.findIndex(h => h === 'sku' || h === 'código' || h === 'codigo');
             const priceIdx = headersLower.findIndex(h => ['precio', 'price', 'precio_especial', 'custom_price'].includes(h));
 
@@ -390,10 +390,10 @@ export default function PreciosPage() {
                 let addressId = null;
                 let addressName = 'Por defecto';
                 if (addrAlias && addrAlias.toLowerCase() !== 'default' && addrAlias.toLowerCase() !== 'por defecto') {
-                    const addr = allAddresses.find(a => a.distributor_id === dist.id && a.alias?.toLowerCase() === addrAlias.toLowerCase());
+                    const addr = allAddresses.find(a => a.distributor_id === dist.id && a.label?.toLowerCase() === addrAlias.toLowerCase());
                     if (!addr) { errors.push(`Fila ${i + 1}: Dirección "${addrAlias}" no encontrada para ${clientNum}`); continue; }
                     addressId = addr.id;
-                    addressName = addr.alias;
+                    addressName = addr.label;
                 }
 
                 rows.push({
@@ -465,7 +465,7 @@ export default function PreciosPage() {
             // Each registered address
             addrs.forEach(addr => {
                 products.slice(0, 2).forEach(p => {
-                    rows.push(`${d.client_number},${addr.alias || addr.city || ''},${p.sku},${p.price}`);
+                    rows.push(`${d.client_number},${addr.label || addr.city || ''},${p.sku},${p.price}`);
                 });
             });
         });
