@@ -1,7 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Search, Filter, Edit2, Shield, AlertCircle, X, Save, UserPlus, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, Loader2, ShieldAlert, DollarSign, Users, CreditCard, TrendingUp, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
+import { Search, Filter, Edit2, Shield, AlertCircle, X, Save, UserPlus, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, Loader2, ShieldAlert, DollarSign, Users, CreditCard, TrendingUp, ExternalLink, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function UsersPage() {
   const [activeTab, setActiveTab] = useState('clientes');
@@ -28,6 +29,10 @@ export default function UsersPage() {
   const [cxcSearch, setCxcSearch] = useState('');
   const [cxcSort, setCxcSort] = useState({ key: 'balance', dir: 'desc' });
   const [allWarehouses, setAllWarehouses] = useState([]);
+  // Expandable addresses
+  const [expandedUserId, setExpandedUserId] = useState(null);
+  const [addressCache, setAddressCache] = useState({}); // { userId: [addresses] }
+  const [addressLoading, setAddressLoading] = useState(false);
 
   const supabase = createClient();
 
@@ -58,6 +63,23 @@ export default function UsersPage() {
     setLoading(false);
     // Also fetch CxC data
     fetchCxC();
+
+    // Prefetch all distributor addresses
+    const fetchAllAddresses = async () => {
+      const { data: addrData } = await supabase
+        .from('distributor_addresses')
+        .select('*')
+        .order('is_default', { ascending: false });
+      if (addrData) {
+        const map = {};
+        addrData.forEach(a => {
+          if (!map[a.distributor_id]) map[a.distributor_id] = [];
+          map[a.distributor_id].push(a);
+        });
+        setAddressCache(map);
+      }
+    };
+    fetchAllAddresses();
   };
 
   if (unauthorized) {
@@ -448,7 +470,11 @@ export default function UsersPage() {
                   </td>
                 </tr>
               ) : (
-                sortedUsers.map((user, idx) => (
+                sortedUsers.map((user, idx) => {
+                  const isExpanded = expandedUserId === user.id;
+                  const userAddresses = addressCache[user.id] || [];
+                  return (
+                  <>
                   <tr key={user.id} className="hover:bg-white/40 transition-colors group">
                     <td className="px-6 py-5">
                       <div className="flex items-center justify-center">
@@ -494,6 +520,17 @@ export default function UsersPage() {
                     </td>
                     <td className="px-6 py-5 text-center">
                       <div className="flex items-center justify-center gap-1">
+                        {user.role === 'distributor' && (
+                          <button
+                            className={`p-2 rounded-lg transition-colors border bg-transparent cursor-pointer shadow-sm hover:shadow-sm ${
+                              isExpanded ? 'bg-blue-50 border-blue-200 text-blue-600' : 'hover:bg-blue-50 border-transparent hover:border-blue-200'
+                            }`}
+                            onClick={() => setExpandedUserId(isExpanded ? null : user.id)}
+                            title="Ver Direcciones"
+                          >
+                            <MapPin className={`w-4 h-4 ${isExpanded ? 'text-blue-600' : 'text-slate-500 hover:text-blue-600'}`} />
+                          </button>
+                        )}
                         <button
                           className="p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-200 bg-transparent cursor-pointer shadow-sm hover:shadow-sm"
                           onClick={() => handleEditClick(user)}
@@ -511,7 +548,60 @@ export default function UsersPage() {
                       </div>
                     </td>
                   </tr>
-                ))
+                  {/* Expandable Addresses Row */}
+                  {isExpanded && (
+                    <tr key={`${user.id}-addr`}>
+                      <td colSpan="8" className="px-6 py-0">
+                        <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 mb-3 mt-1">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <MapPin size={14} className="text-blue-600" />
+                              <span className="text-xs font-black text-blue-700 uppercase tracking-wider">Direcciones de Entrega</span>
+                              <span className="text-[10px] font-bold text-blue-400 bg-blue-100 px-2 py-0.5 rounded-full">{userAddresses.length}</span>
+                            </div>
+                            <Link
+                              href={`/dashboard/precios?distributor=${user.id}`}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#6a9a04] text-white text-[11px] font-bold no-underline hover:bg-[#6a9a04]/90 transition-colors shadow-sm"
+                            >
+                              <DollarSign size={12} /> Asignar Precios
+                            </Link>
+                          </div>
+                          {userAddresses.length > 0 ? (
+                            <div className="space-y-2">
+                              {userAddresses.map(addr => (
+                                <div key={addr.id} className="flex items-start justify-between bg-white rounded-lg px-4 py-3 border border-blue-100/50">
+                                  <div>
+                                    <p className="font-bold text-sm text-slate-900 m-0 flex items-center gap-2">
+                                      {addr.label || 'Dirección'}
+                                      {addr.is_default && <span className="text-[9px] font-black bg-[#6a9a04]/10 text-[#6a9a04] px-1.5 py-0.5 rounded-full">DEFAULT</span>}
+                                    </p>
+                                    <p className="text-xs text-slate-500 m-0 mt-1">
+                                      {[addr.street, addr.neighborhood, addr.city, addr.state, addr.zip].filter(Boolean).join(', ')}
+                                    </p>
+                                    {addr.reference && <p className="text-[11px] text-slate-400 m-0 mt-0.5">Ref: {addr.reference}</p>}
+                                  </div>
+                                  <Link
+                                    href={`/dashboard/precios?distributor=${user.id}&address=${addr.id}`}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-bold text-slate-600 no-underline hover:border-[#6a9a04]/30 hover:text-[#6a9a04] transition-colors shrink-0 mt-1"
+                                  >
+                                    <DollarSign size={11} /> Precios
+                                  </Link>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4 text-sm text-slate-400">
+                              <MapPin size={20} className="mx-auto mb-1 opacity-40" />
+                              Este distribuidor no tiene direcciones registradas.
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </>
+                  );
+                })
               )}
             </tbody>
           </table>
