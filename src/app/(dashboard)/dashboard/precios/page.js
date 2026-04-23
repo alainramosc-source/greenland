@@ -387,13 +387,16 @@ export default function PreciosPage() {
 
                 if (isNaN(price) || price <= 0) { errors.push(`Fila ${i + 1}: Precio inválido "${cols[priceIdx]}"`); continue; }
 
-                // Normalize: strip accents for fuzzy matching
+                // Normalize: strip accents for fuzzy fallback matching
                 const norm = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
                 let addressId = null;
                 let addressName = 'Por defecto';
                 if (addrAlias && norm(addrAlias) !== 'default' && norm(addrAlias) !== 'por defecto') {
-                    const addr = allAddresses.find(a => a.distributor_id === dist.id && norm(a.label) === norm(addrAlias));
+                    // Try exact match first (accent-sensitive, case-insensitive)
+                    let addr = allAddresses.find(a => a.distributor_id === dist.id && a.label?.toLowerCase().trim() === addrAlias.toLowerCase().trim());
+                    // Fallback: accent-insensitive match (only if no exact match)
+                    if (!addr) addr = allAddresses.find(a => a.distributor_id === dist.id && norm(a.label) === norm(addrAlias));
                     if (!addr) { errors.push(`Fila ${i + 1}: Dirección "${addrAlias}" no encontrada para ${clientNum}`); continue; }
                     addressId = addr.id;
                     addressName = addr.label;
