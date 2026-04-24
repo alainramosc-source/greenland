@@ -1212,8 +1212,7 @@ export default function OrderDetailsPage() {
                       setProductSearch(q);
                       if (q.length >= 2) {
                         const { data } = await supabase.from('products').select('id, name, sku, price, stock_quantity, reserved_quantity').or(`name.ilike.%${q}%,sku.ilike.%${q}%`).limit(5);
-                        const existingIds = order.order_items.map(i => i.product_id);
-                        setAvailableProducts((data || []).filter(p => !existingIds.includes(p.id)));
+                        setAvailableProducts(data || []);
                       } else {
                         setAvailableProducts([]);
                       }
