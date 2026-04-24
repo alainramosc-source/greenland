@@ -128,7 +128,10 @@ export default function MisPagosPage() {
     setAllocations(prev => {
       const exists = prev.find(a => a.order_id === orderId);
       if (exists) return prev.filter(a => a.order_id !== orderId);
-      return [...prev, { order_id: orderId, amount: '' }];
+      // Auto-fill with the order's pending balance
+      const order = orders.find(o => o.id === orderId);
+      const autoAmount = order ? order.balance.toFixed(2) : '';
+      return [...prev, { order_id: orderId, amount: autoAmount }];
     });
   };
 
@@ -381,7 +384,7 @@ export default function MisPagosPage() {
                                   step="0.01"
                                   value={alloc?.amount || ''}
                                   onChange={e => updateAllocationAmount(o.id, e.target.value)}
-                                  placeholder={o.balance.toFixed(2)}
+                                  placeholder="0.00"
                                   className="w-full pl-7 pr-3 py-2 rounded-lg border border-slate-200 focus:border-[#6a9a04] outline-none text-sm font-bold"
                                 />
                               </div>
