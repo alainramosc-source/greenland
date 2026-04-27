@@ -1095,7 +1095,7 @@ export default function OrderDetailsPage() {
                         {/* Warehouse Assignment (Admin only) */}
                         {isAdmin && (
                           <td className="py-4">
-                            {order.status === 'pending' ? (
+                            {['pending', 'in_fulfillment'].includes(order.status) ? (
                               <select
                                 value={item.warehouse_id || ''}
                                 onChange={(e) => handleAssignWarehouse(item.id, e.target.value)}
