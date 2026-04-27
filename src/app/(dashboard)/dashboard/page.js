@@ -15,10 +15,12 @@ function DistributorDashboard({ userId, profile }) {
   const [orders, setOrders] = useState([]);
   const [payments, setPayments] = useState([]);
 
+  const [containerCharges, setContainerCharges] = useState(0);
+
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
-      const [ordersRes, paymentsRes] = await Promise.all([
+      const [ordersRes, paymentsRes, receptionsRes] = await Promise.all([
         supabase.from('orders')
           .select('id, order_number, status, total_amount, created_at, confirmed_at, shipped_at')
           .eq('distributor_id', userId)
@@ -27,10 +29,16 @@ function DistributorDashboard({ userId, profile }) {
           .select('*')
           .eq('distributor_id', userId)
           .eq('status', 'approved')
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false }),
+        supabase.from('container_receptions')
+          .select('charge_amount')
+          .eq('distributor_id', userId)
+          .eq('status', 'completed')
       ]);
       setOrders(ordersRes.data || []);
       setPayments(paymentsRes.data || []);
+      const totalContainers = (receptionsRes.data || []).reduce((s, r) => s + Number(r.charge_amount || 0), 0);
+      setContainerCharges(totalContainers);
       setLoading(false);
     }
     fetchData();
@@ -40,11 +48,11 @@ function DistributorDashboard({ userId, profile }) {
     const total = orders.length;
     const active = orders.filter(o => ['pending', 'confirmed', 'in_fulfillment', 'shipped'].includes(o.status)).length;
     const nonCancelled = orders.filter(o => !['cancelled', 'rejected'].includes(o.status));
-    const totalSpent = nonCancelled.reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0);
+    const totalSpent = nonCancelled.reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0) + containerCharges;
     const totalPaid = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
     const balance = totalSpent - totalPaid;
     return { total, active, totalSpent, totalPaid, balance };
-  }, [orders, payments]);
+  }, [orders, payments, containerCharges]);
 
   const statusConfig = {
     pending: { label: 'Pendiente', color: '#f59e0b', bg: 'bg-amber-50 border-amber-200 text-amber-700' },

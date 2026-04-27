@@ -32,6 +32,7 @@ export default function MisPagosPage() {
     notes: '', receipt_url: ''
   });
   const [allocations, setAllocations] = useState([]); // [{order_id, amount}]
+  const [receptions, setReceptions] = useState([]); // container receptions for PRO
 
   useEffect(() => { fetchData(); }, []);
 
@@ -81,10 +82,20 @@ export default function MisPagosPage() {
       setOrders(ordData);
     }
 
-    // Calculate balance
+    // Fetch container receptions (charges to PRO)
+    const { data: recData } = await supabase
+      .from('container_receptions')
+      .select('id, container_label, reception_date, charge_amount, status, warehouse:warehouses(name)')
+      .eq('distributor_id', targetUserId)
+      .eq('status', 'completed')
+      .order('reception_date', { ascending: false });
+    setReceptions(recData || []);
+
+    // Calculate balance (orders + containers - payments)
     const approved = (payData || []).filter(p => p.status === 'approved').reduce((s, p) => s + Number(p.amount), 0);
     const totalOrders = (ordData || []).reduce((s, o) => s + Number(o.total_amount), 0);
-    setBalance({ total_orders: totalOrders, total_paid: approved, balance: totalOrders - approved });
+    const totalContainers = (recData || []).reduce((s, r) => s + Number(r.charge_amount || 0), 0);
+    setBalance({ total_orders: totalOrders, total_containers: totalContainers, total_paid: approved, balance: (totalOrders + totalContainers) - approved });
 
     setLoading(false);
   };
@@ -244,6 +255,36 @@ export default function MisPagosPage() {
           <p className="text-xs text-slate-500 ml-auto max-w-[250px] m-0">
             Usa este código como CONCEPTO al hacer transferencias para que tu pago se identifique automáticamente.
           </p>
+        </div>
+      )}
+
+      {/* Container Charges Section (PRO only) */}
+      {receptions.length > 0 && (
+        <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden">
+          <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 m-0">
+              📦 Cargos por Contenedores
+            </h2>
+            <span className="text-sm font-black text-[#6a9a04]">
+              ${(balance.total_containers || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {receptions.map(r => (
+              <div key={r.id} className="px-5 py-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold text-slate-800 m-0">{r.container_label || 'Recepción'}</p>
+                  <p className="text-xs text-slate-400 m-0">
+                    {new Date(r.reception_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {r.warehouse?.name && ` — ${r.warehouse.name}`}
+                  </p>
+                </div>
+                <span className="font-bold text-slate-800">
+                  ${Number(r.charge_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
