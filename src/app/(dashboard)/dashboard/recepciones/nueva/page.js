@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Container, ArrowLeft, Save, Loader2, Package, Plus, Trash2, DollarSign,
-  Warehouse, User, Calendar, FileText, AlertTriangle, CheckCircle, Search, X
+  Warehouse, User, Calendar, FileText, AlertTriangle, CheckCircle, Search, X,
+  Upload, Paperclip, Download, Eye
 } from 'lucide-react';
 
 export default function NuevaRecepcionPage() {
@@ -53,6 +54,8 @@ export default function NuevaRecepcionPage() {
   const [productSearch, setProductSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [receptionId, setReceptionId] = useState(editId);
+  const [documents, setDocuments] = useState([]);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -148,6 +151,14 @@ export default function NuevaRecepcionPage() {
             unit_pro_price: i.unit_pro_price || '',
           })));
         }
+
+        // Load documents
+        const { data: existingDocs } = await supabase
+          .from('reception_documents')
+          .select('*')
+          .eq('reception_id', editId)
+          .order('created_at');
+        setDocuments(existingDocs || []);
       }
     }
 
@@ -925,6 +936,153 @@ export default function NuevaRecepcionPage() {
             placeholder="Observaciones adicionales..."
           />
         </div>
+      </div>
+
+      {/* Section 5: Documents */}
+      <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-6 mb-6">
+        <h3 className="text-lg font-bold text-slate-900 m-0 mb-5 pb-4 border-b border-slate-200 flex items-center gap-2">
+          <Paperclip size={18} className="text-[#6a9a04]" /> Documentos de la Operación
+        </h3>
+
+        {/* Upload area */}
+        <div className="mb-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <select
+              id="doc-type-select"
+              className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm"
+              defaultValue="other"
+            >
+              <option value="po">Orden de Compra</option>
+              <option value="invoice">Invoice / Factura</option>
+              <option value="bl">Bill of Lading (BL)</option>
+              <option value="debit_note">Debit Note (Forwarder)</option>
+              <option value="pedimento">Pedimento</option>
+              <option value="packing_list">Packing List</option>
+              <option value="certificate">Certificado</option>
+              <option value="other">Otro documento</option>
+            </select>
+            <label className="flex items-center gap-2 px-4 py-2.5 bg-white border border-dashed border-slate-300 rounded-xl text-sm font-medium text-slate-600 hover:border-[#6a9a04] hover:text-[#6a9a04] transition-colors cursor-pointer">
+              <Upload size={16} />
+              {uploadingDoc ? 'Subiendo...' : 'Subir archivo'}
+              <input
+                type="file"
+                className="hidden"
+                accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx"
+                disabled={uploadingDoc}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const docType = document.getElementById('doc-type-select')?.value || 'other';
+
+                  // Need a reception ID first
+                  let rid = receptionId;
+                  if (!rid) {
+                    if (!form.warehouse_id) { alert('Primero selecciona una bodega para guardar'); return; }
+                    // Auto-save as draft to get an ID
+                    const { data: newRec, error } = await supabase
+                      .from('container_receptions')
+                      .insert({
+                        supplier_id: form.supplier_id || null,
+                        purchase_order_id: form.purchase_order_id || null,
+                        warehouse_id: form.warehouse_id,
+                        distributor_id: form.distributor_id || null,
+                        reception_date: form.reception_date,
+                        container_label: form.container_label || null,
+                        operation_number: form.operation_number || null,
+                        status: 'draft',
+                        created_by: userId,
+                      })
+                      .select('id')
+                      .single();
+                    if (error || !newRec) { alert('Error al guardar borrador: ' + (error?.message || '')); return; }
+                    rid = newRec.id;
+                    setReceptionId(rid);
+                  }
+
+                  setUploadingDoc(true);
+                  try {
+                    const ext = file.name.split('.').pop();
+                    const path = `${rid}/${docType}_${Date.now()}.${ext}`;
+                    const { error: upErr } = await supabase.storage.from('reception-docs').upload(path, file, { contentType: file.type });
+                    if (upErr) throw upErr;
+                    // Save record
+                    const { data: docRow, error: dbErr } = await supabase.from('reception_documents').insert({
+                      reception_id: rid,
+                      file_name: file.name,
+                      file_type: docType,
+                      storage_path: path,
+                      uploaded_by: userId,
+                    }).select('*').single();
+                    if (dbErr) throw dbErr;
+                    setDocuments(prev => [...prev, docRow]);
+                  } catch (err) {
+                    alert('Error al subir: ' + err.message);
+                  } finally {
+                    setUploadingDoc(false);
+                    e.target.value = '';
+                  }
+                }}
+              />
+            </label>
+          </div>
+        </div>
+
+        {/* Document list */}
+        {documents.length === 0 ? (
+          <div className="text-center py-8 text-slate-400">
+            <Paperclip size={32} className="mx-auto mb-2 opacity-30" />
+            <p className="text-sm m-0">No hay documentos adjuntos aún</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {documents.map(doc => {
+              const typeLabels = {
+                po: 'Orden de Compra', invoice: 'Invoice', bl: 'Bill of Lading',
+                debit_note: 'Debit Note', pedimento: 'Pedimento', packing_list: 'Packing List',
+                certificate: 'Certificado', other: 'Documento',
+              };
+              return (
+                <div key={doc.id} className="flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                      <FileText size={14} className="text-blue-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-800 m-0">{doc.file_name}</p>
+                      <p className="text-[10px] text-slate-400 m-0">{typeLabels[doc.file_type] || doc.file_type} • {new Date(doc.created_at).toLocaleDateString('es-MX')}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={async () => {
+                        const { data } = await supabase.storage.from('reception-docs').createSignedUrl(doc.storage_path, 3600);
+                        if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                      }}
+                      className="p-2 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-500 transition-colors bg-transparent border-none cursor-pointer"
+                      title="Ver / Descargar"
+                    >
+                      <Eye size={14} />
+                    </button>
+                    {!isCompleted && (
+                      <button
+                        onClick={async () => {
+                          if (!confirm('¿Eliminar este documento?')) return;
+                          await supabase.storage.from('reception-docs').remove([doc.storage_path]);
+                          await supabase.from('reception_documents').delete().eq('id', doc.id);
+                          setDocuments(prev => prev.filter(d => d.id !== doc.id));
+                        }}
+                        className="p-2 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors bg-transparent border-none cursor-pointer"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Actions */}
