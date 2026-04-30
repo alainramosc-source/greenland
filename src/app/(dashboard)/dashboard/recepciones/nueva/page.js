@@ -62,17 +62,41 @@ export default function NuevaRecepcionPage() {
     if (profile?.role !== 'admin') { router.push('/dashboard'); return; }
     setUserId(user.id);
 
-    const [productsRes, warehousesRes, distributorsRes, posRes] = await Promise.all([
+    const [productsRes, warehousesRes, distributorsRes] = await Promise.all([
       supabase.from('products').select('id, name, sku, price, weight').eq('is_active', true).order('sku'),
       supabase.from('warehouses').select('*').eq('is_active', true).order('name'),
       supabase.from('profiles').select('id, full_name, client_number, assigned_warehouse_id').eq('role', 'distributor').eq('sub_role', 'distributor_pro').eq('is_active', true).order('full_name'),
-      supabase.from('purchase_orders').select('id, po_number, supplier:profiles!purchase_orders_supplier_id_fkey(full_name), status, destination_warehouse_id').in('status', ['draft', 'sent']).order('created_at', { ascending: false }),
     ]);
 
     setProducts(productsRes.data || []);
     setWarehouses(warehousesRes.data || []);
     setDistributors(distributorsRes.data || []);
-    setPurchaseOrders(posRes.data || []);
+
+    // Fetch POs separately to avoid FK alias failures breaking everything
+    const { data: posData, error: posError } = await supabase
+      .from('purchase_orders')
+      .select('id, po_number, status, destination_warehouse_id, supplier_id')
+      .in('status', ['draft', 'sent'])
+      .order('created_at', { ascending: false });
+
+    if (posError) {
+      console.error('PO fetch error:', posError);
+    }
+
+    // Enrich POs with supplier names
+    const posList = posData || [];
+    if (posList.length > 0) {
+      const supplierIds = [...new Set(posList.map(p => p.supplier_id).filter(Boolean))];
+      if (supplierIds.length > 0) {
+        const { data: suppliers } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', supplierIds);
+        const supplierMap = Object.fromEntries((suppliers || []).map(s => [s.id, s.full_name]));
+        posList.forEach(po => { po.supplier_name = supplierMap[po.supplier_id] || 'Sin proveedor'; });
+      }
+    }
+    setPurchaseOrders(posList);
 
     // If editing, load existing data
     if (editId) {
@@ -460,7 +484,7 @@ export default function NuevaRecepcionPage() {
               <option value="">— Sin PO vinculada —</option>
               {purchaseOrders.map(po => (
                 <option key={po.id} value={po.id}>
-                  {po.po_number} — {po.supplier?.full_name || 'Sin proveedor'} ({po.status})
+                  {po.po_number} — {po.supplier_name || 'Sin proveedor'} ({po.status})
                 </option>
               ))}
             </select>
