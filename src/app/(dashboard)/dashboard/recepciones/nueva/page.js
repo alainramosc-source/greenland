@@ -66,7 +66,7 @@ export default function NuevaRecepcionPage() {
       supabase.from('products').select('id, name, sku, price, weight').eq('is_active', true).order('sku'),
       supabase.from('warehouses').select('*').eq('is_active', true).order('name'),
       supabase.from('profiles').select('id, full_name, client_number, assigned_warehouse_id').eq('role', 'distributor').eq('sub_role', 'distributor_pro').eq('is_active', true).order('full_name'),
-      supabase.from('purchase_orders').select('id, po_number, supplier:profiles!purchase_orders_supplier_id_fkey(full_name), status, destination_warehouse_id').in('status', ['sent', 'in_transit', 'partial']).order('created_at', { ascending: false }),
+      supabase.from('purchase_orders').select('id, po_number, supplier:profiles!purchase_orders_supplier_id_fkey(full_name), status, destination_warehouse_id').in('status', ['draft', 'sent']).order('created_at', { ascending: false }),
     ]);
 
     setProducts(productsRes.data || []);
