@@ -291,10 +291,25 @@ export default function UsersPage() {
       .select('id, order_id, amount, payment_date')
       .order('payment_date', { ascending: false });
 
+    // Get container reception charges for PRO distributors
+    const { data: receptions } = await supabase
+      .from('container_receptions')
+      .select('id, distributor_id, charge_amount, status, reception_date')
+      .eq('status', 'completed')
+      .not('distributor_id', 'is', null)
+      .gt('charge_amount', 0);
+
     // Build per-distributor summary
     const summary = distributors.map(dist => {
       const distOrders = (orders || []).filter(o => o.distributor_id === dist.id);
-      const totalFacturado = distOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+      const totalFacturadoOrders = distOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+
+      // Add container reception charges
+      const distReceptions = (receptions || []).filter(r => r.distributor_id === dist.id);
+      const totalFacturadoReceptions = distReceptions.reduce((sum, r) => sum + (r.charge_amount || 0), 0);
+
+      const totalFacturado = totalFacturadoOrders + totalFacturadoReceptions;
+
       const orderIds = distOrders.map(o => o.id);
       const distPayments = (payments || []).filter(p => orderIds.includes(p.order_id));
       const totalPagado = distPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -305,9 +320,10 @@ export default function UsersPage() {
         totalPagado,
         balance: totalFacturado - totalPagado,
         orderCount: distOrders.length,
+        receptionCount: distReceptions.length,
         lastPayment,
       };
-    }).filter(d => d.orderCount > 0 || d.balance !== 0);
+    }).filter(d => d.orderCount > 0 || d.receptionCount > 0 || d.balance !== 0);
 
     setCxcData(summary);
     setCxcLoading(false);
