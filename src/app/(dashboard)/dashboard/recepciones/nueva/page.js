@@ -22,10 +22,12 @@ export default function NuevaRecepcionPage() {
   const [warehouses, setWarehouses] = useState([]);
   const [distributors, setDistributors] = useState([]);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [userId, setUserId] = useState(null);
 
   // Form state
   const [form, setForm] = useState({
+    supplier_id: '',
     purchase_order_id: '',
     warehouse_id: '',
     distributor_id: '',
@@ -62,15 +64,17 @@ export default function NuevaRecepcionPage() {
     if (profile?.role !== 'admin') { router.push('/dashboard'); return; }
     setUserId(user.id);
 
-    const [productsRes, warehousesRes, distributorsRes] = await Promise.all([
+    const [productsRes, warehousesRes, distributorsRes, suppliersRes] = await Promise.all([
       supabase.from('products').select('id, name, sku, price').eq('is_active', true).order('sku'),
       supabase.from('warehouses').select('*').eq('is_active', true).order('name'),
       supabase.from('profiles').select('id, full_name, client_number, assigned_warehouse_id').eq('role', 'distributor').eq('sub_role', 'distributor_pro').eq('is_active', true).order('full_name'),
+      supabase.from('suppliers').select('id, name, short_name').eq('is_active', true).order('short_name'),
     ]);
 
     setProducts(productsRes.data || []);
     setWarehouses(warehousesRes.data || []);
     setDistributors(distributorsRes.data || []);
+    setSuppliers(suppliersRes.data || []);
 
     // Fetch POs separately to avoid FK alias failures breaking everything
     const { data: posData, error: posError } = await supabase
@@ -107,6 +111,7 @@ export default function NuevaRecepcionPage() {
         .single();
       if (reception) {
         setForm({
+          supplier_id: reception.supplier_id || '',
           purchase_order_id: reception.purchase_order_id || '',
           warehouse_id: reception.warehouse_id || '',
           distributor_id: reception.distributor_id || '',
@@ -276,6 +281,7 @@ export default function NuevaRecepcionPage() {
 
     setSaving(true);
     const payload = {
+      supplier_id: form.supplier_id || null,
       purchase_order_id: form.purchase_order_id || null,
       warehouse_id: form.warehouse_id,
       distributor_id: form.distributor_id || null,
@@ -360,6 +366,7 @@ export default function NuevaRecepcionPage() {
 
     // 1. Save first (to persist any unsaved changes)
     const payload = {
+      supplier_id: form.supplier_id || null,
       purchase_order_id: form.purchase_order_id || null,
       warehouse_id: form.warehouse_id,
       distributor_id: form.distributor_id || null,
@@ -476,17 +483,37 @@ export default function NuevaRecepcionPage() {
           <Container size={18} className="text-[#6a9a04]" /> Datos Generales
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* PO Selector */}
+          {/* Supplier */}
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1">Proveedor *</label>
+            <select
+              value={form.supplier_id}
+              onChange={e => {
+                const sid = e.target.value;
+                setForm(f => ({ ...f, supplier_id: sid, purchase_order_id: '' }));
+              }}
+              disabled={isCompleted}
+              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm disabled:opacity-60"
+            >
+              <option value="">— Seleccionar Proveedor —</option>
+              {suppliers.map(s => (
+                <option key={s.id} value={s.id}>{s.short_name}</option>
+              ))}
+            </select>
+          </div>
+          {/* PO Selector - filtered by supplier */}
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1">Orden de Compra (opcional)</label>
             <select
               value={form.purchase_order_id}
               onChange={e => handlePOChange(e.target.value)}
-              disabled={isCompleted}
+              disabled={isCompleted || !form.supplier_id}
               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm disabled:opacity-60"
             >
-              <option value="">— Sin PO vinculada —</option>
-              {purchaseOrders.map(po => (
+              <option value="">{form.supplier_id ? '— Sin PO vinculada —' : '— Selecciona proveedor primero —'}</option>
+              {purchaseOrders
+                .filter(po => !form.supplier_id || po.supplier_id === form.supplier_id)
+                .map(po => (
                 <option key={po.id} value={po.id}>
                   {po.po_number} — {po.supplier_name || 'Sin proveedor'} ({po.status})
                 </option>
