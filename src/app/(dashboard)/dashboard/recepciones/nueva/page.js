@@ -244,21 +244,25 @@ export default function NuevaRecepcionPage() {
     setItems(prev => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item));
   };
 
-  // Calculations
-  const totalOriginCost = items.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unit_origin_cost) || 0), 0);
-  const totalAdditionalCosts = (Number(form.freight_maritime) || 0) + (Number(form.freight_national) || 0) +
+  // Calculations — all converted to MXN
+  const tcGoods = Number(form.exchange_rate_goods) || 1;
+  const tcFreight = Number(form.exchange_rate_freight) || 1;
+  const totalOriginCostUSD = items.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unit_origin_cost) || 0), 0);
+  const totalOriginCostMXN = totalOriginCostUSD * tcGoods;
+  const freightMaritimeMXN = (Number(form.freight_maritime) || 0) * tcFreight;
+  const totalAdditionalCosts = freightMaritimeMXN + (Number(form.freight_national) || 0) +
     (Number(form.import_taxes) || 0) + (Number(form.port_handling) || 0) +
     (Number(form.customs_broker) || 0) + (Number(form.other_costs) || 0);
-  const totalLandedCost = totalOriginCost + totalAdditionalCosts;
+  const totalLandedCost = totalOriginCostMXN + totalAdditionalCosts;
   const totalQuantity = items.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
 
-  // Landed cost per unit (prorated by origin cost weight)
+  // Landed cost per unit (prorated by origin cost weight) — all in MXN
   const getLandedPerUnit = (item) => {
-    if (totalOriginCost === 0 || !item.quantity) return 0;
-    const itemOriginTotal = (Number(item.quantity) || 0) * (Number(item.unit_origin_cost) || 0);
-    const proportion = itemOriginTotal / totalOriginCost;
+    if (totalOriginCostMXN === 0 || !item.quantity) return 0;
+    const itemOriginMXN = (Number(item.quantity) || 0) * (Number(item.unit_origin_cost) || 0) * tcGoods;
+    const proportion = itemOriginMXN / totalOriginCostMXN;
     const additionalShare = totalAdditionalCosts * proportion;
-    return (itemOriginTotal + additionalShare) / (Number(item.quantity) || 1);
+    return (itemOriginMXN + additionalShare) / (Number(item.quantity) || 1);
   };
 
   const chargeAmount = form.distributor_id
@@ -289,7 +293,7 @@ export default function NuevaRecepcionPage() {
       other_costs_description: form.other_costs_description || null,
       exchange_rate_goods: Number(form.exchange_rate_goods) || 1,
       exchange_rate_freight: Number(form.exchange_rate_freight) || 1,
-      total_origin_cost: totalOriginCost,
+      total_origin_cost: totalOriginCostMXN,
       total_additional_costs: totalAdditionalCosts,
       total_landed_cost: totalLandedCost,
       charge_amount: chargeAmount,
@@ -373,7 +377,7 @@ export default function NuevaRecepcionPage() {
       other_costs_description: form.other_costs_description || null,
       exchange_rate_goods: Number(form.exchange_rate_goods) || 1,
       exchange_rate_freight: Number(form.exchange_rate_freight) || 1,
-      total_origin_cost: totalOriginCost,
+      total_origin_cost: totalOriginCostMXN,
       total_additional_costs: totalAdditionalCosts,
       total_landed_cost: totalLandedCost,
       charge_amount: chargeAmount,
@@ -673,11 +677,12 @@ export default function NuevaRecepcionPage() {
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-slate-300">
-                  <td colSpan={2} className="py-3 text-sm font-bold text-slate-700 text-right">Total Origen:</td>
+                  <td colSpan={2} className="py-3 text-sm font-bold text-slate-700 text-right">Total Origen (USD):</td>
                   <td className="py-3 text-center text-sm font-black text-slate-800">{totalQuantity}</td>
                   <td></td>
                   <td className="py-3 text-right text-sm font-black text-slate-800">
-                    ${totalOriginCost.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                    <div>${totalOriginCostUSD.toLocaleString('es-MX', { minimumFractionDigits: 2 })} USD</div>
+                    <div className="text-[10px] text-slate-400 font-medium">${totalOriginCostMXN.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</div>
                   </td>
                   {form.distributor_id && <td></td>}
                   {form.distributor_id && (
@@ -733,13 +738,13 @@ export default function NuevaRecepcionPage() {
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {[
-            { key: 'freight_maritime', label: 'Flete Marítimo' },
-            { key: 'freight_national', label: 'Flete Nacional' },
-            { key: 'import_taxes', label: 'Impuestos Importación' },
-            { key: 'port_handling', label: 'Maniobras en Puerto' },
-            { key: 'customs_broker', label: 'Despacho Aduanal' },
-            { key: 'other_costs', label: 'Otros Costos' },
-          ].map(({ key, label }) => (
+            { key: 'freight_maritime', label: 'Flete Marítimo (USD)', prefix: 'USD' },
+            { key: 'freight_national', label: 'Flete Nacional (MXN)' },
+            { key: 'import_taxes', label: 'Impuestos Importación (MXN)' },
+            { key: 'port_handling', label: 'Maniobras en Puerto (MXN)' },
+            { key: 'customs_broker', label: 'Despacho Aduanal (MXN)' },
+            { key: 'other_costs', label: 'Otros Costos (MXN)' },
+          ].map(({ key, label, prefix }) => (
             <div key={key}>
               <label className="block text-sm font-medium text-slate-600 mb-1">{label}</label>
               <div className="relative">
@@ -808,10 +813,11 @@ export default function NuevaRecepcionPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div className="bg-slate-50/80 rounded-xl p-4 text-center">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider m-0 mb-1">Costo de Origen</p>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider m-0 mb-1">Costo Origen (USD→MXN)</p>
             <p className="text-xl font-black text-slate-900 m-0">
-              ${totalOriginCost.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+              ${totalOriginCostMXN.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
             </p>
+            <p className="text-[11px] text-slate-400 m-0 mt-1">${totalOriginCostUSD.toLocaleString('es-MX', { minimumFractionDigits: 2 })} USD × {tcGoods}</p>
           </div>
           <div className="bg-slate-50/80 rounded-xl p-4 text-center">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider m-0 mb-1">Costos Adicionales</p>
