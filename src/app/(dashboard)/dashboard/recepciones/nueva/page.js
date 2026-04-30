@@ -75,7 +75,7 @@ export default function NuevaRecepcionPage() {
     // Fetch POs separately to avoid FK alias failures breaking everything
     const { data: posData, error: posError } = await supabase
       .from('purchase_orders')
-      .select('id, po_number, status, destination_warehouse_id, supplier_id')
+      .select('id, po_number, status, supplier_id')
       .in('status', ['draft', 'sent'])
       .order('created_at', { ascending: false });
 
@@ -89,10 +89,10 @@ export default function NuevaRecepcionPage() {
       const supplierIds = [...new Set(posList.map(p => p.supplier_id).filter(Boolean))];
       if (supplierIds.length > 0) {
         const { data: suppliers } = await supabase
-          .from('profiles')
-          .select('id, full_name')
+          .from('suppliers')
+          .select('id, short_name')
           .in('id', supplierIds);
-        const supplierMap = Object.fromEntries((suppliers || []).map(s => [s.id, s.full_name]));
+        const supplierMap = Object.fromEntries((suppliers || []).map(s => [s.id, s.short_name]));
         posList.forEach(po => { po.supplier_name = supplierMap[po.supplier_id] || 'Sin proveedor'; });
       }
     }
