@@ -63,7 +63,7 @@ export default function NuevaRecepcionPage() {
     setUserId(user.id);
 
     const [productsRes, warehousesRes, distributorsRes] = await Promise.all([
-      supabase.from('products').select('id, name, sku, price, weight').eq('is_active', true).order('sku'),
+      supabase.from('products').select('id, name, sku, price').eq('is_active', true).order('sku'),
       supabase.from('warehouses').select('*').eq('is_active', true).order('name'),
       supabase.from('profiles').select('id, full_name, client_number, assigned_warehouse_id').eq('role', 'distributor').eq('sub_role', 'distributor_pro').eq('is_active', true).order('full_name'),
     ]);
