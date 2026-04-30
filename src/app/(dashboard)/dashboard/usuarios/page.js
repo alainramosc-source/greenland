@@ -233,8 +233,9 @@ export default function UsersPage() {
       // Fetch ALL orders (same approach as CxC), then filter by distributor
       const { data: allOrders, error: ordErr } = await supabase
         .from('orders')
-        .select('id, order_number, total_amount, status, payment_status, created_at, notes, distributor_id')
-        .not('status', 'in', '(cancelled,rejected)');
+        .select('id, order_number, total_amount, status, payment_status, created_at, distributor_id')
+        .neq('status', 'cancelled')
+        .neq('status', 'rejected');
 
       if (ordErr) console.error('[Report] Orders query error:', ordErr);
       
