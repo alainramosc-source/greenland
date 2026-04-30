@@ -248,7 +248,7 @@ export default function UsersPage() {
       if (orderIds.length > 0) {
         const { data: itemsData, error: itemErr } = await supabase
           .from('order_items')
-          .select('order_id, quantity, unit_price, total_price, product_id')
+          .select('order_id, quantity, unit_price, subtotal, product_id')
           .in('order_id', orderIds);
         if (itemErr) console.error('[Report] Items query error:', itemErr);
         allItems = itemsData || [];
@@ -280,7 +280,7 @@ export default function UsersPage() {
       if (orderIds.length > 0) {
         const { data: pData, error: payErr } = await supabase
           .from('order_payments')
-          .select('order_id, amount, payment_date, status')
+          .select('order_id, amount, payment_date')
           .in('order_id', orderIds)
           .order('payment_date', { ascending: false });
         if (payErr) console.error('Payments query error:', payErr);
@@ -315,7 +315,7 @@ export default function UsersPage() {
       let totalOrders = 0;
       let totalPaidOrders = 0;
       (ordersData || []).forEach(o => {
-        const paid = paymentsData.filter(p => p.order_id === o.id && p.status === 'approved').reduce((s, p) => s + Number(p.amount), 0);
+        const paid = paymentsData.filter(p => p.order_id === o.id).reduce((s, p) => s + Number(p.amount), 0);
         const bal = Number(o.total_amount) - paid;
         totalOrders += Number(o.total_amount);
         totalPaidOrders += paid;
@@ -329,7 +329,7 @@ export default function UsersPage() {
       lines.push('Pedido,Fecha,SKU,Producto,Cantidad,Precio Unit,Subtotal');
       (ordersData || []).forEach(o => {
         (o.order_items || []).forEach(item => {
-          lines.push(`${o.order_number || 'S/N'},${new Date(o.created_at).toLocaleDateString('es-MX')},${item.products?.sku || ''},${esc(item.products?.name || '')},${item.quantity},${Number(item.unit_price).toFixed(2)},${Number(item.total_price).toFixed(2)}`);
+          lines.push(`${o.order_number || 'S/N'},${new Date(o.created_at).toLocaleDateString('es-MX')},${item.products?.sku || ''},${esc(item.products?.name || '')},${item.quantity},${Number(item.unit_price).toFixed(2)},${Number(item.subtotal || item.quantity * item.unit_price).toFixed(2)}`);
         });
       });
       lines.push('');
@@ -353,7 +353,7 @@ export default function UsersPage() {
         lines.push('Fecha,Pedido,Monto,Status');
         paymentsData.forEach(p => {
           const ord = (ordersData || []).find(o => o.id === p.order_id);
-          lines.push(`${new Date(p.payment_date).toLocaleDateString('es-MX')},${ord?.order_number || 'General'},${Number(p.amount).toFixed(2)},${p.status}`);
+          lines.push(`${new Date(p.payment_date).toLocaleDateString('es-MX')},${ord?.order_number || 'General'},${Number(p.amount).toFixed(2)}`);
         });
         lines.push('');
       }
