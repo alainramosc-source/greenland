@@ -629,10 +629,10 @@ export default function NuevaRecepcionPage() {
                   <th className="pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider">SKU</th>
                   <th className="pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Producto</th>
                   <th className="pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-center" style={{width:'100px'}}>Cantidad</th>
-                  <th className="pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-center" style={{width:'130px'}}>Costo Origen/ud</th>
-                  <th className="pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right" style={{width:'120px'}}>Subtotal</th>
+                  <th className="pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-center" style={{width:'130px'}}>Costo Origen/ud (USD)</th>
+                  <th className="pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right" style={{width:'120px'}}>Subtotal USD</th>
                   {form.distributor_id && (
-                    <th className="pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-center" style={{width:'130px'}}>Precio PRO/ud</th>
+                    <th className="pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-center" style={{width:'140px'}}>Precio PRO/ud (MXN)</th>
                   )}
                   {form.distributor_id && (
                     <th className="pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right" style={{width:'120px'}}>Cargo PRO</th>
@@ -659,13 +659,13 @@ export default function NuevaRecepcionPage() {
                       </td>
                       <td className="py-3 text-center">
                         <div className="relative inline-block">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">USD</span>
                           <input
                             type="number" min="0" step="0.01"
                             value={item.unit_origin_cost || ''}
                             onChange={e => updateItem(idx, 'unit_origin_cost', e.target.value)}
                             disabled={isCompleted}
-                            className="w-24 pl-5 pr-2 py-1.5 text-sm font-bold border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#6a9a04]/20 text-right disabled:opacity-60"
+                            className="w-24 pl-8 pr-2 py-1.5 text-sm font-bold border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#6a9a04]/20 text-right disabled:opacity-60"
                           />
                         </div>
                       </td>
@@ -675,13 +675,13 @@ export default function NuevaRecepcionPage() {
                       {form.distributor_id && (
                         <td className="py-3 text-center">
                           <div className="relative inline-block">
-                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#6a9a04] text-xs font-bold">$</span>
+                            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[#6a9a04] text-[10px] font-bold">MXN</span>
                             <input
                               type="number" min="0" step="0.01"
                               value={item.unit_pro_price || ''}
                               onChange={e => updateItem(idx, 'unit_pro_price', e.target.value)}
                               disabled={isCompleted}
-                              className="w-24 pl-5 pr-2 py-1.5 text-sm font-bold border border-[#6a9a04]/30 bg-[#6a9a04]/5 rounded-lg outline-none focus:ring-2 focus:ring-[#6a9a04]/30 text-right disabled:opacity-60"
+                              className="w-28 pl-9 pr-2 py-1.5 text-sm font-bold border border-[#6a9a04]/30 bg-[#6a9a04]/5 rounded-lg outline-none focus:ring-2 focus:ring-[#6a9a04]/30 text-right disabled:opacity-60"
                             />
                           </div>
                         </td>
