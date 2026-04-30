@@ -228,33 +228,54 @@ export default function UsersPage() {
   const exportDistributorReport = async (dist) => {
     setExportingReport(dist.id);
     try {
-      // Fetch orders with items
-      const { data: ordersData } = await supabase
+      // Fetch orders (simple query first)
+      const { data: ordersData, error: ordErr } = await supabase
         .from('orders')
-        .select('id, order_number, total_amount, status, payment_status, created_at, notes, order_items(quantity, unit_price, total_price, product:products(name, sku))')
+        .select('id, order_number, total_amount, status, payment_status, created_at, notes')
         .eq('distributor_id', dist.id)
         .not('status', 'in', '(cancelled,rejected)')
         .order('created_at', { ascending: false });
 
-      // Fetch payments
+      if (ordErr) console.error('Orders query error:', ordErr);
+
+      // Fetch order items separately
       const orderIds = (ordersData || []).map(o => o.id);
+      let allItems = [];
+      if (orderIds.length > 0) {
+        const { data: itemsData, error: itemErr } = await supabase
+          .from('order_items')
+          .select('order_id, quantity, unit_price, total_price, product_id, products(name, sku)')
+          .in('order_id', orderIds);
+        if (itemErr) console.error('Items query error:', itemErr);
+        allItems = itemsData || [];
+      }
+
+      // Attach items to orders
+      (ordersData || []).forEach(o => {
+        o.order_items = allItems.filter(i => i.order_id === o.id);
+      });
+
+      // Fetch payments
       let paymentsData = [];
       if (orderIds.length > 0) {
-        const { data: pData } = await supabase
+        const { data: pData, error: payErr } = await supabase
           .from('order_payments')
           .select('order_id, amount, payment_date, status')
           .in('order_id', orderIds)
           .order('payment_date', { ascending: false });
+        if (payErr) console.error('Payments query error:', payErr);
         paymentsData = pData || [];
       }
 
       // Fetch container receptions
-      const { data: receptionsData } = await supabase
+      const { data: receptionsData, error: recErr } = await supabase
         .from('container_receptions')
         .select('id, container_label, operation_number, reception_date, charge_amount, status, warehouse:warehouses(name)')
         .eq('distributor_id', dist.id)
         .eq('status', 'completed')
         .order('reception_date', { ascending: false });
+
+      if (recErr) console.error('Receptions query error:', recErr);
 
       const esc = (s) => s ? `"${String(s).replace(/"/g, '""')}"` : '';
       const lines = [];
@@ -288,7 +309,7 @@ export default function UsersPage() {
       lines.push('Pedido,Fecha,SKU,Producto,Cantidad,Precio Unit,Subtotal');
       (ordersData || []).forEach(o => {
         (o.order_items || []).forEach(item => {
-          lines.push(`${o.order_number || 'S/N'},${new Date(o.created_at).toLocaleDateString('es-MX')},${item.product?.sku || ''},${esc(item.product?.name || '')},${item.quantity},${Number(item.unit_price).toFixed(2)},${Number(item.total_price).toFixed(2)}`);
+          lines.push(`${o.order_number || 'S/N'},${new Date(o.created_at).toLocaleDateString('es-MX')},${item.products?.sku || ''},${esc(item.products?.name || '')},${item.quantity},${Number(item.unit_price).toFixed(2)},${Number(item.total_price).toFixed(2)}`);
         });
       });
       lines.push('');
