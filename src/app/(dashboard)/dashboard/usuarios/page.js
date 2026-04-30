@@ -228,30 +228,34 @@ export default function UsersPage() {
   const exportDistributorReport = async (dist) => {
     setExportingReport(dist.id);
     try {
-      // Fetch orders (simple query first)
-      const { data: ordersData, error: ordErr } = await supabase
-        .from('orders')
-        .select('id, order_number, total_amount, status, payment_status, created_at, notes')
-        .eq('distributor_id', dist.id)
-        .not('status', 'in', '(cancelled,rejected)')
-        .order('created_at', { ascending: false });
+      console.log('[Report] Generating for distributor:', dist.id, dist.full_name);
 
-      if (ordErr) console.error('Orders query error:', ordErr);
+      // Fetch ALL orders (same approach as CxC), then filter by distributor
+      const { data: allOrders, error: ordErr } = await supabase
+        .from('orders')
+        .select('id, order_number, total_amount, status, payment_status, created_at, notes, distributor_id')
+        .not('status', 'in', '(cancelled,rejected)');
+
+      if (ordErr) console.error('[Report] Orders query error:', ordErr);
+      
+      const ordersData = (allOrders || []).filter(o => o.distributor_id === dist.id);
+      console.log('[Report] Total orders found:', allOrders?.length, '| For this distributor:', ordersData.length);
 
       // Fetch order items separately
-      const orderIds = (ordersData || []).map(o => o.id);
+      const orderIds = ordersData.map(o => o.id);
       let allItems = [];
       if (orderIds.length > 0) {
         const { data: itemsData, error: itemErr } = await supabase
           .from('order_items')
           .select('order_id, quantity, unit_price, total_price, product_id, products(name, sku)')
           .in('order_id', orderIds);
-        if (itemErr) console.error('Items query error:', itemErr);
+        if (itemErr) console.error('[Report] Items query error:', itemErr);
         allItems = itemsData || [];
+        console.log('[Report] Items found:', allItems.length);
       }
 
       // Attach items to orders
-      (ordersData || []).forEach(o => {
+      ordersData.forEach(o => {
         o.order_items = allItems.filter(i => i.order_id === o.id);
       });
 
