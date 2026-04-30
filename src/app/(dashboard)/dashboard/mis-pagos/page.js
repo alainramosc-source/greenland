@@ -152,7 +152,7 @@ export default function MisPagosPage() {
   const handleSubmit = async () => {
     const validAmount = validateAmount(form.amount);
     if (!validAmount) { alert('Ingresa un monto válido (mayor a 0)'); return; }
-    if (allocations.length === 0) { alert('Selecciona al menos un pedido para aplicar el pago'); return; }
+    if (allocations.length === 0) { alert('Selecciona al menos un pedido o saldo de contenedores para aplicar el pago'); return; }
 
     // Validate each allocation has an amount
     for (const alloc of allocations) {
@@ -169,16 +169,19 @@ export default function MisPagosPage() {
     }
 
     setSubmitting(true);
-    const allocsPayload = allocations.map(a => ({ order_id: a.order_id, amount: Number(a.amount) }));
+    const allocsPayload = allocations
+      .filter(a => a.order_id !== '__containers__')
+      .map(a => ({ order_id: a.order_id, amount: Number(a.amount) }));
+    const containerAlloc = allocations.find(a => a.order_id === '__containers__');
     const { data, error } = await supabase.rpc('submit_distributor_payment', {
       p_amount: validAmount,
       p_payment_method: form.payment_method,
       p_reference: sanitizeText(form.reference, 200) || null,
       p_payment_date: form.payment_date,
       p_receipt_url: form.receipt_url || null,
-      p_notes: sanitizeText(form.notes, 500) || null,
+      p_notes: sanitizeText(form.notes, 500) || (containerAlloc ? `Incluye $${Number(containerAlloc.amount).toLocaleString('es-MX', {minimumFractionDigits:2})} aplicado a saldo de contenedores` : null),
       p_order_id: allocsPayload[0]?.order_id || null,
-      p_allocations: allocsPayload
+      p_allocations: allocsPayload.length > 0 ? allocsPayload : [{ order_id: null, amount: validAmount }]
     });
     setSubmitting(false);
     if (error) { alert('Error: ' + error.message); return; }
@@ -372,7 +375,7 @@ export default function MisPagosPage() {
 
               {/* Apply to Orders (Multi-select) */}
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Aplicar a Pedidos *</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Aplicar a *</label>
                 {orders.length === 0 ? (
                   <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
                     <AlertTriangle size={12} /> No tienes pedidos activos
@@ -444,6 +447,71 @@ export default function MisPagosPage() {
                     )}
                   </div>
                 )}
+
+                {/* Container charges block */}
+                {(() => {
+                  const containerBalance = receptions.reduce((s, r) => s + Number(r.charge_amount || 0), 0);
+                  // Subtract approved payments with container notes (rough estimation)
+                  // For now, show total container charges
+                  if (containerBalance <= 0) return null;
+                  const isSelected = allocations.some(a => a.order_id === '__containers__');
+                  const alloc = allocations.find(a => a.order_id === '__containers__');
+                  return (
+                    <div className="mt-3">
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Saldo de Contenedores</p>
+                      <div
+                        className={`rounded-xl border transition-all ${
+                          isSelected
+                            ? 'border-blue-500 bg-blue-50/50'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleOrderAllocation('__containers__')}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left bg-transparent border-none cursor-pointer"
+                        >
+                          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                            isSelected ? 'border-blue-500 bg-blue-500' : 'border-slate-300 bg-white'
+                          }`}>
+                            {isSelected && <CheckCircle size={14} className="text-white" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-slate-800 m-0">📦 Cargo por Contenedores</p>
+                            <p className="text-xs text-slate-400 m-0">
+                              {receptions.length} contenedor(es) recibido(s)
+                              <span className="ml-2 font-bold text-red-500">
+                                Saldo: ${containerBalance.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                              </span>
+                            </p>
+                          </div>
+                        </button>
+                        {isSelected && (
+                          <div className="px-4 pb-3 flex items-center gap-2">
+                            <span className="text-xs text-slate-500 font-medium shrink-0">Aplicar:</span>
+                            <div className="relative flex-1">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={alloc?.amount || ''}
+                                onChange={e => updateAllocationAmount('__containers__', e.target.value)}
+                                placeholder=""
+                                className="w-full pl-7 pr-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none text-sm font-bold"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => updateAllocationAmount('__containers__', String(Math.min(containerBalance, Number(form.amount || 0) - allocTotal + (Number(alloc?.amount) || 0))))}
+                              className="text-[10px] font-bold text-blue-600 bg-blue-100 hover:bg-blue-200 px-2 py-1 rounded-lg border-none cursor-pointer transition-all shrink-0"
+                              title="Aplicar el máximo posible"
+                            >Max</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
                 {/* Allocation Summary */}
                 {allocations.length > 0 && (
                   <div className={`mt-3 p-3 rounded-xl text-sm font-bold flex justify-between items-center ${
