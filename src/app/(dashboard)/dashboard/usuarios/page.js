@@ -223,6 +223,128 @@ export default function UsersPage() {
     document.body.removeChild(link);
   };
 
+  // Detailed distributor report
+  const [exportingReport, setExportingReport] = useState(null);
+  const exportDistributorReport = async (dist) => {
+    setExportingReport(dist.id);
+    try {
+      // Fetch orders with items
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select('id, order_number, total_amount, status, payment_status, created_at, notes, order_items(quantity, unit_price, total_price, product:products(name, sku))')
+        .eq('distributor_id', dist.id)
+        .not('status', 'in', '(cancelled,rejected)')
+        .order('created_at', { ascending: false });
+
+      // Fetch payments
+      const orderIds = (ordersData || []).map(o => o.id);
+      let paymentsData = [];
+      if (orderIds.length > 0) {
+        const { data: pData } = await supabase
+          .from('order_payments')
+          .select('order_id, amount, payment_date, status')
+          .in('order_id', orderIds)
+          .order('payment_date', { ascending: false });
+        paymentsData = pData || [];
+      }
+
+      // Fetch container receptions
+      const { data: receptionsData } = await supabase
+        .from('container_receptions')
+        .select('id, container_label, operation_number, reception_date, charge_amount, status, warehouse:warehouses(name)')
+        .eq('distributor_id', dist.id)
+        .eq('status', 'completed')
+        .order('reception_date', { ascending: false });
+
+      const esc = (s) => s ? `"${String(s).replace(/"/g, '""')}"` : '';
+      const lines = [];
+
+      // Header
+      lines.push(`REPORTE DETALLADO DE DISTRIBUIDOR`);
+      lines.push(`Distribuidor:,${esc(dist.full_name)}`);
+      lines.push(`Empresa:,${esc(dist.company_name || '')}`);
+      lines.push(`Cliente:,#${dist.client_number || 'N/A'}`);
+      lines.push(`Ciudad:,${esc(dist.city || '')}`);
+      lines.push(`Generado:,${new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}`);
+      lines.push('');
+
+      // Orders summary
+      lines.push('═══ PEDIDOS ═══');
+      lines.push('Pedido,Fecha,Status,Pago Status,Total,Pagado,Saldo');
+      let totalOrders = 0;
+      let totalPaidOrders = 0;
+      (ordersData || []).forEach(o => {
+        const paid = paymentsData.filter(p => p.order_id === o.id && p.status === 'approved').reduce((s, p) => s + Number(p.amount), 0);
+        const bal = Number(o.total_amount) - paid;
+        totalOrders += Number(o.total_amount);
+        totalPaidOrders += paid;
+        lines.push(`${o.order_number || 'S/N'},${new Date(o.created_at).toLocaleDateString('es-MX')},${o.status},${o.payment_status || ''},${Number(o.total_amount).toFixed(2)},${paid.toFixed(2)},${bal.toFixed(2)}`);
+      });
+      lines.push(`,,,,${totalOrders.toFixed(2)},${totalPaidOrders.toFixed(2)},${(totalOrders - totalPaidOrders).toFixed(2)}`);
+      lines.push('');
+
+      // Order detail lines
+      lines.push('═══ DETALLE DE PEDIDOS ═══');
+      lines.push('Pedido,Fecha,SKU,Producto,Cantidad,Precio Unit,Subtotal');
+      (ordersData || []).forEach(o => {
+        (o.order_items || []).forEach(item => {
+          lines.push(`${o.order_number || 'S/N'},${new Date(o.created_at).toLocaleDateString('es-MX')},${item.product?.sku || ''},${esc(item.product?.name || '')},${item.quantity},${Number(item.unit_price).toFixed(2)},${Number(item.total_price).toFixed(2)}`);
+        });
+      });
+      lines.push('');
+
+      // Container charges
+      if ((receptionsData || []).length > 0) {
+        lines.push('═══ CARGOS DE CONTENEDORES ═══');
+        lines.push('Operación,Contenedor,Bodega,Fecha,Cargo');
+        let totalContainers = 0;
+        receptionsData.forEach(r => {
+          totalContainers += Number(r.charge_amount || 0);
+          lines.push(`${r.operation_number || ''},${esc(r.container_label || '')},${esc(r.warehouse?.name || '')},${new Date(r.reception_date).toLocaleDateString('es-MX')},${Number(r.charge_amount || 0).toFixed(2)}`);
+        });
+        lines.push(`,,,,${totalContainers.toFixed(2)}`);
+        lines.push('');
+      }
+
+      // Payments
+      if (paymentsData.length > 0) {
+        lines.push('═══ PAGOS REALIZADOS ═══');
+        lines.push('Fecha,Pedido,Monto,Status');
+        paymentsData.forEach(p => {
+          const ord = (ordersData || []).find(o => o.id === p.order_id);
+          lines.push(`${new Date(p.payment_date).toLocaleDateString('es-MX')},${ord?.order_number || 'General'},${Number(p.amount).toFixed(2)},${p.status}`);
+        });
+        lines.push('');
+      }
+
+      // Summary
+      const totalCont = (receptionsData || []).reduce((s, r) => s + Number(r.charge_amount || 0), 0);
+      lines.push('═══ RESUMEN ═══');
+      lines.push(`Total Pedidos:,${totalOrders.toFixed(2)}`);
+      lines.push(`Total Contenedores:,${totalCont.toFixed(2)}`);
+      lines.push(`Total Facturado:,${(totalOrders + totalCont).toFixed(2)}`);
+      lines.push(`Total Pagado:,${totalPaidOrders.toFixed(2)}`);
+      lines.push(`SALDO PENDIENTE:,${(totalOrders + totalCont - totalPaidOrders).toFixed(2)}`);
+
+      // BOM for Excel UTF-8
+      const bom = '\uFEFF';
+      const csvStr = bom + lines.join('\n');
+      const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      const safeName = (dist.full_name || 'distribuidor').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
+      link.setAttribute('download', `reporte_${safeName}_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      alert('Error al generar reporte: ' + err.message);
+    } finally {
+      setExportingReport(null);
+    }
+  };
+
   const filteredUsers = users.filter(user => {
     const safeSearch = searchTerm?.toLowerCase() || '';
     const matchesSearch =
@@ -983,11 +1105,12 @@ export default function UsersPage() {
                         Saldo {cxcSort.key === 'balance' && (cxcSort.dir === 'desc' ? '↓' : '↑')}
                       </th>
                       <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Último Pago</th>
+                      <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center">Reporte</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredCxc.length === 0 ? (
-                      <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400">No se encontraron distribuidores con saldo.</td></tr>
+                      <tr><td colSpan={8} className="px-6 py-12 text-center text-slate-400">No se encontraron distribuidores con saldo.</td></tr>
                     ) : (
                       filteredCxc.map(d => (
                         <tr key={d.id} className="hover:bg-white/50 transition-colors">
@@ -1012,6 +1135,17 @@ export default function UsersPage() {
                           </td>
                           <td className="px-4 py-4 text-sm text-slate-500">
                             {d.lastPayment ? new Date(d.lastPayment).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : <span className="text-slate-300">Sin pagos</span>}
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <button
+                              onClick={() => exportDistributorReport(d)}
+                              disabled={exportingReport === d.id}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#6a9a04] bg-[#6a9a04]/10 hover:bg-[#6a9a04]/20 rounded-lg border-none cursor-pointer transition-all disabled:opacity-50"
+                              title="Descargar reporte detallado"
+                            >
+                              {exportingReport === d.id ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                              Reporte
+                            </button>
                           </td>
                         </tr>
                       ))
