@@ -52,6 +52,8 @@ export default function RecepcionesPage() {
       const s = searchTerm.toLowerCase();
       const match = (r.container_label || '').toLowerCase().includes(s)
         || (r.pedimento_number || '').toLowerCase().includes(s)
+        || (r.operation_number || '').toLowerCase().includes(s)
+        || (r.customs_broker_ref || '').toLowerCase().includes(s)
         || (r.distributor?.full_name || '').toLowerCase().includes(s)
         || (r.distributor?.client_number || '').toLowerCase().includes(s)
         || (r.warehouse?.name || '').toLowerCase().includes(s)
@@ -154,7 +156,7 @@ export default function RecepcionesPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Contenedor</th>
+                  <th className="px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Op / Contenedor</th>
                   <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Bodega</th>
                   <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">PRO</th>
                   <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Fecha</th>
@@ -177,7 +179,10 @@ export default function RecepcionesPage() {
                             <Container size={16} className="text-blue-500" />
                           </div>
                           <div>
-                            <div className="font-bold text-sm text-slate-900">{r.container_label || 'Sin etiqueta'}</div>
+                            <div className="font-bold text-sm text-slate-900">
+                              {r.operation_number ? <span className="text-[#6a9a04] mr-1.5">{r.operation_number}</span> : null}
+                              {r.container_label || 'Sin etiqueta'}
+                            </div>
                             {r.po?.po_number && <div className="text-[11px] text-slate-400">PO: {r.po.po_number}</div>}
                           </div>
                         </div>

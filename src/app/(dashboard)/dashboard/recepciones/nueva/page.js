@@ -32,6 +32,8 @@ export default function NuevaRecepcionPage() {
     reception_date: new Date().toISOString().split('T')[0],
     container_label: '',
     pedimento_number: '',
+    operation_number: '',
+    customs_broker_ref: '',
     freight_maritime: '',
     freight_national: '',
     import_taxes: '',
@@ -87,6 +89,8 @@ export default function NuevaRecepcionPage() {
           reception_date: reception.reception_date || new Date().toISOString().split('T')[0],
           container_label: reception.container_label || '',
           pedimento_number: reception.pedimento_number || '',
+          operation_number: reception.operation_number || '',
+          customs_broker_ref: reception.customs_broker_ref || '',
           freight_maritime: reception.freight_maritime || '',
           freight_national: reception.freight_national || '',
           import_taxes: reception.import_taxes || '',
@@ -250,6 +254,8 @@ export default function NuevaRecepcionPage() {
       reception_date: form.reception_date,
       container_label: form.container_label || null,
       pedimento_number: form.pedimento_number || null,
+      operation_number: form.operation_number || null,
+      customs_broker_ref: form.customs_broker_ref || null,
       freight_maritime: Number(form.freight_maritime) || 0,
       freight_national: Number(form.freight_national) || 0,
       import_taxes: Number(form.import_taxes) || 0,
@@ -332,6 +338,8 @@ export default function NuevaRecepcionPage() {
       reception_date: form.reception_date,
       container_label: form.container_label || null,
       pedimento_number: form.pedimento_number || null,
+      operation_number: form.operation_number || null,
+      customs_broker_ref: form.customs_broker_ref || null,
       freight_maritime: Number(form.freight_maritime) || 0,
       freight_national: Number(form.freight_national) || 0,
       import_taxes: Number(form.import_taxes) || 0,
@@ -523,6 +531,30 @@ export default function NuevaRecepcionPage() {
               placeholder="Ej: 26 51 3412 6001234"
               disabled={isCompleted}
               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm placeholder:text-slate-400 font-mono disabled:opacity-60"
+            />
+          </div>
+          {/* Operation Number */}
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1">Nº de Operación *</label>
+            <input
+              type="text"
+              value={form.operation_number}
+              onChange={e => setForm(f => ({ ...f, operation_number: e.target.value }))}
+              placeholder="Ej: Op19"
+              disabled={isCompleted}
+              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm placeholder:text-slate-400 font-bold disabled:opacity-60"
+            />
+          </div>
+          {/* Customs Broker Ref */}
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1">Ref. Agente Aduanal</label>
+            <input
+              type="text"
+              value={form.customs_broker_ref}
+              onChange={e => setForm(f => ({ ...f, customs_broker_ref: e.target.value }))}
+              placeholder="Referencia del agente aduanal"
+              disabled={isCompleted}
+              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm placeholder:text-slate-400 disabled:opacity-60"
             />
           </div>
         </div>
