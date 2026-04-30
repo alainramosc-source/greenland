@@ -248,11 +248,26 @@ export default function UsersPage() {
       if (orderIds.length > 0) {
         const { data: itemsData, error: itemErr } = await supabase
           .from('order_items')
-          .select('order_id, quantity, unit_price, total_price, product_id, products(name, sku)')
+          .select('order_id, quantity, unit_price, total_price, product_id')
           .in('order_id', orderIds);
         if (itemErr) console.error('[Report] Items query error:', itemErr);
         allItems = itemsData || [];
         console.log('[Report] Items found:', allItems.length);
+
+        // Fetch product details for these items
+        if (allItems.length > 0) {
+          const productIds = [...new Set(allItems.map(i => i.product_id).filter(Boolean))];
+          const { data: productsData } = await supabase
+            .from('products')
+            .select('id, name, sku')
+            .in('id', productIds);
+          const prodMap = {};
+          (productsData || []).forEach(p => { prodMap[p.id] = p; });
+          allItems.forEach(item => {
+            item.products = prodMap[item.product_id] || { name: '', sku: '' };
+          });
+          console.log('[Report] Products matched:', Object.keys(prodMap).length);
+        }
       }
 
       // Attach items to orders
