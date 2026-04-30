@@ -270,10 +270,13 @@ export default function UsersPage() {
         }
       }
 
-      // Attach items to orders
-      ordersData.forEach(o => {
-        o.order_items = allItems.filter(i => i.order_id === o.id);
+      // Build items lookup by order_id
+      const itemsByOrder = {};
+      allItems.forEach(item => {
+        if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+        itemsByOrder[item.order_id].push(item);
       });
+      console.log('[Report] itemsByOrder keys:', Object.keys(itemsByOrder).length);
 
       // Fetch payments
       let paymentsData = [];
@@ -328,7 +331,8 @@ export default function UsersPage() {
       lines.push('═══ DETALLE DE PEDIDOS ═══');
       lines.push('Pedido,Fecha,SKU,Producto,Cantidad,Precio Unit,Subtotal');
       (ordersData || []).forEach(o => {
-        (o.order_items || []).forEach(item => {
+        const oItems = itemsByOrder[o.id] || [];
+        oItems.forEach(item => {
           lines.push(`${o.order_number || 'S/N'},${new Date(o.created_at).toLocaleDateString('es-MX')},${item.products?.sku || ''},${esc(item.products?.name || '')},${item.quantity},${Number(item.unit_price).toFixed(2)},${Number(item.subtotal || item.quantity * item.unit_price).toFixed(2)}`);
         });
       });
