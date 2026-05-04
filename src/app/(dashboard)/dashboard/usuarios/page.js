@@ -448,15 +448,20 @@ export default function UsersPage() {
     if (!distributors) { setCxcLoading(false); return; }
 
     // Get all non-cancelled orders with their payments
-    const { data: orders } = await supabase
+    const { data: orders, error: ordErr } = await supabase
       .from('orders')
       .select('id, distributor_id, total_amount, status, payment_status, created_at')
-      .not('status', 'in', '(cancelled,rejected)');
+      .neq('status', 'cancelled')
+      .neq('status', 'rejected');
 
-    const { data: payments } = await supabase
+    if (ordErr) console.error('[CxC] Orders query error:', ordErr);
+
+    const { data: payments, error: payErr } = await supabase
       .from('order_payments')
       .select('id, order_id, amount, payment_date')
       .order('payment_date', { ascending: false });
+
+    if (payErr) console.error('[CxC] Payments query error:', payErr);
 
     // Get container reception charges for PRO distributors
     const { data: receptions } = await supabase
