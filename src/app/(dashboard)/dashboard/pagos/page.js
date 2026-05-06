@@ -86,7 +86,8 @@ export default function AdminPagosPage() {
         .neq('status', 'cancelled')
         .neq('status', 'rejected');
 
-      // Also fetch admin-registered payments from order_payments
+      // Use order_payments as single source of truth for paid amounts
+      // (approved distributor_payments are already inserted into order_payments by handleApprove)
       const { data: orderPaymentsData } = await supabase
         .from('order_payments')
         .select('order_id, amount, payment_date');
@@ -94,12 +95,8 @@ export default function AdminPagosPage() {
       const bals = distribs.map(d => {
         const dOrders = (ordersData || []).filter(o => o.distributor_id === d.id);
         const totalOrders = dOrders.reduce((s, o) => s + Number(o.total_amount), 0);
-        // Payments from distributor flow (distributor_payments)
-        const totalPaidDistributor = payData.filter(p => p.distributor_id === d.id && p.status === 'approved').reduce((s, p) => s + Number(p.amount), 0);
-        // Payments from admin flow (order_payments)
         const dOrderIds = dOrders.map(o => o.id);
-        const totalPaidAdmin = (orderPaymentsData || []).filter(p => dOrderIds.includes(p.order_id)).reduce((s, p) => s + Number(p.amount), 0);
-        const totalPaid = totalPaidDistributor + totalPaidAdmin;
+        const totalPaid = (orderPaymentsData || []).filter(p => dOrderIds.includes(p.order_id)).reduce((s, p) => s + Number(p.amount), 0);
         return { ...d, total_orders: totalOrders, total_paid: totalPaid, balance: totalOrders - totalPaid };
       });
       setBalances(bals);
