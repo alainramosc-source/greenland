@@ -1726,11 +1726,11 @@ export default function InboxPage() {
     if (activeConversation.chatbot_active && !activeConversation.id?.startsWith('demo-')) {
       setActiveConversation(prev => ({ ...prev, chatbot_active: false }));
       setConversations(prev => prev.map(c => c.id === activeConversation.id ? { ...c, chatbot_active: false } : c));
-      supabase
+      await supabase
         .from('inbox_conversations')
         .update({ chatbot_active: false })
-        .eq('id', activeConversation.id)
-        .then(() => console.log('[Chatbot] Bot auto-disabled — human took over'));
+        .eq('id', activeConversation.id);
+      console.log('[Chatbot] Bot auto-disabled — human took over');
     }
 
     // Demo mode — add locally
@@ -1811,11 +1811,11 @@ export default function InboxPage() {
     if (activeConversation.chatbot_active && !activeConversation.id?.startsWith('demo-')) {
       setActiveConversation(prev => ({ ...prev, chatbot_active: false }));
       setConversations(prev => prev.map(c => c.id === activeConversation.id ? { ...c, chatbot_active: false } : c));
-      supabase
+      await supabase
         .from('inbox_conversations')
         .update({ chatbot_active: false })
-        .eq('id', activeConversation.id)
-        .then(() => console.log('[Chatbot] Bot auto-disabled — human sent media'));
+        .eq('id', activeConversation.id);
+      console.log('[Chatbot] Bot auto-disabled — human sent media');
     }
 
     // Optimistic: show media in UI
