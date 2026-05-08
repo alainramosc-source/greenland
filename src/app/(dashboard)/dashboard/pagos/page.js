@@ -21,6 +21,7 @@ export default function AdminPagosPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
   const [filterStatus, setFilterStatus] = useState('pending');
+  const [filterDistributor, setFilterDistributor] = useState('all');
   const [lightboxImg, setLightboxImg] = useState(null);
   const [rejectModal, setRejectModal] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -490,7 +491,11 @@ export default function AdminPagosPage() {
     </div>
   );
 
-  const filtered = payments.filter(p => filterStatus === 'all' ? true : p.status === filterStatus);
+  const filtered = payments.filter(p => {
+    const statusMatch = filterStatus === 'all' ? true : p.status === filterStatus;
+    const distribMatch = filterDistributor === 'all' ? true : p.distributor_id === filterDistributor;
+    return statusMatch && distribMatch;
+  });
   const pendingCount = payments.filter(p => p.status === 'pending').length;
   const approvedMonth = payments
     .filter(p => p.status === 'approved' && new Date(p.reviewed_at).getMonth() === new Date().getMonth())
@@ -589,7 +594,21 @@ export default function AdminPagosPage() {
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-[#6a9a04]" /> Pagos Registrados
               </h2>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={filterDistributor}
+                  onChange={e => setFilterDistributor(e.target.value)}
+                  className="text-xs font-bold px-3 py-1.5 rounded-full border border-slate-200 bg-white text-slate-600 cursor-pointer transition-all hover:border-[#6a9a04] focus:outline-none focus:border-[#6a9a04] appearance-none"
+                  style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'10\' height=\'6\'%3E%3Cpath d=\'M0 0l5 6 5-6z\' fill=\'%2394a3b8\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', paddingRight: '28px' }}
+                >
+                  <option value="all">Todos los distribuidores</option>
+                  {[...new Map(payments.filter(p => p.profiles?.full_name).map(p => [p.distributor_id, p.profiles.full_name])).entries()]
+                    .sort((a, b) => a[1].localeCompare(b[1]))
+                    .map(([id, name]) => (
+                      <option key={id} value={id}>{name}</option>
+                    ))
+                  }
+                </select>
                 <Filter size={14} className="text-slate-400" />
                 {['pending', 'approved', 'rejected', 'all'].map(s => (
                   <button key={s} onClick={() => setFilterStatus(s)}
