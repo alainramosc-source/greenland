@@ -116,9 +116,14 @@ export default function NuevoPedidoPage() {
     fetchData();
   }, []);
 
+  // Track whether custom prices have been loaded at least once
+  const customPricesLoaded = useRef(false);
+
   // Check for reorder items from sessionStorage
   useEffect(() => {
     if (products.length === 0) return;
+    // Wait until custom prices have been loaded (at least once) before processing reorder
+    if (!customPricesLoaded.current) return;
     const reorderData = sessionStorage.getItem('reorder_items');
     if (!reorderData) return;
     try {
@@ -169,6 +174,7 @@ export default function NuevoPedidoPage() {
         });
       }
       setCustomPrices(priceMap);
+      customPricesLoaded.current = true;
       // Update cart prices for existing items
       setCart(prev => prev.map(item => {
         const newPrice = priceMap[item.id] ?? item.basePrice;

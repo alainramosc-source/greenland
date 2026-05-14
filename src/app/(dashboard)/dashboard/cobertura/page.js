@@ -192,8 +192,40 @@ function CoberturaPage() {
             }
             setCoverageData(Object.values(merged));
         } else {
-            const { data } = await supabase.from('coverage_inventory').select('*').eq('warehouse_id', warehouse.id);
-            setCoverageData(data || []);
+            // Fetch real stock from warehouse_stock (source of truth) + demand/transit from coverage_inventory
+            const [wsRes, covRes] = await Promise.all([
+                supabase.from('warehouse_stock').select('product_id, stock_quantity').eq('warehouse_id', warehouse.id),
+                supabase.from('coverage_inventory').select('*').eq('warehouse_id', warehouse.id),
+            ]);
+            const merged = {};
+            // First, load real stock from warehouse_stock
+            for (const row of (wsRes.data || [])) {
+                merged[row.product_id] = {
+                    product_id: row.product_id,
+                    warehouse_id: warehouse.id,
+                    stock_bodega: row.stock_quantity || 0,
+                    stock_transito: 0,
+                    weekly_demand: 0,
+                };
+            }
+            // Then, overlay weekly_demand and stock_transito from coverage_inventory
+            for (const row of (covRes.data || [])) {
+                if (merged[row.product_id]) {
+                    merged[row.product_id].stock_transito = row.stock_transito || 0;
+                    merged[row.product_id].weekly_demand = row.weekly_demand || 0;
+                    if (row.id) merged[row.product_id].id = row.id;
+                } else {
+                    merged[row.product_id] = {
+                        product_id: row.product_id,
+                        warehouse_id: warehouse.id,
+                        stock_bodega: 0,
+                        stock_transito: row.stock_transito || 0,
+                        weekly_demand: row.weekly_demand || 0,
+                        id: row.id,
+                    };
+                }
+            }
+            setCoverageData(Object.values(merged));
         }
     };
 
