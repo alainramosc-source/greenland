@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   Package, History, X, Search, AlertTriangle, Shield, ArrowRightLeft, Warehouse,
   ClipboardList, Plus, Loader2, ChevronRight, Calendar, User, Lock, Eye, EyeOff, Filter,
-  Upload, FileSpreadsheet, CheckCircle2, XCircle, Download, ShoppingCart, Trash2, Check
+  Upload, FileSpreadsheet, CheckCircle2, XCircle, Download, ShoppingCart, Trash2, Check, DollarSign
 } from 'lucide-react';
 import { useRef } from 'react';
 
@@ -692,7 +692,7 @@ export default function InventariosPage() {
                 </div>
               </div>
 
-              {/* Stats Summary */}
+               {/* Stats Summary */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
                 <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-lg p-5 rounded-2xl flex items-center gap-3 hover:bg-white/80 transition-all">
                   <div className="w-10 h-10 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center text-[#6a9a04]">
@@ -730,6 +730,44 @@ export default function InventariosPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Inventory Valuation */}
+              {isAdmin && (() => {
+                const visibleWarehouses = warehouses.filter(wh => !hiddenWarehouses.includes(wh.id));
+                const warehouseValues = visibleWarehouses.map(wh => {
+                  const value = products.reduce((sum, p) => {
+                    const ws = getWhStock(p.id, wh.id);
+                    return sum + (ws.stock * (Number(p.price) || 0));
+                  }, 0);
+                  return { ...wh, value };
+                });
+                const grandTotal = warehouseValues.reduce((sum, wh) => sum + wh.value, 0);
+                return (
+                  <div className="mt-6 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700/50">
+                    <div className="flex items-center gap-3 mb-5">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                        <DollarSign className="w-5 h-5 text-emerald-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-white m-0 tracking-tight">Valor de Inventario</h3>
+                        <p className="text-[10px] text-slate-400 font-medium m-0">Stock actual × precio base por bodega</p>
+                      </div>
+                      <div className="ml-auto text-right">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 m-0">Valor Total</p>
+                        <p className="text-2xl font-black text-emerald-400 m-0 tracking-tight">${grandTotal.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {warehouseValues.map(wh => (
+                        <div key={wh.id} className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 m-0 mb-1">{wh.name.replace('Bodega ', '')}</p>
+                          <p className="text-lg font-black text-white m-0">${wh.value.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </>
           )}
 
