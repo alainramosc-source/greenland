@@ -439,6 +439,45 @@ export default function NuevaRecepcionPage() {
       if (error) stockErrors.push(`${item.sku}: ${error.message}`);
     }
 
+    // 2b. Update weighted average cost per product
+    for (const item of items) {
+      const landedCost = getLandedPerUnit(item);
+      const qtyReceived = Number(item.quantity) || 0;
+      if (landedCost <= 0 || qtyReceived <= 0) continue;
+
+      // Get current total stock across all warehouses (already includes this reception)
+      const { data: stockRows } = await supabase
+        .from('warehouse_stock')
+        .select('stock_quantity')
+        .eq('product_id', item.product_id);
+      const totalStockNow = (stockRows || []).reduce((s, r) => s + (r.stock_quantity || 0), 0);
+
+      // Get current avg_cost
+      const { data: prod } = await supabase
+        .from('products')
+        .select('avg_cost')
+        .eq('id', item.product_id)
+        .single();
+      const oldAvg = Number(prod?.avg_cost) || 0;
+
+      // Stock before this reception
+      const stockBefore = totalStockNow - qtyReceived;
+
+      let newAvg;
+      if (stockBefore <= 0 || oldAvg <= 0) {
+        // No previous stock or no previous cost — use this reception's landed cost
+        newAvg = landedCost;
+      } else {
+        // Weighted average: (old_value + new_value) / total_qty
+        newAvg = ((stockBefore * oldAvg) + (qtyReceived * landedCost)) / totalStockNow;
+      }
+
+      await supabase
+        .from('products')
+        .update({ avg_cost: Math.round(newAvg * 100) / 100 })
+        .eq('id', item.product_id);
+    }
+
     // 3. If PO exists, mark as received and resolve transits
     if (form.purchase_order_id) {
       await supabase.from('purchase_orders').update({ status: 'received' }).eq('id', form.purchase_order_id);

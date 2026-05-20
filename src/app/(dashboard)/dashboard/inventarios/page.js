@@ -737,11 +737,13 @@ export default function InventariosPage() {
                 const warehouseValues = visibleWarehouses.map(wh => {
                   const value = products.reduce((sum, p) => {
                     const ws = getWhStock(p.id, wh.id);
-                    return sum + (ws.stock * (Number(p.price) || 0));
+                    const cost = Number(p.avg_cost) || 0;
+                    return sum + (ws.stock * cost);
                   }, 0);
                   return { ...wh, value };
                 });
                 const grandTotal = warehouseValues.reduce((sum, wh) => sum + wh.value, 0);
+                const skusWithCost = products.filter(p => Number(p.avg_cost) > 0).length;
                 return (
                   <div className="mt-6 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700/50">
                     <div className="flex items-center gap-3 mb-5">
@@ -750,7 +752,7 @@ export default function InventariosPage() {
                       </div>
                       <div>
                         <h3 className="text-sm font-black text-white m-0 tracking-tight">Valor de Inventario</h3>
-                        <p className="text-[10px] text-slate-400 font-medium m-0">Stock actual × precio base por bodega</p>
+                        <p className="text-[10px] text-slate-400 font-medium m-0">Stock actual × costo promedio ponderado ({skusWithCost}/{products.length} SKUs con costo)</p>
                       </div>
                       <div className="ml-auto text-right">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 m-0">Valor Total</p>
