@@ -49,6 +49,8 @@ export default function PedidosPage() {
   const [retailLoading, setRetailLoading] = useState(true);
   const [showNewSale, setShowNewSale] = useState(false);
   const [expandedRetail, setExpandedRetail] = useState({});
+  const [distPayments, setDistPayments] = useState([]);
+  const [distContainerCharges, setDistContainerCharges] = useState(0);
   const supabase = createClient();
 
   // Refresh retail orders
@@ -87,6 +89,24 @@ export default function PedidosPage() {
 
       const { data } = await query;
       if (data) setOrders(data);
+
+      // For distributor view: fetch payments and container charges (same logic as Dashboard)
+      if (!isAdmin) {
+        const [paymentsRes, receptionsRes] = await Promise.all([
+          supabase.from('distributor_payments')
+            .select('amount')
+            .eq('distributor_id', targetUserId)
+            .eq('status', 'approved'),
+          supabase.from('container_receptions')
+            .select('charge_amount')
+            .eq('distributor_id', targetUserId)
+            .eq('status', 'completed')
+        ]);
+        setDistPayments(paymentsRes.data || []);
+        const totalCont = (receptionsRes.data || []).reduce((s, r) => s + Number(r.charge_amount || 0), 0);
+        setDistContainerCharges(totalCont);
+      }
+
       setLoading(false);
     }
     fetchOrders();
@@ -131,7 +151,16 @@ export default function PedidosPage() {
   const counts = {};
   orders.forEach(o => { counts[o.status] = (counts[o.status] || 0) + 1; });
   const totalAmount = orders.filter(o => !['cancelled', 'rejected'].includes(o.status)).reduce((acc, order) => acc + Number(order.total_amount || 0), 0);
-  const pendingPayment = orders.filter(o => o.payment_status !== 'paid' && !['cancelled', 'rejected'].includes(o.status)).reduce((acc, o) => acc + Number(o.total_amount || 0), 0);
+  // For distributors: use same formula as Dashboard (totalSpent - totalPaid)
+  // For admin: use order-level payment_status as before
+  const pendingPayment = (() => {
+    if (!isAdmin) {
+      const totalSpent = totalAmount + distContainerCharges;
+      const totalPaid = distPayments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+      return totalSpent - totalPaid;
+    }
+    return orders.filter(o => o.payment_status !== 'paid' && !['cancelled', 'rejected'].includes(o.status)).reduce((acc, o) => acc + Number(o.total_amount || 0), 0);
+  })();
 
   const handlePrintOrders = async () => {
     // Only print active orders (exclude cancelled/rejected)
