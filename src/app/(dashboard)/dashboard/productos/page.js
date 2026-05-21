@@ -36,7 +36,7 @@ export default function ProductCatalogPage() {
     setLoading(true);
     const [prodRes, mfgRes, mapRes] = await Promise.all([
       supabase.from('products').select('*').order('sku'),
-      supabase.from('suppliers').select('id, short_name, company_name, address, tax_id, default_incoterm, payment_terms, contact_info').eq('type', 'manufacturer'),
+      supabase.from('suppliers').select('*').eq('type', 'manufacturer'),
       supabase.from('supplier_sku_mapping').select('*'),
     ]);
     setProducts(prodRes.data || []);
