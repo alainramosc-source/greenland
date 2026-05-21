@@ -21,7 +21,8 @@ export default function ManufacturersPage() {
   const [toast, setToast] = useState(null);
   const [form, setForm] = useState({
     company_name: '', short_name: '', contact_name: '', email: '', phone: '',
-    address: '', production_lead_weeks: 4, transit_lead_weeks: 5, notes: ''
+    address: '', production_lead_weeks: 4, transit_lead_weeks: 5, notes: '',
+    tax_id: '', default_incoterm: 'FOB', payment_terms: ''
   });
   // SKU mapping editing
   const [editingMappings, setEditingMappings] = useState(false);
@@ -51,7 +52,8 @@ export default function ManufacturersPage() {
 
   const resetForm = () => setForm({
     company_name: '', short_name: '', contact_name: '', email: '', phone: '',
-    address: '', production_lead_weeks: 4, transit_lead_weeks: 5, notes: ''
+    address: '', production_lead_weeks: 4, transit_lead_weeks: 5, notes: '',
+    tax_id: '', default_incoterm: 'FOB', payment_terms: ''
   });
 
   const openCreate = () => { resetForm(); setEditingId(null); setShowModal(true); };
@@ -67,6 +69,9 @@ export default function ManufacturersPage() {
       production_lead_weeks: mfg.production_lead_weeks || 4,
       transit_lead_weeks: mfg.transit_lead_weeks || 5,
       notes: mfg.notes || '',
+      tax_id: mfg.tax_id || '',
+      default_incoterm: mfg.default_incoterm || 'FOB',
+      payment_terms: mfg.payment_terms || '',
     });
     setEditingId(mfg.id);
     setShowModal(true);
@@ -91,6 +96,9 @@ export default function ManufacturersPage() {
       notes: form.notes.trim() || null,
       type: 'manufacturer',
       is_active: true,
+      tax_id: form.tax_id.trim() || null,
+      default_incoterm: form.default_incoterm.trim() || 'FOB',
+      payment_terms: form.payment_terms.trim() || null,
     };
 
     let error;
@@ -238,6 +246,8 @@ export default function ManufacturersPage() {
                       {mfg.email && <span className="flex items-center gap-1"><Mail size={11} /> {mfg.email}</span>}
                       <span className="flex items-center gap-1"><Clock size={11} /> Lead: {totalLead} sem ({mfg.production_lead_weeks}p + {mfg.transit_lead_weeks}t)</span>
                       <span className="flex items-center gap-1"><Package size={11} /> {mappings.length} SKUs</span>
+                      {mfg.default_incoterm && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">{mfg.default_incoterm}</span>}
+                      {!mfg.tax_id && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">Sin Tax ID</span>}
                     </div>
                   </div>
                 </div>
@@ -419,6 +429,41 @@ export default function ManufacturersPage() {
                 <p className="text-[10px] text-orange-500 mt-2 text-center font-bold">
                   Total: {(parseInt(form.production_lead_weeks) || 0) + (parseInt(form.transit_lead_weeks) || 0)} semanas
                 </p>
+              </div>
+
+              {/* Commercial Terms */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <label className="block text-xs font-bold text-blue-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  📋 Datos Comerciales (para PO)
+                </label>
+                <div>
+                  <label className="block text-[10px] text-blue-600 font-bold mb-1">Tax ID / Unified Social Credit Code</label>
+                  <input type="text" value={form.tax_id}
+                    onChange={e => setForm(f => ({ ...f, tax_id: e.target.value }))}
+                    placeholder="91330XXXXXXXXXX"
+                    className="w-full px-4 py-2.5 bg-white border border-blue-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-300 shadow-sm font-mono" />
+                </div>
+                <div className="grid grid-cols-2 gap-4 mt-3">
+                  <div>
+                    <label className="block text-[10px] text-blue-600 font-bold mb-1">INCOTERM</label>
+                    <select value={form.default_incoterm}
+                      onChange={e => setForm(f => ({ ...f, default_incoterm: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-white border border-blue-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-300 shadow-sm font-bold">
+                      <option value="FOB">FOB</option>
+                      <option value="EXW">EXW</option>
+                      <option value="CIF">CIF</option>
+                      <option value="CFR">CFR</option>
+                      <option value="DDP">DDP</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-blue-600 font-bold mb-1">Condiciones de Pago</label>
+                    <input type="text" value={form.payment_terms}
+                      onChange={e => setForm(f => ({ ...f, payment_terms: e.target.value }))}
+                      placeholder="30% deposit, 70% T/T before shipment"
+                      className="w-full px-4 py-2.5 bg-white border border-blue-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-300 shadow-sm" />
+                  </div>
+                </div>
               </div>
 
               <div>
