@@ -19,7 +19,8 @@ export default function ProductCatalogPage() {
   const [toast, setToast] = useState(null);
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
   const [form, setForm] = useState({
-    sku: '', name: '', category: '', container_capacity: 0, is_active: true, description: ''
+    sku: '', name: '', category: '', container_capacity: 0, is_active: true, description: '',
+    manufacturer_id: '', supplier_sku: ''
   });
 
   const showToast = (msg, type = 'success') => {
@@ -43,12 +44,14 @@ export default function ProductCatalogPage() {
   useEffect(() => { fetchAll(); }, []);
 
   const resetForm = () => setForm({
-    sku: '', name: '', category: '', container_capacity: 0, is_active: true, description: ''
+    sku: '', name: '', category: '', container_capacity: 0, is_active: true, description: '',
+    manufacturer_id: '', supplier_sku: ''
   });
 
   const openCreate = () => { resetForm(); setEditingId(null); setShowModal(true); };
 
   const openEdit = (prod) => {
+    const mapping = skuMappings.find(m => m.product_id === prod.id);
     setForm({
       sku: prod.sku || '',
       name: prod.name || '',
@@ -56,6 +59,8 @@ export default function ProductCatalogPage() {
       container_capacity: prod.container_capacity || 0,
       is_active: prod.is_active !== false,
       description: prod.description || '',
+      manufacturer_id: mapping?.supplier_id || '',
+      supplier_sku: mapping?.supplier_sku || '',
     });
     setEditingId(prod.id);
     setShowModal(true);
@@ -75,16 +80,40 @@ export default function ProductCatalogPage() {
       is_active: form.is_active,
     };
 
-    let error;
+    let error, productId = editingId;
     if (editingId) {
       ({ error } = await supabase.from('products').update(payload).eq('id', editingId));
     } else {
-      ({ error } = await supabase.from('products').insert(payload));
+      const { data: newProd, error: insertErr } = await supabase.from('products').insert(payload).select('id').single();
+      error = insertErr;
+      if (newProd) productId = newProd.id;
     }
     if (error) {
       if (error.message.includes('duplicate')) alert('Ya existe un producto con ese SKU');
       else alert('Error: ' + error.message);
     } else {
+      // Save manufacturer mapping
+      if (productId && form.manufacturer_id) {
+        const existingMapping = skuMappings.find(m => m.product_id === productId);
+        if (existingMapping) {
+          await supabase.from('supplier_sku_mapping').update({
+            supplier_id: form.manufacturer_id,
+            supplier_sku: form.supplier_sku.trim() || form.sku,
+          }).eq('id', existingMapping.id);
+        } else {
+          await supabase.from('supplier_sku_mapping').insert({
+            product_id: productId,
+            supplier_id: form.manufacturer_id,
+            supplier_sku: form.supplier_sku.trim() || form.sku,
+          });
+        }
+      } else if (productId && !form.manufacturer_id) {
+        // Remove mapping if manufacturer was cleared
+        const existingMapping = skuMappings.find(m => m.product_id === productId);
+        if (existingMapping) {
+          await supabase.from('supplier_sku_mapping').delete().eq('id', existingMapping.id);
+        }
+      }
       showToast(editingId ? 'Producto actualizado' : 'Producto creado');
       setShowModal(false);
       await fetchAll();
@@ -290,6 +319,27 @@ export default function ProductCatalogPage() {
                     placeholder="0"
                     className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/30 shadow-sm font-bold text-center" />
                   <p className="text-[10px] text-slate-400 mt-1">Unidades que caben en un contenedor de 40'</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Fabricante</label>
+                  <select value={form.manufacturer_id}
+                    onChange={e => setForm(f => ({ ...f, manufacturer_id: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/30 shadow-sm">
+                    <option value="">Sin asignar</option>
+                    {manufacturers.map(m => (
+                      <option key={m.id} value={m.id}>{m.short_name || m.company_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">SKU Fabricante</label>
+                  <input type="text" value={form.supplier_sku}
+                    onChange={e => setForm(f => ({ ...f, supplier_sku: e.target.value }))}
+                    placeholder={form.sku || 'SKU del proveedor'}
+                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/30 shadow-sm font-mono" />
                 </div>
               </div>
 
