@@ -16,18 +16,7 @@ const DESTINATIONS = [
     { code: 'ALT', city: 'Altamira', port: 'ALTAMIRA' },
 ];
 
-const SUPPLIER_INFO = {
-    'Shinaier': {
-        address: 'NO.11 LINGANG RD., DAIXI TOWN, WUXING DISTRICT, HUZHOU CITY, ZHEJIANG, 313000 CHINA',
-        attn: 'Jacqueline Wang',
-        email: 'jacqueline@foldingtable.cn',
-    },
-    'Freeman': {
-        address: 'Building 2, Xiaohe Science Park, No.24, Daxin East Road, Daojiao Town, Dongguan, Guangdong, China. 523181',
-        attn: 'Patrick Huang',
-        email: 'patrick.huang@tent-tent.com',
-    },
-};
+
 
 const BUYER_INFO = {
     name: 'GREENLAND PRODUCTS S.A. DE C.V.',
@@ -352,21 +341,27 @@ export default function NuevoPedidoPage() {
         return poNumber;
     };
 
+    // Get unit price for a product from sku mapping
+    const getUnitPrice = (productId) => {
+        if (!selectedSupplier) return 0;
+        return skuMapping.find(m => m.product_id === productId && m.supplier_id === selectedSupplier.id)?.unit_price_usd || 0;
+    };
+
     // Export Excel — accepts poNumber, returns { buffer, fileName } or downloads directly
     const exportExcel = async (poNumberOverride) => {
         if (allItems.length === 0) { showToast('Agrega productos a al menos un contenedor', 'error'); return null; }
         const poNumber = poNumberOverride || generatePoNumber();
         const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-        const supplierInfo = SUPPLIER_INFO[selectedSupplier.short_name] || {};
         const activeContainers = containers.filter(c => c.items.some(i => i.quantity > 0));
 
         const wb = new ExcelJS.Workbook();
         const ws = wb.addWorksheet('Purchase Order');
 
-        // Column widths
+        // Column widths — expanded for price columns
         ws.columns = [
-            { width: 42 }, { width: 18 }, { width: 12 }, { width: 18 }, { width: 24 },
+            { width: 30 }, { width: 18 }, { width: 30 }, { width: 10 }, { width: 14 }, { width: 14 }, { width: 18 }, { width: 22 },
         ];
+        const colCount = 8;
 
         const boldFont = { bold: true, size: 11 };
         const titleFont = { bold: true, size: 16 };
@@ -375,49 +370,59 @@ export default function NuevoPedidoPage() {
         // --- Header ---
         const r1 = ws.addRow(['PURCHASE ORDER']);
         r1.font = titleFont;
-        ws.mergeCells(r1.number, 1, r1.number, 5);
+        ws.mergeCells(r1.number, 1, r1.number, colCount);
         ws.addRow([]);
 
-        const r3 = ws.addRow(['PO Number:', poNumber, '', 'Date:', today]);
+        const r3 = ws.addRow(['PO Number:', poNumber, '', '', 'Date:', today]);
         r3.getCell(1).font = boldFont;
-        r3.getCell(4).font = boldFont;
+        r3.getCell(5).font = boldFont;
         ws.addRow([]);
 
-        // --- Buyer ---
+        // --- Buyer (Punto 1: Identificación) ---
         const rb1 = ws.addRow(['BUYER:']);
         rb1.font = labelFont;
-        ws.mergeCells(rb1.number, 1, rb1.number, 5);
+        ws.mergeCells(rb1.number, 1, rb1.number, colCount);
         const rb2 = ws.addRow([BUYER_INFO.name]);
         rb2.font = boldFont;
-        ws.mergeCells(rb2.number, 1, rb2.number, 5);
+        ws.mergeCells(rb2.number, 1, rb2.number, colCount);
         const rb3 = ws.addRow([BUYER_INFO.address]);
-        ws.mergeCells(rb3.number, 1, rb3.number, 5);
+        ws.mergeCells(rb3.number, 1, rb3.number, colCount);
         const rb4 = ws.addRow(['Tax ID: ' + BUYER_INFO.taxId]);
-        ws.mergeCells(rb4.number, 1, rb4.number, 5);
+        ws.mergeCells(rb4.number, 1, rb4.number, colCount);
         ws.addRow([]);
 
-        // --- Supplier ---
+        // --- Supplier (Punto 1: Identificación con Tax ID) ---
         const rs1 = ws.addRow(['SUPPLIER:']);
         rs1.font = labelFont;
-        ws.mergeCells(rs1.number, 1, rs1.number, 5);
-        const rs2 = ws.addRow([selectedSupplier.name]);
+        ws.mergeCells(rs1.number, 1, rs1.number, colCount);
+        const rs2 = ws.addRow([selectedSupplier.company_name || selectedSupplier.name]);
         rs2.font = boldFont;
-        ws.mergeCells(rs2.number, 1, rs2.number, 5);
-        const rs3 = ws.addRow([supplierInfo.address || '']);
-        ws.mergeCells(rs3.number, 1, rs3.number, 5);
-        const rs4 = ws.addRow(['Attn: ' + (supplierInfo.attn || '')]);
-        ws.mergeCells(rs4.number, 1, rs4.number, 5);
+        ws.mergeCells(rs2.number, 1, rs2.number, colCount);
+        const rs3 = ws.addRow([selectedSupplier.address || '']);
+        ws.mergeCells(rs3.number, 1, rs3.number, colCount);
+        if (selectedSupplier.contact_info) {
+            const rs3b = ws.addRow(['Attn: ' + selectedSupplier.contact_info]);
+            ws.mergeCells(rs3b.number, 1, rs3b.number, colCount);
+        }
+        if (selectedSupplier.tax_id) {
+            const rs4 = ws.addRow(['Tax ID: ' + selectedSupplier.tax_id]);
+            ws.mergeCells(rs4.number, 1, rs4.number, colCount);
+        }
         ws.addRow([]);
 
-        // --- Destination ---
+        // --- Destination + INCOTERM (Punto 4) ---
+        const incoterm = selectedSupplier.default_incoterm || 'FOB';
         const rd1 = ws.addRow(['DESTINATION:', destination.city + ' (' + destination.code + ')']);
         rd1.getCell(1).font = boldFont;
         const rd2 = ws.addRow(['DESTINATION PORT:', destination.port]);
         rd2.getCell(1).font = boldFont;
+        const rd3 = ws.addRow(['INCOTERM:', incoterm]);
+        rd3.getCell(1).font = boldFont;
+        rd3.getCell(2).font = { bold: true, size: 12, color: { argb: 'FF1a365d' } };
         ws.addRow([]);
 
-        // --- Table Header ---
-        const headerRow = ws.addRow(['PRODUCT', 'GREENLAND SKU', 'QTY', 'DESTINATION', 'DESTINATION PORT']);
+        // --- Table Header (Punto 2: Objeto + Punto 3: Precio) ---
+        const headerRow = ws.addRow(['PRODUCT', 'GREENLAND SKU', 'DESCRIPTION', 'QTY', 'UNIT PRICE (USD)', 'AMOUNT (USD)', 'DESTINATION', 'DESTINATION PORT']);
         headerRow.eachCell(cell => {
             cell.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF333333' } };
@@ -431,6 +436,7 @@ export default function NuevoPedidoPage() {
         // --- Container groups ---
         const thickBorder = { style: 'medium', color: { argb: 'FF000000' } };
         const thinBorder = { style: 'thin', color: { argb: 'FFB0B0B0' } };
+        let grandTotal = 0;
 
         activeContainers.forEach(container => {
             const itemsWithQty = container.items.filter(i => i.quantity > 0);
@@ -440,14 +446,14 @@ export default function NuevoPedidoPage() {
 
             // Container label row
             const labelRow = ws.addRow([container.name]);
-            ws.mergeCells(labelRow.number, 1, labelRow.number, 5);
+            ws.mergeCells(labelRow.number, 1, labelRow.number, colCount);
             labelRow.getCell(1).font = { bold: true, size: 10, italic: true, color: { argb: 'FF1a365d' } };
             labelRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F0FE' } };
 
             // Departure date row (prominent, separate)
             if (container.departure_date) {
                 const depRow = ws.addRow([`DEPARTURE DATE: ${container.departure_date}`]);
-                ws.mergeCells(depRow.number, 1, depRow.number, 5);
+                ws.mergeCells(depRow.number, 1, depRow.number, colCount);
                 depRow.getCell(1).font = { bold: true, size: 11, color: { argb: 'FF92400E' } };
                 depRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7ED' } };
             }
@@ -455,17 +461,30 @@ export default function NuevoPedidoPage() {
             itemsWithQty.forEach(item => {
                 const product = products.find(p => p.id === item.productId);
                 if (!product) return;
+                const unitPrice = getUnitPrice(item.productId);
+                const lineAmount = unitPrice * item.quantity;
+                grandTotal += lineAmount;
                 const row = ws.addRow([
                     getSupplierSku(item.productId),
                     product.sku,
+                    product.name,
                     item.quantity,
+                    unitPrice > 0 ? unitPrice : '',
+                    lineAmount > 0 ? lineAmount : '',
                     destination.code,
                     destination.port,
                 ]);
-                row.getCell(3).alignment = { horizontal: 'center' };
-                row.getCell(3).font = { bold: true };
                 row.getCell(4).alignment = { horizontal: 'center' };
-                row.getCell(5).alignment = { horizontal: 'center' };
+                row.getCell(4).font = { bold: true };
+                if (unitPrice > 0) {
+                    row.getCell(5).numFmt = '$#,##0.00';
+                    row.getCell(5).alignment = { horizontal: 'right' };
+                    row.getCell(6).numFmt = '$#,##0.00';
+                    row.getCell(6).alignment = { horizontal: 'right' };
+                    row.getCell(6).font = { bold: true };
+                }
+                row.getCell(7).alignment = { horizontal: 'center' };
+                row.getCell(8).alignment = { horizontal: 'center' };
             });
 
             const endRowNum = ws.rowCount;
@@ -473,13 +492,13 @@ export default function NuevoPedidoPage() {
             // Apply thick borders around the container group
             for (let r = startRowNum; r <= endRowNum; r++) {
                 const row = ws.getRow(r);
-                for (let c = 1; c <= 5; c++) {
+                for (let c = 1; c <= colCount; c++) {
                     const cell = row.getCell(c);
                     const border = {};
                     border.top = (r === startRowNum) ? thickBorder : thinBorder;
                     border.bottom = (r === endRowNum) ? thickBorder : thinBorder;
                     border.left = (c === 1) ? thickBorder : thinBorder;
-                    border.right = (c === 5) ? thickBorder : thinBorder;
+                    border.right = (c === colCount) ? thickBorder : thinBorder;
                     cell.border = border;
                 }
             }
@@ -487,12 +506,34 @@ export default function NuevoPedidoPage() {
 
         // --- Totals ---
         ws.addRow([]);
-        const totalRow = ws.addRow(['', 'TOTAL:', totalUnits, '', '']);
-        totalRow.getCell(2).font = { bold: true, size: 12 };
+        const totalRow = ws.addRow(['', '', '', totalUnits, '', grandTotal > 0 ? grandTotal : '', '', '']);
+        totalRow.getCell(3).value = 'TOTAL:';
         totalRow.getCell(3).font = { bold: true, size: 12 };
-        totalRow.getCell(3).alignment = { horizontal: 'center' };
+        totalRow.getCell(4).font = { bold: true, size: 12 };
+        totalRow.getCell(4).alignment = { horizontal: 'center' };
+        if (grandTotal > 0) {
+            totalRow.getCell(6).numFmt = '$#,##0.00';
+            totalRow.getCell(6).font = { bold: true, size: 12, color: { argb: 'FF1a365d' } };
+            totalRow.getCell(6).alignment = { horizontal: 'right' };
+        }
         const contRow = ws.addRow([`${activeContainers.length} container(s)`]);
         contRow.font = { italic: true, color: { argb: 'FF666666' } };
+
+        // --- TERMS & CONDITIONS (Puntos 3, 4, 5, 6) ---
+        ws.addRow([]);
+        const termsLabel = ws.addRow(['TERMS & CONDITIONS']);
+        termsLabel.font = { bold: true, size: 12, color: { argb: 'FF1a365d' } };
+        ws.mergeCells(termsLabel.number, 1, termsLabel.number, colCount);
+
+        const addTerm = (label, value) => {
+            const r = ws.addRow([label, value]);
+            r.getCell(1).font = { bold: true, size: 10 };
+            r.getCell(2).font = { size: 10 };
+        };
+        addTerm('INCOTERM:', incoterm);
+        addTerm('CURRENCY:', 'USD (United States Dollar)');
+        addTerm('PAYMENT TERMS:', selectedSupplier.payment_terms || '30% deposit upon order confirmation, 70% T/T before shipment');
+        addTerm('ACCEPTANCE:', 'This PO is accepted upon written confirmation, proforma invoice issuance, or commencement of production.');
 
         if (notes) {
             ws.addRow([]);
@@ -500,6 +541,13 @@ export default function NuevoPedidoPage() {
             notesLabel.font = boldFont;
             ws.addRow([notes]);
         }
+
+        // --- Legal Footer (Punto 6: Referencia a políticas) ---
+        ws.addRow([]);
+        const legalRow = ws.addRow(['This Purchase Order constitutes a binding agreement between the parties identified above. By accepting this order, the Supplier agrees to deliver the goods described herein in accordance with the stated terms, conditions, and INCOTERM. Any discrepancies must be communicated in writing prior to shipment.']);
+        ws.mergeCells(legalRow.number, 1, legalRow.number, colCount);
+        legalRow.getCell(1).font = { size: 9, italic: true, color: { argb: 'FF666666' } };
+        legalRow.getCell(1).alignment = { wrapText: true };
 
         // Generate and download
         const fileName = `PO_${selectedSupplier.short_name}_${destination.code}_${poNumber}.xlsx`;
@@ -523,7 +571,6 @@ export default function NuevoPedidoPage() {
         // Attach Excel to email
         if (result?.buffer) {
             try {
-                const supplierInfo = SUPPLIER_INFO[selectedSupplier.short_name] || {};
                 const poItems = allItems.map(i => {
                     const p = products.find(pr => pr.id === i.productId);
                     return { sku: p?.sku || '—', supplierSku: getSupplierSku(i.productId), quantity: i.quantity };
@@ -540,7 +587,7 @@ export default function NuevoPedidoPage() {
                         type: 'purchase_order',
                         orderNumber: poNumber,
                         supplierName: selectedSupplier.short_name,
-                        supplierEmail: supplierInfo.email || null,
+                        supplierEmail: selectedSupplier.email || null,
                         destinationCity: destination.city,
                         destinationPort: destination.port,
                         poItems,
