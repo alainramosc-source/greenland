@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import Link from 'next/link';
 import { Search, Filter, Edit2, Shield, AlertCircle, X, Save, UserPlus, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, Loader2, ShieldAlert, DollarSign, Users, CreditCard, TrendingUp, ExternalLink, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
+import { formatDateOnly } from '@/utils/formatters';
 
 export default function UsersPage() {
   const [activeTab, setActiveTab] = useState('clientes');
@@ -345,7 +346,7 @@ export default function UsersPage() {
         let totalContainers = 0;
         receptionsData.forEach(r => {
           totalContainers += Number(r.charge_amount || 0);
-          lines.push(`${r.operation_number || ''},${esc(r.container_label || '')},${esc(r.warehouse?.name || '')},${new Date(r.reception_date).toLocaleDateString('es-MX')},${Number(r.charge_amount || 0).toFixed(2)}`);
+          lines.push(`${r.operation_number || ''},${esc(r.container_label || '')},${esc(r.warehouse?.name || '')},${formatDateOnly(r.reception_date)},${Number(r.charge_amount || 0).toFixed(2)}`);
         });
         lines.push(`,,,,${totalContainers.toFixed(2)}`);
         lines.push('');
@@ -357,7 +358,7 @@ export default function UsersPage() {
         lines.push('Fecha,Pedido,Monto,Status');
         paymentsData.forEach(p => {
           const ord = (ordersData || []).find(o => o.id === p.order_id);
-          lines.push(`${new Date(p.payment_date).toLocaleDateString('es-MX')},${ord?.order_number || 'General'},${Number(p.amount).toFixed(2)}`);
+          lines.push(`${formatDateOnly(p.payment_date)},${ord?.order_number || 'General'},${Number(p.amount).toFixed(2)}`);
         });
         lines.push('');
       }

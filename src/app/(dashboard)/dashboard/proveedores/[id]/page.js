@@ -7,6 +7,7 @@ import {
   ArrowLeft, Building, Mail, Phone, MapPin, FileText, Loader2,
   CheckCircle, XCircle, Truck, Edit, Save, X
 } from 'lucide-react';
+import { formatDateOnly } from '@/utils/formatters';
 
 export default function SupplierDetailPage() {
   const { id } = useParams();
@@ -195,7 +196,7 @@ export default function SupplierDetailPage() {
                     <tr key={o.id}>
                       <td className="py-3 font-bold text-slate-900">#{o.order_number}</td>
                       <td className="py-3 text-slate-600 capitalize">{o.service_type}</td>
-                      <td className="py-3 text-slate-500">{o.scheduled_date ? new Date(o.scheduled_date).toLocaleDateString('es-MX') : '—'}</td>
+                      <td className="py-3 text-slate-500">{o.scheduled_date ? formatDateOnly(o.scheduled_date) : '—'}</td>
                       <td className="py-3 font-medium text-slate-700">${Number(o.agreed_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
                       <td className="py-3 text-center">
                         <span className="text-xs font-bold px-2.5 py-1 rounded-full capitalize" style={{ color: sc.color, background: sc.bg }}>

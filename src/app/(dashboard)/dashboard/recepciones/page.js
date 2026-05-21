@@ -7,6 +7,7 @@ import {
   Container, Plus, Search, Calendar, Warehouse, User, DollarSign,
   Loader2, Package, ChevronRight, Filter, X
 } from 'lucide-react';
+import { formatDateOnly } from '@/utils/formatters';
 
 const STATUS_MAP = {
   draft: { label: 'Borrador', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
@@ -199,7 +200,7 @@ export default function RecepcionesPage() {
                         )}
                       </td>
                       <td className="px-4 py-4 text-sm text-slate-600">
-                        {new Date(r.reception_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {formatDateOnly(r.reception_date)}
                       </td>
                       <td className="px-4 py-4 text-xs font-mono text-slate-500">{r.pedimento_number || '—'}</td>
                       <td className="px-4 py-4">

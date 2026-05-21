@@ -2,6 +2,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { FolderOpen, Loader2, CheckCircle } from 'lucide-react';
+import { formatDateOnly } from '@/utils/formatters';
 
 export default function SupplierContractsPage() {
   const supabase = createClient();
@@ -53,8 +54,8 @@ export default function SupplierContractsPage() {
                     {contract.description || 'Sin descripción'}
                   </div>
                   <div className="text-xs text-slate-400 mt-1">
-                    Inicio: {new Date(contract.start_date).toLocaleDateString('es-MX')}
-                    {contract.end_date && <> · Fin: {new Date(contract.end_date).toLocaleDateString('es-MX')}</>}
+                    Inicio: {formatDateOnly(contract.start_date)}
+                    {contract.end_date && <> · Fin: {formatDateOnly(contract.end_date)}</>}
                     {' · '}<span className="capitalize">{contract.periodicity}</span>
                   </div>
                 </div>

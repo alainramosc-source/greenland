@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { FileBox, Loader2, Clock, CheckCircle, XCircle, AlertTriangle, Play } from 'lucide-react';
+import { formatDateOnly } from '@/utils/formatters';
 
 const STATUS_CONFIG = {
   pendiente: { label: 'Pendiente', icon: Clock, color: '#fbbf24', bg: 'rgba(234,179,8,0.15)' },
@@ -69,7 +70,7 @@ export default function SupplierOrdersPage() {
                       <div>
                         <div className="font-bold text-slate-900">OS #{order.order_number} — <span className="capitalize">{order.service_type}</span></div>
                         <div className="text-sm text-slate-500 mt-0.5">
-                          {order.scheduled_date ? new Date(order.scheduled_date).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Sin fecha programada'}
+                          {order.scheduled_date ? formatDateOnly(order.scheduled_date, { day: 'numeric', month: 'long', year: 'numeric' }) : 'Sin fecha programada'}
                           {order.location && <> · {order.location}</>}
                         </div>
                       </div>

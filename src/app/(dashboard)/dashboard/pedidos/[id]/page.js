@@ -10,6 +10,7 @@ import {
   PackageOpen, Lock, Camera, Image, Trash2, Search, Warehouse, PackageCheck as BoxCheck,
   MessageCircleWarning, RotateCcw, Printer
 } from 'lucide-react';
+import { formatDateOnly } from '@/utils/formatters';
 import { useParams, useRouter } from 'next/navigation';
 
 const OP_STATUS = {
@@ -1452,7 +1453,7 @@ export default function OrderDetailsPage() {
                       {payments.map(p => (
                         <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                           <td className="py-3 text-sm text-slate-700">
-                            {new Date(p.payment_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            {formatDateOnly(p.payment_date)}
                           </td>
                           <td className="py-3 text-sm text-slate-600 capitalize">{p.payment_method}</td>
                           <td className="py-3 text-sm text-slate-500 font-mono">{p.reference || '—'}</td>

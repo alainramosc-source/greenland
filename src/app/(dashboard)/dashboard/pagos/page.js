@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AlertCircle, Link2 } from 'lucide-react';
+import { formatDateOnly } from '@/utils/formatters';
 
 const STATUS_MAP = {
   pending: { label: 'Pendiente', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: Clock },
@@ -145,7 +146,7 @@ export default function AdminPagosPage() {
           distributorEmail,
           distributorName,
           amount: payment.amount,
-          paymentDate: new Date(payment.payment_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }),
+          paymentDate: formatDateOnly(payment.payment_date),
           paymentMethod: payment.payment_method || '—',
           reference: payment.reference || '',
           status,
@@ -646,7 +647,7 @@ export default function AdminPagosPage() {
                               <span className="mx-1">·</span>
                               <span className="font-mono text-[#6a9a04]">{p.profiles?.client_number || '—'}</span>
                               <span className="mx-1">·</span>
-                              {new Date(p.payment_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              {formatDateOnly(p.payment_date)}
                               {p.reference && ` · Ref: ${p.reference}`}
                             </p>
                             {p.notes && <p className="text-xs text-slate-400 mt-0.5">📝 {p.notes}</p>}

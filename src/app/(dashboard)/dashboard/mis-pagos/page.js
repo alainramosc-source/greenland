@@ -6,6 +6,7 @@ import {
   DollarSign, CreditCard, Clock, CheckCircle, XCircle, Upload,
   Loader2, Plus, FileText, AlertTriangle, ChevronDown, ChevronUp, Eye
 } from 'lucide-react';
+import { formatDateOnly } from '@/utils/formatters';
 
 const STATUS_MAP = {
   pending: { label: 'Pendiente', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: Clock },
@@ -278,7 +279,7 @@ export default function MisPagosPage() {
                 <div>
                   <p className="text-sm font-bold text-slate-800 m-0">{r.container_label || 'Recepción'}</p>
                   <p className="text-xs text-slate-400 m-0">
-                    {new Date(r.reception_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {formatDateOnly(r.reception_date)}
                     {r.warehouse?.name && ` — ${r.warehouse.name}`}
                   </p>
                 </div>
@@ -611,7 +612,7 @@ function PaymentRow({ p, onViewReceipt }) {
             <span className="font-normal text-slate-400 ml-2 capitalize">{p.payment_method}</span>
           </p>
           <p className="text-xs text-slate-400 truncate">
-            {new Date(p.payment_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+             {formatDateOnly(p.payment_date)}
             {p.reference && ` — Ref: ${p.reference}`}
             {p.allocations && p.allocations.length > 1
               ? ` — Aplicado a ${p.allocations.length} pedidos`
