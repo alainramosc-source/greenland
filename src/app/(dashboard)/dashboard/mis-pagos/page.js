@@ -4,7 +4,8 @@ import { validateAmount, sanitizeText } from '@/utils/sanitize';
 import { useEffect, useState } from 'react';
 import {
   DollarSign, CreditCard, Clock, CheckCircle, XCircle, Upload,
-  Loader2, Plus, FileText, AlertTriangle, ChevronDown, ChevronUp, Eye
+  Loader2, Plus, FileText, AlertTriangle, ChevronDown, ChevronUp, Eye,
+  Copy, Building2, Mail, Shield
 } from 'lucide-react';
 import { formatDateOnly } from '@/utils/formatters';
 
@@ -34,6 +35,13 @@ export default function MisPagosPage() {
   });
   const [allocations, setAllocations] = useState([]); // [{order_id, amount}]
   const [receptions, setReceptions] = useState([]); // container receptions for PRO
+  const [copiedField, setCopiedField] = useState(null);
+
+  const copyToClipboard = (text, field) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   useEffect(() => { fetchData(); }, []);
 
@@ -246,19 +254,103 @@ export default function MisPagosPage() {
         </div>
       </div>
 
-      {/* Reference Banner */}
-      {clientNumber && !isSimulating && (
-        <div className="bg-[#6a9a04]/10 border border-[#6a9a04]/20 rounded-2xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#6a9a04]/20 flex items-center justify-center shrink-0">
-            <CreditCard size={20} className="text-[#6a9a04]" />
+      {/* Banking Information Card */}
+      {!isSimulating && (
+        <div className="relative overflow-hidden rounded-2xl" style={{ background: 'linear-gradient(135deg, #0a2540 0%, #1a365d 50%, #2d4a7a 100%)' }}>
+          {/* Subtle pattern overlay */}
+          <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+          
+          <div className="relative p-6">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/10">
+                  <Building2 size={22} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="text-white font-bold text-base m-0">Datos Bancarios</h3>
+                  <p className="text-blue-200/70 text-xs m-0 font-medium">Greenland Products S.A. de C.V.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-400/30">
+                <Shield size={12} className="text-emerald-400" />
+                <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider">Verificado</span>
+              </div>
+            </div>
+
+            {/* Banking Details Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+              {/* Banco */}
+              <div className="bg-white/[0.06] backdrop-blur-sm border border-white/10 rounded-xl p-3.5">
+                <span className="text-[10px] font-bold text-blue-300/60 uppercase tracking-wider block mb-1">Banco</span>
+                <span className="text-white font-bold text-sm">BANORTE</span>
+              </div>
+              {/* Beneficiario */}
+              <div className="bg-white/[0.06] backdrop-blur-sm border border-white/10 rounded-xl p-3.5">
+                <span className="text-[10px] font-bold text-blue-300/60 uppercase tracking-wider block mb-1">Beneficiario</span>
+                <span className="text-white font-bold text-sm">GREENLAND PRODUCTS SA DE CV</span>
+              </div>
+              {/* Cuenta */}
+              <div className="bg-white/[0.06] backdrop-blur-sm border border-white/10 rounded-xl p-3.5">
+                <span className="text-[10px] font-bold text-blue-300/60 uppercase tracking-wider block mb-1">Cuenta Bancaria</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-white font-bold text-sm font-mono tracking-wider">1302256025</span>
+                  <button onClick={() => copyToClipboard('1302256025', 'cuenta')} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 border-none cursor-pointer transition-all">
+                    {copiedField === 'cuenta' ? <CheckCircle size={13} className="text-emerald-400" /> : <Copy size={13} className="text-blue-300/60" />}
+                  </button>
+                </div>
+              </div>
+              {/* CLABE */}
+              <div className="bg-white/[0.06] backdrop-blur-sm border border-white/10 rounded-xl p-3.5">
+                <span className="text-[10px] font-bold text-blue-300/60 uppercase tracking-wider block mb-1">CLABE Interbancaria</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-white font-bold text-sm font-mono tracking-wider">072078013022560258</span>
+                  <button onClick={() => copyToClipboard('072078013022560258', 'clabe')} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 border-none cursor-pointer transition-all">
+                    {copiedField === 'clabe' ? <CheckCircle size={13} className="text-emerald-400" /> : <Copy size={13} className="text-blue-300/60" />}
+                  </button>
+                </div>
+              </div>
+              {/* RFC */}
+              <div className="bg-white/[0.06] backdrop-blur-sm border border-white/10 rounded-xl p-3.5">
+                <span className="text-[10px] font-bold text-blue-300/60 uppercase tracking-wider block mb-1">RFC</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-white font-bold text-sm font-mono">GPR230911971</span>
+                  <button onClick={() => copyToClipboard('GPR230911971', 'rfc')} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 border-none cursor-pointer transition-all">
+                    {copiedField === 'rfc' ? <CheckCircle size={13} className="text-emerald-400" /> : <Copy size={13} className="text-blue-300/60" />}
+                  </button>
+                </div>
+              </div>
+              {/* Email */}
+              <div className="bg-white/[0.06] backdrop-blur-sm border border-white/10 rounded-xl p-3.5">
+                <span className="text-[10px] font-bold text-blue-300/60 uppercase tracking-wider block mb-1">Enviar Comprobante a</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-white font-bold text-sm flex items-center gap-1.5"><Mail size={13} className="text-blue-300/60" /> ventas@greenland-products.com.mx</span>
+                  <button onClick={() => copyToClipboard('ventas@greenland-products.com.mx', 'email')} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 border-none cursor-pointer transition-all">
+                    {copiedField === 'email' ? <CheckCircle size={13} className="text-emerald-400" /> : <Copy size={13} className="text-blue-300/60" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Reference/Concept Reminder */}
+            {clientNumber && (
+              <div className="bg-gradient-to-r from-[#6a9a04]/20 to-[#dee24b]/10 border border-[#6a9a04]/30 rounded-xl p-4 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-[#6a9a04]/30 flex items-center justify-center shrink-0 border border-[#6a9a04]/20">
+                  <CreditCard size={22} className="text-[#6a9a04]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-blue-100/80 m-0 mb-1 font-medium">Al realizar tu transferencia, coloca como concepto:</p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl font-black text-[#6a9a04] font-mono tracking-wider">{clientNumber}</span>
+                    <button onClick={() => copyToClipboard(clientNumber, 'ref')} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 border-none cursor-pointer transition-all">
+                      {copiedField === 'ref' ? <CheckCircle size={14} className="text-emerald-400" /> : <Copy size={14} className="text-blue-300/60" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-blue-200/50 m-0 mt-1">Tu ID de distribuidor permite la conciliación automática de pagos</p>
+                </div>
+              </div>
+            )}
           </div>
-          <div>
-            <p className="text-sm font-bold text-slate-900 m-0">Tu referencia para pagos:</p>
-            <p className="text-lg font-black text-[#6a9a04] font-mono m-0">{clientNumber}</p>
-          </div>
-          <p className="text-xs text-slate-500 ml-auto max-w-[250px] m-0">
-            Usa este código como CONCEPTO al hacer transferencias para que tu pago se identifique automáticamente.
-          </p>
         </div>
       )}
 
