@@ -29,7 +29,9 @@ export const metadata = {
     follow: true,
     googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 },
   },
-  verification: {},
+  verification: {
+    google: 'RJwAWedMG7YP_utk-BWPrZYqjXK8qb-3aCzwbkmxctA',
+  },
 };
 
 export default function RootLayout({ children }) {
