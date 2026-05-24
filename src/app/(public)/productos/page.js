@@ -7,6 +7,15 @@ import './catalog.css';
 
 export const dynamic = 'force-dynamic';
 
+export const metadata = {
+  title: 'Catálogo de Mesas, Sillas y Toldos Plegables',
+  description: 'Explora nuestro catálogo completo de mesas plegables, sillas plegables, toldos profesionales y mobiliario para eventos. Distribución mayorista en todo México.',
+  openGraph: {
+    title: 'Catálogo de Mobiliario Plegable | Greenland Products',
+    description: 'Mesas plegables, sillas plegables y toldos profesionales. Mobiliario de calidad industrial para distribuidores.',
+  },
+};
+
 export default async function ProductosPage({ searchParams }) {
     const supabase = await createClient();
     const resolvedParams = await searchParams;

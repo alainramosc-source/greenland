@@ -31,6 +31,39 @@ export async function generateStaticParams() {
     }
 }
 
+export async function generateMetadata({ params }) {
+  const supabase = await createClient();
+  const resolvedParams = await params;
+  const sku = decodeURIComponent(resolvedParams.sku).trim().toUpperCase();
+  
+  const { data: product } = await supabase
+    .from('products')
+    .select('name, description, sku, categories(name)')
+    .eq('sku', sku)
+    .eq('is_active', true)
+    .single();
+
+  if (!product) {
+    return { title: 'Producto no encontrado' };
+  }
+
+  const title = product.name;
+  const description = product.description
+    ? product.description.substring(0, 155)
+    : `${product.name} - Mobiliario plegable profesional de alta resistencia. Distribuidor mayorista en México.`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title: `${product.name} | Greenland Products`,
+      description,
+      type: 'website',
+      images: [`/productos/${product.sku}/main.jpg`],
+    },
+  };
+}
+
 export default async function ProductDetailsPage({ params }) {
     const supabase = await createClient();
     // In Next.js 15+, params is a Promise. We must await it to get the SKU safely on Vercel Edge.
@@ -48,17 +81,30 @@ export default async function ProductDetailsPage({ params }) {
         .single();
 
     if (!product) {
-        return (
-            <div style={{ paddingTop: '10rem', textAlign: 'center' }}>
-                <h1 style={{ color: 'red' }}>DEBUG: PRODUCT NOT FOUND IN SUPABASE DB</h1>
-                <p>SKU Searched: {sku}</p>
-                <Link href="/productos">Devolver</Link>
-            </div>
-        );
+        notFound();
     }
 
     return (
         <div className="product-details-page" style={{ paddingTop: '6rem', paddingBottom: '8rem', background: 'var(--color-bg-alt)', minHeight: '100vh' }}>
+            {/* JSON-LD Product Schema */}
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                  '@context': 'https://schema.org',
+                  '@type': 'Product',
+                  name: product.name,
+                  description: product.description || '',
+                  sku: product.sku,
+                  brand: {
+                    '@type': 'Brand',
+                    name: 'Greenland Products',
+                  },
+                  image: `https://www.greenland-products.com.mx/productos/${product.sku}/main.jpg`,
+                  category: product.categories?.name || 'Mobiliario',
+                }),
+              }}
+            />
             <div className="container">
                 {/* Breadcrumbs */}
                 <div style={{ marginBottom: '2rem' }}>
