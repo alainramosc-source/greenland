@@ -4,8 +4,9 @@ import ImageCarousel from '@/components/ImageCarousel';
 import './spaces.css';
 
 export const metadata = {
-    title: 'Greenland Spaces | Soluciones Modulares y Espacios Inteligentes',
-    description: 'Contenedores expandibles, plegables, cápsulas espaciales y soluciones desmontables. Infraestructura modular de clase mundial para cualquier proyecto.',
+    title: 'Oficinas Móviles, Contenedores Plegables y Modulares | Greenland Spaces',
+    description: 'Oficinas móviles, contenedores móviles plegables, dormitorios modulares, casetas de vigilancia, almacenes temporales y módulos de venta. Soluciones modulares para construcción, eventos, emergencias y proyectos industriales. Venta y renta en México.',
+    keywords: ['oficinas móviles', 'contenedores móviles', 'contenedor plegable', 'oficina temporal', 'dormitorios modulares', 'casetas de vigilancia', 'módulos de venta', 'contenedor expandible', 'almacén temporal', 'oficina para obra'],
 };
 
 const SOLUTIONS = [
@@ -66,7 +67,7 @@ const SOLUTIONS = [
         id: 'plegable',
         name: 'Contenedor Plegable',
         tagline: 'Ultra rápido y transportable',
-        description: 'Contenedores de despliegue ultra rápido: 2 personas, 2 minutos. Optimiza costos de transporte con 12 unidades plegadas en un solo contenedor de 40 pies. Ideales para campamentos, despliegues de emergencia y proyectos masivos.',
+        description: 'Contenedores plegables de despliegue ultra rápido: 2 personas, 2 minutos. También conocidos como oficinas móviles o contenedores móviles. Se usan como oficina temporal para obra y construcción, dormitorios para trabajadores, almacenes temporales, casetas de vigilancia, módulos de venta, módulos de inspección, campamentos mineros y despliegues de emergencia. Optimiza costos de transporte con 12 unidades plegadas en un solo contenedor de 40 pies.',
         images: ['/spaces/plegable.png', '/spaces/plegable 2.png', '/spaces/plegable 3.png'],
         heroImage: '/spaces/plegable-hero.png',
         color: '#d97706',
