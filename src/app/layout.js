@@ -1,4 +1,5 @@
 import './globals.css';
+import Script from 'next/script';
 
 export const metadata = {
   metadataBase: new URL('https://www.greenland-products.com.mx'),
@@ -38,6 +39,19 @@ export default function RootLayout({ children }) {
   return (
     <html lang="es">
       <body>
+        {/* Google Analytics 4 */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-KPY2MXDXGN"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-KPY2MXDXGN');
+          `}
+        </Script>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -67,3 +81,4 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
+
