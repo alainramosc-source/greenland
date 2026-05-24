@@ -2,6 +2,39 @@ import { createClient } from '@/utils/supabase/server';
 import { ArrowRight, Box } from 'lucide-react';
 import Link from 'next/link';
 
+const CATEGORY_SEO = {
+    'mesas-plegables': {
+        title: 'Mesas Plegables Tipo Maleta y Portafolio | Venta Mayorista',
+        description: 'Mesas plegables rectangulares, redondas y tipo maletín en múltiples tamaños: 1.80m, 1.52m, 1.22m y más. Superficie HDPE, marco de acero reforzado. Distribuidor mayorista en México con envío nacional.',
+    },
+    'sillas-plegables': {
+        title: 'Sillas Plegables Profesionales | Distribución Mayorista México',
+        description: 'Sillas plegables de resina y acero para eventos, banquetes, salones y uso comercial. Resistentes, apilables y disponibles en varios colores. Venta mayorista con cobertura nacional.',
+    },
+    'toldos-plegables': {
+        title: 'Toldos Plegables 3x3 y Más Medidas | Venta por Mayoreo',
+        description: 'Toldos plegables profesionales en medidas 3x3, 3x4.5 y más. Estructura reforzada, lonas impermeables intercambiables. Ideales para eventos, ferias, comercio ambulante. Distribución mayorista.',
+    },
+    'bancas-y-mobiliario': {
+        title: 'Bancas y Mobiliario para Exteriores | Greenland Products',
+        description: 'Bancas plegables, cobertizos y mobiliario funcional para parques, jardines, zonas recreativas y áreas comunes. Materiales resistentes a la intemperie. Venta mayorista.',
+    },
+};
+
+export async function generateMetadata({ params }) {
+    const { slug } = await params;
+    const seo = CATEGORY_SEO[slug];
+    if (!seo) return { title: 'Categoría' };
+    return {
+        title: seo.title,
+        description: seo.description,
+        openGraph: {
+            title: seo.title,
+            description: seo.description,
+        },
+    };
+}
+
 // Pre-render the specific categories the user requested
 export async function generateStaticParams() {
     return [
