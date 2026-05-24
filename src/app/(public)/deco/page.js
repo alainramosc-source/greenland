@@ -3,8 +3,9 @@ import { ArrowLeft, ArrowRight, Check, Paintbrush, Home, Building2, Hotel, Utens
 import './deco.css';
 
 export const metadata = {
-    title: 'Greenland Deco | Recubrimientos Decorativos para Interiores y Exteriores',
-    description: 'Soluciones profesionales de recubrimiento decorativo: WPC, Deck, Paneles de Mármol UV, Paneles Acústicos, Pisos Vinílicos SPC, Piedra Flexible y más. Greenland Deco transforma cualquier espacio.',
+    title: 'Lambrín WPC, Wall Cladding, Deck y Panel Mármol PVC | Greenland Deco',
+    description: 'Lambrín WPC para interior y exterior, wall cladding coextruido, deck para terraza, panel de mármol PVC UV, panel acústico, piso vinílico SPC y piedra flexible. Recubrimientos decorativos profesionales con instalación rápida y distribución mayorista en México.',
+    keywords: ['lambrín', 'lambrín WPC', 'wall cladding', 'wall cladding coextruido', 'deck coextruido', 'deck para terraza', 'deck para piso', 'panel mármol PVC', 'mármol PVC', 'lambrín interior', 'lambrín exterior', 'panel acústico', 'piso vinílico SPC', 'piedra flexible'],
 };
 
 const PRODUCTS = [
