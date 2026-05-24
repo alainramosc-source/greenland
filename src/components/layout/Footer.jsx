@@ -1,6 +1,7 @@
 'use client';
 import { Mail, Phone, MapPin } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const Footer = () => {
   return (
@@ -10,7 +11,7 @@ const Footer = () => {
           {/* Brand */}
           <div className="footer-col brand-col">
             <div className="footer-logo">
-              <img src="/logo-new.jpg" alt="Greenland Products" className="footer-logo-img" />
+              <Image src="/logo-new.jpg" alt="Greenland Products" width={60} height={60} className="footer-logo-img" />
             </div>
             <p className="footer-desc">
               Soluciones profesionales en mobiliario y equipamiento para espacios versátiles. Calidad industrial para uso intensivo.

@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { ArrowRight, Box } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const CATEGORY_SEO = {
     'mesas-plegables': {
@@ -141,10 +142,14 @@ export default async function CategoryPage({ params }) {
                         {products.map((product) => (
                             <Link href={`/productos/${product.sku}?ref=cat`} key={product.id} className="group bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col">
                                 <div className="aspect-[4/3] bg-slate-50 relative overflow-hidden group-hover:bg-slate-100 transition-colors">
-                                    <img
+                                    <Image
                                         src={product.image_url || `/productos/${product.sku}-P1.png`}
                                         alt={product.name}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                        fill
+                                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+                                        className="group-hover:scale-105 transition-transform duration-500"
+                                        style={{ objectFit: 'cover' }}
+                                        quality={80}
                                     />
                                     {product.is_featured && (
                                         <div className="absolute top-3 left-3 bg-[#6a9a04] text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow-md">

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowLeft, ArrowRight, Building2, Truck, BoxSelect, Warehouse, Check, Home, Hotel, Mountain, Tent, Shield, Zap, Package, Minimize2, Maximize2 } from 'lucide-react';
 import ImageCarousel from '@/components/ImageCarousel';
 import './spaces.css';
@@ -174,8 +175,8 @@ export default function SpacesPage() {
                         </div>
                     </div>
                     <div className="spaces-hero-visual">
-                        <div className="spaces-image-card">
-                            <img src="/spaces/expandable-hero.png" alt="Soluciones Modulares Greenland Spaces" className="spaces-hero-img" />
+                        <div className="spaces-image-card" style={{ position: 'relative', aspectRatio: '16/10' }}>
+                            <Image src="/spaces/expandable-hero.png" alt="Soluciones Modulares Greenland Spaces" fill sizes="(max-width: 768px) 100vw, 50vw" style={{ objectFit: 'cover' }} priority />
                         </div>
                     </div>
                 </div>

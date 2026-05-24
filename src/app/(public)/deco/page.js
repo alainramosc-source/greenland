@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowLeft, ArrowRight, Check, Paintbrush, Home, Building2, Hotel, UtensilsCrossed, Briefcase, Store } from 'lucide-react';
 import './deco.css';
 
@@ -209,8 +210,8 @@ export default function DecoPage() {
                         </div>
                     </div>
                     <div className="deco-hero-visual">
-                        <div className="deco-image-card">
-                            <img src="/deco/hero.png" alt="Recubrimientos decorativos Greenland Deco" className="deco-hero-img" />
+                        <div className="deco-image-card" style={{ position: 'relative' }}>
+                            <Image src="/deco/hero.png" alt="Recubrimientos decorativos Greenland Deco" fill sizes="(max-width: 992px) 100vw, 50vw" style={{ objectFit: 'cover' }} priority />
                         </div>
                     </div>
                 </div>
@@ -245,7 +246,9 @@ export default function DecoPage() {
                         {PRODUCTS.map((prod, idx) => (
                             <div key={prod.id} className={`deco-product-card ${idx % 2 === 1 ? 'reversed' : ''}`} id={prod.id}>
                                 <div className="deco-product-visual">
-                                    <img src={prod.image} alt={prod.name} className="deco-product-img" />
+                                    <div style={{ position: 'relative', width: '100%', height: '400px' }}>
+                                        <Image src={prod.image} alt={prod.name} fill sizes="(max-width: 992px) 100vw, 50vw" quality={80} style={{ objectFit: 'cover' }} />
+                                    </div>
                                 </div>
                                 <div className="deco-product-content">
                                     <span className="deco-product-number" style={{ color: prod.color }}>0{idx + 1}</span>

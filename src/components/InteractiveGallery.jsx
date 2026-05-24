@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import NextImage from 'next/image';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // SKUs that need object-contain (wide/panoramic images)
@@ -106,10 +107,14 @@ export default function InteractiveGallery({ sku, productName }) {
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
             >
-                <img
+                <NextImage
                     src={images[safeIndex].url}
                     alt={`${productName} - Vista ${safeIndex + 1}`}
-                    className={`w-full h-full ${objectFit} transition-opacity duration-300 mix-blend-multiply`}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    quality={80}
+                    className="transition-opacity duration-300 mix-blend-multiply"
+                    style={{ objectFit: CONTAIN_SKUS.includes(sku) ? 'contain' : 'cover' }}
                 />
 
                 {images.length > 1 && (
@@ -153,10 +158,14 @@ export default function InteractiveGallery({ sku, productName }) {
                                 : 'border-transparent opacity-60 hover:opacity-100 bg-[#f8f9fa]'
                                 }`}
                         >
-                            <img
+                            <NextImage
                                 src={img.url}
                                 alt={`Miniatura ${idx + 1}`}
-                                className={`w-full h-full ${objectFit} mix-blend-multiply`}
+                                width={80}
+                                height={80}
+                                quality={80}
+                                className="mix-blend-multiply"
+                                style={{ objectFit: CONTAIN_SKUS.includes(sku) ? 'contain' : 'cover', width: '100%', height: '100%' }}
                             />
                         </button>
                     ))}

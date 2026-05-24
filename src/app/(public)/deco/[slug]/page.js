@@ -1,6 +1,7 @@
 'use client';
 import { useState, use } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowLeft, ArrowRight, Check, Droplets, Shield, Paintbrush, Leaf, Wrench, Clock, Thermometer, Recycle, Sparkles, Sun, Wind, Flame, Hammer, Volume2 } from 'lucide-react';
 import './product-detail.css';
 
@@ -383,7 +384,7 @@ export default function ProductDetailPage({ params }) {
       {/* Hero */}
       <section className="pdp-hero">
         <div className="pdp-hero-bg">
-          <img src={product.heroImage} alt={product.name} />
+          <Image src={product.heroImage} alt={product.name} fill style={{ objectFit: 'cover', opacity: 0.4 }} priority />
         </div>
         <div className="pdp-hero-overlay" />
         <div className="pdp-hero-content">
@@ -406,7 +407,7 @@ export default function ProductDetailPage({ params }) {
           {product.gallery.map((img, i) => (
             <div key={i} className={`pdp-gallery-item ${img.large ? 'large' : ''}`}
               onClick={() => setLightbox(img.src)}>
-              <img src={img.src} alt={img.title} loading="lazy" />
+              <Image src={img.src} alt={img.title} fill sizes="(max-width: 768px) 100vw, 33vw" quality={80} style={{ objectFit: 'cover' }} />
               <div className="pdp-gallery-caption">
                 <h4>{img.title}</h4>
                 <p>{img.desc}</p>
@@ -440,9 +441,9 @@ export default function ProductDetailPage({ params }) {
         <p>Diferentes perfiles acanalados para crear el diseño exacto que necesitas.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '40px' }}>
           {product.profileImages.map((src, i) => (
-            <div key={i} className="pdp-gallery-item" onClick={() => setLightbox(src)}
-              style={{ borderRadius: '16px', overflow: 'hidden', cursor: 'pointer' }}>
-              <img src={src} alt={`Perfiles WPC Set ${i + 1}`} style={{ width: '100%', height: 'auto', display: 'block' }} />
+              <div key={i} className="pdp-gallery-item" onClick={() => setLightbox(src)}
+              style={{ borderRadius: '16px', overflow: 'hidden', cursor: 'pointer', position: 'relative', width: '100%', height: 'auto', aspectRatio: '16/9' }}>
+              <Image src={src} alt={`Perfiles WPC Set ${i + 1}`} fill sizes="100vw" quality={80} style={{ objectFit: 'contain' }} />
             </div>
           ))}
         </div>
@@ -454,9 +455,9 @@ export default function ProductDetailPage({ params }) {
           <span className="pdp-section-label" style={{ color: product.color }}>COLORES DISPONIBLES</span>
           <h2>Carta de colores</h2>
           <p>Series disponibles: Quasi molecular, Veta de madera, Full Sky Star, Metálico, Skin Feel, Tela, Sólidos anti-rayones, Mármol, Piel.</p>
-          <div style={{ marginTop: '40px', borderRadius: '20px', overflow: 'hidden', cursor: 'pointer' }}
+          <div style={{ marginTop: '40px', borderRadius: '20px', overflow: 'hidden', cursor: 'pointer', position: 'relative', width: '100%', aspectRatio: '16/9' }}
             onClick={() => setLightbox(product.colorCardImage)}>
-            <img src={product.colorCardImage} alt="Carta de colores WPC" style={{ width: '100%', height: 'auto', display: 'block' }} />
+            <Image src={product.colorCardImage} alt="Carta de colores WPC" fill sizes="100vw" quality={80} style={{ objectFit: 'contain' }} />
           </div>
           <p style={{ marginTop: '16px', fontSize: '13px', color: '#94a3b8', fontWeight: 600 }}>
             Para más colores y acabados, contáctanos.
@@ -496,7 +497,7 @@ export default function ProductDetailPage({ params }) {
           <div className="pdp-applications-grid">
             {product.applications.map((app, i) => (
               <div key={i} className="pdp-app-card">
-                <img src={app.src} alt={app.label} loading="lazy" />
+                <Image src={app.src} alt={app.label} fill sizes="(max-width: 768px) 100vw, 25vw" quality={80} style={{ objectFit: 'cover' }} />
                 <div className="pdp-app-label">{app.label}</div>
               </div>
             ))}

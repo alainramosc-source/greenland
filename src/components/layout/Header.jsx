@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Menu, X, User } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 
 const Header = () => {
@@ -28,7 +29,7 @@ const Header = () => {
       <div className="header-inner">
         {/* Logo */}
         <Link href="/" className="header-logo">
-          <img src="/logo-new.jpg" alt="Greenland Products" className="logo-image" />
+          <Image src="/logo-new.jpg" alt="Greenland Products" width={130} height={130} className="logo-image" priority />
         </Link>
 
         {/* Desktop Nav */}

@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import Image from 'next/image';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function ImageCarousel({ images, alt = '' }) {
@@ -9,7 +10,9 @@ export default function ImageCarousel({ images, alt = '' }) {
     if (images.length === 1) {
         return (
             <div className="carousel-single">
-                <img src={images[0]} alt={alt} />
+                <div style={{ position: 'relative', width: '100%', height: '420px' }}>
+                    <Image src={images[0]} alt={alt} fill sizes="(max-width: 768px) 100vw, 50vw" style={{ objectFit: 'contain', background: '#f1f5f9' }} />
+                </div>
             </div>
         );
     }
@@ -22,7 +25,9 @@ export default function ImageCarousel({ images, alt = '' }) {
             <div className="carousel-track" style={{ transform: `translateX(-${current * 100}%)` }}>
                 {images.map((src, i) => (
                     <div className="carousel-slide" key={i}>
-                        <img src={src} alt={`${alt} ${i + 1}`} />
+                        <div style={{ position: 'relative', width: '100%', height: '420px' }}>
+                            <Image src={src} alt={`${alt} ${i + 1}`} fill sizes="(max-width: 768px) 100vw, 50vw" style={{ objectFit: 'contain', background: '#f1f5f9' }} />
+                        </div>
                     </div>
                 ))}
             </div>

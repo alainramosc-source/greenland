@@ -1,6 +1,7 @@
 
 import { ArrowRight, Box, Layout, ShieldCheck, Truck, Users, ChevronRight, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { createClient } from '@/utils/supabase/server';
 import './home.css';
 
@@ -109,7 +110,7 @@ export default async function HomePage() {
           <div className="products-grid">
             <Link href="/categorias/mesas-plegables" className="product-category-card">
               <div className="category-image-wrapper">
-                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAO2iX306BVU0Y1mwqhVM0TDenOx15Qj_GEB5Z_UkkK0qx7T74fzVgKKURtX_lPZ1xV3Q0C6hG-FJSzsHrrZXqw0MTf3OM0r6-jeT6-mfrVLEtOi_s6TzB5kddIHwiPrUEi7KIrZZnjCHcu9xgsfl0m79XVtFsO3iGMFY5I4vcz_0g0NTy6tLeSdIdiQeEedQ1kCngK1_j8hdd2xA4_8eFjS-trLNHCHALbixcQ0ZNIaHIBMazWC2DL0T_Lae1VlaxLloEs9h-AkjU" alt="Mesas Plegables" />
+                <Image src="https://lh3.googleusercontent.com/aida-public/AB6AXuAO2iX306BVU0Y1mwqhVM0TDenOx15Qj_GEB5Z_UkkK0qx7T74fzVgKKURtX_lPZ1xV3Q0C6hG-FJSzsHrrZXqw0MTf3OM0r6-jeT6-mfrVLEtOi_s6TzB5kddIHwiPrUEi7KIrZZnjCHcu9xgsfl0m79XVtFsO3iGMFY5I4vcz_0g0NTy6tLeSdIdiQeEedQ1kCngK1_j8hdd2xA4_8eFjS-trLNHCHALbixcQ0ZNIaHIBMazWC2DL0T_Lae1VlaxLloEs9h-AkjU" alt="Mesas Plegables" fill sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw" style={{ objectFit: 'cover' }} quality={80} />
               </div>
               <h3>Mesas Plegables</h3>
               <p>Soluciones versátiles en múltiples tamaños y formatos.</p>
@@ -117,7 +118,7 @@ export default async function HomePage() {
             </Link>
             <Link href="/categorias/sillas-plegables" className="product-category-card">
               <div className="category-image-wrapper">
-                <img src="/sillas-category.png" alt="Sillas Plegables" />
+                <Image src="/sillas-category.png" alt="Sillas Plegables" fill sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw" style={{ objectFit: 'cover' }} quality={80} />
               </div>
               <h3>Sillas Plegables</h3>
               <p>Resistentes, funcionales y listas para cualquier ocasión.</p>
@@ -125,7 +126,7 @@ export default async function HomePage() {
             </Link>
             <Link href="/categorias/toldos-plegables" className="product-category-card">
               <div className="category-image-wrapper">
-                <img src="/toldos-category.jpg" alt="Toldos Profesionales" />
+                <Image src="/toldos-category.jpg" alt="Toldos Profesionales" fill sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw" style={{ objectFit: 'cover' }} quality={80} />
               </div>
               <h3>Toldos Plegables</h3>
               <p>Sombra práctica y estructura confiable para uso frecuente.</p>
@@ -133,7 +134,7 @@ export default async function HomePage() {
             </Link>
             <Link href="/categorias/bancas-y-mobiliario" className="product-category-card">
               <div className="category-image-wrapper">
-                <img src="/bancas-category.jpg" alt="Bancas & Mobiliario" />
+                <Image src="/bancas-category.jpg" alt="Bancas & Mobiliario" fill sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw" style={{ objectFit: 'cover' }} quality={80} />
               </div>
               <h3>Bancas y Mobiliario</h3>
               <p>Mobiliario funcional para exteriores y áreas comunes.</p>
@@ -204,11 +205,15 @@ export default async function HomePage() {
             </div>
             <div className="coverage-photos">
               <div className="coverage-photo-card">
-                <img src="/reparto.jpeg" alt="Camión de reparto Greenland" />
+                <div style={{ position: 'relative', width: '100%', height: '280px' }}>
+                  <Image src="/reparto.jpeg" alt="Camión de reparto Greenland" fill sizes="(max-width: 768px) 100vw, 50vw" style={{ objectFit: 'cover' }} />
+                </div>
                 <span className="coverage-photo-label">Transporte Propio</span>
               </div>
               <div className="coverage-photo-card">
-                <img src="/paqueteria.png" alt="Carga de tarimas a camión TresGuerras" />
+                <div style={{ position: 'relative', width: '100%', height: '280px' }}>
+                  <Image src="/paqueteria.png" alt="Carga de tarimas a camión TresGuerras" fill sizes="(max-width: 768px) 100vw, 50vw" style={{ objectFit: 'cover' }} />
+                </div>
                 <span className="coverage-photo-label">Paquetería TresGuerras</span>
               </div>
             </div>

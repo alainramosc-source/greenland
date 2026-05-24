@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import Image from 'next/image';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // SKUs that need object-contain (wide/panoramic images)
@@ -73,15 +74,18 @@ export default function ProductGallery({ sku, productName }) {
         // No valid images found for this product
         return (
             <div className="product-image-container relative h-full w-full flex items-center justify-center bg-[#1a1a2e]">
-                <img
+                <Image
                     src={baseImage.url}
                     alt={productName}
-                    className="object-cover w-full h-full absolute inset-0"
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    quality={80}
+                    style={{ objectFit: 'cover' }}
                     onError={(e) => {
                         handleBaseImageError();
                         if (baseImage.isPng) {
                             e.target.style.display = 'none';
-                            e.target.nextSibling.style.display = 'flex';
+                            e.target.parentElement.querySelector('.placeholder').style.display = 'flex';
                         }
                     }}
                 />
@@ -94,11 +98,15 @@ export default function ProductGallery({ sku, productName }) {
 
     return (
         <div className="product-gallery relative w-full h-full group">
-            <img
+            <Image
                 key={validImages[safeCurrentIndex].url}
                 src={validImages[safeCurrentIndex].url}
                 alt={`${productName} - Vista ${safeCurrentIndex + 1}`}
-                className={`w-full h-full ${objectFit} transition-opacity duration-300`}
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                quality={80}
+                className="transition-opacity duration-300"
+                style={{ objectFit: CONTAIN_SKUS.includes(sku) ? 'contain' : 'cover' }}
                 onError={(e) => handleImageError(images.findIndex(img => img.id === validImages[safeCurrentIndex].id), e.target.src)}
             />
 
