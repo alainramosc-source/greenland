@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { createClient } from '@/utils/supabase/server';
 import './home.css';
 
-export const revalidate = 0;
+export const revalidate = 3600; // Revalidate every hour
 
 export default async function HomePage() {
   const supabase = await createClient();
