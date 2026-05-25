@@ -7,7 +7,7 @@ export const metadata = {
     default: 'Greenland Products | Mesas, Sillas y Toldos Plegables para Distribuidores',
     template: '%s | Greenland Products',
   },
-  description: 'Importador y proveedor mayorista de mesas plegables, sillas plegables, toldos plegables, recubrimientos decorativos y soluciones modulares. Proveedor mayorista para distribuidores en México.',
+  description: 'Mesas plegables, sillas plegables, toldos plegables, recubrimientos decorativos y soluciones modulares. Proveedor mayorista para distribuidores en México.',
   keywords: ['mesas plegables', 'sillas plegables', 'toldos plegables', 'mobiliario plegable', 'greenland products', 'distribuidor mobiliario', 'mesas tipo maleta', 'mobiliario para eventos', 'recubrimientos decorativos', 'WPC', 'soluciones modulares'],
   authors: [{ name: 'Greenland Products S.A. de C.V.' }],
   openGraph: {
@@ -16,7 +16,7 @@ export const metadata = {
     url: 'https://www.greenland-products.com.mx',
     siteName: 'Greenland Products',
     title: 'Greenland Products | Mesas, Sillas y Toldos Plegables para Distribuidores',
-    description: 'Importador y proveedor mayorista de mobiliario plegable profesional, recubrimientos decorativos y soluciones modulares. Proveedor mayorista para distribuidores en México.',
+    description: 'Mesas plegables, sillas plegables, toldos plegables, recubrimientos decorativos y soluciones modulares. Proveedor mayorista para distribuidores en México.',
     images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'Greenland Products - Mobiliario Plegable Profesional' }],
   },
   twitter: {
@@ -61,7 +61,7 @@ export default function RootLayout({ children }) {
               name: 'Greenland Products S.A. de C.V.',
               url: 'https://www.greenland-products.com.mx',
               logo: 'https://www.greenland-products.com.mx/logo-new.jpg',
-              description: 'Importador y proveedor mayorista de mobiliario plegable profesional, recubrimientos decorativos y soluciones modulares. Proveedor mayorista para distribuidores en México.',
+              description: 'Mesas plegables, sillas plegables, toldos plegables, recubrimientos decorativos y soluciones modulares. Proveedor mayorista para distribuidores en México.',
               address: {
                 '@type': 'PostalAddress',
                 addressCountry: 'MX',
