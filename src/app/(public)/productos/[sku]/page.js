@@ -50,7 +50,7 @@ export async function generateMetadata({ params }) {
   const title = product.name;
   const description = product.description
     ? product.description.substring(0, 155)
-    : `${product.name} - Mobiliario plegable profesional de alta resistencia. Distribuidor mayorista en México.`;
+    : `${product.name} - Mobiliario plegable profesional de alta resistencia. Proveedor mayorista para distribuidores en México.`;
 
   return {
     title,

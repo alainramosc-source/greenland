@@ -6,7 +6,7 @@ import Image from 'next/image';
 const CATEGORY_SEO = {
     'mesas-plegables': {
         title: 'Mesas Plegables Tipo Maleta y Portafolio | Venta Mayorista',
-        description: 'Mesas plegables rectangulares, redondas y tipo maletín en múltiples tamaños: 1.80m, 1.52m, 1.22m y más. Superficie HDPE, marco de acero reforzado. Distribuidor mayorista en México con envío nacional.',
+        description: 'Mesas plegables rectangulares, redondas y tipo maletín en múltiples tamaños: 1.80m, 1.52m, 1.22m y más. Superficie HDPE, marco de acero reforzado. Proveedor mayorista para distribuidores en México con envío nacional.',
     },
     'sillas-plegables': {
         title: 'Sillas Plegables Profesionales | Distribución Mayorista México',
