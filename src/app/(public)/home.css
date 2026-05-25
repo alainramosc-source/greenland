@@ -142,8 +142,8 @@
 
 .hero-stat-label {
     font-size: 0.75rem;
-    color: var(--color-text-muted);
-    font-weight: 600;
+    color: #555;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -163,11 +163,10 @@
     width: 100%;
     height: 100%;
     max-height: 700px;
-    background-size: cover;
-    background-position: center;
     border-radius: var(--radius-lg);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
     z-index: 2;
+    overflow: hidden;
 }
 
 .hero-decoration {
@@ -198,10 +197,10 @@
 
 .trusted-label {
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--color-text-muted);
+    color: #555;
     white-space: nowrap;
 }
 
@@ -216,8 +215,8 @@
     font-size: 0.85rem;
     font-weight: 800;
     letter-spacing: 0.12em;
-    color: var(--color-text-muted);
-    opacity: 0.4;
+    color: #666;
+    opacity: 0.6;
     transition: opacity 0.3s;
 }
 

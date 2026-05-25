@@ -68,12 +68,16 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="hero-visual">
-            <div
-              className="hero-image-card"
-              style={{
-                backgroundImage: `url('${heroBg.media_url || '/mesa%20black.jpg'}')`
-              }}
-            ></div>
+            <div className="hero-image-card">
+              <Image
+                src={heroBg.media_url || '/mesa black.jpg'}
+                alt="Mesa plegable Greenland Products"
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                style={{ objectFit: 'cover', borderRadius: 'var(--radius-lg)' }}
+                priority
+              />
+            </div>
             <div className="hero-decoration"></div>
           </div>
         </div>
@@ -172,12 +176,16 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="values-image">
-            <div
-              className="img-placeholder"
-              style={{
-                backgroundImage: `url('/calidad-greenland.jpg')`
-              }}
-            ></div>
+            <div className="img-placeholder" style={{ position: 'relative', overflow: 'hidden' }}>
+              <Image
+                src="/calidad-greenland.jpg"
+                alt="Calidad industrial Greenland Products"
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                style={{ objectFit: 'cover' }}
+                quality={80}
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -230,12 +238,16 @@ export default async function HomePage() {
           </div>
           <div className="divisions-grid">
             <Link href="/spaces" className="division-card">
-              <div
-                className="division-image-overlay"
-                style={{
-                  backgroundImage: `url('${spaces.media_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCLz8v4_oFPBMMiqCnrU76QJwnn2PSkxsMf4ylCQzZWd7Cv8ModRb2NMS0IWyOB9z4gpX8_j6GalqUY1J2LXpHsKRjTdwm9UTzkzvGkaX287ySLZHg2fNjGEzRh-ZFdyCT__kUasJORbAsWrKuzDSOONhO1NtwhOKPyKAJJu6MuascVyD4muSzR9OU_8TN-AmlTpuxkFuSVp9cer-n8f7Fdx68oLjrnc-RmS_B51vaRdi4CFxf90wsheDvJmVsvok_gcnbqo_BMp5I'}')`
-                }}
-              ></div>
+              <div className="division-image-overlay">
+                <Image
+                  src={spaces.media_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCLz8v4_oFPBMMiqCnrU76QJwnn2PSkxsMf4ylCQzZWd7Cv8ModRb2NMS0IWyOB9z4gpX8_j6GalqUY1J2LXpHsKRjTdwm9UTzkzvGkaX287ySLZHg2fNjGEzRh-ZFdyCT__kUasJORbAsWrKuzDSOONhO1NtwhOKPyKAJJu6MuascVyD4muSzR9OU_8TN-AmlTpuxkFuSVp9cer-n8f7Fdx68oLjrnc-RmS_B51vaRdi4CFxf90wsheDvJmVsvok_gcnbqo_BMp5I'}
+                  alt="Greenland Spaces - Soluciones Modulares"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  style={{ objectFit: 'cover' }}
+                  quality={80}
+                />
+              </div>
               <div className="division-content">
                 <h2>{spaces.title || 'Greenland Spaces'}</h2>
                 <p>{spaces.body || 'Equipamiento robusto para eventos masivos, oficinas corporativas y espacios comerciales de alto tráfico.'}</p>
@@ -245,12 +257,16 @@ export default async function HomePage() {
               </div>
             </Link>
             <Link href="/deco" className="division-card">
-              <div
-                className="division-image-overlay"
-                style={{
-                  backgroundImage: `url('${deco.media_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAPmn4yrX5vdF1CiFCxBnM8LCkujODoYraLU-YiTAjd8wrVwDFLEec0YoE1JROMS2KSGLg1mr02oZavrXBty020USeV5WHTuhenJm-Wr6ZuDjzpv6zTalWl6RW7jEy43EAMYL6xsG5gjPVYKltu4Qq19POIVzlYZCb60pHkqWuQN3ww5-Q5hDdV4FPv_yN8Wl56cv9Dle019xIqSb2CuTLjAmcFMXf3gMEFkMIfIKPIaD-HnMCFBQ1XQDYrQS_9ocxPEpP_38P90W8'}')`
-                }}
-              ></div>
+              <div className="division-image-overlay">
+                <Image
+                  src={deco.media_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAPmn4yrX5vdF1CiFCxBnM8LCkujODoYraLU-YiTAjd8wrVwDFLEec0YoE1JROMS2KSGLg1mr02oZavrXBty020USeV5WHTuhenJm-Wr6ZuDjzpv6zTalWl6RW7jEy43EAMYL6xsG5gjPVYKltu4Qq19POIVzlYZCb60pHkqWuQN3ww5-Q5hDdV4FPv_yN8Wl56cv9Dle019xIqSb2CuTLjAmcFMXf3gMEFkMIfIKPIaD-HnMCFBQ1XQDYrQS_9ocxPEpP_38P90W8'}
+                  alt="Greenland Deco - Recubrimientos Decorativos"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  style={{ objectFit: 'cover' }}
+                  quality={80}
+                />
+              </div>
               <div className="division-content">
                 <h2>{deco.title || 'Greenland Deco'}</h2>
                 <p>{deco.body || 'Piezas de diseño exclusivo que combinan estética moderna con funcionalidad para el hogar contemporáneo.'}</p>
