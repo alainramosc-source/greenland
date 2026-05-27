@@ -270,6 +270,7 @@ Greenland Spaces ofrece soluciones modulares y contenedores habitables.
 - **¿Puedo recoger en bodega?** — Sí, puedes recoger en nuestras instalaciones en Saltillo, Coahuila.
 - **¿Hacen envíos a todo México?** — Sí, enviamos a toda la República Mexicana.
 - **¿Cuánto cuesta el envío?** — Depende de la distancia, peso y volumen. El equipo de ventas te puede cotizar.
+- **¿Tienen fotos / imágenes / catálogo?** — ¡Claro! Puedes ver fotos de todos nuestros productos en nuestra página web: https://www.greenland-products.com.mx/productos 📸
 
 ## DATOS DE CONTACTO
 - **Sitio web**: greenland-products.com.mx
