@@ -35,7 +35,6 @@ function isBusinessHours() {
 // Follow-up message templates
 const FOLLOWUP_MESSAGES = [
   '¿Sigues por aquí? 😊 Quedo atento por si tienes alguna duda.',
-  '¡Hola de nuevo! 👋 ¿Necesitas más información sobre nuestros productos?',
   'No hemos recibido respuesta. Si necesitas ayuda más adelante, aquí estaremos con gusto. ¡Que tengas excelente día! 🙌',
 ];
 
@@ -181,7 +180,7 @@ export async function GET(request) {
       .eq('chatbot_active', true)
       .eq('status', 'open')
       .not('bot_last_replied_at', 'is', null)
-      .lt('bot_followup_count', 3);
+      .lt('bot_followup_count', 2);
 
     // If specific conversation, filter to just that one
     if (specificConvId) {
@@ -209,12 +208,10 @@ export async function GET(request) {
 
       // Determine if it's time for a followup based on count
       let shouldSend = false;
-      if (conv.bot_followup_count === 0 && minutesSinceBotReply >= 2) {
-        shouldSend = true; // First followup after 2 min
-      } else if (conv.bot_followup_count === 1 && minutesSinceBotReply >= 5) {
-        shouldSend = true; // Second followup after 5 min total
-      } else if (conv.bot_followup_count === 2 && minutesSinceBotReply >= 8) {
-        shouldSend = true; // Final message after 8 min total
+      if (conv.bot_followup_count === 0 && minutesSinceBotReply >= 3) {
+        shouldSend = true; // First followup: "sigues por aquí?" after 3 min
+      } else if (conv.bot_followup_count === 1 && minutesSinceBotReply >= 10) {
+        shouldSend = true; // Final farewell after 10 min total
       }
 
       if (shouldSend) {
@@ -223,11 +220,11 @@ export async function GET(request) {
         if (sent) sentCount++;
 
         // If this was the last followup, deactivate the bot for this conversation
-        if (conv.bot_followup_count === 2 && sent) {
+        if (conv.bot_followup_count === 1 && sent) {
           await supabase.from('inbox_conversations').update({
             chatbot_active: false,
           }).eq('id', conv.id);
-          console.log(`[Followup] 🔚 Conversation ${conv.id} closed after 3 followups`);
+          console.log(`[Followup] 🔚 Conversation ${conv.id} closed after 2 followups`);
         }
       }
     }
