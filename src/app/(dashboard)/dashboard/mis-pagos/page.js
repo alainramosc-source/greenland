@@ -194,7 +194,7 @@ export default function MisPagosPage() {
     });
     setSubmitting(false);
     if (error) { alert('Error: ' + error.message); return; }
-    if (data && !data.success) { alert(data.error); return; }
+    if (data && !data.success) { alert(data.error || 'Error al registrar el pago. Contacta al administrador.'); return; }
     setShowModal(false);
     setForm({ amount: '', payment_method: 'transferencia', reference: '', payment_date: new Date().toISOString().split('T')[0], notes: '', receipt_url: '' });
     setAllocations([]);

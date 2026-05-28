@@ -54,9 +54,14 @@ BEGIN
             );
         END IF;
 
-        -- Validate each order exists and belongs to this distributor
+        -- Validate each order exists and belongs to this distributor (skip container allocations where order_id is null)
         FOR v_alloc IN SELECT * FROM jsonb_array_elements(p_allocations)
         LOOP
+            -- Skip container-only allocations (no order_id)
+            IF v_alloc->>'order_id' IS NULL OR v_alloc->>'order_id' = '' THEN
+                CONTINUE;
+            END IF;
+
             SELECT EXISTS(
                 SELECT 1 FROM orders 
                 WHERE id = (v_alloc->>'order_id')::UUID 
