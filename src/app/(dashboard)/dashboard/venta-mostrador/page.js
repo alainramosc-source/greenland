@@ -6,8 +6,9 @@ import { useRouter } from 'next/navigation';
 import {
   ShoppingBag, Search, Plus, Minus, Trash2, Printer, Package, Loader2,
   ShoppingCart, Receipt, Calendar, User, Warehouse, CreditCard, X, Check,
-  ChevronDown, RotateCcw, Clock, ChevronUp, Hash
+  ChevronDown, RotateCcw, Clock, ChevronUp, Hash, Camera
 } from 'lucide-react';
+import { Html5Qrcode } from 'html5-qrcode';
 
 export default function VentaMostradorPage() {
   const supabase = createClient();
@@ -50,6 +51,14 @@ export default function VentaMostradorPage() {
   const searchRef = useRef(null);
   const searchInputRef = useRef(null);
   const receiptRef = useRef(null);
+
+  // Barcode scanner state
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanFeedback, setScanFeedback] = useState('');
+  const html5QrCodeRef = useRef(null);
+  const scannerStoppingRef = useRef(false);
+  const lastKeystrokeRef = useRef(0);
+  const barcodeBufferRef = useRef('');
 
   // ──────────── INIT ────────────
   useEffect(() => {
@@ -142,7 +151,8 @@ export default function VentaMostradorPage() {
   }, []);
 
   // ──────────── ADD PRODUCT TO SALE ────────────
-  const addProductToSale = (product) => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const addProductToSale = useCallback((product) => {
     setSaleItems(prev => {
       const existing = prev.find(item => item.product_id === product.id);
       if (existing) {
@@ -169,7 +179,112 @@ export default function VentaMostradorPage() {
     setSearchTerm('');
     setShowSearchDropdown(false);
     searchInputRef.current?.focus();
-  };
+  }, [getAvailableStock, selectedWarehouse]);
+
+  // ──────────── BARCODE SCANNER ────────────
+  const stopScanner = useCallback(async () => {
+    if (scannerStoppingRef.current) return;
+    scannerStoppingRef.current = true;
+    try {
+      const scanner = html5QrCodeRef.current;
+      if (scanner) {
+        const state = scanner.getState();
+        // 2 = SCANNING, 3 = PAUSED
+        if (state === 2 || state === 3) {
+          await scanner.stop();
+        }
+        scanner.clear();
+      }
+    } catch (_) { /* ignore cleanup errors */ }
+    html5QrCodeRef.current = null;
+    scannerStoppingRef.current = false;
+  }, []);
+
+  const handleBarcodeScanned = useCallback((decodedText) => {
+    const sku = decodedText.trim();
+    const product = products.find(
+      p => p.sku && p.sku.toLowerCase() === sku.toLowerCase()
+    );
+    if (product) {
+      addProductToSale(product);
+      setScanFeedback(`${product.sku} — ${product.name} agregada`);
+      setTimeout(() => setScanFeedback(''), 2500);
+    } else {
+      setScanFeedback(`⚠ Código "${sku}" no encontrado`);
+      setTimeout(() => setScanFeedback(''), 2500);
+    }
+  }, [products, addProductToSale]);
+
+  const openScanner = useCallback(async () => {
+    setShowScanner(true);
+    // Wait for DOM element to mount
+    await new Promise(r => setTimeout(r, 350));
+    try {
+      const html5QrCode = new Html5Qrcode('barcode-reader');
+      html5QrCodeRef.current = html5QrCode;
+      await html5QrCode.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 150 } },
+        (decodedText) => {
+          stopScanner().then(() => {
+            setShowScanner(false);
+            handleBarcodeScanned(decodedText);
+          });
+        },
+        () => {} // ignore per-frame errors
+      );
+    } catch (err) {
+      console.error('Camera error:', err);
+      setScanFeedback('⚠ No se pudo acceder a la cámara');
+      setTimeout(() => setScanFeedback(''), 2500);
+      setShowScanner(false);
+    }
+  }, [stopScanner, handleBarcodeScanned]);
+
+  const closeScanner = useCallback(() => {
+    stopScanner().then(() => setShowScanner(false));
+  }, [stopScanner]);
+
+  // Cleanup scanner on unmount
+  useEffect(() => {
+    return () => { stopScanner(); };
+  }, [stopScanner]);
+
+  // ──────────── USB/BLUETOOTH BARCODE SCANNER (keystroke detection) ────────────
+  const handleSearchKeyDown = useCallback((e) => {
+    const now = Date.now();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const timeSinceLast = now - lastKeystrokeRef.current;
+      const buffer = barcodeBufferRef.current;
+      // If characters were typed rapidly (< 100ms between keystrokes on average) and we have content
+      if (buffer.length >= 2 && timeSinceLast < 150) {
+        handleBarcodeScanned(buffer);
+        setSearchTerm('');
+      } else if (searchTerm.trim().length >= 2) {
+        // Normal Enter: try to add the first matching product
+        const term = searchTerm.trim().toLowerCase();
+        const match = products.find(
+          p => (p.sku && p.sku.toLowerCase() === term) ||
+               (p.name && p.name.toLowerCase() === term)
+        );
+        if (match) {
+          addProductToSale(match);
+        }
+      }
+      barcodeBufferRef.current = '';
+      return;
+    }
+    // Track rapid keystrokes for barcode scanner detection
+    if (e.key.length === 1) {
+      const timeSinceLast = now - lastKeystrokeRef.current;
+      if (timeSinceLast > 300) {
+        barcodeBufferRef.current = ''; // reset if too slow (human typing)
+      }
+      barcodeBufferRef.current += e.key;
+      lastKeystrokeRef.current = now;
+    }
+  }, [products, searchTerm, handleBarcodeScanned, addProductToSale]);
 
   // ──────────── UPDATE ITEM QUANTITY ────────────
   const updateItemQuantity = (productId, newQty) => {
@@ -639,9 +754,18 @@ export default function VentaMostradorPage() {
                       placeholder="Buscar por SKU o nombre..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
+                      onKeyDown={handleSearchKeyDown}
                       onFocus={() => { if (searchResults.length > 0) setShowSearchDropdown(true); }}
-                      className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm placeholder:text-slate-400 text-slate-800 outline-none shadow-sm"
+                      className="w-full pl-12 pr-14 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm placeholder:text-slate-400 text-slate-800 outline-none shadow-sm"
                     />
+                    <button
+                      type="button"
+                      onClick={openScanner}
+                      title="Escanear código de barras"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg bg-[#6a9a04]/10 text-[#6a9a04] hover:bg-[#6a9a04]/20 transition-all cursor-pointer border-none flex items-center justify-center"
+                    >
+                      <Camera size={18} />
+                    </button>
 
                     {/* Search Dropdown */}
                     {showSearchDropdown && searchResults.length > 0 && (
@@ -1099,6 +1223,71 @@ export default function VentaMostradorPage() {
           )}
         </div>
       </div>
+
+      {/* ═══════════════ BARCODE SCANNER MODAL ═══════════════ */}
+      {showScanner && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <h3 className="text-sm font-black text-slate-800 m-0 flex items-center gap-2">
+                <Camera size={16} className="text-[#6a9a04]" />
+                Escanear Código de Barras
+              </h3>
+              <button
+                onClick={closeScanner}
+                className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all cursor-pointer border-none flex items-center justify-center"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Camera Preview */}
+            <div className="px-5 py-4">
+              <div
+                id="barcode-reader"
+                className="w-full rounded-xl overflow-hidden bg-black"
+                style={{ minHeight: 300 }}
+              />
+              <p className="text-center text-sm text-slate-500 mt-3 mb-0 animate-pulse">
+                Apunta la cámara al código de barras...
+              </p>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-3 border-t border-slate-100 flex justify-center">
+              <button
+                onClick={closeScanner}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition-all cursor-pointer border-none"
+              >
+                <X size={15} /> Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════ SCAN FEEDBACK TOAST ═══════════════ */}
+      {scanFeedback && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] animate-[slideUp_0.3s_ease-out]">
+          <div className={`px-5 py-3 rounded-xl shadow-2xl text-sm font-bold flex items-center gap-2 ${
+            scanFeedback.startsWith('⚠')
+              ? 'bg-amber-500 text-white'
+              : 'bg-[#6a9a04] text-white'
+          }`}>
+            {!scanFeedback.startsWith('⚠') && <Check size={16} />}
+            {scanFeedback}
+          </div>
+        </div>
+      )}
+
+      {/* Slide-up animation for toast */}
+      <style>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translate(-50%, 20px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+      `}</style>
     </>
   );
 }
