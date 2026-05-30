@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import JsBarcode from 'jsbarcode';
 import {
   Tag, Printer, Loader2, Package, Search, CheckSquare, Square,
-  Columns3, Maximize2, Hash, DollarSign, ChevronDown
+  Columns3, Maximize2, Hash, DollarSign, ChevronDown, Download
 } from 'lucide-react';
 
 const LABEL_SIZES = [
@@ -173,6 +173,34 @@ export default function EtiquetasPage() {
     setTimeout(() => {
       window.print();
     }, 300);
+  };
+
+  // ──────────── DOWNLOAD BARCODE AS PNG ────────────
+  const downloadBarcode = (e, product) => {
+    e.stopPropagation(); // Don't toggle selection
+    const svgEl = document.getElementById(`barcode-${product.sku}`);
+    if (!svgEl) return;
+
+    const svgData = new XMLSerializer().serializeToString(svgEl);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+
+    img.onload = () => {
+      // 2x scale for crisp print quality
+      canvas.width = img.width * 2;
+      canvas.height = img.height * 2;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      const link = document.createElement('a');
+      link.download = `barcode-${product.sku}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
   };
 
   // ──────────── HELPERS ────────────
@@ -413,11 +441,18 @@ export default function EtiquetasPage() {
                       <svg id={`barcode-${product.sku}`} className="max-w-full" />
                     </div>
 
-                    {/* Price */}
-                    <div className="text-center mt-2">
+                    {/* Price + Download */}
+                    <div className="flex items-center justify-between mt-2 px-1">
                       <span className="text-lg font-black text-[#6a9a04]">
                         ${Number(product.price || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
+                      <button
+                        onClick={(e) => downloadBarcode(e, product)}
+                        title={`Descargar barcode-${product.sku}.png`}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-[11px] font-bold text-slate-500 hover:bg-white hover:text-[#6a9a04] hover:border-[#6a9a04]/30 transition-all cursor-pointer bg-transparent"
+                      >
+                        <Download size={13} /> PNG
+                      </button>
                     </div>
                   </div>
                 );
