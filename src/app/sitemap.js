@@ -44,7 +44,7 @@ export default async function sitemap() {
   try {
     const { data: products, error } = await supabase
       .from('products')
-      .select('sku, updated_at')
+      .select('sku, created_at')
       .eq('is_active', true);
 
     if (error) {
@@ -53,7 +53,7 @@ export default async function sitemap() {
 
     productPages = (products || []).map((product) => ({
       url: `https://www.greenland-products.com.mx/productos/${product.sku}`,
-      lastModified: product.updated_at ? new Date(product.updated_at) : new Date(),
+      lastModified: product.created_at ? new Date(product.created_at) : new Date(),
       changeFrequency: 'weekly',
       priority: 0.8,
     }));
