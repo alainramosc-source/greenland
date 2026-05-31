@@ -1,13 +1,14 @@
 'use client';
 import { createClient } from '@/utils/supabase/client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Container, ArrowLeft, Save, Loader2, Package, Plus, Trash2, DollarSign,
   Warehouse, User, Calendar, FileText, AlertTriangle, CheckCircle, Search, X,
-  Upload, Paperclip, Download, Eye
+  Upload, Paperclip, Download, Eye, Camera, QrCode
 } from 'lucide-react';
+import { Html5Qrcode } from 'html5-qrcode';
 
 export default function NuevaRecepcionPage() {
   const supabase = createClient();
@@ -56,8 +57,25 @@ export default function NuevaRecepcionPage() {
   const [receptionId, setReceptionId] = useState(editId);
   const [documents, setDocuments] = useState([]);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [entryMode, setEntryMode] = useState('manual'); // 'manual' | 'scan'
+  const [showReceptionScanner, setShowReceptionScanner] = useState(false);
+  const [scanFeedback, setScanFeedback] = useState(null);
+  const receptionScannerRef = useRef(null);
+  const receptionScannerStoppingRef = useRef(false);
+  const scanSearchRef = useRef(null);
+  const lastScanKeystrokeRef = useRef(0);
+  const scanBarcodeBufferRef = useRef('');
 
   useEffect(() => { fetchData(); }, []);
+
+  // Cleanup scanner on unmount
+  useEffect(() => {
+    return () => {
+      if (receptionScannerRef.current) {
+        try { receptionScannerRef.current.stop(); } catch {}
+      }
+    };
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -250,6 +268,96 @@ export default function NuevaRecepcionPage() {
     }]);
     setProductSearch('');
     setSearchResults([]);
+  };
+
+  // === Barcode Scanning Functions ===
+  const handleReceptionScan = (scannedSku) => {
+    const sku = scannedSku.trim().toUpperCase();
+    const product = products.find(p => p.sku?.toUpperCase() === sku);
+
+    if (!product) {
+      setScanFeedback({ type: 'error', message: `Código "${sku}" no encontrado` });
+      setTimeout(() => setScanFeedback(null), 3000);
+      return;
+    }
+
+    // Check if product already in items list
+    const existingIndex = items.findIndex(i => i.product_id === product.id);
+
+    if (existingIndex >= 0) {
+      // Increment quantity
+      const updatedItems = [...items];
+      updatedItems[existingIndex] = {
+        ...updatedItems[existingIndex],
+        quantity: (Number(updatedItems[existingIndex].quantity) || 0) + 1
+      };
+      setItems(updatedItems);
+      setScanFeedback({ type: 'success', message: `${sku} — ${product.name} (${updatedItems[existingIndex].quantity} pzas)` });
+    } else {
+      // Add new item with quantity 1
+      setItems(prev => [...prev, {
+        product_id: product.id,
+        name: product.name,
+        sku: product.sku,
+        quantity: 1,
+        unit_origin_cost: '',
+        unit_pro_price: '',
+      }]);
+      setScanFeedback({ type: 'success', message: `${sku} — ${product.name} agregado (1 pza)` });
+    }
+
+    setTimeout(() => setScanFeedback(null), 2000);
+  };
+
+  const openReceptionScanner = async () => {
+    setShowReceptionScanner(true);
+    setTimeout(async () => {
+      try {
+        const html5QrCode = new Html5Qrcode('reception-barcode-reader');
+        receptionScannerRef.current = html5QrCode;
+        await html5QrCode.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 250, height: 150 } },
+          (decodedText) => { handleReceptionScan(decodedText); },
+          () => {}
+        );
+      } catch (err) {
+        setScanFeedback({ type: 'error', message: 'No se pudo acceder a la cámara' });
+        setShowReceptionScanner(false);
+        setTimeout(() => setScanFeedback(null), 3000);
+      }
+    }, 350);
+  };
+
+  const closeReceptionScanner = async () => {
+    if (receptionScannerRef.current && !receptionScannerStoppingRef.current) {
+      receptionScannerStoppingRef.current = true;
+      try { await receptionScannerRef.current.stop(); } catch {}
+      receptionScannerRef.current = null;
+      receptionScannerStoppingRef.current = false;
+    }
+    setShowReceptionScanner(false);
+  };
+
+  const handleScanKeyDown = (e) => {
+    const now = Date.now();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = scanSearchRef.current?.value?.trim();
+      if (val) {
+        handleReceptionScan(val);
+        scanSearchRef.current.value = '';
+      }
+      scanBarcodeBufferRef.current = '';
+      return;
+    }
+    if (e.key.length === 1) {
+      if (now - lastScanKeystrokeRef.current > 300) {
+        scanBarcodeBufferRef.current = '';
+      }
+      scanBarcodeBufferRef.current += e.key;
+      lastScanKeystrokeRef.current = now;
+    }
   };
 
   const removeItem = (idx) => {
@@ -670,6 +778,57 @@ export default function NuevaRecepcionPage() {
         <h3 className="text-lg font-bold text-slate-900 m-0 mb-5 pb-4 border-b border-slate-200 flex items-center gap-2">
           <Package size={18} className="text-[#6a9a04]" /> Productos Recibidos
         </h3>
+
+        {/* Entry Mode Toggle */}
+        {!isCompleted && (
+          <div className="flex gap-1 mb-4 bg-white/60 backdrop-blur-md rounded-xl p-1 border border-white/50 shadow-sm w-fit">
+            <button onClick={() => setEntryMode('manual')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all border-none cursor-pointer ${
+                entryMode === 'manual' ? 'bg-[#6a9a04] text-white shadow-md' : 'bg-transparent text-slate-500 hover:text-slate-700'
+              }`}>
+              Manual
+            </button>
+            <button onClick={() => setEntryMode('scan')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all border-none cursor-pointer ${
+                entryMode === 'scan' ? 'bg-[#6a9a04] text-white shadow-md' : 'bg-transparent text-slate-500 hover:text-slate-700'
+              }`}>
+              <QrCode size={15} /> Escaneo
+            </button>
+          </div>
+        )}
+
+        {/* Scan Mode UI */}
+        {!isCompleted && entryMode === 'scan' && (
+          <div className="bg-[#6a9a04]/5 border-2 border-[#6a9a04]/20 rounded-xl p-4 mb-4">
+            <p className="text-[11px] font-black uppercase tracking-wider text-[#6a9a04] mb-3 m-0 flex items-center gap-2">
+              <QrCode size={13} /> Modo Escaneo — Escanea productos para agregarlos
+            </p>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  ref={scanSearchRef}
+                  type="text"
+                  placeholder="Escanea o escribe SKU..."
+                  onKeyDown={handleScanKeyDown}
+                  autoFocus
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border-2 border-slate-200 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04]/50 placeholder:text-slate-400 font-bold"
+                />
+              </div>
+              <button onClick={showReceptionScanner ? closeReceptionScanner : openReceptionScanner}
+                className={`px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-2 cursor-pointer border-none transition-all ${
+                  showReceptionScanner ? 'bg-red-500 text-white' : 'bg-[#6a9a04]/10 text-[#6a9a04] hover:bg-[#6a9a04]/20'
+                }`}>
+                <Camera size={18} /> {showReceptionScanner ? 'Cerrar' : 'Cámara'}
+              </button>
+            </div>
+            {showReceptionScanner && (
+              <div className="mt-3 rounded-xl overflow-hidden border-2 border-[#6a9a04]/30">
+                <div id="reception-barcode-reader" style={{ minHeight: 280, background: '#000' }} />
+              </div>
+            )}
+          </div>
+        )}
 
         {items.length > 0 && (
           <div className="overflow-x-auto mb-4">
@@ -1153,6 +1312,17 @@ export default function NuevaRecepcionPage() {
           </div>
         </div>
       )}
+
+      {/* Scan Feedback Toast */}
+      {scanFeedback && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-white font-bold text-sm ${
+          scanFeedback.type === 'success' ? 'bg-emerald-500' : scanFeedback.type === 'warning' ? 'bg-amber-500' : 'bg-red-500'
+        }`} style={{animation: 'slideUp 0.3s ease-out'}}>
+          {scanFeedback.type === 'success' ? '✅' : scanFeedback.type === 'warning' ? '⚠️' : '❌'}
+          {scanFeedback.message}
+        </div>
+      )}
+      <style>{`@keyframes slideUp { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }`}</style>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 'use client';
 import { createClient } from '@/utils/supabase/client';
 import { validateQuantity, validateAmount, sanitizeText } from '@/utils/sanitize';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
 import Link from 'next/link';
 import {
   ArrowLeft, Package, Calendar, DollarSign, MapPin, FileText,
@@ -72,6 +73,15 @@ export default function OrderDetailsPage() {
   const [submittingIncident, setSubmittingIncident] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [showFulfillmentScan, setShowFulfillmentScan] = useState(false);
+  const [fulfilledQty, setFulfilledQty] = useState({});
+  const [scanFeedback, setScanFeedback] = useState(null);
+  const [showFulfillScanner, setShowFulfillScanner] = useState(false);
+  const fulfillScannerRef = useRef(null);
+  const fulfillScannerStoppingRef = useRef(false);
+  const fulfillSearchRef = useRef(null);
+  const lastFulfillKeystrokeRef = useRef(0);
+  const fulfillBarcodeBufferRef = useRef('');
   const supabase = createClient();
 
   const fetchOrderDetails = async () => {
@@ -199,6 +209,15 @@ export default function OrderDetailsPage() {
   useEffect(() => {
     fetchOrderDetails();
   }, [id]);
+
+  // Cleanup fulfillment scanner on unmount
+  useEffect(() => {
+    return () => {
+      if (fulfillScannerRef.current) {
+        try { fulfillScannerRef.current.stop(); } catch {}
+      }
+    };
+  }, []);
   // --- Helper: Send email after status change ---
   const sendStatusEmail = async (newStatus) => {
     if (!order) return;
@@ -305,6 +324,100 @@ export default function OrderDetailsPage() {
 
   // Check if all items have warehouse assigned
   const allItemsHaveWarehouse = order?.order_items?.every(item => item.warehouse_id) ?? false;
+
+  // --- Fulfillment Scanning ---
+  const initFulfillmentScan = () => {
+    const initial = {};
+    order.order_items.forEach(item => {
+      initial[item.id] = item.fulfilled_quantity || 0;
+    });
+    setFulfilledQty(initial);
+    setScanFeedback(null);
+  };
+
+  const handleFulfillmentScan = async (scannedSku) => {
+    const sku = scannedSku.trim().toUpperCase();
+    const matchingItem = order.order_items.find(i => i.products?.sku?.toUpperCase() === sku);
+    if (!matchingItem) {
+      setScanFeedback({ type: 'error', message: `${sku} — No está en este pedido`, sku });
+      setTimeout(() => setScanFeedback(null), 3000);
+      return;
+    }
+    const currentFulfilled = fulfilledQty[matchingItem.id] || 0;
+    const required = matchingItem.quantity;
+    if (currentFulfilled >= required) {
+      setScanFeedback({ type: 'warning', message: `${sku} — Ya surtido (${required}/${required})`, sku });
+      setTimeout(() => setScanFeedback(null), 3000);
+      return;
+    }
+    const newQty = currentFulfilled + 1;
+    setFulfilledQty(prev => ({ ...prev, [matchingItem.id]: newQty }));
+    await supabase.from('scan_logs').insert({
+      context: 'fulfillment',
+      reference_id: order.id,
+      product_id: matchingItem.product_id,
+      sku: sku,
+      scanned_by: (await supabase.auth.getUser()).data.user?.id,
+      warehouse_id: matchingItem.warehouse_id
+    });
+    await supabase.from('order_items').update({ fulfilled_quantity: newQty }).eq('id', matchingItem.id);
+    const productName = matchingItem.products?.name || sku;
+    setScanFeedback({ type: 'success', message: `${sku} — ${productName} (${newQty}/${required})`, sku });
+    setTimeout(() => setScanFeedback(null), 2000);
+  };
+
+  const openFulfillScanner = async () => {
+    setShowFulfillScanner(true);
+    setTimeout(async () => {
+      try {
+        const html5QrCode = new Html5Qrcode('fulfill-barcode-reader');
+        fulfillScannerRef.current = html5QrCode;
+        await html5QrCode.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 250, height: 150 } },
+          (decodedText) => {
+            handleFulfillmentScan(decodedText);
+          },
+          () => {}
+        );
+      } catch (err) {
+        setScanFeedback({ type: 'error', message: 'No se pudo acceder a la cámara', sku: '' });
+        setShowFulfillScanner(false);
+        setTimeout(() => setScanFeedback(null), 3000);
+      }
+    }, 350);
+  };
+
+  const closeFulfillScanner = async () => {
+    if (fulfillScannerRef.current && !fulfillScannerStoppingRef.current) {
+      fulfillScannerStoppingRef.current = true;
+      try { await fulfillScannerRef.current.stop(); } catch {}
+      fulfillScannerRef.current = null;
+      fulfillScannerStoppingRef.current = false;
+    }
+    setShowFulfillScanner(false);
+  };
+
+  const handleFulfillSearchKeyDown = (e) => {
+    const now = Date.now();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = fulfillSearchRef.current?.value?.trim();
+      if (val) {
+        handleFulfillmentScan(val);
+        fulfillSearchRef.current.value = '';
+      }
+      fulfillBarcodeBufferRef.current = '';
+      return;
+    }
+    if (e.key.length === 1) {
+      if (now - lastFulfillKeystrokeRef.current > 300) {
+        fulfillBarcodeBufferRef.current = '';
+      }
+      fulfillBarcodeBufferRef.current += e.key;
+      lastFulfillKeystrokeRef.current = now;
+    }
+  };
 
   // --- Admin: Confirm Order ---
   const handleConfirmOrder = async () => {
@@ -1692,6 +1805,12 @@ export default function OrderDetailsPage() {
                   return (
                     <div className="flex flex-col gap-3">
                       <button
+                        onClick={() => { initFulfillmentScan(); setShowFulfillmentScan(true); }}
+                        className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#6a9a04] to-[#5a8503] text-white font-bold text-sm hover:shadow-lg transition-all cursor-pointer border-none shadow-md"
+                      >
+                        <Package size={18} /> Escaneo de Surtido
+                      </button>
+                      <button
                         className={`w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer ${canShip ? 'bg-[#10b981] hover:bg-[#10b981]/90 text-white shadow-[#10b981]/20' : 'bg-slate-300 text-slate-500 shadow-none cursor-not-allowed'
                           }`}
                         onClick={() => canShip && handleUpdateStatus('shipped', 'Enviado')}
@@ -1941,6 +2060,180 @@ export default function OrderDetailsPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Fulfillment Scanning Modal */}
+      {showFulfillmentScan && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-start justify-center overflow-y-auto p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-4">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-[#6a9a04] to-[#5a8503] text-white p-5 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Package size={22} />
+                  <div>
+                    <h2 className="text-lg font-black m-0">Escaneo de Surtido</h2>
+                    <p className="text-white/80 text-sm m-0">Pedido #{order.order_number}</p>
+                  </div>
+                </div>
+                <button onClick={() => { closeFulfillScanner(); setShowFulfillmentScan(false); }}
+                  className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 cursor-pointer border-none">
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Scanner Input */}
+            <div className="p-5 border-b border-slate-100">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    ref={fulfillSearchRef}
+                    type="text"
+                    placeholder="Escanea o busca SKU..."
+                    onKeyDown={handleFulfillSearchKeyDown}
+                    autoFocus
+                    className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04]/50 placeholder:text-slate-400 font-bold"
+                  />
+                </div>
+                <button onClick={showFulfillScanner ? closeFulfillScanner : openFulfillScanner}
+                  className={`px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-2 cursor-pointer border-none transition-all ${
+                    showFulfillScanner ? 'bg-red-500 text-white' : 'bg-[#6a9a04]/10 text-[#6a9a04] hover:bg-[#6a9a04]/20'
+                  }`}>
+                  <Camera size={18} /> {showFulfillScanner ? 'Cerrar' : 'Cámara'}
+                </button>
+              </div>
+
+              {/* Camera preview */}
+              {showFulfillScanner && (
+                <div className="mt-3 rounded-xl overflow-hidden border-2 border-[#6a9a04]/30">
+                  <div id="fulfill-barcode-reader" style={{ minHeight: 280, background: '#000' }} />
+                </div>
+              )}
+            </div>
+
+            {/* Progress Overview */}
+            {(() => {
+              const totalRequired = order.order_items.reduce((s, i) => s + i.quantity, 0);
+              const totalFulfilled = Object.values(fulfilledQty).reduce((s, q) => s + q, 0);
+              const pct = totalRequired > 0 ? Math.round((totalFulfilled / totalRequired) * 100) : 0;
+              return (
+                <div className="px-5 py-3 bg-slate-50 border-b border-slate-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-bold text-slate-700">Progreso total</span>
+                    <span className="text-sm font-black text-[#6a9a04]">{totalFulfilled}/{totalRequired} piezas ({pct}%)</span>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-500 ${pct >= 100 ? 'bg-emerald-500' : 'bg-[#6a9a04]'}`}
+                      style={{ width: `${Math.min(pct, 100)}%` }} />
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Items List */}
+            <div className="p-5 space-y-3 max-h-[50vh] overflow-y-auto">
+              {order.order_items.map(item => {
+                const fulfilled = fulfilledQty[item.id] || 0;
+                const required = item.quantity;
+                const pct = required > 0 ? Math.round((fulfilled / required) * 100) : 0;
+                const isComplete = fulfilled >= required;
+                const isOver = fulfilled > required;
+                return (
+                  <div key={item.id} className={`rounded-xl border-2 p-4 transition-all ${
+                    isComplete ? 'border-emerald-300 bg-emerald-50/50' : 'border-slate-200 bg-white'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                        isComplete ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'
+                      }`}>
+                        {isComplete ? <CheckCircle size={20} /> : <Package size={18} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[11px] font-black px-2 py-0.5 rounded-full bg-[#6a9a04]/10 text-[#6a9a04]">{item.products?.sku}</span>
+                          <p className="text-sm font-bold text-slate-900 m-0 truncate">{item.products?.name}</p>
+                        </div>
+                        <div className="flex items-center gap-3 mt-2">
+                          <div className="flex-1 bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-300 ${
+                              isComplete ? 'bg-emerald-500' : isOver ? 'bg-red-500' : 'bg-[#6a9a04]'
+                            }`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                          </div>
+                          <span className={`text-sm font-black whitespace-nowrap ${
+                            isComplete ? 'text-emerald-600' : 'text-slate-700'
+                          }`}>
+                            {fulfilled}/{required}
+                            {isComplete && ' ✅'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-5 border-t border-slate-100 flex items-center justify-between gap-3">
+              <button onClick={() => { closeFulfillScanner(); setShowFulfillmentScan(false); }}
+                className="px-5 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 cursor-pointer bg-white transition-all">
+                Cerrar
+              </button>
+              {(() => {
+                const totalRequired = order.order_items.reduce((s, i) => s + i.quantity, 0);
+                const totalFulfilled = Object.values(fulfilledQty).reduce((s, q) => s + q, 0);
+                const isPartial = totalFulfilled > 0 && totalFulfilled < totalRequired;
+                const isComplete = totalFulfilled >= totalRequired;
+                return (
+                  <button
+                    onClick={async () => {
+                      if (isPartial) {
+                        const missing = order.order_items
+                          .filter(i => (fulfilledQty[i.id] || 0) < i.quantity)
+                          .map(i => `${i.products?.sku}: ${fulfilledQty[i.id] || 0}/${i.quantity}`)
+                          .join('\n');
+                        if (!confirm(`Surtido parcial. Faltan piezas:\n\n${missing}\n\n¿Confirmar surtido parcial?`)) return;
+                      }
+                      for (const item of order.order_items) {
+                        await supabase.from('order_items').update({ fulfilled_quantity: fulfilledQty[item.id] || 0 }).eq('id', item.id);
+                      }
+                      setOrder(prev => ({
+                        ...prev,
+                        order_items: prev.order_items.map(i => ({ ...i, fulfilled_quantity: fulfilledQty[i.id] || 0 }))
+                      }));
+                      closeFulfillScanner();
+                      setShowFulfillmentScan(false);
+                      alert(isComplete ? 'Surtido completo verificado ✅' : 'Surtido parcial guardado ⚠️');
+                    }}
+                    disabled={Object.values(fulfilledQty).every(q => q === 0)}
+                    className={`px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 cursor-pointer border-none transition-all shadow-lg ${
+                      isComplete
+                        ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-500/25'
+                        : 'bg-amber-500 text-white hover:bg-amber-600 shadow-amber-500/25'
+                    } disabled:opacity-40 disabled:cursor-not-allowed`}
+                  >
+                    <CheckCircle size={18} />
+                    {isComplete ? 'Completar Surtido ✅' : `Guardar Surtido (${totalFulfilled}/${totalRequired})`}
+                  </button>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Scan Feedback Toast */}
+          {scanFeedback && (
+            <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-white font-bold text-sm ${
+              scanFeedback.type === 'success' ? 'bg-emerald-500'
+                : scanFeedback.type === 'warning' ? 'bg-amber-500'
+                : 'bg-red-500'
+            }`} style={{animation: 'slideUp 0.3s ease-out'}}>
+              {scanFeedback.type === 'success' ? <CheckCircle size={18} /> : scanFeedback.type === 'warning' ? '⚠️' : '❌'}
+              {scanFeedback.message}
+            </div>
+          )}
         </div>
       )}
     </div>
