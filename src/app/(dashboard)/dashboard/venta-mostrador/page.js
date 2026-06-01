@@ -123,8 +123,13 @@ export default function VentaMostradorPage() {
 
   const saleTotal = saleItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
 
-  // ──────────── PRODUCT SEARCH ────────────
+  // ──────────── PRODUCT SEARCH + AUTO-SCAN DETECTION ────────────
+  const autoAddTimerRef = useRef(null);
+
   useEffect(() => {
+    // Clear any pending auto-add timer
+    if (autoAddTimerRef.current) { clearTimeout(autoAddTimerRef.current); autoAddTimerRef.current = null; }
+
     if (searchTerm.length < 2) {
       setSearchResults([]);
       setShowSearchDropdown(false);
@@ -137,6 +142,22 @@ export default function VentaMostradorPage() {
     ).slice(0, 10);
     setSearchResults(results);
     setShowSearchDropdown(results.length > 0);
+
+    // Auto-add: if searchTerm matches a product SKU exactly, auto-add after 400ms
+    const exactMatch = products.find(
+      p => p.sku && p.sku.toLowerCase() === term
+    );
+    if (exactMatch) {
+      autoAddTimerRef.current = setTimeout(() => {
+        addProductToSale(exactMatch);
+        setScanFeedback(`✓ ${exactMatch.sku} — ${exactMatch.name}`);
+        setTimeout(() => setScanFeedback(''), 2000);
+        // Refocus input for next scan
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+        }, 100);
+      }, 400);
+    }
   }, [searchTerm, products]);
 
   // Close search dropdown on outside click
