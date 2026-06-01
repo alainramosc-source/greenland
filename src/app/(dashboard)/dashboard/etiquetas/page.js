@@ -222,7 +222,7 @@ export default function EtiquetasPage() {
       {/* ═══════ PRINT STYLES ═══════ */}
       <style>{`
         @page {
-          size: 50mm 30mm landscape;
+          size: 50mm 30mm;
           margin: 0;
         }
         @media print {
