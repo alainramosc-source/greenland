@@ -230,15 +230,25 @@ export default function EtiquetasPage() {
             margin: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
+            height: 30mm !important;
+            width: 50mm !important;
           }
-          body * { visibility: hidden !important; }
+          body * {
+            visibility: hidden !important;
+            height: 0 !important;
+            overflow: hidden !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
           .no-print { display: none !important; }
           #print-labels-area,
           #print-labels-area * {
             visibility: visible !important;
+            height: auto !important;
+            overflow: visible !important;
           }
           #print-labels-area {
-            position: fixed !important;
+            position: absolute !important;
             left: 0 !important;
             top: 0 !important;
             width: 50mm !important;
