@@ -88,7 +88,10 @@ export default function VentaMostradorPage() {
         .eq('is_active', true)
         .order('name');
       setWarehouses(whData || []);
-      if (whData?.length > 0) setSelectedWarehouse(whData[0].id);
+      if (whData?.length > 0) {
+        const vitoAlessio = whData.find(w => w.name.toLowerCase().includes('vito'));
+        setSelectedWarehouse(vitoAlessio ? vitoAlessio.id : whData[0].id);
+      }
 
       // Fetch products
       const { data: prodData } = await supabase
