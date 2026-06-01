@@ -251,10 +251,14 @@ export default function VentaMostradorPage() {
   }, [stopScanner]);
 
   // ──────────── USB/BLUETOOTH BARCODE SCANNER (keystroke detection) ────────────
+  const scanTimerRef = useRef(null);
+
   const handleSearchKeyDown = useCallback((e) => {
     const now = Date.now();
     if (e.key === 'Enter') {
       e.preventDefault();
+      // Clear any pending auto-scan timer
+      if (scanTimerRef.current) { clearTimeout(scanTimerRef.current); scanTimerRef.current = null; }
       const timeSinceLast = now - lastKeystrokeRef.current;
       const buffer = barcodeBufferRef.current;
       // If characters were typed rapidly (< 100ms between keystrokes on average) and we have content
@@ -283,6 +287,24 @@ export default function VentaMostradorPage() {
       }
       barcodeBufferRef.current += e.key;
       lastKeystrokeRef.current = now;
+
+      // Auto-add after rapid input stops (for scanners that don't send Enter)
+      if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
+      scanTimerRef.current = setTimeout(() => {
+        const buf = barcodeBufferRef.current;
+        if (buf.length >= 2) {
+          const product = products.find(
+            p => p.sku && p.sku.toLowerCase() === buf.toLowerCase()
+          );
+          if (product) {
+            addProductToSale(product);
+            setScanFeedback(`✓ ${product.sku} — ${product.name} agregada`);
+            setTimeout(() => setScanFeedback(''), 2500);
+            setSearchTerm('');
+          }
+        }
+        barcodeBufferRef.current = '';
+      }, 300);
     }
   }, [products, searchTerm, handleBarcodeScanned, addProductToSale]);
 
