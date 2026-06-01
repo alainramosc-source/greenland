@@ -221,6 +221,10 @@ export default function EtiquetasPage() {
     <>
       {/* ═══════ PRINT STYLES ═══════ */}
       <style>{`
+        @page {
+          size: 50mm 30mm landscape;
+          margin: 0;
+        }
         @media print {
           body * { visibility: hidden !important; }
           #print-labels-area, #print-labels-area * { visibility: visible !important; }
@@ -245,7 +249,11 @@ export default function EtiquetasPage() {
             border: none !important;
             border-radius: 0 !important;
             margin: 0 auto !important;
+            padding: 1mm !important;
             box-shadow: none !important;
+            width: 48mm !important;
+            height: 28mm !important;
+            box-sizing: border-box !important;
           }
           .print-label-card:last-child {
             page-break-after: auto !important;
