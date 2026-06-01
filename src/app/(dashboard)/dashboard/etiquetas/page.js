@@ -226,23 +226,24 @@ export default function EtiquetasPage() {
           margin: 0;
         }
         @media print {
-          body * { visibility: hidden !important; }
-          #print-labels-area, #print-labels-area * { visibility: visible !important; }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          body > *:not(#print-labels-area) { display: none !important; }
+          .no-print { display: none !important; }
           #print-labels-area {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
+            display: block !important;
+            position: static !important;
             width: 100% !important;
             padding: 0 !important;
             margin: 0 !important;
-            background: white !important;
           }
           #print-labels-area > div {
             display: block !important;
             padding: 0 !important;
             margin: 0 !important;
           }
-          .no-print { display: none !important; }
           .print-label-card {
             page-break-after: always !important;
             page-break-inside: avoid !important;
