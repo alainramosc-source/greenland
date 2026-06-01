@@ -229,36 +229,23 @@ export default function EtiquetasPage() {
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
-            max-width: 100% !important;
             padding: 0 !important;
             margin: 0 !important;
             background: white !important;
-            box-shadow: none !important;
-            border: none !important;
           }
           #print-labels-area > div {
             display: block !important;
             padding: 0 !important;
             margin: 0 !important;
-            gap: 0 !important;
           }
           .no-print { display: none !important; }
           .print-label-card {
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
             page-break-after: always !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            width: 100% !important;
-            height: 100% !important;
-            max-width: none !important;
-            max-height: none !important;
+            page-break-inside: avoid !important;
             border: none !important;
             border-radius: 0 !important;
-            margin: 0 !important;
-            padding: 1mm !important;
-            box-sizing: border-box !important;
+            margin: 0 auto !important;
+            box-shadow: none !important;
           }
           .print-label-card:last-child {
             page-break-after: auto !important;
