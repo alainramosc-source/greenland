@@ -14,7 +14,7 @@ const LABEL_SIZES = [
   { key: 'large', label: 'Grande (10×5cm)', width: '10cm', height: '5cm', barcodeWidth: 2, barcodeHeight: 60, fontSize: 14, nameFontSize: '11px', headerSize: '9px', priceSize: '13px' },
 ];
 
-const COLUMN_OPTIONS = [2, 3, 4, 5];
+const COLUMN_OPTIONS = [1, 2, 3, 4, 5];
 
 export default function EtiquetasPage() {
   const supabase = createClient();
