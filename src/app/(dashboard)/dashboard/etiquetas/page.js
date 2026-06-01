@@ -230,7 +230,8 @@ export default function EtiquetasPage() {
             top: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
-            padding: 8mm !important;
+            padding: 0 !important;
+            margin: 0 !important;
             background: white !important;
             box-shadow: none !important;
             border: none !important;
@@ -239,6 +240,14 @@ export default function EtiquetasPage() {
           .print-label-card {
             break-inside: avoid;
             page-break-inside: avoid;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .print-grid-container {
+            gap: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
           }
         }
         @media screen {
