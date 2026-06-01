@@ -27,7 +27,7 @@ export default function EtiquetasPage() {
   const [labelSize, setLabelSize] = useState('small');
   const [columns, setColumns] = useState(1);
   const [qtyPerSku, setQtyPerSku] = useState(1);
-  const [includePrice, setIncludePrice] = useState(true);
+  const [includePrice, setIncludePrice] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [barcodesRendered, setBarcodesRendered] = useState(false);
 
