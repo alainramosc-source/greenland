@@ -82,6 +82,8 @@ export default function OrderDetailsPage() {
   const fulfillSearchRef = useRef(null);
   const lastFulfillKeystrokeRef = useRef(0);
   const fulfillBarcodeBufferRef = useRef('');
+  const [fulfillSearchTerm, setFulfillSearchTerm] = useState('');
+  const fulfillAutoScanTimerRef = useRef(null);
   const supabase = createClient();
 
   const fetchOrderDetails = async () => {
@@ -402,10 +404,11 @@ export default function OrderDetailsPage() {
     const now = Date.now();
     if (e.key === 'Enter') {
       e.preventDefault();
-      const val = fulfillSearchRef.current?.value?.trim();
+      if (fulfillAutoScanTimerRef.current) { clearTimeout(fulfillAutoScanTimerRef.current); fulfillAutoScanTimerRef.current = null; }
+      const val = fulfillSearchTerm.trim();
       if (val) {
         handleFulfillmentScan(val);
-        fulfillSearchRef.current.value = '';
+        setFulfillSearchTerm('');
       }
       fulfillBarcodeBufferRef.current = '';
       return;
@@ -416,6 +419,24 @@ export default function OrderDetailsPage() {
       }
       fulfillBarcodeBufferRef.current += e.key;
       lastFulfillKeystrokeRef.current = now;
+    }
+  };
+
+  // Auto-detect SKU match from Bluetooth scanner (onChange-based)
+  const handleFulfillSearchChange = (e) => {
+    const val = e.target.value;
+    setFulfillSearchTerm(val);
+    if (fulfillAutoScanTimerRef.current) clearTimeout(fulfillAutoScanTimerRef.current);
+    if (val.trim().length >= 2 && order?.order_items) {
+      const sku = val.trim().toUpperCase();
+      const matchingItem = order.order_items.find(i => i.products?.sku?.toUpperCase() === sku);
+      if (matchingItem) {
+        fulfillAutoScanTimerRef.current = setTimeout(() => {
+          handleFulfillmentScan(val.trim());
+          setFulfillSearchTerm('');
+          fulfillSearchRef.current?.focus();
+        }, 400);
+      }
     }
   };
 
@@ -2093,6 +2114,8 @@ export default function OrderDetailsPage() {
                     ref={fulfillSearchRef}
                     type="text"
                     placeholder="Escanea o busca SKU..."
+                    value={fulfillSearchTerm}
+                    onChange={handleFulfillSearchChange}
                     onKeyDown={handleFulfillSearchKeyDown}
                     autoFocus
                     className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04]/50 placeholder:text-slate-400 font-bold"
