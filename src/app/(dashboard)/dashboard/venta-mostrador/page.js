@@ -741,7 +741,7 @@ export default function VentaMostradorPage() {
                 </div>
 
                 {/* Product Search */}
-                <div className="bg-white/60 backdrop-blur-md rounded-2xl border border-white/50 shadow-xl p-4">
+                <div className="bg-white/60 backdrop-blur-md rounded-2xl border border-white/50 shadow-xl p-4 relative z-50">
                   <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2 block">
                     <Search size={13} className="inline mr-1.5 -mt-0.5" />
                     Agregar Productos
