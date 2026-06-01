@@ -236,18 +236,32 @@ export default function EtiquetasPage() {
             box-shadow: none !important;
             border: none !important;
           }
-          .no-print { display: none !important; }
-          .print-label-card {
-            break-inside: avoid;
-            page-break-inside: avoid;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .print-grid-container {
-            gap: 0 !important;
+          #print-labels-area > div {
+            display: block !important;
             padding: 0 !important;
             margin: 0 !important;
+            gap: 0 !important;
+          }
+          .no-print { display: none !important; }
+          .print-label-card {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            page-break-after: always !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 100% !important;
+            height: 100% !important;
+            max-width: none !important;
+            max-height: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+            padding: 1mm !important;
+            box-sizing: border-box !important;
+          }
+          .print-label-card:last-child {
+            page-break-after: auto !important;
           }
         }
         @media screen {
