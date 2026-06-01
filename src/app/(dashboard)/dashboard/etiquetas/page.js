@@ -24,8 +24,8 @@ export default function EtiquetasPage() {
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState([]);
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [labelSize, setLabelSize] = useState('medium');
-  const [columns, setColumns] = useState(3);
+  const [labelSize, setLabelSize] = useState('small');
+  const [columns, setColumns] = useState(1);
   const [qtyPerSku, setQtyPerSku] = useState(1);
   const [includePrice, setIncludePrice] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
