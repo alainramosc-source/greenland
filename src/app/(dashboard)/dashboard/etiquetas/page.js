@@ -229,13 +229,33 @@ export default function EtiquetasPage() {
           html, body {
             margin: 0 !important;
             padding: 0 !important;
+            width: 50mm !important;
+            height: 30mm !important;
           }
-          body > *:not(#print-labels-area) { display: none !important; }
+          body * {
+            visibility: hidden !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 0 !important;
+            overflow: hidden !important;
+            border: none !important;
+            line-height: 0 !important;
+            font-size: 0 !important;
+          }
           .no-print { display: none !important; }
+          #print-labels-area,
+          #print-labels-area * {
+            visibility: visible !important;
+            height: auto !important;
+            overflow: visible !important;
+            line-height: normal !important;
+            font-size: initial !important;
+          }
           #print-labels-area {
-            display: block !important;
-            position: static !important;
-            width: 100% !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 50mm !important;
             padding: 0 !important;
             margin: 0 !important;
           }
