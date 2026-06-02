@@ -2125,10 +2125,21 @@ export default function OrderDetailsPage() {
                 </button>
               </div>
 
-              {/* Camera preview */}
               {showFulfillScanner && (
                 <div className="mt-3 rounded-xl overflow-hidden border-2 border-[#6a9a04]/30">
                   <div id="fulfill-barcode-reader" style={{ minHeight: 280, background: '#000' }} />
+                </div>
+              )}
+
+              {/* Scan Feedback - Inline Alert */}
+              {scanFeedback && (
+                <div className={`mt-3 px-4 py-3 rounded-xl flex items-center gap-3 text-white font-bold text-sm animate-pulse ${
+                  scanFeedback.type === 'success' ? 'bg-emerald-500'
+                    : scanFeedback.type === 'warning' ? 'bg-amber-500'
+                    : 'bg-red-500'
+                }`}>
+                  {scanFeedback.type === 'success' ? <CheckCircle size={18} /> : scanFeedback.type === 'warning' ? '⚠️' : '❌'}
+                  {scanFeedback.message}
                 </div>
               )}
             </div>
@@ -2242,17 +2253,6 @@ export default function OrderDetailsPage() {
             </div>
           </div>
 
-          {/* Scan Feedback Toast */}
-          {scanFeedback && (
-            <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-white font-bold text-sm ${
-              scanFeedback.type === 'success' ? 'bg-emerald-500'
-                : scanFeedback.type === 'warning' ? 'bg-amber-500'
-                : 'bg-red-500'
-            }`} style={{animation: 'slideUp 0.3s ease-out'}}>
-              {scanFeedback.type === 'success' ? <CheckCircle size={18} /> : scanFeedback.type === 'warning' ? '⚠️' : '❌'}
-              {scanFeedback.message}
-            </div>
-          )}
         </div>
       )}
     </div>
