@@ -166,7 +166,7 @@ function buildReactivationEmailHtml({ distributorName, contactWhatsApp }) {
         <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:12px;padding:20px;margin-bottom:24px;border:1px solid #bbf7d0;text-align:center;">
           <p style="margin:0 0 4px;font-size:12px;color:#166534;text-transform:uppercase;font-weight:700;letter-spacing:1px;">Oferta Exclusiva</p>
           <h3 style="margin:0 0 8px;font-size:22px;color:#15803d;font-weight:800;">🎁 Descuento de Primer Pedido</h3>
-          <p style="margin:0;font-size:14px;color:#166534;line-height:1.5;">Pregunta por nuestros <strong>descuentos especiales para distribuidores nuevos</strong>. Precios competitivos en todo nuestro catálogo.</p>
+          <p style="margin:0;font-size:14px;color:#166534;line-height:1.5;">Pregunta por nuestros <strong>descuentos especiales de primer pedido</strong>. ¡Súper precios en todo nuestro catálogo para que puedas arrancar ya!</p>
         </div>
 
         <!-- CTA -->
