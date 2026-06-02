@@ -47,16 +47,18 @@ export default async function sitemap() {
   // Dynamic product pages from Supabase
   let productPages = [];
   try {
-    const { data: products } = await supabase
+    const { data: products, error } = await supabase
       .from('products')
-      .select('sku, updated_at')
+      .select('sku, created_at')
       .eq('is_active', true)
       .order('sku');
 
-    if (products) {
+    if (error) {
+      console.error('Sitemap: Supabase error', error.message);
+    } else if (products) {
       productPages = products.map(p => ({
         url: `${BASE_URL}/productos/${p.sku}`,
-        lastModified: p.updated_at || now,
+        lastModified: p.created_at || now,
         changeFrequency: 'weekly',
         priority: 0.8,
       }));
