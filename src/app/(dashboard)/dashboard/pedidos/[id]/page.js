@@ -328,13 +328,16 @@ export default function OrderDetailsPage() {
   const allItemsHaveWarehouse = order?.order_items?.every(item => item.warehouse_id) ?? false;
 
   // --- Fulfillment Scanning ---
-  const initFulfillmentScan = () => {
+  const initFulfillmentScan = async () => {
+    // Refetch latest order data so progress persists after close/reopen
+    await fetchOrderDetails();
     const initial = {};
     order.order_items.forEach(item => {
       initial[item.id] = item.fulfilled_quantity || 0;
     });
     setFulfilledQty(initial);
     setScanFeedback(null);
+    setFulfillSearchTerm('');
   };
 
   const handleFulfillmentScan = async (scannedSku) => {
