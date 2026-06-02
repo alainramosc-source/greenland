@@ -146,21 +146,20 @@ function buildReactivationEmailHtml({ distributorName, contactWhatsApp }) {
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <div style="max-width:560px;margin:0 auto;padding:24px;">
     <div style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.12);">
-      <!-- Header -->
-      <div style="background:linear-gradient(135deg,#1a2332,#2d3748);padding:36px 24px;text-align:center;position:relative;">
-        <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#6a9a04,#8bc34a,#dee24b);"></div>
-        <h1 style="color:#fff;font-size:26px;margin:0;font-weight:800;">🌿 Greenland</h1>
-        <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:8px 0 0;letter-spacing:2px;text-transform:uppercase;">Products</p>
+
+      <!-- Hero Image -->
+      <div style="width:100%;overflow:hidden;">
+        <img src="https://www.greenland-products.com.mx/og-image2.png" alt="Greenland Products" style="width:100%;display:block;" />
       </div>
 
       <!-- Main Content -->
       <div style="padding:32px 24px;">
         <h2 style="color:#1e293b;font-size:20px;margin:0 0 8px;font-weight:800;">Hola ${distributorName},</h2>
-        <p style="color:#64748b;font-size:14px;margin:0 0 24px;line-height:1.6;">Nos dimos cuenta que tu cuenta de distribuidor ha estado inactiva. Queremos que sepas que <strong>estamos aquí para ayudarte a arrancar</strong>.</p>
+        <p style="color:#64748b;font-size:14px;margin:0 0 24px;line-height:1.6;">Tu cuenta de distribuidor Greenland sigue disponible, pero <strong>no queremos que pierdas tu acceso</strong>. Estamos aquí para ayudarte a arrancar.</p>
 
-        <!-- Alert Box -->
-        <div style="background:#fef3c7;border-radius:12px;padding:16px;margin-bottom:24px;border-left:4px solid #f59e0b;">
-          <p style="margin:0;font-size:14px;color:#92400e;font-weight:600;">⚠️ Tu acceso como distribuidor ha quedado <strong>temporalmente inactivo</strong> por falta de actividad.</p>
+        <!-- Urgency Alert Box -->
+        <div style="background:#fff7ed;border-radius:12px;padding:16px;margin-bottom:24px;border-left:4px solid #f97316;">
+          <p style="margin:0;font-size:14px;color:#9a3412;font-weight:600;">⏰ ¡No esperes más! Tu acceso como distribuidor podría quedar <strong>inactivo por falta de actividad</strong>. Realiza tu primer pedido y asegura tus beneficios.</p>
         </div>
 
         <!-- Incentive Box -->
@@ -170,45 +169,10 @@ function buildReactivationEmailHtml({ distributorName, contactWhatsApp }) {
           <p style="margin:0;font-size:14px;color:#166534;line-height:1.5;">Pregunta por nuestros <strong>descuentos especiales para distribuidores nuevos</strong>. Precios competitivos en todo nuestro catálogo.</p>
         </div>
 
-        <!-- Products Grid -->
-        <div style="margin-bottom:24px;">
-          <p style="font-size:12px;color:#94a3b8;text-transform:uppercase;font-weight:700;margin:0 0 12px;letter-spacing:0.5px;">Nuestras líneas de producto</p>
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="padding:6px 4px;">
-                <div style="background:#f8fafc;border-radius:10px;padding:12px;text-align:center;border:1px solid #e2e8f0;">
-                  <span style="font-size:24px;">🪑</span>
-                  <p style="margin:6px 0 0;font-size:11px;color:#475569;font-weight:600;">Mesas y Sillas Plegables</p>
-                </div>
-              </td>
-              <td style="padding:6px 4px;">
-                <div style="background:#f8fafc;border-radius:10px;padding:12px;text-align:center;border:1px solid #e2e8f0;">
-                  <span style="font-size:24px;">⛺</span>
-                  <p style="margin:6px 0 0;font-size:11px;color:#475569;font-weight:600;">Toldos Plegables</p>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:6px 4px;">
-                <div style="background:#f8fafc;border-radius:10px;padding:12px;text-align:center;border:1px solid #e2e8f0;">
-                  <span style="font-size:24px;">🏠</span>
-                  <p style="margin:6px 0 0;font-size:11px;color:#475569;font-weight:600;">Recubrimientos Deco</p>
-                </div>
-              </td>
-              <td style="padding:6px 4px;">
-                <div style="background:#f8fafc;border-radius:10px;padding:12px;text-align:center;border:1px solid #e2e8f0;">
-                  <span style="font-size:24px;">📦</span>
-                  <p style="margin:6px 0 0;font-size:11px;color:#475569;font-weight:600;">Soluciones Modulares</p>
-                </div>
-              </td>
-            </tr>
-          </table>
-        </div>
-
         <!-- CTA -->
         <div style="text-align:center;margin:28px 0 16px;">
           <a href="https://${contactWhatsApp}" style="display:inline-block;background:linear-gradient(135deg,#6a9a04,#7cb518);color:#fff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;box-shadow:0 4px 12px rgba(106,154,4,0.3);">
-            💬 Contáctanos por WhatsApp
+            💬 Quiero hacer mi primer pedido
           </a>
         </div>
         <p style="text-align:center;font-size:12px;color:#94a3b8;margin:0;">Pregunta por descuentos de primer pedido</p>
@@ -217,7 +181,7 @@ function buildReactivationEmailHtml({ distributorName, contactWhatsApp }) {
         <div style="margin:24px 0;border-top:1px solid #e2e8f0;"></div>
 
         <p style="font-size:13px;color:#64748b;margin:0;line-height:1.6;text-align:center;">
-          Cuando estés listo para ordenar, con gusto <strong>reactivamos tu cuenta</strong> de inmediato.
+          Estamos listos para atenderte. <strong>Tu cuenta se reactiva en minutos</strong> una vez que nos contactes.
         </p>
       </div>
 
