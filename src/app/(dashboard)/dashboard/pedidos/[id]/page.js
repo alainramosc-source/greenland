@@ -422,21 +422,17 @@ export default function OrderDetailsPage() {
     }
   };
 
-  // Auto-detect SKU match from Bluetooth scanner (onChange-based)
+  // Auto-detect SKU from Bluetooth scanner (onChange-based)
   const handleFulfillSearchChange = (e) => {
     const val = e.target.value;
     setFulfillSearchTerm(val);
     if (fulfillAutoScanTimerRef.current) clearTimeout(fulfillAutoScanTimerRef.current);
-    if (val.trim().length >= 2 && order?.order_items) {
-      const sku = val.trim().toUpperCase();
-      const matchingItem = order.order_items.find(i => i.products?.sku?.toUpperCase() === sku);
-      if (matchingItem) {
-        fulfillAutoScanTimerRef.current = setTimeout(() => {
-          handleFulfillmentScan(val.trim());
-          setFulfillSearchTerm('');
-          fulfillSearchRef.current?.focus();
-        }, 400);
-      }
+    if (val.trim().length >= 2) {
+      fulfillAutoScanTimerRef.current = setTimeout(() => {
+        handleFulfillmentScan(val.trim());
+        setFulfillSearchTerm('');
+        fulfillSearchRef.current?.focus();
+      }, 400);
     }
   };
 
