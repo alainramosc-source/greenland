@@ -17,7 +17,7 @@ export const metadata = {
     siteName: 'Greenland Products',
     title: 'Greenland Products | Mesas, Sillas y Toldos Plegables para Distribuidores',
     description: 'Importador y proveedor mayorista de mobiliario plegable profesional, recubrimientos decorativos y soluciones modulares. Proveedor mayorista para distribuidores en México.',
-    images: [{ url: '/og-image2.png', width: 1200, height: 630, alt: 'Greenland Products - Mesas, Sillas y Toldos Plegables' }],
+    images: [{ url: '/og-image2.png', width: 1024, height: 1024, alt: 'Greenland Products - Mesas, Sillas y Toldos Plegables' }],
   },
   twitter: {
     card: 'summary_large_image',
