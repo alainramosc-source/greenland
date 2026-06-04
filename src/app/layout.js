@@ -60,7 +60,8 @@ export default function RootLayout({ children }) {
               '@type': 'Organization',
               name: 'Greenland Products S.A. de C.V.',
               url: 'https://www.greenland-products.com.mx',
-              logo: 'https://www.greenland-products.com.mx/logo-new.jpg',
+              logo: 'https://www.greenland-products.com.mx/og-image2.png',
+              image: 'https://www.greenland-products.com.mx/og-image2.png',
               description: 'Importador y proveedor mayorista de mobiliario plegable profesional, recubrimientos decorativos y soluciones modulares. Proveedor mayorista para distribuidores en México.',
               address: {
                 '@type': 'PostalAddress',
