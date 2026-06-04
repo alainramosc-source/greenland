@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 
 const BASE_URL = 'https://www.greenland-products.com.mx';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -11,7 +13,6 @@ export async function GET() {
 
   const now = new Date().toISOString();
 
-  // Collect all URLs
   const urls = [
     { loc: BASE_URL, lastmod: now, changefreq: 'weekly', priority: '1.0' },
     { loc: `${BASE_URL}/productos`, lastmod: now, changefreq: 'weekly', priority: '0.9' },
@@ -25,17 +26,14 @@ export async function GET() {
     { loc: `${BASE_URL}/terminos-de-uso`, lastmod: now, changefreq: 'yearly', priority: '0.3' },
   ];
 
-  // Categories
   ['mesas-plegables', 'sillas-plegables', 'toldos-plegables', 'bancas-y-mobiliario'].forEach(cat => {
     urls.push({ loc: `${BASE_URL}/categorias/${cat}`, lastmod: now, changefreq: 'weekly', priority: '0.8' });
   });
 
-  // Deco subcategories
   ['wpc-interior', 'wpc-exterior', 'deck', 'uv-marble', 'acoustic-panel', 'spc-flooring', 'stone'].forEach(sub => {
     urls.push({ loc: `${BASE_URL}/deco/${sub}`, lastmod: now, changefreq: 'monthly', priority: '0.7' });
   });
 
-  // Products from Supabase
   try {
     const { data: products, error } = await supabase
       .from('products')
@@ -54,10 +52,9 @@ export async function GET() {
       });
     }
   } catch (err) {
-    console.error('Sitemap: Error fetching products', err);
+    console.error('Sitemap error:', err);
   }
 
-  // Build XML string
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map(u => `  <url>
@@ -72,8 +69,7 @@ ${urls.map(u => `  <url>
     status: 200,
     headers: {
       'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, s-maxage=3600',
-      'X-Robots-Tag': 'noindex',
+      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=600',
     },
   });
 }
