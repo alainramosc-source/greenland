@@ -50,6 +50,7 @@ export default function HistorialPedidosPage() {
     const [toast, setToast] = useState(null);
     const [filterStatus, setFilterStatus] = useState('all');
     const [editedQtys, setEditedQtys] = useState({});
+    const [editedPrices, setEditedPrices] = useState({});
     const [savingItems, setSavingItems] = useState(false);
     const [skuMapping, setSkuMapping] = useState([]);
     const [addingProduct, setAddingProduct] = useState(null);
@@ -135,40 +136,66 @@ export default function HistorialPedidosPage() {
         }));
     };
 
-    const hasEdits = (orderId) => {
-        const edits = editedQtys[orderId];
-        if (!edits) return false;
-        const items = orderItems[orderId] || [];
-        return Object.entries(edits).some(([itemId, qty]) => {
-            const original = items.find(i => i.id === itemId);
-            return original && original.quantity !== qty;
-        });
+    // Edit price in expanded order
+    const handlePriceEdit = (orderId, itemId, newPrice) => {
+        setEditedPrices(prev => ({
+            ...prev,
+            [orderId]: { ...(prev[orderId] || {}), [itemId]: parseFloat(newPrice) || 0 },
+        }));
     };
 
-    const saveQtyEdits = async (order) => {
-        const edits = editedQtys[order.id];
-        if (!edits) return;
+    const hasEdits = (orderId) => {
+        const items = orderItems[orderId] || [];
+        const qtyEdits = editedQtys[orderId];
+        const priceEdits = editedPrices[orderId];
+        if (qtyEdits) {
+            const hasQtyChange = Object.entries(qtyEdits).some(([itemId, qty]) => {
+                const original = items.find(i => i.id === itemId);
+                return original && original.quantity !== qty;
+            });
+            if (hasQtyChange) return true;
+        }
+        if (priceEdits) {
+            const hasPriceChange = Object.entries(priceEdits).some(([itemId, price]) => {
+                const original = items.find(i => i.id === itemId);
+                return original && parseFloat(original.unit_price_usd || 0) !== price;
+            });
+            if (hasPriceChange) return true;
+        }
+        return false;
+    };
+
+    const saveEdits = async (order) => {
         setSavingItems(true);
         const items = orderItems[order.id] || [];
+        const qtyEdits = editedQtys[order.id] || {};
+        const priceEdits = editedPrices[order.id] || {};
         let errors = 0;
-        for (const [itemId, newQty] of Object.entries(edits)) {
-            const item = items.find(i => i.id === itemId);
-            if (!item || item.quantity === newQty) continue;
-            // Update PO item
+        for (const item of items) {
+            const newQty = qtyEdits[item.id];
+            const newPrice = priceEdits[item.id];
+            const qtyChanged = newQty !== undefined && newQty !== item.quantity;
+            const priceChanged = newPrice !== undefined && newPrice !== parseFloat(item.unit_price_usd || 0);
+            if (!qtyChanged && !priceChanged) continue;
+            const updateData = {};
+            if (qtyChanged) updateData.quantity = newQty;
+            if (priceChanged) updateData.unit_price_usd = newPrice;
             const { error } = await supabase.from('purchase_order_items')
-                .update({ quantity: newQty }).eq('id', itemId);
+                .update(updateData).eq('id', item.id);
             if (error) { errors++; continue; }
-            // Update matching transit_shipment
-            const supplier = getSupplier(order.supplier_id);
-            const { data: transits } = await supabase.from('transit_shipments')
-                .select('id, quantity')
-                .eq('product_id', item.product_id)
-                .eq('origin', supplier?.short_name || '')
-                .order('created_at', { ascending: false })
-                .limit(1);
-            if (transits && transits.length > 0) {
-                await supabase.from('transit_shipments')
-                    .update({ quantity: newQty }).eq('id', transits[0].id);
+            // Update matching transit_shipment if qty changed
+            if (qtyChanged) {
+                const supplier = getSupplier(order.supplier_id);
+                const { data: transits } = await supabase.from('transit_shipments')
+                    .select('id, quantity')
+                    .eq('product_id', item.product_id)
+                    .eq('origin', supplier?.short_name || '')
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+                if (transits && transits.length > 0) {
+                    await supabase.from('transit_shipments')
+                        .update({ quantity: newQty }).eq('id', transits[0].id);
+                }
             }
         }
         // Refresh items
@@ -176,8 +203,9 @@ export default function HistorialPedidosPage() {
             .select('*').eq('purchase_order_id', order.id);
         setOrderItems(prev => ({ ...prev, [order.id]: refreshed || [] }));
         setEditedQtys(prev => { const next = { ...prev }; delete next[order.id]; return next; });
+        setEditedPrices(prev => { const next = { ...prev }; delete next[order.id]; return next; });
         setSavingItems(false);
-        showToast(errors > 0 ? `Guardado con ${errors} errores` : 'Cantidades actualizadas + tránsitos sincronizados',
+        showToast(errors > 0 ? `Guardado con ${errors} errores` : 'Cantidades y precios actualizados',
             errors > 0 ? 'error' : 'success');
     };
 
@@ -262,13 +290,15 @@ export default function HistorialPedidosPage() {
         if (!supplier) return;
         const supplierInfo = SUPPLIER_INFO[supplier.short_name] || {};
         const today = new Date(order.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        const incoterm = supplier.default_incoterm || 'FOB';
 
         const wb = new ExcelJS.Workbook();
         const ws = wb.addWorksheet('Purchase Order');
 
         ws.columns = [
-            { width: 42 }, { width: 18 }, { width: 12 }, { width: 18 }, { width: 24 },
+            { width: 30 }, { width: 18 }, { width: 30 }, { width: 10 }, { width: 14 }, { width: 14 }, { width: 18 }, { width: 22 },
         ];
+        const colCount = 8;
 
         const boldFont = { bold: true, size: 11 };
         const titleFont = { bold: true, size: 16 };
@@ -276,45 +306,54 @@ export default function HistorialPedidosPage() {
 
         const r1 = ws.addRow(['PURCHASE ORDER']);
         r1.font = titleFont;
-        ws.mergeCells(r1.number, 1, r1.number, 5);
+        ws.mergeCells(r1.number, 1, r1.number, colCount);
         ws.addRow([]);
 
-        const r3 = ws.addRow(['PO Number:', order.po_number, '', 'Date:', today]);
+        const r3 = ws.addRow(['PO Number:', order.po_number, '', '', 'Date:', today]);
         r3.getCell(1).font = boldFont;
-        r3.getCell(4).font = boldFont;
+        r3.getCell(5).font = boldFont;
         ws.addRow([]);
 
         const rb1 = ws.addRow(['BUYER:']);
         rb1.font = labelFont;
-        ws.mergeCells(rb1.number, 1, rb1.number, 5);
+        ws.mergeCells(rb1.number, 1, rb1.number, colCount);
         const rb2 = ws.addRow([BUYER_INFO.name]);
         rb2.font = boldFont;
-        ws.mergeCells(rb2.number, 1, rb2.number, 5);
+        ws.mergeCells(rb2.number, 1, rb2.number, colCount);
         const rb3 = ws.addRow([BUYER_INFO.address]);
-        ws.mergeCells(rb3.number, 1, rb3.number, 5);
+        ws.mergeCells(rb3.number, 1, rb3.number, colCount);
         const rb4 = ws.addRow(['Tax ID: ' + BUYER_INFO.taxId]);
-        ws.mergeCells(rb4.number, 1, rb4.number, 5);
+        ws.mergeCells(rb4.number, 1, rb4.number, colCount);
         ws.addRow([]);
 
         const rs1 = ws.addRow(['SUPPLIER:']);
         rs1.font = labelFont;
-        ws.mergeCells(rs1.number, 1, rs1.number, 5);
-        const rs2 = ws.addRow([supplier.name]);
+        ws.mergeCells(rs1.number, 1, rs1.number, colCount);
+        const rs2 = ws.addRow([supplier.company_name || supplier.name]);
         rs2.font = boldFont;
-        ws.mergeCells(rs2.number, 1, rs2.number, 5);
-        const rs3 = ws.addRow([supplierInfo.address || '']);
-        ws.mergeCells(rs3.number, 1, rs3.number, 5);
-        const rs4 = ws.addRow(['Attn: ' + (supplierInfo.attn || '')]);
-        ws.mergeCells(rs4.number, 1, rs4.number, 5);
+        ws.mergeCells(rs2.number, 1, rs2.number, colCount);
+        const rs3 = ws.addRow([supplier.address || supplierInfo.address || '']);
+        ws.mergeCells(rs3.number, 1, rs3.number, colCount);
+        if (supplier.contact_info || supplierInfo.attn) {
+            const rs3b = ws.addRow(['Attn: ' + (supplier.contact_info || supplierInfo.attn || '')]);
+            ws.mergeCells(rs3b.number, 1, rs3b.number, colCount);
+        }
+        if (supplier.tax_id) {
+            const rs4 = ws.addRow(['Tax ID: ' + supplier.tax_id]);
+            ws.mergeCells(rs4.number, 1, rs4.number, colCount);
+        }
         ws.addRow([]);
 
         const rd1 = ws.addRow(['DESTINATION:', (order.destination_code || '')]);
         rd1.getCell(1).font = boldFont;
         const rd2 = ws.addRow(['DESTINATION PORT:', (order.destination_port || '')]);
         rd2.getCell(1).font = boldFont;
+        const rd3 = ws.addRow(['INCOTERM:', incoterm]);
+        rd3.getCell(1).font = boldFont;
+        rd3.getCell(2).font = { bold: true, size: 12, color: { argb: 'FF1a365d' } };
         ws.addRow([]);
 
-        const headerRow = ws.addRow(['PRODUCT', 'GREENLAND SKU', 'QTY', 'DESTINATION', 'DESTINATION PORT']);
+        const headerRow = ws.addRow(['PRODUCT', 'GREENLAND SKU', 'DESCRIPTION', 'QTY', 'UNIT PRICE (USD)', 'AMOUNT (USD)', 'DESTINATION', 'DESTINATION PORT']);
         headerRow.eachCell(cell => {
             cell.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF333333' } };
@@ -326,27 +365,61 @@ export default function HistorialPedidosPage() {
         });
 
         let totalQty = 0;
+        let grandTotal = 0;
         items.forEach(item => {
             const product = products.find(p => p.id === item.product_id);
+            const unitPrice = parseFloat(item.unit_price_usd || 0);
+            const lineAmount = unitPrice * item.quantity;
+            grandTotal += lineAmount;
             const row = ws.addRow([
                 item.supplier_sku || '',
                 product?.sku || '',
+                product?.name || '',
                 item.quantity,
+                unitPrice > 0 ? unitPrice : '',
+                lineAmount > 0 ? lineAmount : '',
                 order.destination_code || '',
                 order.destination_port || '',
             ]);
-            row.getCell(3).alignment = { horizontal: 'center' };
-            row.getCell(3).font = { bold: true };
             row.getCell(4).alignment = { horizontal: 'center' };
-            row.getCell(5).alignment = { horizontal: 'center' };
+            row.getCell(4).font = { bold: true };
+            if (unitPrice > 0) {
+                row.getCell(5).numFmt = '$#,##0.00';
+                row.getCell(5).alignment = { horizontal: 'right' };
+                row.getCell(6).numFmt = '$#,##0.00';
+                row.getCell(6).alignment = { horizontal: 'right' };
+                row.getCell(6).font = { bold: true };
+            }
+            row.getCell(7).alignment = { horizontal: 'center' };
+            row.getCell(8).alignment = { horizontal: 'center' };
             totalQty += item.quantity;
         });
 
         ws.addRow([]);
-        const totalRow = ws.addRow(['', 'TOTAL:', totalQty, '', '']);
-        totalRow.getCell(2).font = { bold: true, size: 12 };
+        const totalRow = ws.addRow(['', '', 'TOTAL:', totalQty, '', grandTotal > 0 ? grandTotal : '', '', '']);
         totalRow.getCell(3).font = { bold: true, size: 12 };
-        totalRow.getCell(3).alignment = { horizontal: 'center' };
+        totalRow.getCell(4).font = { bold: true, size: 12 };
+        totalRow.getCell(4).alignment = { horizontal: 'center' };
+        if (grandTotal > 0) {
+            totalRow.getCell(6).numFmt = '$#,##0.00';
+            totalRow.getCell(6).font = { bold: true, size: 12, color: { argb: 'FF1a365d' } };
+            totalRow.getCell(6).alignment = { horizontal: 'right' };
+        }
+
+        // Terms & Conditions
+        ws.addRow([]);
+        const termsLabel = ws.addRow(['TERMS & CONDITIONS']);
+        termsLabel.font = { bold: true, size: 12, color: { argb: 'FF1a365d' } };
+        ws.mergeCells(termsLabel.number, 1, termsLabel.number, colCount);
+        const addTerm = (label, value) => {
+            const r = ws.addRow([label, value]);
+            r.getCell(1).font = { bold: true, size: 10 };
+            r.getCell(2).font = { size: 10 };
+        };
+        addTerm('INCOTERM:', incoterm);
+        addTerm('CURRENCY:', 'USD (United States Dollar)');
+        addTerm('PAYMENT TERMS:', supplier.payment_terms || '30% deposit upon order confirmation, 70% T/T before vessel arrival at Mexican port');
+        addTerm('ACCEPTANCE:', 'This PO is accepted upon written confirmation, proforma invoice issuance, or commencement of production.');
 
         if (order.notes) {
             ws.addRow([]);
@@ -354,6 +427,13 @@ export default function HistorialPedidosPage() {
             notesLabel.font = boldFont;
             ws.addRow([order.notes]);
         }
+
+        // Legal footer
+        ws.addRow([]);
+        const legalRow = ws.addRow(['INCOTERM. Any discrepancies must be communicated in writing prior to shipment.']);
+        ws.mergeCells(legalRow.number, 1, legalRow.number, colCount);
+        legalRow.getCell(1).font = { size: 9, italic: true, color: { argb: 'FF666666' } };
+        legalRow.getCell(1).alignment = { wrapText: true };
 
         const fileName = `PO_${supplier.short_name}_${order.destination_code}_${order.po_number}.xlsx`;
         const buffer = await wb.xlsx.writeBuffer();
@@ -484,7 +564,7 @@ export default function HistorialPedidosPage() {
                                                 <FileSpreadsheet size={14} /> Exportar Excel
                                             </button>
                                             {hasEdits(order.id) && (
-                                                <button onClick={(e) => { e.stopPropagation(); saveQtyEdits(order); }}
+                                                <button onClick={(e) => { e.stopPropagation(); saveEdits(order); }}
                                                     disabled={savingItems}
                                                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500 text-white border-none font-bold text-xs hover:bg-orange-600 cursor-pointer transition-all shadow-sm disabled:opacity-50">
                                                     {savingItems ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
@@ -515,12 +595,17 @@ export default function HistorialPedidosPage() {
                                                         <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-slate-400">GL SKU</th>
                                                         <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-slate-400">Producto</th>
                                                         <th className="px-3 py-2 text-right text-[10px] font-black uppercase tracking-wider text-slate-400">Cantidad</th>
+                                                        <th className="px-3 py-2 text-right text-[10px] font-black uppercase tracking-wider text-slate-400">Precio FOB</th>
+                                                        <th className="px-3 py-2 text-right text-[10px] font-black uppercase tracking-wider text-slate-400">Monto USD</th>
                                                         <th className="px-3 py-2 w-10"></th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100">
                                                     {items.map(item => {
                                                         const product = products.find(p => p.id === item.product_id);
+                                                        const currentQty = editedQtys[order.id]?.[item.id] ?? item.quantity;
+                                                        const currentPrice = editedPrices[order.id]?.[item.id] ?? parseFloat(item.unit_price_usd || 0);
+                                                        const lineAmount = currentQty * currentPrice;
                                                         return (
                                                             <tr key={item.id} className="hover:bg-white/50">
                                                                 <td className="px-3 py-2 font-mono text-xs text-slate-500">{item.supplier_sku}</td>
@@ -530,7 +615,7 @@ export default function HistorialPedidosPage() {
                                                                 <input
                                                                     type="number"
                                                                     min="0"
-                                                                    value={editedQtys[order.id]?.[item.id] ?? item.quantity}
+                                                                    value={currentQty}
                                                                     onChange={e => handleQtyEdit(order.id, item.id, e.target.value)}
                                                                     onClick={e => e.stopPropagation()}
                                                                     className={`w-20 text-right font-black text-sm px-2 py-1 rounded-lg border outline-none transition-colors ${
@@ -539,6 +624,24 @@ export default function HistorialPedidosPage() {
                                                                             : 'border-slate-200 bg-white text-slate-900'
                                                                     }`}
                                                                 />
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right">
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    value={currentPrice}
+                                                                    onChange={e => handlePriceEdit(order.id, item.id, e.target.value)}
+                                                                    onClick={e => e.stopPropagation()}
+                                                                    className={`w-24 text-right font-bold text-sm px-2 py-1 rounded-lg border outline-none transition-colors ${
+                                                                        editedPrices[order.id]?.[item.id] !== undefined && editedPrices[order.id]?.[item.id] !== parseFloat(item.unit_price_usd || 0)
+                                                                            ? 'border-green-300 bg-green-50 text-green-700 ring-2 ring-green-200'
+                                                                            : 'border-slate-200 bg-white text-slate-900'
+                                                                    }`}
+                                                                />
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right text-xs font-bold text-slate-600">
+                                                                {lineAmount > 0 ? `$${lineAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
                                                             </td>
                                                             <td className="px-3 py-1 text-center">
                                                                 <button onClick={e => { e.stopPropagation(); removeItem(order, item.id); }}
@@ -552,8 +655,20 @@ export default function HistorialPedidosPage() {
                                                 </tbody>
                                                 <tfoot>
                                                     <tr className="border-t-2 border-slate-300">
-                                                        <td colSpan="4" className="px-3 py-2 text-right text-xs font-black text-slate-500 uppercase">Total</td>
+                                                        <td colSpan="3" className="px-3 py-2 text-right text-xs font-black text-slate-500 uppercase">Total</td>
                                                         <td className="px-3 py-2 text-right font-black text-sm text-[#6a9a04]">{totalQty.toLocaleString()}</td>
+                                                        <td className="px-3 py-2"></td>
+                                                        <td className="px-3 py-2 text-right font-black text-sm text-[#1a365d]">
+                                                            {(() => {
+                                                                const grandTotal = items.reduce((sum, item) => {
+                                                                    const q = editedQtys[order.id]?.[item.id] ?? item.quantity;
+                                                                    const p = editedPrices[order.id]?.[item.id] ?? parseFloat(item.unit_price_usd || 0);
+                                                                    return sum + (q * p);
+                                                                }, 0);
+                                                                return grandTotal > 0 ? `$${grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '';
+                                                            })()}
+                                                        </td>
+                                                        <td></td>
                                                     </tr>
                                                 </tfoot>
                                             </table>

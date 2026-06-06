@@ -256,6 +256,7 @@ export default function NuevoPedidoPage() {
         const items = allItems.map(i => ({
             purchase_order_id: po.id, product_id: i.productId,
             supplier_sku: getSupplierSku(i.productId), quantity: i.quantity,
+            unit_price_usd: getUnitPrice(i.productId),
         }));
 
         console.log('[PO] Inserting items:', JSON.stringify(items));
