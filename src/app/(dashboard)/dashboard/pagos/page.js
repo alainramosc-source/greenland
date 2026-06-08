@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import {
   DollarSign, CheckCircle, XCircle, Clock, Loader2, Eye,
   ChevronDown, ChevronUp, AlertTriangle, CreditCard, Users, Filter,
-  Upload, FileSpreadsheet, Zap, ArrowRight, X, Banknote, ArrowDownCircle, ArrowUpCircle, Wallet, Plus, Calendar
+  Upload, FileSpreadsheet, Zap, ArrowRight, X, Banknote, ArrowDownCircle, ArrowUpCircle, Wallet, Plus, Calendar,
+  PenTool, ShieldCheck
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AlertCircle, Link2 } from 'lucide-react';
@@ -49,6 +50,10 @@ export default function AdminPagosPage() {
     const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0];
   });
   const [cajaDateTo, setCajaDateTo] = useState(new Date().toISOString().split('T')[0]);
+  // Dual signature
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUserName, setCurrentUserName] = useState('');
+  const SIGNERS = ['Alain Ramos', 'Didier Fernandez'];
 
   // Generate signed URL for receipt viewing
   const handleViewReceipt = async (receiptUrl) => {
@@ -66,7 +71,19 @@ export default function AdminPagosPage() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+    // Get current user info for dual signature
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+        const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
+        setCurrentUserName(profile?.full_name || '');
+      }
+    };
+    getUser();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -256,7 +273,7 @@ export default function AdminPagosPage() {
     setActionLoading(null);
   };
 
-  // Register cash exit
+  // Register cash exit (starts as pending_signatures)
   const handleRegisterExit = async () => {
     const amount = parseFloat(exitForm.amount);
     if (!amount || amount <= 0) { alert('Ingresa un monto válido'); return; }
@@ -272,13 +289,56 @@ export default function AdminPagosPage() {
       notes: exitForm.notes.trim() || null,
       reference_type: 'manual',
       movement_date: exitForm.movement_date,
-      created_by: userId
+      created_by: userId,
+      registered_by: currentUserName,
+      approval_status: 'pending_signatures'
     });
     setExitSubmitting(false);
     if (error) { alert('Error: ' + error.message); return; }
     setShowExitModal(false);
     setExitForm({ amount: '', concept: '', responsible: '', notes: '', movement_date: new Date().toISOString().split('T')[0] });
     fetchData();
+  };
+
+  // Dual signature handler
+  const handleSignExit = async (movementId) => {
+    const movement = cashMovements.find(m => m.id === movementId);
+    if (!movement) return;
+    setActionLoading(movementId);
+    const updateData = {};
+    // Check if signer 1 slot is free or already taken by someone else
+    if (!movement.approved_by_1) {
+      updateData.approved_by_1 = currentUserId;
+      updateData.approved_at_1 = new Date().toISOString();
+      // If signer 2 already signed, this completes it
+      updateData.approval_status = movement.approved_by_2 ? 'approved' : 'partially_signed';
+    } else if (!movement.approved_by_2 && movement.approved_by_1 !== currentUserId) {
+      updateData.approved_by_2 = currentUserId;
+      updateData.approved_at_2 = new Date().toISOString();
+      updateData.approval_status = 'approved';
+    } else {
+      setActionLoading(null);
+      return; // Already signed by this user
+    }
+    await supabase.from('cash_movements').update(updateData).eq('id', movementId);
+    setActionLoading(null);
+    fetchData();
+  };
+
+  const canSign = (movement) => {
+    if (!currentUserName) return false;
+    const isSigner = SIGNERS.some(s => currentUserName.toLowerCase().includes(s.toLowerCase().split(' ')[0]));
+    if (!isSigner) return false;
+    // Check if this user already signed
+    if (movement.approved_by_1 === currentUserId || movement.approved_by_2 === currentUserId) return false;
+    return true;
+  };
+
+  const getSignatureCount = (m) => {
+    let count = 0;
+    if (m.approved_by_1) count++;
+    if (m.approved_by_2) count++;
+    return count;
   };
 
   const handleReject = async () => {
@@ -725,11 +785,12 @@ export default function AdminPagosPage() {
       {activeTab === 'caja' && (() => {
         const filteredCash = cashMovements.filter(m => m.movement_date >= cajaDateFrom && m.movement_date <= cajaDateTo);
         const totalEntries = filteredCash.filter(m => m.type === 'entry').reduce((s, m) => s + Number(m.amount), 0);
-        const totalExits = filteredCash.filter(m => m.type === 'exit').reduce((s, m) => s + Number(m.amount), 0);
+        const totalExits = filteredCash.filter(m => m.type === 'exit' && m.approval_status === 'approved').reduce((s, m) => s + Number(m.amount), 0);
+        const pendingExits = filteredCash.filter(m => m.type === 'exit' && m.approval_status !== 'approved').reduce((s, m) => s + Number(m.amount), 0);
         const saldoDebido = totalEntries - totalExits;
-        // Global balance (all time)
+        // Global balance (all time) — only approved exits
         const allEntries = cashMovements.filter(m => m.type === 'entry').reduce((s, m) => s + Number(m.amount), 0);
-        const allExits = cashMovements.filter(m => m.type === 'exit').reduce((s, m) => s + Number(m.amount), 0);
+        const allExits = cashMovements.filter(m => m.type === 'exit' && m.approval_status === 'approved').reduce((s, m) => s + Number(m.amount), 0);
         const globalBalance = allEntries - allExits;
 
         return (
@@ -804,31 +865,61 @@ export default function AdminPagosPage() {
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {filteredCash.map(m => (
-                    <div key={m.id} className="px-5 py-4 flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${m.type === 'entry' ? 'bg-emerald-50' : 'bg-red-50'}`}>
-                        {m.type === 'entry'
-                          ? <ArrowDownCircle size={18} className="text-emerald-500" />
-                          : <ArrowUpCircle size={18} className="text-red-500" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-900">
-                          <span className={m.type === 'entry' ? 'text-emerald-600' : 'text-red-600'}>
-                            {m.type === 'entry' ? '+' : '-'}${Number(m.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                  {filteredCash.map(m => {
+                    const isPendingSig = m.type === 'exit' && m.approval_status && m.approval_status !== 'approved';
+                    const sigCount = getSignatureCount(m);
+                    const refLabel = m.reference_type === 'distributor_payment' ? 'Pago Dist.'
+                      : m.reference_type === 'counter_sale' ? 'Venta Mostrador'
+                      : m.reference_type === 'recycling_purchase' ? 'Compra Recycling'
+                      : 'Manual';
+                    return (
+                      <div key={m.id} className={`px-5 py-4 flex items-center gap-4 ${isPendingSig ? 'bg-amber-50/50' : ''}`}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${m.type === 'entry' ? 'bg-emerald-50' : isPendingSig ? 'bg-amber-50 border-2 border-amber-200' : 'bg-red-50'}`}>
+                          {m.type === 'entry'
+                            ? <ArrowDownCircle size={18} className="text-emerald-500" />
+                            : isPendingSig ? <PenTool size={18} className="text-amber-500" />
+                            : <ArrowUpCircle size={18} className="text-red-500" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-slate-900">
+                            <span className={m.type === 'entry' ? 'text-emerald-600' : 'text-red-600'}>
+                              {m.type === 'entry' ? '+' : '-'}${Number(m.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </span>
+                            <span className="font-normal text-slate-400 ml-2 text-xs capitalize">{m.type === 'entry' ? 'Entrada' : 'Salida'}</span>
+                          </p>
+                          <p className="text-xs text-slate-600 font-medium">{m.concept}</p>
+                          <p className="text-[10px] text-slate-400">
+                            {m.movement_date} · {m.responsible}
+                            {m.registered_by && ` · Registró: ${m.registered_by}`}
+                            {m.notes && ` · ${m.notes}`}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isPendingSig && (
+                            <>
+                              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${sigCount === 0 ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                                ⏳ Firmas {sigCount}/2
+                              </span>
+                              {canSign(m) && (
+                                <button onClick={() => handleSignExit(m.id)} disabled={actionLoading === m.id}
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg border-none cursor-pointer transition-colors disabled:opacity-50">
+                                  {actionLoading === m.id ? <Loader2 size={12} className="animate-spin" /> : <PenTool size={12} />} Firmar
+                                </button>
+                              )}
+                            </>
+                          )}
+                          {m.approval_status === 'approved' && m.type === 'exit' && m.reference_type === 'manual' && (
+                            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700 flex items-center gap-1">
+                              <ShieldCheck size={10} /> Aprobado
+                            </span>
+                          )}
+                          <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${m.type === 'entry' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                            {refLabel}
                           </span>
-                          <span className="font-normal text-slate-400 ml-2 text-xs capitalize">{m.type === 'entry' ? 'Entrada' : 'Salida'}</span>
-                        </p>
-                        <p className="text-xs text-slate-600 font-medium">{m.concept}</p>
-                        <p className="text-[10px] text-slate-400">
-                          {m.movement_date} · {m.responsible}
-                          {m.notes && ` · ${m.notes}`}
-                        </p>
+                        </div>
                       </div>
-                      <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${m.type === 'entry' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                        {m.reference_type === 'distributor_payment' ? 'Pago Dist.' : m.reference_type === 'retail_sale' ? 'Venta Retail' : 'Manual'}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

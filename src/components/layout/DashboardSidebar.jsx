@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck, Eye, EyeOff, ArrowLeft, MessageSquare, Truck, FileBox, FolderOpen, Globe, Factory, Box, Container, ShoppingBag, Tag, FileSpreadsheet } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck, Eye, EyeOff, ArrowLeft, MessageSquare, Truck, FileBox, FolderOpen, Globe, Factory, Box, Container, ShoppingBag, Tag, FileSpreadsheet, Recycle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) => {
@@ -108,6 +108,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
     { name: 'Etiquetas', href: '/dashboard/etiquetas', icon: Tag, roles: ['super_admin', 'warehouse_admin'] },
     { name: 'Cobertura', href: '/dashboard/cobertura', icon: ShieldCheck, roles: ['super_admin'] },
     { name: 'Compras', href: '/dashboard/cobertura/historial', icon: FileSpreadsheet, roles: ['super_admin'] },
+    { name: 'Recycling', href: '/dashboard/recycling', icon: Recycle, roles: ['super_admin', 'warehouse_admin'] },
     { name: 'Recepciones', href: '/dashboard/recepciones', icon: Container, roles: ['super_admin'] },
     { name: 'Precios', href: '/dashboard/precios', icon: DollarSign, roles: ['super_admin', 'accountant'] },
     { name: 'Pagos', href: '/dashboard/pagos', icon: CreditCard, roles: ['super_admin', 'accountant'] },
