@@ -327,6 +327,7 @@ export default function NuevoPedidoPage() {
                 estimated_arrival: arrivalStr,
                 origin: selectedSupplier.short_name,
                 status: 'in_transit',
+                purchase_order_id: po.id,
                 created_by: user.id,
             }));
 

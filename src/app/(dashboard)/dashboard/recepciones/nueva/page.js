@@ -589,7 +589,25 @@ export default function NuevaRecepcionPage() {
     // 3. If PO exists, mark as received and resolve transits
     if (form.purchase_order_id) {
       await supabase.from('purchase_orders').update({ status: 'received' }).eq('id', form.purchase_order_id);
-      await supabase.from('transit_shipments').delete().eq('purchase_order_id', form.purchase_order_id);
+      
+      // Try to delete transits by purchase_order_id first
+      const { data: deletedByPO } = await supabase.from('transit_shipments')
+        .delete()
+        .eq('purchase_order_id', form.purchase_order_id)
+        .select('id');
+      
+      // Fallback: if no transits had purchase_order_id, find by product + supplier + warehouse
+      if (!deletedByPO || deletedByPO.length === 0) {
+        const supplierName = suppliers.find(s => s.id === form.supplier_id)?.short_name || '';
+        for (const item of items) {
+          await supabase.from('transit_shipments')
+            .delete()
+            .eq('product_id', item.product_id)
+            .eq('warehouse_id', form.warehouse_id)
+            .eq('origin', supplierName)
+            .eq('status', 'in_transit');
+        }
+      }
     }
 
     if (stockErrors.length) {
