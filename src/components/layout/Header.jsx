@@ -66,9 +66,14 @@ const Header = () => {
 
         {/* Right side */}
         <div className="header-actions">
-          <a href="tel:+528441595472" className="header-phone">
-            +52 (844) 159 5472
-          </a>
+          <div className="header-phones">
+            <a href="tel:+528441058692" className="header-phone" title="Llamar">
+              📞 (844) 105 8692
+            </a>
+            <a href="https://wa.me/528441595472" className="header-phone header-phone-wa" target="_blank" rel="noopener noreferrer" title="WhatsApp">
+              💬 (844) 159 5472
+            </a>
+          </div>
           <Link href="/login" className="btn btn-dark header-cta">
             ACCESO
           </Link>
@@ -260,11 +265,19 @@ const Header = () => {
           gap: 1.5rem;
         }
 
+        .header-phones {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 0.15rem;
+        }
+
         .header-phone {
-          font-size: 0.85rem;
+          font-size: 0.8rem;
           font-weight: 600;
           color: var(--color-text-secondary);
           transition: color 0.2s;
+          white-space: nowrap;
         }
 
         .header-phone:hover {
@@ -346,7 +359,7 @@ const Header = () => {
           .desktop-nav {
             display: none;
           }
-          .header-phone {
+          .header-phones {
             display: none;
           }
           .header-cta {

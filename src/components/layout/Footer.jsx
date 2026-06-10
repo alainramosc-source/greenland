@@ -50,7 +50,11 @@ const Footer = () => {
               </li>
               <li>
                 <Phone size={16} />
-                <span>+52 (844) 159 5472</span>
+                <span><a href="tel:+528441058692" style={{color: 'inherit'}}>📞 (844) 105 8692</a></span>
+              </li>
+              <li>
+                <Phone size={16} />
+                <span><a href="https://wa.me/528441595472" target="_blank" rel="noopener noreferrer" style={{color: 'inherit'}}>💬 (844) 159 5472</a></span>
               </li>
               <li>
                 <Mail size={16} />
