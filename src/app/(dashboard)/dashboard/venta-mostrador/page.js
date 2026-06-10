@@ -384,17 +384,20 @@ export default function VentaMostradorPage() {
     const dd = String(now.getDate()).padStart(2, '0');
     const prefix = `VMP-${yy}${mm}${dd}`;
 
-    const todayStart = `${now.getFullYear()}-${mm}-${dd}T00:00:00`;
-    const todayEnd = `${now.getFullYear()}-${mm}-${dd}T23:59:59`;
-
-    const { count } = await supabase
+    // Find the highest existing sale_number for today to avoid collisions from deleted records
+    const { data } = await supabase
       .from('counter_sales')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', todayStart)
-      .lte('created_at', todayEnd);
+      .select('sale_number')
+      .like('sale_number', `${prefix}-%`)
+      .order('sale_number', { ascending: false })
+      .limit(1);
 
-    const seq = String((count || 0) + 1).padStart(3, '0');
-    return `${prefix}-${seq}`;
+    let seq = 1;
+    if (data && data.length > 0) {
+      const lastSeq = parseInt(data[0].sale_number.split('-').pop()) || 0;
+      seq = lastSeq + 1;
+    }
+    return `${prefix}-${String(seq).padStart(3, '0')}`;
   };
 
   // ──────────── SUBMIT SALE ────────────
