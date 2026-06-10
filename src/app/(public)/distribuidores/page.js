@@ -188,7 +188,7 @@ export default function DistribuidoresPage() {
                             {[
                                 { title: 'Rentabilidad Competitiva', desc: 'Márgenes de ganancia del 20% al 35% en nuestra línea core de productos.' },
                                 { title: 'Prioridad Logística', desc: 'Tus pedidos tienen prioridad en despacho y envíos express garantizados.' },
-                                { title: 'Herramientas de Venta', desc: 'Acceso a un portal B2B con catálogos white-label, fotos HD y fichas técnicas.' },
+                                { title: 'Herramientas de Venta', desc: 'Acceso a un portal B2B con catálogos digitales, fotos HD y fichas técnicas.' },
                                 { title: 'Capacitación Técnica', desc: 'Webinars mensuales y soporte directo con nuestros expertos de producto.' },
                             ].map((item, i) => (
                                 <li key={i} style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
