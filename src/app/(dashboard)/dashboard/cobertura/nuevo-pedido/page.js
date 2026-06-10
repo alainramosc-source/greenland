@@ -656,10 +656,10 @@ export default function NuevoPedidoPage() {
                     {/* Supplier */}
                     <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
                         <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2">Proveedor</label>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                             {suppliers.map(s => (
                                 <button key={s.id} onClick={() => { setSelectedSupplier(s); setContainers([]); setNextContainerId(1); }}
-                                    className={`flex-1 px-3 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${selectedSupplier?.id === s.id
+                                    className={`px-3 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${selectedSupplier?.id === s.id
                                         ? 'bg-[#6a9a04] text-white shadow-md border-none'
                                         : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'}`}>
                                     {s.short_name}
