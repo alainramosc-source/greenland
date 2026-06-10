@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 
 const fmt = (n) => Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtKg = (n) => Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
 export default function RecyclingPage() {
   const supabase = createClient();
@@ -520,7 +521,7 @@ export default function RecyclingPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Cantidad</span>
-                  <span className="font-bold text-slate-900">{purchaseForm.quantity_kg || '0'} kg</span>
+                  <span className="font-bold text-slate-900">{fmtKg(purchaseForm.quantity_kg)} kg</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Precio/KG</span>
@@ -551,7 +552,7 @@ export default function RecyclingPage() {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-500">KG comprados</span>
-                      <span className="font-bold text-slate-900">{fmt(todayKg)} kg</span>
+                      <span className="font-bold text-slate-900">{fmtKg(todayKg)} kg</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-500">Total gastado</span>
@@ -575,7 +576,7 @@ export default function RecyclingPage() {
                 <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center"><Package size={20} className="text-blue-500" /></div>
                 <span className="text-xs text-slate-500 font-medium">KG en Stock</span>
               </div>
-              <p className="text-2xl font-black text-slate-900">{fmt(totals.totalStockKg)}</p>
+              <p className="text-2xl font-black text-slate-900">{fmtKg(totals.totalStockKg)}</p>
             </div>
             <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
               <div className="flex items-center gap-3 mb-2">
@@ -641,7 +642,7 @@ export default function RecyclingPage() {
                             <span className="font-bold text-slate-900">{m.name}</span>
                             {!m.is_active && <span className="ml-2 text-[10px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full">Inactivo</span>}
                           </td>
-                          <td className="px-5 py-3 text-right font-bold text-slate-900">{fmt(stockKg)} kg</td>
+                          <td className="px-5 py-3 text-right font-bold text-slate-900">{fmtKg(stockKg)} kg</td>
                           <td className="px-5 py-3 text-right text-slate-600">${fmt(m.buy_price_per_kg)}</td>
                           <td className="px-5 py-3 text-right font-bold text-emerald-600">${fmt(value)}</td>
                           <td className="px-5 py-3 text-center">
@@ -804,7 +805,7 @@ export default function RecyclingPage() {
                       </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-sm font-bold text-slate-900">{fmt(item.quantity_kg)} kg</p>
+                      <p className="text-sm font-bold text-slate-900">{fmtKg(item.quantity_kg)} kg</p>
                       <p className="text-xs text-slate-400">${fmt(item.price_per_kg)}/kg</p>
                     </div>
                     <div className="text-right shrink-0 min-w-[100px]">
