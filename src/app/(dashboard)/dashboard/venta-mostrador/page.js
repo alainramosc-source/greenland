@@ -435,21 +435,6 @@ export default function VentaMostradorPage() {
       const customerFinal = sanitizeText(customerName, 200) || 'Público General';
       const notesFinal = sanitizeText(notes, 500);
 
-      // Deduct stock for each item
-      for (const item of saleItems) {
-        const { error } = await supabase.rpc('adjust_warehouse_stock', {
-          p_product_id: item.product_id,
-          p_warehouse_id: selectedWarehouse,
-          p_quantity_change: -item.quantity,
-          p_reason: `Venta en mostrador ${saleNumber}`
-        });
-        if (error) {
-          alert(`Error al descontar stock de ${item.name}: ${error.message}`);
-          setSubmitting(false);
-          return;
-        }
-      }
-
       // Build items JSON
       const itemsJson = saleItems.map(item => ({
         sku: item.sku,
@@ -461,7 +446,7 @@ export default function VentaMostradorPage() {
 
       const subtotal = Math.round(saleTotal * 100) / 100;
 
-      // Insert counter_sales record
+      // FIRST: Insert counter_sales record (if this fails, stock is untouched)
       const { data: saleRecord, error: insertError } = await supabase
         .from('counter_sales')
         .insert({
@@ -483,6 +468,19 @@ export default function VentaMostradorPage() {
         alert('Error al registrar la venta: ' + insertError.message);
         setSubmitting(false);
         return;
+      }
+
+      // THEN: Deduct stock for each item (sale is already saved)
+      for (const item of saleItems) {
+        const { error } = await supabase.rpc('adjust_warehouse_stock', {
+          p_product_id: item.product_id,
+          p_warehouse_id: selectedWarehouse,
+          p_quantity_change: -item.quantity,
+          p_reason: `Venta en mostrador ${saleNumber}`
+        });
+        if (error) {
+          console.error(`Error al descontar stock de ${item.name}: ${error.message}`);
+        }
       }
 
       // Refresh warehouse stock
