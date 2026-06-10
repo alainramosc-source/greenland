@@ -233,7 +233,7 @@ export default function RecyclingPage() {
         responsible: supplierName,
         reference_id: newPurchase.id,
         reference_type: 'recycling_purchase',
-        movement_date: new Date().toISOString().split('T')[0],
+        movement_date: new Date().toLocaleDateString('en-CA'),
         created_by: userId,
         approval_status: 'approved',
       });
@@ -539,7 +539,7 @@ export default function RecyclingPage() {
             <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
               <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Hoy</h3>
               {(() => {
-                const today = new Date().toISOString().split('T')[0];
+                const today = new Date().toLocaleDateString('en-CA');
                 const todayPurchases = purchases.filter(p => p.created_at?.startsWith(today));
                 const todayTotal = todayPurchases.reduce((s, p) => s + Number(p.total_amount), 0);
                 const todayKg = todayPurchases.reduce((s, p) => s + Number(p.quantity_kg), 0);

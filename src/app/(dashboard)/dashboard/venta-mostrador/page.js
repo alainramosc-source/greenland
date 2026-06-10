@@ -501,7 +501,7 @@ export default function VentaMostradorPage() {
           concept: `Venta mostrador #${saleNumber}`,
           responsible: userName,
           reference_type: 'counter_sale',
-          movement_date: new Date().toISOString().split('T')[0],
+          movement_date: new Date().toLocaleDateString('en-CA'),
           created_by: userId,
           approval_status: 'approved'
         });
