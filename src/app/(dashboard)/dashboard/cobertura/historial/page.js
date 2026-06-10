@@ -84,6 +84,20 @@ export default function HistorialPedidosPage() {
 
     const getSupplier = (supplierId) => suppliers.find(s => s.id === supplierId);
 
+    const normalize = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const getWarehouseForDest = (destCode) => {
+        const DEST_WH = {
+            'SLW': ['Bodega Vito Alessio', 'Bodega Echeverría'],
+            'TL': ['Tlalnepantla'],
+            'MRO': ['Morelia'],
+            'QRO': ['Querétaro', 'Queretaro', 'QRO'],
+            'ALT': ['Altamira'],
+        };
+        const names = DEST_WH[destCode] || [];
+        const wh = warehouses.find(w => names.some(n => normalize(w.name).includes(normalize(n))));
+        return wh?.id || warehouses[0]?.id;
+    };
+
     const toggleExpand = async (orderId) => {
         if (expandedOrder === orderId) {
             setExpandedOrder(null);
@@ -186,10 +200,12 @@ export default function HistorialPedidosPage() {
             // Update matching transit_shipment if qty changed
             if (qtyChanged) {
                 const supplier = getSupplier(order.supplier_id);
+                const warehouseId = getWarehouseForDest(order.destination_code);
                 const { data: transits } = await supabase.from('transit_shipments')
                     .select('id, quantity')
                     .eq('product_id', item.product_id)
                     .eq('origin', supplier?.short_name || '')
+                    .eq('warehouse_id', warehouseId)
                     .order('created_at', { ascending: false })
                     .limit(1);
                 if (transits && transits.length > 0) {
@@ -241,16 +257,14 @@ export default function HistorialPedidosPage() {
         });
         if (error) { showToast('Error: ' + error.message, 'error'); return; }
         // Create transit
-        const DEST_WH = { 'SLW': 'Bodega Vito', 'TL': 'Tlalnepantla', 'MRO': 'Morelia', 'QRO': 'Querétaro', 'ALT': 'Altamira' };
-        const whName = DEST_WH[order.destination_code] || '';
-        const wh = warehouses.find(w => w.name?.includes(whName));
-        if (wh) {
-            const leadWeeks = (supplier?.short_name === 'Shinaier') ? 12 : 9;
+        const whId = getWarehouseForDest(order.destination_code);
+        if (whId) {
+            const leadWeeks = (supplier?.production_lead_weeks || 4) + (supplier?.transit_lead_weeks || 5);
             await supabase.from('transit_shipments').insert({
                 product_id: productId,
-                warehouse_id: wh.id,
+                warehouse_id: whId,
                 quantity: 1,
-                estimated_arrival: new Date(Date.now() + leadWeeks * 7 * 86400000).toISOString().split('T')[0],
+                estimated_arrival: new Date(Date.now() + leadWeeks * 7 * 86400000).toLocaleDateString('en-CA'),
                 origin: supplier?.short_name || '',
                 status: 'in_transit',
             });

@@ -111,11 +111,12 @@ export default function NuevoPedidoPage() {
             'SLW': ['Bodega Vito Alessio', 'Bodega Echeverría'],
             'TL': ['Tlalnepantla'],
             'MRO': ['Morelia'],
-            'QRO': ['Querétaro'],
+            'QRO': ['Querétaro', 'Queretaro', 'QRO'],
             'ALT': ['Altamira'],
         };
         const names = DEST_WAREHOUSE_MAP[destCode] || [];
-        const wh = allWarehouses.find(w => names.some(n => w.name?.includes(n)));
+        const normalize = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const wh = allWarehouses.find(w => names.some(n => normalize(w.name).includes(normalize(n))));
         return wh?.id || allWarehouses[0]?.id;
     };
 
