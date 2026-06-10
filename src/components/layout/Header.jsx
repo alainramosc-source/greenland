@@ -67,11 +67,11 @@ const Header = () => {
         {/* Right side */}
         <div className="header-actions">
           <div className="header-phones">
+            <a href="https://wa.me/528441595472" className="header-phone" target="_blank" rel="noopener noreferrer" title="WhatsApp">
+              💬 (844) 159 5472
+            </a>
             <a href="tel:+528441058692" className="header-phone" title="Llamar">
               📞 (844) 105 8692
-            </a>
-            <a href="https://wa.me/528441595472" className="header-phone header-phone-wa" target="_blank" rel="noopener noreferrer" title="WhatsApp">
-              💬 (844) 159 5472
             </a>
           </div>
           <Link href="/login" className="btn btn-dark header-cta">
