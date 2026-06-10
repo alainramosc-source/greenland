@@ -495,17 +495,17 @@ export default function VentaMostradorPage() {
 
       // Auto-insert cash entry if payment is Efectivo
       if (paymentMethod === 'Efectivo') {
-        await supabase.from('cash_movements').insert({
+        const { error: cashErr } = await supabase.from('cash_movements').insert({
           type: 'entry',
           amount: subtotal,
           concept: `Venta mostrador #${saleNumber}`,
           responsible: userName,
-          reference_id: saleRecord.id,
           reference_type: 'counter_sale',
           movement_date: new Date().toISOString().split('T')[0],
           created_by: userId,
           approval_status: 'approved'
         });
+        if (cashErr) console.error('Error insertando en caja:', cashErr);
       }
 
       // Show receipt
