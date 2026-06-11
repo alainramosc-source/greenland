@@ -192,7 +192,7 @@ export default function NuevaRecepcionPage() {
   const loadPOData = async (poId, productsList, distList) => {
     const { data: po } = await supabase
       .from('purchase_orders')
-      .select('*, items:purchase_order_items(product_id, quantity, unit_cost, products(name, sku))')
+      .select('*, items:purchase_order_items(product_id, quantity, unit_price_usd, products(name, sku))')
       .eq('id', poId)
       .single();
     if (!po) return;
@@ -217,7 +217,7 @@ export default function NuevaRecepcionPage() {
         name: i.products?.name || '',
         sku: i.products?.sku || '',
         quantity: i.quantity,
-        unit_origin_cost: i.unit_cost || '',
+        unit_origin_cost: i.unit_price_usd || '',
         unit_pro_price: '',
       })));
     }
