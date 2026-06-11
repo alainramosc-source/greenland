@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { ScrollText, Search, Filter, Loader2, User, Package, CreditCard, ShieldCheck, ClipboardList } from 'lucide-react';
 
 const ACTION_LABELS = {
+    stock_increase: { label: 'Entrada de Inventario', icon: Package, color: '#059669' },
+    stock_decrease: { label: 'Salida de Inventario', icon: Package, color: '#ef4444' },
     count_created: { label: 'Conteo Creado', icon: ClipboardList, color: '#3b82f6' },
     count_submitted: { label: 'Conteo Enviado', icon: ClipboardList, color: '#f59e0b' },
     count_approved: { label: 'Conteo Aprobado', icon: ShieldCheck, color: '#6a9a04' },
