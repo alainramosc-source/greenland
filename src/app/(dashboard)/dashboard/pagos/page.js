@@ -31,6 +31,7 @@ export default function AdminPagosPage() {
   const [showBalances, setShowBalances] = useState(false);
   // Tab: 'pagos' or 'conciliacion'
   const [activeTab, setActiveTab] = useState('pagos');
+  const [userSubRole, setUserSubRole] = useState(null);
   // Reconciliation state
   const [parsedMovements, setParsedMovements] = useState([]);
   const [matchResults, setMatchResults] = useState([]);
@@ -78,8 +79,14 @@ export default function AdminPagosPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setCurrentUserId(user.id);
-        const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
+        const { data: profile } = await supabase.from('profiles').select('full_name, sub_role').eq('id', user.id).single();
         setCurrentUserName(profile?.full_name || '');
+        if (profile?.sub_role) {
+          setUserSubRole(profile.sub_role);
+          if (profile.sub_role === 'warehouse_admin') {
+            setActiveTab('caja');
+          }
+        }
       }
     };
     getUser();
@@ -569,18 +576,22 @@ export default function AdminPagosPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-black text-slate-900">Gestión de Pagos</h1>
         <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
-          <button onClick={() => setActiveTab('pagos')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${activeTab === 'pagos' ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700'}`}>
-            <CreditCard size={14} className="inline mr-1.5" style={{ verticalAlign: '-2px' }} /> Pagos
-          </button>
+          {userSubRole !== 'warehouse_admin' && (
+            <button onClick={() => setActiveTab('pagos')}
+              className={`px-4 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${activeTab === 'pagos' ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700'}`}>
+              <CreditCard size={14} className="inline mr-1.5" style={{ verticalAlign: '-2px' }} /> Pagos
+            </button>
+          )}
           <button onClick={() => setActiveTab('caja')}
             className={`px-4 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${activeTab === 'caja' ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700'}`}>
             <Wallet size={14} className="inline mr-1.5" style={{ verticalAlign: '-2px' }} /> Caja
           </button>
-          <button onClick={() => setActiveTab('conciliacion')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${activeTab === 'conciliacion' ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700'}`}>
-            <FileSpreadsheet size={14} className="inline mr-1.5" style={{ verticalAlign: '-2px' }} /> Conciliación
-          </button>
+          {userSubRole !== 'warehouse_admin' && (
+            <button onClick={() => setActiveTab('conciliacion')}
+              className={`px-4 py-2 rounded-lg text-sm font-bold border-none cursor-pointer transition-all ${activeTab === 'conciliacion' ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700'}`}>
+              <FileSpreadsheet size={14} className="inline mr-1.5" style={{ verticalAlign: '-2px' }} /> Conciliación
+            </button>
+          )}
         </div>
       </div>
 

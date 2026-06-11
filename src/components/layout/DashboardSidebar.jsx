@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck, Eye, EyeOff, ArrowLeft, MessageSquare, Truck, FileBox, FolderOpen, Globe, Factory, Box, Container, ShoppingBag, Tag, FileSpreadsheet, Recycle } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck, Eye, EyeOff, ArrowLeft, MessageSquare, Truck, FileBox, FolderOpen, Globe, Factory, Box, Container, ShoppingBag, Tag, FileSpreadsheet, Recycle, Wallet } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) => {
@@ -111,7 +111,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
     { name: 'Recycling', href: '/dashboard/recycling', icon: Recycle, roles: ['super_admin', 'warehouse_admin'] },
     { name: 'Recepciones', href: '/dashboard/recepciones', icon: Container, roles: ['super_admin'] },
     { name: 'Precios', href: '/dashboard/precios', icon: DollarSign, roles: ['super_admin', 'accountant'] },
-    { name: 'Pagos', href: '/dashboard/pagos', icon: CreditCard, roles: ['super_admin', 'accountant'] },
+    { name: 'Pagos', href: '/dashboard/pagos', icon: CreditCard, roles: ['super_admin', 'accountant', 'warehouse_admin'] },
     { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: BarChart3, roles: ['super_admin', 'accountant'] },
     { name: 'Clientes', href: '/dashboard/usuarios', icon: Users, roles: ['super_admin'] },
     { name: 'CMS Landing', href: '/dashboard/cms?v=sync', icon: FileText, roles: ['super_admin'] },
@@ -123,7 +123,13 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
   ];
 
   const adminItems = userRole === 'admin'
-    ? allAdminItems.filter(item => !subRole || item.roles.includes(subRole))
+    ? allAdminItems.filter(item => !subRole || item.roles.includes(subRole)).map(item => {
+        // Rename 'Pagos' to 'Caja' for warehouse_admin since they only see the cash tab
+        if (subRole === 'warehouse_admin' && item.name === 'Pagos') {
+          return { ...item, name: 'Caja', icon: Wallet };
+        }
+        return item;
+      })
     : [];
 
   return (
