@@ -22,6 +22,7 @@ const Header = () => {
     },
     { name: 'DISTRIBUIDORES', href: '/distribuidores' },
     { name: 'NOSOTROS', href: '/nosotros' },
+    { name: 'DATOS BANCARIOS', href: '/datos-bancarios' },
   ];
 
   return (
