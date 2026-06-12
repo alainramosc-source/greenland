@@ -48,11 +48,19 @@ const loadImage = async (path) => {
     const resp = await fetch(path);
     if (!resp.ok) return null;
     const blob = await resp.blob();
-    return new Promise((resolve) => {
+    const dataUrl = await new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result);
       reader.readAsDataURL(blob);
     });
+    // Get natural dimensions
+    const dims = await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => resolve({ w: 1, h: 1 });
+      img.src = dataUrl;
+    });
+    return { data: dataUrl, w: dims.w, h: dims.h };
   } catch { return null; }
 };
 
@@ -113,7 +121,7 @@ export default async function generateQuotationPDF(quotationData) {
   await Promise.all(items.map(async (it) => {
     if (it.image_url) {
       const d = await loadImage(it.image_url);
-      if (d) prodImgs[it.image_url] = d;
+      if (d) prodImgs[it.image_url] = d.data;
     }
   }));
 
@@ -124,9 +132,15 @@ export default async function generateQuotationPDF(quotationData) {
   // =========================================================================
   // HEADER — Clean, elegant
   // =========================================================================
-  // Logo left
+  // Logo left — proportional sizing
   if (logoData) {
-    try { doc.addImage(logoData, 'PNG', PAGE.ml, y, 45, 17); } catch {}
+    try {
+      const maxH = 18;
+      const ratio = logoData.w / logoData.h;
+      const logoH = maxH;
+      const logoW = logoH * ratio;
+      doc.addImage(logoData.data, 'PNG', PAGE.ml, y, Math.min(logoW, 60), logoH);
+    } catch {}
   }
 
   // Right side info block
