@@ -183,65 +183,64 @@ export default async function generateQuotationPDF(quotationData) {
   let y = PAGE.marginTop;
 
   // =========================================================================
-  // 1. HEADER BAR
+  // 1. HEADER
   // =========================================================================
-  const headerH = 28;
-
-  // Gradient-like effect: primary colour bar + subtle accent overlay
+  // Thin accent color bar at the very top
   doc.setFillColor(...brand.primaryRGB);
-  doc.rect(0, 0, PAGE.width, headerH, 'F');
-
-  // Accent strip at the bottom of the header for depth
+  doc.rect(0, 0, PAGE.width, 4, 'F');
   doc.setFillColor(...brand.accentRGB);
-  doc.rect(0, headerH - 2.5, PAGE.width, 2.5, 'F');
+  doc.rect(0, 4, PAGE.width, 1.5, 'F');
 
-  // Logo on the left
+  // Logo on the left (white background area)
   if (logoData) {
     try {
-      doc.addImage(logoData, 'PNG', PAGE.marginLeft, 4, 50, 20);
+      doc.addImage(logoData, 'PNG', PAGE.marginLeft, 8, 48, 18);
     } catch {
-      // fallback: just print brand name
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
-      doc.setTextColor(255, 255, 255);
-      doc.text(brand.title, PAGE.marginLeft, 17);
+      doc.setTextColor(...brand.primaryRGB);
+      doc.text(brand.title, PAGE.marginLeft, 20);
     }
   } else {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
-    doc.setTextColor(255, 255, 255);
-    doc.text(brand.title, PAGE.marginLeft, 17);
+    doc.setTextColor(...brand.primaryRGB);
+    doc.text(brand.title, PAGE.marginLeft, 20);
   }
 
-  // Right side — folio, date, validity (white text)
+  // Right side — folio, date, validity (dark text on white)
   const rx = PAGE.width - PAGE.marginRight;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.setTextColor(255, 255, 255);
-  doc.text(`Folio: ${quotation.folio || '—'}`, rx, 9, { align: 'right' });
+  doc.setTextColor(...brand.primaryRGB);
+  doc.text(`Folio: ${quotation.folio || '\u2014'}`, rx, 12, { align: 'right' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
+  doc.setTextColor(80, 80, 80);
   const dateStr = quotation.quote_date
     ? new Date(quotation.quote_date).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })
     : '';
-  doc.text(`Fecha: ${dateStr}`, rx, 14, { align: 'right' });
+  doc.text(`Fecha: ${dateStr}`, rx, 17, { align: 'right' });
 
   if (quotation.validity_days) {
-    doc.text(`Vigencia: ${quotation.validity_days} d\u00EDas`, rx, 19, { align: 'right' });
+    doc.text(`Vigencia: ${quotation.validity_days} d\u00EDas`, rx, 22, { align: 'right' });
   }
 
-  // Currency badge
   if (quotation.currency) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
-    doc.setTextColor(255, 255, 255);
-    const badgeText = `Moneda: ${quotation.currency}`;
-    doc.text(badgeText, rx, 24, { align: 'right' });
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Moneda: ${quotation.currency}`, rx, 27, { align: 'right' });
   }
 
-  y = headerH + 8;
+  // Separator line below header
+  doc.setDrawColor(...brand.primaryRGB);
+  doc.setLineWidth(0.6);
+  doc.line(PAGE.marginLeft, 30, PAGE.width - PAGE.marginRight, 30);
+
+  y = 36;
 
   // =========================================================================
   // 2. TITLE — "COTIZACIÓN"
