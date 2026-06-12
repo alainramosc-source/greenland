@@ -92,30 +92,66 @@ export default function AuditoriaPage() {
                             filteredLogs.map(log => {
                                 const actionInfo = ACTION_LABELS[log.action] || { label: log.action, icon: ScrollText, color: '#94a3b8' };
                                 const IconComp = actionInfo.icon;
+                                const d = log.details || {};
+                                const isStock = log.action === 'stock_increase' || log.action === 'stock_decrease';
                                 return (
-                                    <div key={log.id} className="px-6 py-4 flex items-center gap-4 hover:bg-white/50 transition-colors">
-                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${actionInfo.color}15` }}>
-                                            <IconComp size={18} style={{ color: actionInfo.color }} />
+                                    <div key={log.id} className="px-6 py-4 hover:bg-white/50 transition-colors">
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ background: `${actionInfo.color}15` }}>
+                                                <IconComp size={18} style={{ color: actionInfo.color }} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="text-sm font-bold text-slate-900">{actionInfo.label}</span>
+                                                    {isStock && d.sku && (
+                                                        <span className="px-2 py-0.5 rounded-md text-[11px] font-black bg-[#6a9a04]/10 text-[#6a9a04]">{d.sku}</span>
+                                                    )}
+                                                </div>
+                                                {isStock ? (
+                                                    <div className="mt-2 space-y-1.5">
+                                                        {d.warehouse && (
+                                                            <div className="flex items-center gap-2 text-xs text-slate-600">
+                                                                <span className="font-semibold text-slate-400 w-16 shrink-0">Almacén</span>
+                                                                <span className="font-bold">{d.warehouse}</span>
+                                                            </div>
+                                                        )}
+                                                        <div className="flex items-center gap-2 text-xs">
+                                                            <span className="font-semibold text-slate-400 w-16 shrink-0">Cantidad</span>
+                                                            <span className="font-mono font-bold text-slate-500">{d.before}</span>
+                                                            <span className="text-slate-300">→</span>
+                                                            <span className="font-mono font-bold text-slate-900">{d.after}</span>
+                                                            <span className={`font-mono font-black text-xs px-1.5 py-0.5 rounded ${d.change > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
+                                                                {d.change > 0 ? '+' : ''}{d.change}
+                                                            </span>
+                                                        </div>
+                                                        {d.reason && (
+                                                            <div className="flex items-start gap-2 text-xs text-slate-500">
+                                                                <span className="font-semibold text-slate-400 w-16 shrink-0">Razón</span>
+                                                                <span>{d.reason}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    Object.keys(d).length > 0 && (
+                                                        <div className="flex flex-wrap gap-1.5 mt-2">
+                                                            {Object.entries(d).map(([k, v]) => (
+                                                                <span key={k} className="text-[11px] bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-slate-500">
+                                                                    <span className="font-bold text-slate-400">{k}:</span> {String(v)}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )
+                                                )}
+                                                <div className="flex items-center gap-3 mt-2 flex-wrap">
+                                                    <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                                                        <User size={10} /> {log.user?.full_name || log.user?.email || 'Sistema'}
+                                                    </span>
+                                                    <span className="text-[11px] text-slate-300">
+                                                        {new Date(log.created_at).toLocaleString('es-MX')}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="text-sm font-bold text-slate-900">{actionInfo.label}</span>
-                                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-500">{log.entity_type}</span>
-                                            </div>
-                                            <div className="flex items-center gap-3 mt-1 flex-wrap">
-                                                <span className="text-xs text-slate-500 flex items-center gap-1">
-                                                    <User size={10} /> {log.user?.full_name || log.user?.email || '—'}
-                                                </span>
-                                                <span className="text-xs text-slate-400">
-                                                    {new Date(log.created_at).toLocaleString('es-MX')}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        {log.details && Object.keys(log.details).length > 0 && (
-                                            <div className="text-[10px] font-mono text-slate-400 bg-slate-50 rounded-lg px-3 py-2 max-w-[200px] overflow-hidden whitespace-nowrap text-ellipsis shrink-0" title={JSON.stringify(log.details)}>
-                                                {Object.entries(log.details).map(([k, v]) => `${k}: ${v}`).join(' · ')}
-                                            </div>
-                                        )}
                                     </div>
                                 );
                             })
