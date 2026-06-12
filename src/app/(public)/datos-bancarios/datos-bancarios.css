@@ -1,0 +1,377 @@
+/* ===================================================
+   GREENLAND — Datos Bancarios Page
+   Premium institutional design
+   =================================================== */
+
+/* ===== HERO ===== */
+.bank-page {
+  position: relative;
+}
+
+.bank-hero {
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 40%, #047857 100%);
+  padding: 8rem 0 5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.bank-hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -15%;
+  width: 50%;
+  height: 200%;
+  background: radial-gradient(ellipse, rgba(74, 222, 128, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.bank-hero::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: linear-gradient(to top, var(--color-bg, #fff), transparent);
+  pointer-events: none;
+}
+
+.bank-hero-content {
+  position: relative;
+  z-index: 2;
+  max-width: 640px;
+}
+
+.bank-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0.5rem 1rem;
+  border-radius: 100px;
+  margin-bottom: 1.5rem;
+  backdrop-filter: blur(8px);
+}
+
+.bank-hero h1 {
+  font-size: clamp(2.5rem, 5vw, 3.5rem);
+  font-weight: 900;
+  color: #FFFFFF;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: 1rem;
+}
+
+.bank-hero h1 .accent {
+  color: #4ade80;
+}
+
+.bank-hero p {
+  font-size: 1.05rem;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.7;
+  max-width: 500px;
+}
+
+/* ===== MAIN SECTION ===== */
+.bank-section {
+  padding: 0 0 6rem;
+  position: relative;
+  z-index: 2;
+  margin-top: -3rem;
+}
+
+/* ===== CARD ===== */
+.bank-card {
+  background: #FFFFFF;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+}
+
+.bank-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2rem 2.5rem;
+  background: linear-gradient(135deg, #f8fffe 0%, #f0fdf4 100%);
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.bank-card-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.bank-icon-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #064e3b, #047857);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  flex-shrink: 0;
+}
+
+.bank-card-header h2 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #111827;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.bank-card-header p {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin: 0.15rem 0 0;
+}
+
+.bank-verified-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #059669;
+  background: rgba(5, 150, 105, 0.08);
+  border: 1.5px solid rgba(5, 150, 105, 0.2);
+  padding: 0.5rem 1rem;
+  border-radius: 100px;
+}
+
+/* ===== DATA GRID ===== */
+.bank-data-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  padding: 0;
+}
+
+.bank-data-item {
+  padding: 1.5rem 2.5rem;
+  border-bottom: 1px solid #f3f4f6;
+  border-right: 1px solid #f3f4f6;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  position: relative;
+}
+
+.bank-data-item:hover {
+  background: #fafffe;
+}
+
+.bank-data-item:nth-child(even) {
+  border-right: none;
+}
+
+.bank-data-item.full-width {
+  grid-column: 1 / -1;
+  border-right: none;
+}
+
+.bank-data-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  margin-bottom: 0.5rem;
+}
+
+.bank-data-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.bank-data-value span {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: 0.01em;
+  word-break: break-all;
+}
+
+.bank-data-item.full-width .bank-data-value span {
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.bank-copy-btn {
+  background: #f3f4f6;
+  border: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.bank-copy-btn:hover {
+  background: #064e3b;
+  color: #FFFFFF;
+  transform: scale(1.05);
+}
+
+.bank-copy-btn .copied {
+  color: #059669;
+}
+
+/* ===== NOTICE ===== */
+.bank-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1.25rem 2.5rem;
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  border-top: 1px solid #fde68a;
+  font-size: 0.85rem;
+  color: #92400e;
+  line-height: 1.6;
+}
+
+.bank-notice-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.bank-notice strong {
+  font-weight: 700;
+  color: #78350f;
+}
+
+/* ===== CONTACT ===== */
+.bank-contact {
+  margin-top: 3rem;
+  text-align: center;
+}
+
+.bank-contact h3 {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #111827;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.5rem;
+}
+
+.bank-contact > p {
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin-bottom: 2rem;
+}
+
+.bank-contact-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.bank-contact-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: #FFFFFF;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s ease;
+  text-align: left;
+}
+
+.bank-contact-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.1);
+  border-color: rgba(6, 78, 59, 0.2);
+}
+
+.bank-contact-card svg {
+  color: #064e3b;
+  flex-shrink: 0;
+}
+
+.bank-contact-label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  margin-bottom: 0.2rem;
+}
+
+.bank-contact-value {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .bank-hero {
+    padding: 6rem 0 4rem;
+  }
+
+  .bank-hero h1 {
+    font-size: 2rem;
+  }
+
+  .bank-section {
+    margin-top: -2rem;
+  }
+
+  .bank-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.5rem;
+  }
+
+  .bank-data-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bank-data-item {
+    padding: 1.25rem 1.5rem;
+    border-right: none;
+  }
+
+  .bank-data-item.full-width {
+    grid-column: 1;
+  }
+
+  .bank-notice {
+    padding: 1rem 1.5rem;
+  }
+
+  .bank-contact-grid {
+    grid-template-columns: 1fr;
+  }
+}
