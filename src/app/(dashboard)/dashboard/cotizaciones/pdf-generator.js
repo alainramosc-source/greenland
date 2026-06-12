@@ -319,17 +319,41 @@ export default async function generateQuotationPDF(quotationData) {
   // =========================================================================
   // 5. PRODUCTS TABLE
   // =========================================================================
-  // Column definitions (x offsets relative to marginLeft, widths)
-  const cols = [
+  // Preload product images in parallel
+  const productImages = {};
+  await Promise.all(
+    items.map(async (item) => {
+      if (item.image_url) {
+        const imgData = await loadImage(item.image_url);
+        if (imgData) productImages[item.image_url] = imgData;
+      }
+    })
+  );
+
+  const hasAnyImage = items.some(i => i.image_url && productImages[i.image_url]);
+
+  // Column definitions — adjust based on whether we have images
+  const cols = hasAnyImage ? [
+    { label: 'No.',               x: 0,     w: 10,  align: 'center' },
+    { label: 'Imagen',            x: 10,    w: 18,  align: 'center' },
+    { label: 'Descripci\u00F3n',  x: 28,    w: 73,  align: 'left' },
+    { label: 'Precio Unit.',      x: 101,   w: 30,  align: 'right' },
+    { label: 'Cant.',             x: 131,   w: 20,  align: 'center' },
+    { label: 'Total',             x: 151,   w: 29,  align: 'right' },
+  ] : [
     { label: 'No.',               x: 0,     w: 12,  align: 'center' },
     { label: 'Descripci\u00F3n',  x: 12,    w: 91,  align: 'left' },
     { label: 'Precio Unit.',      x: 103,   w: 30,  align: 'right' },
     { label: 'Cant.',             x: 133,   w: 18,  align: 'center' },
     { label: 'Total',             x: 151,   w: 29,  align: 'right' },
   ];
-  const tableW = 180; // total width of the table
+  const descColIdx = hasAnyImage ? 2 : 1;
+  const priceColIdx = hasAnyImage ? 3 : 2;
+  const qtyColIdx = hasAnyImage ? 4 : 3;
+  const totalColIdx = hasAnyImage ? 5 : 4;
+  const tableW = 180;
   const tableX = PAGE.marginLeft;
-  const rowPadY = 3; // vertical padding inside row
+  const rowPadY = 3;
 
   // ---- Table header ----
   y = ensureSpace(doc, y, 14, brand);
@@ -358,23 +382,28 @@ export default async function generateQuotationPDF(quotationData) {
   const lightBg = lighten(brand.primaryRGB, 0.93);
 
   sortedItems.forEach((item, idx) => {
-    // Prepare description text (name + description)
-    let descText = item.name || '';
-    if (item.description) {
-      descText += descText ? `\n${item.description}` : item.description;
-    }
-    if (item.sku) {
-      descText += descText ? `\nSKU: ${item.sku}` : `SKU: ${item.sku}`;
-    }
-
-    const descMaxW = cols[1].w - 6;
+    const descCol = cols[descColIdx];
+    const descMaxW = descCol.w - 6;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    const descLines = doc.splitTextToSize(descText, descMaxW);
-    const lineH = 3.8;
-    const rowH = Math.max(descLines.length * lineH + rowPadY * 2, 10);
 
-    // Check space
+    // Calculate row height based on text + image
+    let textH = 10;
+    if (item.name) {
+      const nameLines = doc.splitTextToSize(item.name, descMaxW);
+      let extraH = 0;
+      if (item.description || item.sku) {
+        let extraText = item.description || '';
+        if (item.sku) extraText += (extraText ? '  |  ' : '') + `SKU: ${item.sku}`;
+        const extraLines = doc.splitTextToSize(extraText, descMaxW);
+        extraH = extraLines.length * 3.5;
+      }
+      textH = nameLines.length * 3.8 + extraH + rowPadY * 2;
+    }
+    const imgSize = 15;
+    const hasImg = hasAnyImage && item.image_url && productImages[item.image_url];
+    const rowH = Math.max(textH, hasImg ? imgSize + rowPadY * 2 + 1 : 10);
+
     y = ensureSpace(doc, y, rowH + 1, brand);
 
     // Alternating background
@@ -396,20 +425,24 @@ export default async function generateQuotationPDF(quotationData) {
     doc.setTextColor(80, 80, 80);
     doc.text(String(idx + 1), tableX + cols[0].x + cols[0].w / 2, textY, { align: 'center' });
 
-    // Description (multi-line)
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(50, 50, 50);
+    // Image (if image column exists)
+    if (hasAnyImage && hasImg) {
+      try {
+        const imgX = tableX + cols[1].x + (cols[1].w - imgSize) / 2;
+        const imgY = y + (rowH - imgSize) / 2;
+        doc.addImage(productImages[item.image_url], 'JPEG', imgX, imgY, imgSize, imgSize);
+      } catch {}
+    }
 
-    // First line bold (product name), rest normal
+    // Description (multi-line)
     if (item.name) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
+      doc.setTextColor(50, 50, 50);
       const nameLines = doc.splitTextToSize(item.name, descMaxW);
-      doc.text(nameLines, tableX + cols[1].x + 3, textY);
-      const nameHeight = nameLines.length * lineH;
+      doc.text(nameLines, tableX + descCol.x + 3, textY);
+      const nameHeight = nameLines.length * 3.8;
 
-      // Additional description below
       if (item.description || item.sku) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7);
@@ -417,10 +450,8 @@ export default async function generateQuotationPDF(quotationData) {
         let extraText = item.description || '';
         if (item.sku) extraText += (extraText ? '  |  ' : '') + `SKU: ${item.sku}`;
         const extraLines = doc.splitTextToSize(extraText, descMaxW);
-        doc.text(extraLines, tableX + cols[1].x + 3, textY + nameHeight);
+        doc.text(extraLines, tableX + descCol.x + 3, textY + nameHeight);
       }
-    } else {
-      doc.text(descLines, tableX + cols[1].x + 3, textY);
     }
 
     // Precio Unit.
@@ -429,7 +460,7 @@ export default async function generateQuotationPDF(quotationData) {
     doc.setTextColor(50, 50, 50);
     doc.text(
       fmtCurrency(item.unit_price, quotation.currency),
-      tableX + cols[2].x + cols[2].w - 2,
+      tableX + cols[priceColIdx].x + cols[priceColIdx].w - 2,
       textY,
       { align: 'right' },
     );
@@ -438,7 +469,7 @@ export default async function generateQuotationPDF(quotationData) {
     const qtyStr = item.quantity_unit
       ? `${item.quantity} ${item.quantity_unit}`
       : String(item.quantity);
-    doc.text(qtyStr, tableX + cols[3].x + cols[3].w / 2, textY, { align: 'center' });
+    doc.text(qtyStr, tableX + cols[qtyColIdx].x + cols[qtyColIdx].w / 2, textY, { align: 'center' });
 
     // Total
     doc.setFont('helvetica', 'bold');
@@ -446,7 +477,7 @@ export default async function generateQuotationPDF(quotationData) {
     doc.setTextColor(40, 40, 40);
     doc.text(
       fmtCurrency(item.total, quotation.currency),
-      tableX + cols[4].x + cols[4].w - 2,
+      tableX + cols[totalColIdx].x + cols[totalColIdx].w - 2,
       textY,
       { align: 'right' },
     );
