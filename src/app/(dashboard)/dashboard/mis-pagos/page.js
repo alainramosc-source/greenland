@@ -156,7 +156,7 @@ export default function MisPagosPage() {
     setAllocations(prev => prev.map(a => a.order_id === orderId ? { ...a, amount } : a));
   };
 
-  const allocTotal = allocations.reduce((s, a) => s + (Number(a.amount) || 0), 0);
+  const allocTotal = Math.round(allocations.reduce((s, a) => s + (Number(a.amount) || 0), 0) * 100) / 100;
 
   const handleSubmit = async () => {
     const validAmount = validateAmount(form.amount);
@@ -172,7 +172,7 @@ export default function MisPagosPage() {
     }
 
     // Validate total allocations don't exceed payment
-    if (allocTotal > validAmount) {
+    if (Math.round(allocTotal * 100) > Math.round(validAmount * 100)) {
       alert(`La suma de asignaciones ($${allocTotal.toFixed(2)}) excede el monto del pago ($${validAmount.toFixed(2)})`);
       return;
     }
@@ -524,7 +524,7 @@ export default function MisPagosPage() {
                               </div>
                               <button
                                 type="button"
-                                onClick={() => updateAllocationAmount(o.id, String(Math.min(o.balance, Number(form.amount || 0) - allocTotal + (Number(alloc?.amount) || 0))))}
+                                onClick={() => updateAllocationAmount(o.id, String(Math.round(Math.min(o.balance, Number(form.amount || 0) - allocTotal + (Number(alloc?.amount) || 0)) * 100) / 100))}
                                 className="text-[10px] font-bold text-[#6a9a04] bg-[#6a9a04]/10 hover:bg-[#6a9a04]/20 px-2 py-1 rounded-lg border-none cursor-pointer transition-all shrink-0"
                                 title="Aplicar el máximo posible a este pedido"
                               >Max</button>
@@ -595,7 +595,7 @@ export default function MisPagosPage() {
                             </div>
                             <button
                               type="button"
-                              onClick={() => updateAllocationAmount('__containers__', String(Math.min(containerBalance, Number(form.amount || 0) - allocTotal + (Number(alloc?.amount) || 0))))}
+                              onClick={() => updateAllocationAmount('__containers__', String(Math.round(Math.min(containerBalance, Number(form.amount || 0) - allocTotal + (Number(alloc?.amount) || 0)) * 100) / 100))}
                               className="text-[10px] font-bold text-blue-600 bg-blue-100 hover:bg-blue-200 px-2 py-1 rounded-lg border-none cursor-pointer transition-all shrink-0"
                               title="Aplicar el máximo posible"
                             >Max</button>
@@ -616,11 +616,11 @@ export default function MisPagosPage() {
                   }`}>
                     <span>Asignado: ${allocTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
                     <span>
-                      {allocTotal > Number(form.amount || 0)
+                      {Math.round(allocTotal * 100) > Math.round(Number(form.amount || 0) * 100)
                         ? '⚠️ Excede el monto'
-                        : allocTotal === Number(form.amount || 0) && allocTotal > 0
+                        : Math.round(allocTotal * 100) === Math.round(Number(form.amount || 0) * 100) && allocTotal > 0
                           ? '✓ Completo'
-                          : `Restante: $${(Number(form.amount || 0) - allocTotal).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
+                          : `Restante: $${(Math.round((Number(form.amount || 0) - allocTotal) * 100) / 100).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
                       }
                     </span>
                   </div>
@@ -665,7 +665,7 @@ export default function MisPagosPage() {
                   className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all cursor-pointer bg-white">
                   Cancelar
                 </button>
-                <button onClick={handleSubmit} disabled={submitting || uploadingReceipt || allocations.length === 0 || allocTotal <= 0 || allocTotal !== Number(form.amount || 0)}
+                <button onClick={handleSubmit} disabled={submitting || uploadingReceipt || allocations.length === 0 || allocTotal <= 0 || Math.round(allocTotal * 100) !== Math.round(Number(form.amount || 0) * 100)}
                   className="flex-1 py-3 rounded-xl bg-[#6a9a04] text-white font-bold text-sm hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer flex items-center justify-center gap-2">
                   {submitting ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
                   {submitting ? 'Enviando...' : allocations.length > 1 ? `Registrar Pago (${allocations.length} pedidos)` : 'Registrar Pago'}
