@@ -122,11 +122,11 @@ function drawHeader(doc, brand, logoData, isFirst, quotation) {
     doc.setTextColor(255, 255, 255);
 
     // Row 1: Phone
-    doc.text('\u260E  (844) 105 8692', infoX, 8);
+    doc.text('Tel. (844) 105 8692', infoX, 8);
     // Row 2: Email
-    doc.text('\u2709  ventas@greenland-products.com.mx', infoX, 13);
+    doc.text('ventas@greenland-products.com.mx', infoX, 13);
     // Row 3: Location
-    doc.text('\u25C9  Saltillo, Coahuila, M\u00E9xico', infoX, 18);
+    doc.text('Saltillo, Coahuila, Mexico', infoX, 18);
 
     // === COTIZACIÓN title on colored zone ===
     doc.setFont('helvetica', 'bold');
@@ -292,7 +292,7 @@ export default async function generateQuotationPDF(quotationData) {
   if (quotation.currency) meta.push(`Moneda: ${quotation.currency}`);
   if (quotation.includes_iva) meta.push('Precios incluyen IVA');
   if (meta.length) {
-    doc.text(meta.join('   \u2502   '), PAGE.ml, y);
+    doc.text(meta.join('   |   '), PAGE.ml, y);
     y += 6;
   }
 
@@ -599,9 +599,11 @@ export default async function generateQuotationPDF(quotationData) {
   }
 
   // =========================================================================
-  // CLOSING
+  // CLOSING + QR CODE
   // =========================================================================
-  y = checkSpace(doc, y, 14, brand, logoData, quotation);
+  y = checkSpace(doc, y, 40, brand, logoData, quotation);
+
+  // Closing text (left side)
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(8);
   doc.setTextColor(120, 120, 120);
@@ -611,6 +613,26 @@ export default async function generateQuotationPDF(quotationData) {
   doc.setFontSize(8);
   doc.setTextColor(60, 60, 60);
   doc.text('Agradecemos su preferencia y la oportunidad de atenderle.', PAGE.ml, y);
+
+  // QR Code (right side)
+  try {
+    const QRCode = (await import('qrcode')).default;
+    const qrUrl = 'https://greenland-products.com.mx';
+    const qrDataUrl = await QRCode.toDataURL(qrUrl, {
+      width: 200,
+      margin: 1,
+      color: { dark: brand.primary, light: '#ffffff' },
+    });
+    const qrSize = 28;
+    const qrX = rx - qrSize;
+    const qrY = y - 12;
+    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+    // Label below QR
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.5);
+    doc.setTextColor(150, 150, 150);
+    doc.text('greenland-products.com.mx', qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' });
+  } catch {}
 
   // =========================================================================
   // WATERMARK + FOOTER on all pages
