@@ -43,7 +43,7 @@ PAGE.cw = PAGE.width - PAGE.ml - PAGE.mr; // content width
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-const loadImage = async (path) => {
+const loadImage = async (path, trim = false) => {
   try {
     const resp = await fetch(path);
     if (!resp.ok) return null;
@@ -53,14 +53,61 @@ const loadImage = async (path) => {
       reader.onloadend = () => resolve(reader.result);
       reader.readAsDataURL(blob);
     });
-    // Get natural dimensions
-    const dims = await new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
-      img.onerror = () => resolve({ w: 1, h: 1 });
-      img.src = dataUrl;
+
+    // Load into image element
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = dataUrl;
     });
-    return { data: dataUrl, w: dims.w, h: dims.h };
+
+    if (!trim) return { data: dataUrl, w: img.naturalWidth, h: img.naturalHeight };
+
+    // Auto-trim whitespace using canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const { data, width, height } = imageData;
+
+    // Find bounding box of non-white pixels (threshold: 250)
+    let top = height, bottom = 0, left = width, right = 0;
+    const threshold = 250;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+        if (a > 20 && (r < threshold || g < threshold || b < threshold)) {
+          if (y < top) top = y;
+          if (y > bottom) bottom = y;
+          if (x < left) left = x;
+          if (x > right) right = x;
+        }
+      }
+    }
+
+    // Add small padding (2%)
+    const pad = Math.round(Math.max(bottom - top, right - left) * 0.02);
+    top = Math.max(0, top - pad);
+    bottom = Math.min(height - 1, bottom + pad);
+    left = Math.max(0, left - pad);
+    right = Math.min(width - 1, right + pad);
+
+    const cw = right - left + 1;
+    const ch = bottom - top + 1;
+
+    // Crop
+    const cropCanvas = document.createElement('canvas');
+    cropCanvas.width = cw;
+    cropCanvas.height = ch;
+    const cctx = cropCanvas.getContext('2d');
+    cctx.drawImage(canvas, left, top, cw, ch, 0, 0, cw, ch);
+
+    const croppedUrl = cropCanvas.toDataURL('image/png');
+    return { data: croppedUrl, w: cw, h: ch };
   } catch { return null; }
 };
 
@@ -114,7 +161,7 @@ export default async function generateQuotationPDF(quotationData) {
   const bk = (quotation.brand || 'products').toLowerCase();
   const brand = BRAND_CONFIG[bk] || BRAND_CONFIG.products;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
-  const logoData = await loadImage(brand.logo);
+  const logoData = await loadImage(brand.logo, true);
 
   // Preload product images
   const prodImgs = {};
