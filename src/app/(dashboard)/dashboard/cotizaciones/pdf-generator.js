@@ -135,11 +135,11 @@ export default async function generateQuotationPDF(quotationData) {
   // Logo left — proportional sizing
   if (logoData) {
     try {
-      const maxH = 18;
+      const maxH = 26;
       const ratio = logoData.w / logoData.h;
       const logoH = maxH;
       const logoW = logoH * ratio;
-      doc.addImage(logoData.data, 'PNG', PAGE.ml, y, Math.min(logoW, 60), logoH);
+      doc.addImage(logoData.data, 'PNG', PAGE.ml, y, Math.min(logoW, 70), logoH);
     } catch {}
   }
 
@@ -147,7 +147,7 @@ export default async function generateQuotationPDF(quotationData) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
   doc.setTextColor(...pr);
-  doc.text('COTIZACI\u00D3N', rx, y + 6, { align: 'right' });
+  doc.text('COTIZACI\u00D3N', rx, y + 10, { align: 'right' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
@@ -156,10 +156,10 @@ export default async function generateQuotationPDF(quotationData) {
     ? new Date(quotation.quote_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })
     : '';
 
-  doc.text(quotation.folio || '', rx, y + 11, { align: 'right' });
-  doc.text(dateStr, rx, y + 15, { align: 'right' });
+  doc.text(quotation.folio || '', rx, y + 16, { align: 'right' });
+  doc.text(dateStr, rx, y + 21, { align: 'right' });
 
-  y += 20;
+  y += 30;
 
   // Separator line
   doc.setDrawColor(...pr);
