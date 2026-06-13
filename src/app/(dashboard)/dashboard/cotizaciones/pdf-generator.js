@@ -30,7 +30,7 @@ const BRAND_CONFIG = {
   },
 };
 
-const PAGE = { width: 215.9, height: 279.4, ml: 20, mr: 20, mt: 10, mb: 22 };
+const PAGE = { width: 215.9, height: 279.4, ml: 20, mr: 20, mt: 10, mb: 28 };
 PAGE.cw = PAGE.width - PAGE.ml - PAGE.mr;
 
 // ---------------------------------------------------------------------------
@@ -601,7 +601,8 @@ export default async function generateQuotationPDF(quotationData) {
   // =========================================================================
   // CLOSING + QR CODE
   // =========================================================================
-  y = checkSpace(doc, y, 40, brand, logoData, quotation);
+  y = checkSpace(doc, y, 38, brand, logoData, quotation);
+  const closingY = y;
 
   // Closing text (left side)
   doc.setFont('helvetica', 'italic');
@@ -614,7 +615,7 @@ export default async function generateQuotationPDF(quotationData) {
   doc.setTextColor(60, 60, 60);
   doc.text('Agradecemos su preferencia y la oportunidad de atenderle.', PAGE.ml, y);
 
-  // QR Code (right side)
+  // QR Code (right side, aligned with closing text)
   try {
     const QRCode = (await import('qrcode')).default;
     const qrUrl = 'https://greenland-products.com.mx';
@@ -623,9 +624,9 @@ export default async function generateQuotationPDF(quotationData) {
       margin: 1,
       color: { dark: brand.primary, light: '#ffffff' },
     });
-    const qrSize = 28;
+    const qrSize = 25;
     const qrX = rx - qrSize;
-    const qrY = y - 12;
+    const qrY = closingY - 4;
     doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
     // Label below QR
     doc.setFont('helvetica', 'normal');
