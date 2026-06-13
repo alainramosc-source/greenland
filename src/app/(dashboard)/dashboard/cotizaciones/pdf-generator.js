@@ -1,6 +1,6 @@
 // =============================================================================
-// GREENLAND — Premium Quotation PDF Generator v2
-// Uses jsPDF v4.2.0 (dynamic import, built-in helvetica)
+// GREENLAND — Premium Quotation PDF Generator v3
+// Dynamic header with diagonal, watermark, branded footer
 // =============================================================================
 
 const BRAND_CONFIG = {
@@ -14,11 +14,11 @@ const BRAND_CONFIG = {
   },
   products: {
     primary: '#6a9a04',
-    accent: '#dee24b',
+    accent: '#c5d940',
     title: 'GREENLAND PRODUCTS',
     logo: '/logo-pedidos.jpeg',
     primaryRGB: [106, 154, 4],
-    accentRGB: [222, 228, 75],
+    accentRGB: [197, 217, 64],
   },
   deco: {
     primary: '#5a8a3c',
@@ -30,15 +30,8 @@ const BRAND_CONFIG = {
   },
 };
 
-const PAGE = {
-  width: 215.9,
-  height: 279.4,
-  ml: 20,   // margin left
-  mr: 20,   // margin right
-  mt: 10,
-  mb: 24,
-};
-PAGE.cw = PAGE.width - PAGE.ml - PAGE.mr; // content width
+const PAGE = { width: 215.9, height: 279.4, ml: 20, mr: 20, mt: 10, mb: 22 };
+PAGE.cw = PAGE.width - PAGE.ml - PAGE.mr;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -48,107 +41,215 @@ const loadImage = async (path, trim = false) => {
     const resp = await fetch(path);
     if (!resp.ok) return null;
     const blob = await resp.blob();
-    const dataUrl = await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(blob);
+    const dataUrl = await new Promise(r => {
+      const rd = new FileReader();
+      rd.onloadend = () => r(rd.result);
+      rd.readAsDataURL(blob);
     });
-
-    // Load into image element
-    const img = await new Promise((resolve, reject) => {
+    const img = await new Promise((res, rej) => {
       const i = new Image();
-      i.onload = () => resolve(i);
-      i.onerror = reject;
+      i.onload = () => res(i);
+      i.onerror = rej;
       i.src = dataUrl;
     });
-
     if (!trim) return { data: dataUrl, w: img.naturalWidth, h: img.naturalHeight };
-
-    // Auto-trim whitespace using canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    const ctx = canvas.getContext('2d');
+    // Auto-trim whitespace
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const ctx = c.getContext('2d');
     ctx.drawImage(img, 0, 0);
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const { data, width, height } = imageData;
-
-    // Find bounding box of non-white pixels (threshold: 250)
-    let top = height, bottom = 0, left = width, right = 0;
-    const threshold = 250;
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const i = (y * width + x) * 4;
-        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
-        if (a > 20 && (r < threshold || g < threshold || b < threshold)) {
-          if (y < top) top = y;
-          if (y > bottom) bottom = y;
-          if (x < left) left = x;
-          if (x > right) right = x;
-        }
+    const id = ctx.getImageData(0, 0, c.width, c.height);
+    const d = id.data; const W = c.width; const H = c.height;
+    let top = H, bot = 0, left = W, right = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      if (d[i+3] > 20 && (d[i] < 250 || d[i+1] < 250 || d[i+2] < 250)) {
+        if (y < top) top = y; if (y > bot) bot = y;
+        if (x < left) left = x; if (x > right) right = x;
       }
     }
-
-    // Add small padding (2%)
-    const pad = Math.round(Math.max(bottom - top, right - left) * 0.02);
-    top = Math.max(0, top - pad);
-    bottom = Math.min(height - 1, bottom + pad);
-    left = Math.max(0, left - pad);
-    right = Math.min(width - 1, right + pad);
-
-    const cw = right - left + 1;
-    const ch = bottom - top + 1;
-
-    // Crop
-    const cropCanvas = document.createElement('canvas');
-    cropCanvas.width = cw;
-    cropCanvas.height = ch;
-    const cctx = cropCanvas.getContext('2d');
-    cctx.drawImage(canvas, left, top, cw, ch, 0, 0, cw, ch);
-
-    const croppedUrl = cropCanvas.toDataURL('image/png');
-    return { data: croppedUrl, w: cw, h: ch };
+    const pad = Math.round(Math.max(bot - top, right - left) * 0.02);
+    top = Math.max(0, top - pad); bot = Math.min(H - 1, bot + pad);
+    left = Math.max(0, left - pad); right = Math.min(W - 1, right + pad);
+    const cw = right - left + 1; const ch = bot - top + 1;
+    const cc = document.createElement('canvas');
+    cc.width = cw; cc.height = ch;
+    cc.getContext('2d').drawImage(c, left, top, cw, ch, 0, 0, cw, ch);
+    return { data: cc.toDataURL('image/png'), w: cw, h: ch };
   } catch { return null; }
 };
 
-const fmt = (value, currency = 'MXN') => {
-  const p = currency === 'USD' ? 'US$' : '$';
-  return `${p}${(Number(value) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmt = (v, cur = 'MXN') => {
+  const p = cur === 'USD' ? 'US$' : '$';
+  return `${p}${(Number(v) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
-const hexRGB = (hex) => {
-  const h = hex.replace('#', '');
-  return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
-};
+// ---------------------------------------------------------------------------
+// Draw header on a page
+// ---------------------------------------------------------------------------
+function drawHeader(doc, brand, logoData, isFirst, quotation) {
+  const pr = brand.primaryRGB;
+  const ac = brand.accentRGB;
+  const rx = PAGE.width - PAGE.mr;
 
+  if (isFirst) {
+    const hH = 38;
+
+    // === DECORATIVE CORNER (top-left) ===
+    doc.setFillColor(...pr);
+    doc.triangle(0, 0, 32, 0, 0, 24, 'F');
+    doc.setFillColor(...ac);
+    doc.triangle(0, 0, 20, 0, 0, 15, 'F');
+
+    // === DIAGONAL COLORED ZONE (right side) ===
+    const diagTop = 118;
+    const diagBot = 98;
+
+    // Main fill
+    doc.setFillColor(...pr);
+    doc.rect(diagTop, 0, PAGE.width - diagTop, hH, 'F');
+    doc.triangle(diagBot, hH, diagTop, 0, diagTop, hH, 'F');
+
+    // Accent strip along diagonal (3mm)
+    doc.setFillColor(...ac);
+    doc.triangle(diagTop - 3, 0, diagTop, 0, diagBot, hH, 'F');
+    doc.triangle(diagTop - 3, 0, diagBot - 3, hH, diagBot, hH, 'F');
+
+    // === CONTACT INFO on colored zone ===
+    const infoX = diagTop + 18;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(255, 255, 255);
+
+    // Row 1: Phone
+    doc.text('\u260E  (844) 105 8692', infoX, 8);
+    // Row 2: Email
+    doc.text('\u2709  ventas@greenland-products.com.mx', infoX, 13);
+    // Row 3: Location
+    doc.text('\u25C9  Saltillo, Coahuila, M\u00E9xico', infoX, 18);
+
+    // === COTIZACIÓN title on colored zone ===
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.setTextColor(255, 255, 255);
+    doc.text('COTIZACI\u00D3N', rx - 2, 28, { align: 'right' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255, 0.9);
+    doc.text(quotation.folio || '', rx - 2, 33, { align: 'right' });
+
+    const dateStr = quotation.quote_date
+      ? new Date(quotation.quote_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })
+      : '';
+    doc.text(dateStr, rx - 2, 37, { align: 'right' });
+
+    // === LOGO on white zone ===
+    if (logoData) {
+      try {
+        const maxH = 26;
+        const ratio = logoData.w / logoData.h;
+        const lH = maxH;
+        const lW = Math.min(lH * ratio, 75);
+        doc.addImage(logoData.data, 'PNG', PAGE.ml + 8, 5, lW, lH);
+      } catch {}
+    }
+
+    return hH + 5;
+  } else {
+    // Continuation pages — simpler header
+    doc.setFillColor(...pr);
+    doc.rect(0, 0, PAGE.width, 5, 'F');
+    doc.setFillColor(...ac);
+    doc.rect(0, 5, PAGE.width, 1.5, 'F');
+
+    // Brand name + page indicator
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...pr);
+    doc.text(brand.title, PAGE.ml, 12);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(140, 140, 140);
+    doc.text(`${quotation.folio || ''} — continuaci\u00F3n`, rx, 12, { align: 'right' });
+
+    return 18;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Draw footer on a page
+// ---------------------------------------------------------------------------
 function drawFooter(doc, brand, pn, tp) {
-  const y = PAGE.height - PAGE.mb + 5;
-  // Thin line
-  doc.setDrawColor(...brand.primaryRGB);
-  doc.setLineWidth(0.5);
-  doc.line(PAGE.ml, y, PAGE.width - PAGE.mr, y);
-  // Company
+  const pr = brand.primaryRGB;
+  const ac = brand.accentRGB;
+  const fH = 18;
+  const fY = PAGE.height - fH;
+
+  // Main colored bar
+  doc.setFillColor(...pr);
+  doc.rect(0, fY, PAGE.width, fH, 'F');
+
+  // Accent diagonal on right edge
+  doc.setFillColor(...ac);
+  doc.triangle(PAGE.width - 50, PAGE.height, PAGE.width, fY, PAGE.width, PAGE.height, 'F');
+
+  // Small accent corner bottom-left
+  doc.setFillColor(...ac);
+  doc.triangle(0, PAGE.height, 0, PAGE.height - 10, 15, PAGE.height, 'F');
+
+  // Company info
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6);
+  doc.setTextColor(255, 255, 255);
+  doc.text('GREENLAND PRODUCTS S.A. DE C.V.', PAGE.width / 2, fY + 5.5, { align: 'center' });
+
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(140, 140, 140);
-  doc.text('GREENLAND PRODUCTS S.A. DE C.V.  |  Blvd. Vito Alessio Robles N\u00B0 3550 Int #9, Col. Nazario Ortiz Garza C.P. 25100, Saltillo, Coahuila', PAGE.width / 2, y + 4, { align: 'center' });
-  doc.text('Tel. (844) 105 8692  |  ventas@greenland-products.com.mx  |  www.greenland-products.com.mx', PAGE.width / 2, y + 8, { align: 'center' });
-  // Page
-  doc.setFontSize(6.5);
-  doc.setTextColor(170, 170, 170);
-  doc.text(`${pn} / ${tp}`, PAGE.width - PAGE.mr, y + 12, { align: 'right' });
+  doc.setFontSize(5.5);
+  doc.setTextColor(255, 255, 255);
+  doc.text(
+    'Blvd. Vito Alessio Robles N\u00B0 3550 Int #9, Col. Nazario Ortiz Garza C.P. 25100, Saltillo, Coahuila',
+    PAGE.width / 2, fY + 9.5, { align: 'center' }
+  );
+  doc.text(
+    'Tel. (844) 105 8692  |  ventas@greenland-products.com.mx  |  www.greenland-products.com.mx',
+    PAGE.width / 2, fY + 13, { align: 'center' }
+  );
+
+  // Page number on accent area
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(255, 255, 255);
+  doc.text(`${pn} / ${tp}`, PAGE.width - 10, PAGE.height - 4, { align: 'right' });
 }
 
-function newPage(doc, brand) {
+// ---------------------------------------------------------------------------
+// Draw watermark
+// ---------------------------------------------------------------------------
+function drawWatermark(doc, logoData) {
+  if (!logoData) return;
+  try {
+    doc.setGState(new doc.GState({ opacity: 0.035 }));
+    const wmH = 80;
+    const ratio = logoData.w / logoData.h;
+    const wmW = wmH * ratio;
+    const x = (PAGE.width - wmW) / 2;
+    const y = (PAGE.height - wmH) / 2 + 10;
+    doc.addImage(logoData.data, 'PNG', x, y, wmW, wmH);
+    doc.setGState(new doc.GState({ opacity: 1 }));
+  } catch {}
+}
+
+// ---------------------------------------------------------------------------
+// Page helpers
+// ---------------------------------------------------------------------------
+function newPage(doc, brand, logoData, quotation) {
   doc.addPage();
-  doc.setDrawColor(...brand.primaryRGB);
-  doc.setLineWidth(0.5);
-  doc.line(PAGE.ml, 8, PAGE.width - PAGE.mr, 8);
-  return 14;
+  return drawHeader(doc, brand, logoData, false, quotation);
 }
 
-function checkSpace(doc, y, need, brand) {
-  if (y + need > PAGE.height - PAGE.mb) return newPage(doc, brand);
+function checkSpace(doc, y, need, brand, logoData, quotation) {
+  if (y + need > PAGE.height - PAGE.mb) return newPage(doc, brand, logoData, quotation);
   return y;
 }
 
@@ -172,119 +273,78 @@ export default async function generateQuotationPDF(quotationData) {
     }
   }));
 
-  let y = PAGE.mt;
   const pr = brand.primaryRGB;
   const rx = PAGE.width - PAGE.mr;
 
   // =========================================================================
-  // HEADER — Clean, elegant
+  // PAGE 1 HEADER
   // =========================================================================
-  // Logo left — proportional sizing
-  if (logoData) {
-    try {
-      const maxH = 26;
-      const ratio = logoData.w / logoData.h;
-      const logoH = maxH;
-      const logoW = logoH * ratio;
-      doc.addImage(logoData.data, 'PNG', PAGE.ml, y, Math.min(logoW, 70), logoH);
-    } catch {}
-  }
-
-  // Right side info block
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.setTextColor(...pr);
-  doc.text('COTIZACI\u00D3N', rx, y + 10, { align: 'right' });
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(100, 100, 100);
-  const dateStr = quotation.quote_date
-    ? new Date(quotation.quote_date + 'T12:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })
-    : '';
-
-  doc.text(quotation.folio || '', rx, y + 16, { align: 'right' });
-  doc.text(dateStr, rx, y + 21, { align: 'right' });
-
-  y += 30;
-
-  // Separator line
-  doc.setDrawColor(...pr);
-  doc.setLineWidth(0.8);
-  doc.line(PAGE.ml, y, rx, y);
-  // Thin accent below
-  doc.setDrawColor(...brand.accentRGB);
-  doc.setLineWidth(0.3);
-  doc.line(PAGE.ml, y + 1.2, rx, y + 1.2);
-
-  y += 7;
+  let y = drawHeader(doc, brand, logoData, true, quotation);
 
   // =========================================================================
-  // META INFO — single line: Vigencia | Moneda
+  // META INFO
   // =========================================================================
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(130, 130, 130);
-  const metaParts = [];
-  if (quotation.validity_days) metaParts.push(`Vigencia: ${quotation.validity_days} d\u00EDas`);
-  if (quotation.currency) metaParts.push(`Moneda: ${quotation.currency}`);
-  if (quotation.includes_iva) metaParts.push('Precios incluyen IVA');
-  if (metaParts.length) {
-    doc.text(metaParts.join('   |   '), PAGE.ml, y);
+  const meta = [];
+  if (quotation.validity_days) meta.push(`Vigencia: ${quotation.validity_days} d\u00EDas`);
+  if (quotation.currency) meta.push(`Moneda: ${quotation.currency}`);
+  if (quotation.includes_iva) meta.push('Precios incluyen IVA');
+  if (meta.length) {
+    doc.text(meta.join('   \u2502   '), PAGE.ml, y);
     y += 6;
   }
 
   // =========================================================================
-  // CLIENT INFO — Elegant two-column layout
+  // CLIENT INFO
   // =========================================================================
-  y = checkSpace(doc, y, 28, brand);
-
-  // Title
+  y = checkSpace(doc, y, 28, brand, logoData, quotation);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(...pr);
   doc.text('CLIENTE', PAGE.ml, y);
   y += 5;
 
-  // Client details in a subtle box
   doc.setFillColor(249, 250, 251);
-  const clientH = 22;
-  doc.roundedRect(PAGE.ml, y, PAGE.cw, clientH, 2, 2, 'F');
+  const clH = 22;
+  doc.roundedRect(PAGE.ml, y, PAGE.cw, clH, 2, 2, 'F');
   doc.setDrawColor(230, 230, 230);
   doc.setLineWidth(0.2);
-  doc.roundedRect(PAGE.ml, y, PAGE.cw, clientH, 2, 2, 'S');
+  doc.roundedRect(PAGE.ml, y, PAGE.cw, clH, 2, 2, 'S');
+  // Accent bar left
+  doc.setFillColor(...pr);
+  doc.rect(PAGE.ml, y + 2, 2.5, clH - 4, 'F');
 
-  const col1x = PAGE.ml + 5;
-  const col2x = PAGE.ml + PAGE.cw / 2 + 5;
+  const c1x = PAGE.ml + 8;
+  const c2x = PAGE.ml + PAGE.cw / 2 + 5;
   let cy = y + 6;
 
-  // Left column
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(30, 30, 30);
-  doc.text(quotation.client_name || '', col1x, cy);
+  doc.text(quotation.client_name || '', c1x, cy);
   cy += 5;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(80, 80, 80);
-  if (quotation.client_company) { doc.text(quotation.client_company, col1x, cy); cy += 4; }
-  if (quotation.city) { doc.text(quotation.city, col1x, cy); }
+  if (quotation.client_company) { doc.text(quotation.client_company, c1x, cy); cy += 4; }
+  if (quotation.city) { doc.text(quotation.city, c1x, cy); }
 
-  // Right column
-  let ry = y + 6;
+  let ry2 = y + 6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(80, 80, 80);
-  if (quotation.client_phone) { doc.text(`Tel: ${quotation.client_phone}`, col2x, ry); ry += 4; }
-  if (quotation.client_email) { doc.text(quotation.client_email, col2x, ry); }
+  if (quotation.client_phone) { doc.text(`Tel: ${quotation.client_phone}`, c2x, ry2); ry2 += 4; }
+  if (quotation.client_email) { doc.text(quotation.client_email, c2x, ry2); }
 
-  y += clientH + 6;
+  y += clH + 6;
 
   // =========================================================================
   // INTRO TEXT
   // =========================================================================
   if (quotation.intro_text) {
-    y = checkSpace(doc, y, 16, brand);
+    y = checkSpace(doc, y, 16, brand, logoData, quotation);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(60, 60, 60);
@@ -300,37 +360,38 @@ export default async function generateQuotationPDF(quotationData) {
   const tblX = PAGE.ml;
   const tblW = PAGE.cw;
 
-  // Column layout
   const colDefs = hasImg
     ? [
-        { lbl: 'No.',           w: 10, align: 'center' },
-        { lbl: 'Img.',          w: 20, align: 'center' },
-        { lbl: 'Descripci\u00F3n', w: tblW - 10 - 20 - 28 - 18 - 30, align: 'left' },
-        { lbl: 'P. Unitario',   w: 28, align: 'right' },
-        { lbl: 'Cant.',         w: 18, align: 'center' },
-        { lbl: 'Total',         w: 30, align: 'right' },
+        { lbl: '#',              w: 9,  align: 'center' },
+        { lbl: 'Img.',           w: 20, align: 'center' },
+        { lbl: 'Descripci\u00F3n', w: tblW - 9 - 20 - 28 - 18 - 30, align: 'left' },
+        { lbl: 'P. Unitario',    w: 28, align: 'right' },
+        { lbl: 'Cant.',          w: 18, align: 'center' },
+        { lbl: 'Total',          w: 30, align: 'right' },
       ]
     : [
-        { lbl: 'No.',           w: 10, align: 'center' },
-        { lbl: 'Descripci\u00F3n', w: tblW - 10 - 28 - 18 - 30, align: 'left' },
-        { lbl: 'P. Unitario',   w: 28, align: 'right' },
-        { lbl: 'Cant.',         w: 18, align: 'center' },
-        { lbl: 'Total',         w: 30, align: 'right' },
+        { lbl: '#',              w: 9,  align: 'center' },
+        { lbl: 'Descripci\u00F3n', w: tblW - 9 - 28 - 18 - 30, align: 'left' },
+        { lbl: 'P. Unitario',    w: 28, align: 'right' },
+        { lbl: 'Cant.',          w: 18, align: 'center' },
+        { lbl: 'Total',          w: 30, align: 'right' },
       ];
 
-  // Compute x positions
   let accX = 0;
   colDefs.forEach(c => { c.x = accX; accX += c.w; });
-
   const descIdx = hasImg ? 2 : 1;
   const priceIdx = hasImg ? 3 : 2;
   const qtyIdx = hasImg ? 4 : 3;
   const totIdx = hasImg ? 5 : 4;
 
   // Table header
-  y = checkSpace(doc, y, 12, brand);
+  y = checkSpace(doc, y, 12, brand, logoData, quotation);
   doc.setFillColor(...pr);
   doc.rect(tblX, y, tblW, 8, 'F');
+  // Small accent triangle on left edge of header row
+  doc.setFillColor(...brand.accentRGB);
+  doc.triangle(tblX, y, tblX + 4, y, tblX, y + 8, 'F');
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(255, 255, 255);
@@ -344,13 +405,13 @@ export default async function generateQuotationPDF(quotationData) {
 
   // Table rows
   const sorted = [...items].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const lightBg = [249, 250, 251];
 
   sorted.forEach((item, idx) => {
     const dw = colDefs[descIdx].w - 6;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
 
-    // Calc row height
     let txtH = 10;
     if (item.name) {
       const nl = doc.splitTextToSize(item.name, dw);
@@ -362,29 +423,26 @@ export default async function generateQuotationPDF(quotationData) {
       }
       txtH = nl.length * 3.8 + eh + 8;
     }
-    const imgSz = 16;
+    const imgSz = 17;
     const itemHasImg = hasImg && item.image_url && prodImgs[item.image_url];
     const rowH = Math.max(txtH, itemHasImg ? imgSz + 5 : 10);
 
-    y = checkSpace(doc, y, rowH + 1, brand);
+    y = checkSpace(doc, y, rowH + 1, brand, logoData, quotation);
 
-    // Alternating row
     if (idx % 2 === 0) {
-      doc.setFillColor(249, 250, 251);
+      doc.setFillColor(...lightBg);
       doc.rect(tblX, y, tblW, rowH, 'F');
     }
-
-    // Bottom border
     doc.setDrawColor(235, 235, 235);
     doc.setLineWidth(0.15);
     doc.line(tblX, y + rowH, tblX + tblW, y + rowH);
 
     const tY = y + 5;
 
-    // No.
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(120, 120, 120);
+    // #
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...pr);
     doc.text(String(idx + 1), tblX + colDefs[0].x + colDefs[0].w / 2, tY, { align: 'center' });
 
     // Image
@@ -411,8 +469,7 @@ export default async function generateQuotationPDF(quotationData) {
         doc.setTextColor(120, 120, 120);
         let et = item.description || '';
         if (item.sku) et += (et ? '  \u2022  ' : '') + `SKU: ${item.sku}`;
-        const el = doc.splitTextToSize(et, dw);
-        doc.text(el, tblX + dc.x + 3, tY + nh + 0.5);
+        doc.text(doc.splitTextToSize(et, dw), tblX + dc.x + 3, tY + nh + 0.5);
       }
     }
 
@@ -439,10 +496,10 @@ export default async function generateQuotationPDF(quotationData) {
   // TOTALS
   // =========================================================================
   y += 3;
-  y = checkSpace(doc, y, 28, brand);
+  y = checkSpace(doc, y, 32, brand, logoData, quotation);
 
-  const totX = tblX + tblW - 68;
-  const totW = 68;
+  const totX = tblX + tblW - 72;
+  const totW = 72;
 
   // Subtotal
   doc.setFont('helvetica', 'normal');
@@ -452,10 +509,10 @@ export default async function generateQuotationPDF(quotationData) {
   doc.setTextColor(60, 60, 60);
   doc.text(fmt(quotation.subtotal, quotation.currency), totX + totW - 2, y + 4, { align: 'right' });
 
-  // IVA
   doc.setDrawColor(220, 220, 220);
   doc.setLineWidth(0.15);
   doc.line(totX, y + 7, totX + totW, y + 7);
+
   doc.setTextColor(100, 100, 100);
   doc.text('IVA (16%)', totX + 2, y + 12);
   doc.setTextColor(60, 60, 60);
@@ -463,17 +520,22 @@ export default async function generateQuotationPDF(quotationData) {
     ? 'Incluido' : fmt(quotation.iva_amount, quotation.currency);
   doc.text(ivaText, totX + totW - 2, y + 12, { align: 'right' });
 
-  // TOTAL
   doc.line(totX, y + 15, totX + totW, y + 15);
   y += 18;
+
+  // TOTAL box
   doc.setFillColor(...pr);
-  doc.roundedRect(totX, y, totW, 10, 1.5, 1.5, 'F');
+  doc.roundedRect(totX, y, totW, 11, 2, 2, 'F');
+  // Accent triangle inside total box
+  doc.setFillColor(...brand.accentRGB);
+  doc.triangle(totX, y + 11, totX, y + 4, totX + 6, y + 11, 'F');
+
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(10.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('TOTAL', totX + 4, y + 7);
-  doc.text(fmt(quotation.total, quotation.currency), totX + totW - 4, y + 7, { align: 'right' });
-  y += 18;
+  doc.text('TOTAL', totX + 5, y + 7.5);
+  doc.text(fmt(quotation.total, quotation.currency), totX + totW - 5, y + 7.5, { align: 'right' });
+  y += 20;
 
   // =========================================================================
   // CONDITIONS
@@ -485,7 +547,7 @@ export default async function generateQuotationPDF(quotationData) {
   } catch { conds = []; }
 
   if (conds.length > 0) {
-    y = checkSpace(doc, y, 14, brand);
+    y = checkSpace(doc, y, 14, brand, logoData, quotation);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(...pr);
@@ -501,8 +563,7 @@ export default async function generateQuotationPDF(quotationData) {
 
     conds.forEach(c => {
       const cl = doc.splitTextToSize(c, PAGE.cw - 10);
-      y = checkSpace(doc, y, cl.length * 3.8 + 2, brand);
-      // Bullet
+      y = checkSpace(doc, y, cl.length * 3.8 + 2, brand, logoData, quotation);
       doc.setFillColor(...pr);
       doc.circle(PAGE.ml + 2, y - 0.8, 0.8, 'F');
       doc.text(cl, PAGE.ml + 6, y);
@@ -515,7 +576,7 @@ export default async function generateQuotationPDF(quotationData) {
   // NOTES
   // =========================================================================
   if (quotation.notes) {
-    y = checkSpace(doc, y, 14, brand);
+    y = checkSpace(doc, y, 14, brand, logoData, quotation);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(...pr);
@@ -530,7 +591,7 @@ export default async function generateQuotationPDF(quotationData) {
     doc.setTextColor(90, 90, 90);
     const nl = doc.splitTextToSize(quotation.notes, PAGE.cw - 4);
     nl.forEach(l => {
-      y = checkSpace(doc, y, 4.5, brand);
+      y = checkSpace(doc, y, 4.5, brand, logoData, quotation);
       doc.text(l, PAGE.ml + 2, y);
       y += 3.8;
     });
@@ -540,7 +601,7 @@ export default async function generateQuotationPDF(quotationData) {
   // =========================================================================
   // CLOSING
   // =========================================================================
-  y = checkSpace(doc, y, 12, brand);
+  y = checkSpace(doc, y, 14, brand, logoData, quotation);
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(8);
   doc.setTextColor(120, 120, 120);
@@ -552,11 +613,12 @@ export default async function generateQuotationPDF(quotationData) {
   doc.text('Agradecemos su preferencia y la oportunidad de atenderle.', PAGE.ml, y);
 
   // =========================================================================
-  // FOOTER ON ALL PAGES
+  // WATERMARK + FOOTER on all pages
   // =========================================================================
   const tp = doc.getNumberOfPages();
   for (let p = 1; p <= tp; p++) {
     doc.setPage(p);
+    drawWatermark(doc, logoData);
     drawFooter(doc, brand, p, tp);
   }
 
