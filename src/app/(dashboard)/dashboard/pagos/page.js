@@ -5,7 +5,7 @@ import {
   DollarSign, CheckCircle, XCircle, Clock, Loader2, Eye,
   ChevronDown, ChevronUp, AlertTriangle, CreditCard, Users, Filter,
   Upload, FileSpreadsheet, Zap, ArrowRight, X, Banknote, ArrowDownCircle, ArrowUpCircle, Wallet, Plus, Calendar,
-  PenTool, ShieldCheck
+  PenTool, ShieldCheck, Download
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AlertCircle, Link2 } from 'lucide-react';
@@ -564,6 +564,26 @@ export default function AdminPagosPage() {
     const distribMatch = filterDistributor === 'all' ? true : p.distributor_id === filterDistributor;
     return statusMatch && distribMatch;
   });
+
+  const exportPaymentsXLSX = (onlyCash = false) => {
+    const rows = (onlyCash ? payments.filter(p => p.payment_method === 'efectivo') : filtered).map(p => ({
+      'Fecha': p.created_at ? new Date(p.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '',
+      'Distribuidor': p.profiles?.full_name || '',
+      'No. Cliente': p.profiles?.client_number || '',
+      'Monto': Number(p.amount || 0),
+      'Metodo': p.payment_method || '',
+      'Referencia': p.reference_number || '',
+      'Status': p.status || '',
+      'Recibido Por': p.cash_received_by || '',
+      'Notas': p.notes || '',
+      'Pedido': p.orders?.order_number || '',
+      'Aprobado': p.reviewed_at ? new Date(p.reviewed_at).toLocaleDateString('es-MX') : '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Pagos');
+    XLSX.writeFile(wb, `pagos_${onlyCash ? 'efectivo_' : ''}${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
   const pendingCount = payments.filter(p => p.status === 'pending').length;
   const approvedMonth = payments
     .filter(p => p.status === 'approved' && new Date(p.reviewed_at).getMonth() === new Date().getMonth())
@@ -689,6 +709,16 @@ export default function AdminPagosPage() {
                     {s === 'pending' && pendingCount > 0 && ` (${pendingCount})`}
                   </button>
                 ))}
+                <div className="ml-auto flex gap-2">
+                  <button onClick={() => exportPaymentsXLSX(true)} title="Exportar solo pagos en efectivo"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 cursor-pointer transition-all">
+                    <Download size={12} /> Efectivo
+                  </button>
+                  <button onClick={() => exportPaymentsXLSX(false)} title="Exportar pagos filtrados"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border border-slate-200 text-slate-600 bg-white hover:bg-slate-50 cursor-pointer transition-all">
+                    <Download size={12} /> Exportar
+                  </button>
+                </div>
               </div>
             </div>
             {filtered.length === 0 ? (
