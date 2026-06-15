@@ -43,9 +43,15 @@ export default function DashboardLayout({ children }) {
           setActualRole(profile.role);
           setSubRole(profile.sub_role);
           const testRole = typeof window !== 'undefined' ? sessionStorage.getItem('test_view_role') : null;
-          if (profile.role === 'admin' && testRole === 'distributor') {
+          if (profile.sub_role === 'super_admin' && testRole === 'distributor') {
             setUserRole('distributor');
           } else {
+            // Not a super_admin or no impersonation active — clear any stale data
+            if (testRole) {
+              sessionStorage.removeItem('test_view_role');
+              sessionStorage.removeItem('test_view_distributor_id');
+              sessionStorage.removeItem('test_distributor_name');
+            }
             setUserRole(profile.role);
           }
           setUserName(profile.full_name || user.email.split('@')[0]);

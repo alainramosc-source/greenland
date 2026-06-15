@@ -60,6 +60,10 @@ export default function LoginPage() {
         setError(error.message);
         setLoading(false);
       } else {
+        // Security: clear any stale impersonation data from previous sessions
+        sessionStorage.removeItem('test_view_role');
+        sessionStorage.removeItem('test_view_distributor_id');
+        sessionStorage.removeItem('test_distributor_name');
         router.push('/dashboard');
         router.refresh();
       }
