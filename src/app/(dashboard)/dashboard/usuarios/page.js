@@ -474,6 +474,13 @@ export default function UsersPage() {
       .not('distributor_id', 'is', null)
       .gt('charge_amount', 0);
 
+    // Get approved container payments (payment_type = 'containers' or 'mixed')
+    const { data: containerPayments } = await supabase
+      .from('distributor_payments')
+      .select('distributor_id, amount, container_amount, payment_type, payment_date')
+      .eq('status', 'approved')
+      .in('payment_type', ['containers', 'mixed']);
+
     // Build per-distributor summary
     const summary = distributors.map(dist => {
       const distOrders = (orders || []).filter(o => o.distributor_id === dist.id);
@@ -485,14 +492,30 @@ export default function UsersPage() {
 
       const totalFacturado = totalFacturadoOrders + totalFacturadoReceptions;
 
+      // Payments applied to orders (from order_payments)
       const orderIds = distOrders.map(o => o.id);
       const distPayments = (payments || []).filter(p => orderIds.includes(p.order_id));
-      const totalPagado = distPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-      const lastPayment = distPayments.length > 0 ? distPayments[0].payment_date : null;
+      const totalPagadoPedidos = distPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+      // Payments applied to containers (from distributor_payments where payment_type is containers/mixed)
+      const distContainerPayments = (containerPayments || []).filter(cp => cp.distributor_id === dist.id);
+      const totalPagadoContenedores = distContainerPayments.reduce((sum, cp) => {
+        if (cp.payment_type === 'containers') return sum + Number(cp.amount || 0);
+        // For mixed, only count the container_amount portion
+        return sum + Number(cp.container_amount || 0);
+      }, 0);
+
+      const totalPagado = totalPagadoPedidos + totalPagadoContenedores;
+      const lastOrderPayment = distPayments.length > 0 ? distPayments[0].payment_date : null;
+      const lastContainerPayment = distContainerPayments.length > 0 ? distContainerPayments[0].payment_date : null;
+      const lastPayment = [lastOrderPayment, lastContainerPayment].filter(Boolean).sort().reverse()[0] || null;
+
       return {
         ...dist,
         totalFacturado,
         totalPagado,
+        totalPagadoPedidos,
+        totalPagadoContenedores,
         balance: totalFacturado - totalPagado,
         orderCount: distOrders.length,
         receptionCount: distReceptions.length,
