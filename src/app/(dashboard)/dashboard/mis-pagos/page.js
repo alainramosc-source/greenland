@@ -181,9 +181,9 @@ export default function MisPagosPage() {
       }
     }
 
-    // Validate total allocations don't exceed payment
-    if (Math.round(allocTotal * 100) > Math.round(validAmount * 100)) {
-      alert(`La suma de asignaciones ($${allocTotal.toFixed(2)}) excede el monto del pago ($${validAmount.toFixed(2)})`);
+    // Validate total allocations EXACTLY match payment amount — every peso must be applied
+    if (Math.round(allocTotal * 100) !== Math.round(validAmount * 100)) {
+      alert(`El total aplicado ($${allocTotal.toFixed(2)}) debe ser exactamente igual al monto del pago ($${validAmount.toFixed(2)}). Cada peso debe estar asignado a un pedido.`);
       return;
     }
 
@@ -479,6 +479,22 @@ export default function MisPagosPage() {
               {/* Apply to Orders (Multi-select) */}
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Aplicar a *</label>
+                {/* Allocation tracker */}
+                {form.amount && Number(form.amount) > 0 && (
+                  <div className={`flex items-center justify-between px-3 py-2 rounded-lg mb-2 text-xs font-bold ${
+                    Math.round(allocTotal * 100) === Math.round(Number(form.amount) * 100)
+                      ? 'bg-green-50 border border-green-200 text-green-700'
+                      : allocTotal > Number(form.amount)
+                        ? 'bg-red-50 border border-red-200 text-red-700'
+                        : 'bg-amber-50 border border-amber-200 text-amber-700'
+                  }`}>
+                    <span>Aplicado: ${allocTotal.toLocaleString('es-MX', {minimumFractionDigits:2})} de ${Number(form.amount).toLocaleString('es-MX', {minimumFractionDigits:2})}</span>
+                    {Math.round(allocTotal * 100) === Math.round(Number(form.amount) * 100)
+                      ? <span className="text-green-600">✓ Completo</span>
+                      : <span>Falta: ${(Number(form.amount) - allocTotal).toLocaleString('es-MX', {minimumFractionDigits:2})}</span>
+                    }
+                  </div>
+                )}
                 {orders.length === 0 ? (
                   <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
                     <AlertTriangle size={12} /> No tienes pedidos activos
