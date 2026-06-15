@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import * as XLSX from 'xlsx';
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
@@ -411,6 +412,28 @@ export default function PedidosPage() {
                 <Plus className="w-5 h-5 mr-2" /> Crear Pedido
               </Link>
               {isAdmin && (
+                <>
+                <button
+                  onClick={() => {
+                    const rows = filteredOrders.map(o => ({
+                      'No. Pedido': o.order_number,
+                      'Fecha': new Date(o.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' }),
+                      'Distribuidor': o.profiles?.full_name || '',
+                      'Ciudad': o.profiles?.city || '',
+                      'Total': Number(o.total_amount || 0),
+                      'Estado': OP_STATUS[o.status]?.label || o.status,
+                      'Pago': PAY_STATUS[o.payment_status]?.label || o.payment_status || '',
+                    }));
+                    const ws = XLSX.utils.json_to_sheet(rows);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
+                    XLSX.writeFile(wb, `pedidos_${new Date().toISOString().split('T')[0]}.xlsx`);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 bg-white/50 border border-white/80 hover:bg-white cursor-pointer transition-all backdrop-blur-md shadow-sm"
+                  title="Exportar pedidos a Excel"
+                >
+                  <Download className="w-4 h-4" /> Exportar
+                </button>
                 <button
                   onClick={handlePrintOrders}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 bg-white/50 border border-white/80 hover:bg-white cursor-pointer transition-all backdrop-blur-md shadow-sm"
@@ -418,6 +441,7 @@ export default function PedidosPage() {
                 >
                   <Printer className="w-4 h-4" /> Imprimir
                 </button>
+                </>
               )}
             </div>
           </div>
