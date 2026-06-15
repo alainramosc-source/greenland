@@ -36,7 +36,7 @@ setInterval(() => {
     }
 }, 60000);
 
-export default async function proxy(request) {
+export async function middleware(request) {
     const { pathname } = request.nextUrl;
 
     // Rate limit API routes (100 requests per minute per IP)
@@ -82,6 +82,7 @@ export default async function proxy(request) {
         }
     )
 
+    // This refreshes the auth token on every request — critical for session stability
     const {
         data: { user },
     } = await supabase.auth.getUser()
