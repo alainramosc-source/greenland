@@ -225,22 +225,14 @@ export default function AdminPagosPage() {
         : payment.order_id ? [{ order_id: payment.order_id, amount: payment.amount }] : [];
 
       for (const alloc of allocations) {
-        // Insert into order_payments
-        await supabase.from('order_payments').insert({
-          order_id: alloc.order_id,
-          amount: alloc.amount,
-          payment_method: payment.payment_method,
-          reference: payment.reference,
-          payment_date: payment.payment_date,
-          notes: 'Aprobado desde pagos distribuidor'
-        });
+        if (!alloc.order_id) continue; // Skip allocations without order
 
-        // Update order payment_status
-        const { data: orderPayments } = await supabase
+        // Get current order balance to prevent overpayment
+        const { data: existingPayments } = await supabase
           .from('order_payments')
           .select('amount')
           .eq('order_id', alloc.order_id);
-        const totalPaid = (orderPayments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+        const alreadyPaid = (existingPayments || []).reduce((sum, p) => sum + Number(p.amount), 0);
 
         const { data: order } = await supabase
           .from('orders')
@@ -248,10 +240,30 @@ export default function AdminPagosPage() {
           .eq('id', alloc.order_id)
           .single();
 
-        if (order) {
-          const newStatus = totalPaid >= order.total_amount ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid';
-          await supabase.from('orders').update({ payment_status: newStatus }).eq('id', alloc.order_id);
-        }
+        if (!order) continue;
+
+        const remaining = Number(order.total_amount) - alreadyPaid;
+        // Cap allocation to remaining balance (prevent overpayment)
+        const safeAmount = Math.min(Number(alloc.amount), Math.max(remaining, 0));
+
+        if (safeAmount <= 0) continue; // Order already fully paid
+
+        // Insert into order_payments
+        await supabase.from('order_payments').insert({
+          order_id: alloc.order_id,
+          amount: safeAmount,
+          payment_method: payment.payment_method,
+          reference: payment.reference,
+          payment_date: payment.payment_date,
+          notes: safeAmount < Number(alloc.amount)
+            ? `Aprobado (ajustado de $${Number(alloc.amount).toFixed(2)} a $${safeAmount.toFixed(2)} para evitar sobrepago)`
+            : 'Aprobado desde pagos distribuidor'
+        });
+
+        // Update order payment_status
+        const totalPaid = alreadyPaid + safeAmount;
+        const newStatus = totalPaid >= order.total_amount ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid';
+        await supabase.from('orders').update({ payment_status: newStatus }).eq('id', alloc.order_id);
       }
 
       // 4. Auto-insert cash entry if payment method is cash
@@ -566,19 +578,31 @@ export default function AdminPagosPage() {
   });
 
   const exportPaymentsXLSX = () => {
-    const rows = payments.map(p => ({
-      'Fecha': p.created_at ? new Date(p.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '',
-      'Distribuidor': p.profiles?.full_name || '',
-      'No. Cliente': p.profiles?.client_number || '',
-      'Monto': Number(p.amount || 0),
-      'Metodo': p.payment_method || '',
-      'Referencia': p.reference_number || '',
-      'Status': p.status || '',
-      'Recibido Por': p.cash_received_by || '',
-      'Notas': p.notes || '',
-      'Pedido': p.orders?.order_number || '',
-      'Aprobado': p.reviewed_at ? new Date(p.reviewed_at).toLocaleDateString('es-MX') : '',
-    }));
+    const rows = [];
+    for (const p of payments) {
+      const base = {
+        'Fecha': p.created_at ? new Date(p.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '',
+        'Distribuidor': p.profiles?.full_name || '',
+        'No. Cliente': p.profiles?.client_number || '',
+        'Monto Total Pago': Number(p.amount || 0),
+        'Metodo': p.payment_method || '',
+        'Referencia': p.reference_number || '',
+        'Status': p.status || '',
+        'Recibido Por': p.cash_received_by || '',
+        'Notas': p.notes || '',
+        'Aprobado': p.reviewed_at ? new Date(p.reviewed_at).toLocaleDateString('es-MX') : '',
+      };
+      // If there are allocations, show each as a row
+      if (p.allocations && p.allocations.length > 0) {
+        for (const alloc of p.allocations) {
+          // Find order number from orders join or show ID
+          const orderNum = alloc.order_id === p.order_id ? (p.orders?.order_number || alloc.order_id) : alloc.order_id;
+          rows.push({ ...base, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido': orderNum });
+        }
+      } else {
+        rows.push({ ...base, 'Monto Aplicado': Number(p.amount || 0), 'Pedido': p.orders?.order_number || '' });
+      }
+    }
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Pagos');

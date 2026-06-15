@@ -171,6 +171,16 @@ export default function MisPagosPage() {
       }
     }
 
+    // Validate allocations don't exceed each order's remaining balance
+    for (const alloc of allocations) {
+      if (alloc.order_id === '__containers__') continue;
+      const order = orders.find(o => o.id === alloc.order_id);
+      if (order && Number(alloc.amount) > order.balance + 0.01) {
+        alert(`No puedes aplicar $${Number(alloc.amount).toLocaleString('es-MX', {minimumFractionDigits:2})} al pedido #${order.order_number || 'N/A'} porque su saldo pendiente es solo $${order.balance.toLocaleString('es-MX', {minimumFractionDigits:2})}`);
+        return;
+      }
+    }
+
     // Validate total allocations don't exceed payment
     if (Math.round(allocTotal * 100) > Math.round(validAmount * 100)) {
       alert(`La suma de asignaciones ($${allocTotal.toFixed(2)}) excede el monto del pago ($${validAmount.toFixed(2)})`);
@@ -517,8 +527,17 @@ export default function MisPagosPage() {
                                   type="number"
                                   step="0.01"
                                   value={alloc?.amount || ''}
-                                  onChange={e => updateAllocationAmount(o.id, e.target.value)}
-                                  placeholder=""
+                                  onChange={e => {
+                                    const val = Number(e.target.value);
+                                    // Auto-cap to order balance
+                                    if (val > o.balance) {
+                                      updateAllocationAmount(o.id, String(o.balance));
+                                    } else {
+                                      updateAllocationAmount(o.id, e.target.value);
+                                    }
+                                  }}
+                                  max={o.balance}
+                                  placeholder={`Máx $${o.balance.toLocaleString('es-MX')}`}
                                   className="w-full pl-7 pr-3 py-2 rounded-lg border border-slate-200 focus:border-[#6a9a04] outline-none text-sm font-bold"
                                 />
                               </div>
