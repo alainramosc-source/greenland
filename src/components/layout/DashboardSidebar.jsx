@@ -114,7 +114,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
     { name: 'Precios', href: '/dashboard/precios', icon: DollarSign, roles: ['super_admin', 'accountant'] },
     { name: 'Pagos', href: '/dashboard/pagos', icon: CreditCard, roles: ['super_admin', 'accountant', 'warehouse_admin'] },
     { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: BarChart3, roles: ['super_admin', 'accountant'] },
-    { name: 'Clientes', href: '/dashboard/usuarios', icon: Users, roles: ['super_admin'] },
+    { name: 'Clientes', href: '/dashboard/usuarios', icon: Users, roles: ['super_admin', 'accountant'] },
     { name: 'CMS Landing', href: '/dashboard/cms?v=sync', icon: FileText, roles: ['super_admin'] },
     { name: 'Expedientes', href: '/dashboard/expedientes', icon: ClipboardCheck, roles: ['super_admin'] },
     { name: 'Auditoría', href: '/dashboard/auditoria', icon: ScrollText, roles: ['super_admin'] },
