@@ -205,6 +205,29 @@ export default function MisPagosPage() {
     setSubmitting(false);
     if (error) { alert('Error: ' + error.message); return; }
     if (data && !data.success) { alert(data.error || 'Error al registrar el pago. Contacta al administrador.'); return; }
+
+    // Set payment_type and container_amount on the just-created record
+    const hasOrders = allocsPayload.length > 0;
+    const hasContainers = !!containerAlloc;
+    const paymentType = hasContainers && hasOrders ? 'mixed' : hasContainers ? 'containers' : 'order';
+    const containerAmt = containerAlloc ? Number(containerAlloc.amount) : 0;
+    // Find the payment just created (most recent by this user)
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) {
+      const { data: recentPayment } = await supabase
+        .from('distributor_payments')
+        .select('id')
+        .eq('distributor_id', authUser.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      if (recentPayment) {
+        await supabase.from('distributor_payments')
+          .update({ payment_type: paymentType, container_amount: containerAmt })
+          .eq('id', recentPayment.id);
+      }
+    }
+
     setShowModal(false);
     setForm({ amount: '', payment_method: 'transferencia', reference: '', payment_date: new Date().toISOString().split('T')[0], notes: '', receipt_url: '' });
     setAllocations([]);

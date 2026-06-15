@@ -589,11 +589,14 @@ export default function AdminPagosPage() {
   const exportPaymentsXLSX = () => {
     const rows = [];
     for (const p of payments) {
+      const pType = p.payment_type || 'order';
+      const typeLabel = pType === 'containers' ? 'Contenedores' : pType === 'mixed' ? 'Mixto' : 'Pedido';
       const base = {
         'Fecha': p.created_at ? new Date(p.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '',
         'Distribuidor': p.profiles?.full_name || '',
         'No. Cliente': p.profiles?.client_number || '',
         'Monto Total Pago': Number(p.amount || 0),
+        'Tipo': typeLabel,
         'Metodo': p.payment_method || '',
         'Referencia': p.reference_number || '',
         'Status': p.status || '',
@@ -601,30 +604,23 @@ export default function AdminPagosPage() {
         'Notas': p.notes || '',
         'Aprobado': p.reviewed_at ? new Date(p.reviewed_at).toLocaleDateString('es-MX') : '',
       };
-      // If there are allocations, show each as a row
+      // Show allocations detail
       if (p.allocations && p.allocations.length > 0) {
-        const hasContainerNote = (p.notes || '').toLowerCase().includes('contenedor');
         for (const alloc of p.allocations) {
           if (!alloc.order_id) {
-            // Container or unlinked allocation
-            rows.push({ ...base, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido': hasContainerNote ? 'Contenedores' : 'Sin asignar' });
+            rows.push({ ...base, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido': pType === 'containers' || pType === 'mixed' ? 'Contenedores' : 'Sin asignar' });
           } else {
             const ord = orderMap[alloc.order_id];
             const orderNum = ord ? `ORD-${ord.order_number}` : (p.orders?.order_number ? `ORD-${p.orders.order_number}` : alloc.order_id || '');
             rows.push({ ...base, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido': orderNum });
           }
         }
-        // If all allocations had order_ids but notes mention containers, add container line
-        if (hasContainerNote && !p.allocations.some(a => !a.order_id)) {
-          const containerMatch = p.notes.match(/\$([0-9,.]+)\s*aplicado a saldo de contenedores/i);
-          if (containerMatch) {
-            const containerAmt = Number(containerMatch[1].replace(/,/g, ''));
-            rows.push({ ...base, 'Monto Aplicado': containerAmt, 'Pedido': 'Contenedores' });
-          }
+        // For mixed payments, add container line if container_amount exists
+        if (pType === 'mixed' && p.container_amount > 0 && !p.allocations.some(a => !a.order_id)) {
+          rows.push({ ...base, 'Monto Aplicado': Number(p.container_amount), 'Pedido': 'Contenedores' });
         }
       } else {
-        const isContainer = (p.notes || '').toLowerCase().includes('contenedor');
-        rows.push({ ...base, 'Monto Aplicado': Number(p.amount || 0), 'Pedido': p.orders?.order_number ? `ORD-${p.orders.order_number}` : (isContainer ? 'Contenedores' : '') });
+        rows.push({ ...base, 'Monto Aplicado': Number(p.amount || 0), 'Pedido': pType === 'containers' ? 'Contenedores' : (p.orders?.order_number ? `ORD-${p.orders.order_number}` : '') });
       }
     }
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -798,6 +794,14 @@ export default function AdminPagosPage() {
                             {p.allocations && p.allocations.length > 0 ? (
                               <div className="flex flex-wrap gap-1.5 mt-1.5">
                                 {p.allocations.map((alloc, i) => {
+                                  if (!alloc.order_id) {
+                                    return (
+                                      <span key={i} className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-medium">
+                                        🏭 {p.payment_type === 'containers' || p.payment_type === 'mixed' ? 'Contenedores' : 'Sin asignar'}
+                                        <span className="font-bold ml-1">→ ${Number(alloc.amount).toLocaleString('es-MX')}</span>
+                                      </span>
+                                    );
+                                  }
                                   const ord = orderMap[alloc.order_id];
                                   return (
                                     <span key={i} className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-medium">
@@ -807,9 +811,9 @@ export default function AdminPagosPage() {
                                     </span>
                                   );
                                 })}
-                                {p.notes?.includes('contenedores') && (
+                                {(p.payment_type === 'containers' || p.payment_type === 'mixed') && p.container_amount > 0 && !p.allocations.some(a => !a.order_id) && (
                                   <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-medium">
-                                    🏭 Saldo contenedores
+                                    🏭 Contenedores <span className="font-bold ml-1">→ ${Number(p.container_amount).toLocaleString('es-MX')}</span>
                                   </span>
                                 )}
                               </div>
@@ -819,6 +823,12 @@ export default function AdminPagosPage() {
                                   📦 #{p.orders.order_number}
                                   <span className="text-blue-400 ml-0.5">(${Number(p.orders.total_amount).toLocaleString('es-MX')})</span>
                                   <span className="font-bold ml-1">→ ${Number(p.amount).toLocaleString('es-MX')}</span>
+                                </span>
+                              </div>
+                            ) : p.payment_type === 'containers' ? (
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-medium">
+                                  🏭 Contenedores <span className="font-bold ml-1">→ ${Number(p.amount).toLocaleString('es-MX')}</span>
                                 </span>
                               </div>
                             ) : null}
