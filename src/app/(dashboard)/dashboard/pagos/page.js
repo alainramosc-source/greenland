@@ -51,6 +51,8 @@ export default function AdminPagosPage() {
     const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0];
   });
   const [cajaDateTo, setCajaDateTo] = useState(new Date().toISOString().split('T')[0]);
+  // Order lookup map: uuid -> { order_number, total_amount }
+  const [orderMap, setOrderMap] = useState({});
   // Dual signature
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUserName, setCurrentUserName] = useState('');
@@ -108,9 +110,16 @@ export default function AdminPagosPage() {
     if (distribs && payData) {
       const { data: ordersData } = await supabase
         .from('orders')
-        .select('id, distributor_id, total_amount, status')
+        .select('id, order_number, distributor_id, total_amount, status')
         .neq('status', 'cancelled')
         .neq('status', 'rejected');
+
+      // Build order lookup map for resolving UUIDs to order numbers
+      if (ordersData) {
+        const map = {};
+        ordersData.forEach(o => { map[o.id] = { order_number: o.order_number, total_amount: o.total_amount }; });
+        setOrderMap(map);
+      }
 
       // Use order_payments as single source of truth for paid amounts
       // (approved distributor_payments are already inserted into order_payments by handleApprove)
@@ -595,8 +604,8 @@ export default function AdminPagosPage() {
       // If there are allocations, show each as a row
       if (p.allocations && p.allocations.length > 0) {
         for (const alloc of p.allocations) {
-          // Find order number from orders join or show ID
-          const orderNum = alloc.order_id === p.order_id ? (p.orders?.order_number || alloc.order_id) : alloc.order_id;
+          const ord = orderMap[alloc.order_id];
+          const orderNum = ord ? `ORD-${ord.order_number}` : (p.orders?.order_number ? `ORD-${p.orders.order_number}` : alloc.order_id || '');
           rows.push({ ...base, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido': orderNum });
         }
       } else {
@@ -770,15 +779,34 @@ export default function AdminPagosPage() {
                               {p.reference && ` · Ref: ${p.reference}`}
                             </p>
                             {p.notes && <p className="text-xs text-slate-400 mt-0.5">📝 {p.notes}</p>}
-                            {p.allocations && p.allocations.length > 1 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {p.allocations.map((alloc, i) => (
-                                  <span key={i} className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
-                                    #{alloc.order_id?.substring(0, 8)} → ${Number(alloc.amount).toLocaleString('es-MX')}
+                            {/* Show applied orders — always, not just for multi-allocation */}
+                            {p.allocations && p.allocations.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {p.allocations.map((alloc, i) => {
+                                  const ord = orderMap[alloc.order_id];
+                                  return (
+                                    <span key={i} className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-medium">
+                                      📦 {ord ? `#${ord.order_number}` : 'Pedido'}
+                                      {ord && <span className="text-blue-400 ml-0.5">(${Number(ord.total_amount).toLocaleString('es-MX')})</span>}
+                                      <span className="font-bold ml-1">→ ${Number(alloc.amount).toLocaleString('es-MX')}</span>
+                                    </span>
+                                  );
+                                })}
+                                {p.notes?.includes('contenedores') && (
+                                  <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-medium">
+                                    🏭 Saldo contenedores
                                   </span>
-                                ))}
+                                )}
                               </div>
-                            )}
+                            ) : p.orders?.order_number ? (
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-medium">
+                                  📦 #{p.orders.order_number}
+                                  <span className="text-blue-400 ml-0.5">(${Number(p.orders.total_amount).toLocaleString('es-MX')})</span>
+                                  <span className="font-bold ml-1">→ ${Number(p.amount).toLocaleString('es-MX')}</span>
+                                </span>
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
