@@ -603,13 +603,28 @@ export default function AdminPagosPage() {
       };
       // If there are allocations, show each as a row
       if (p.allocations && p.allocations.length > 0) {
+        const hasContainerNote = (p.notes || '').toLowerCase().includes('contenedor');
         for (const alloc of p.allocations) {
-          const ord = orderMap[alloc.order_id];
-          const orderNum = ord ? `ORD-${ord.order_number}` : (p.orders?.order_number ? `ORD-${p.orders.order_number}` : alloc.order_id || '');
-          rows.push({ ...base, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido': orderNum });
+          if (!alloc.order_id) {
+            // Container or unlinked allocation
+            rows.push({ ...base, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido': hasContainerNote ? 'Contenedores' : 'Sin asignar' });
+          } else {
+            const ord = orderMap[alloc.order_id];
+            const orderNum = ord ? `ORD-${ord.order_number}` : (p.orders?.order_number ? `ORD-${p.orders.order_number}` : alloc.order_id || '');
+            rows.push({ ...base, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido': orderNum });
+          }
+        }
+        // If all allocations had order_ids but notes mention containers, add container line
+        if (hasContainerNote && !p.allocations.some(a => !a.order_id)) {
+          const containerMatch = p.notes.match(/\$([0-9,.]+)\s*aplicado a saldo de contenedores/i);
+          if (containerMatch) {
+            const containerAmt = Number(containerMatch[1].replace(/,/g, ''));
+            rows.push({ ...base, 'Monto Aplicado': containerAmt, 'Pedido': 'Contenedores' });
+          }
         }
       } else {
-        rows.push({ ...base, 'Monto Aplicado': Number(p.amount || 0), 'Pedido': p.orders?.order_number || '' });
+        const isContainer = (p.notes || '').toLowerCase().includes('contenedor');
+        rows.push({ ...base, 'Monto Aplicado': Number(p.amount || 0), 'Pedido': p.orders?.order_number ? `ORD-${p.orders.order_number}` : (isContainer ? 'Contenedores' : '') });
       }
     }
     const ws = XLSX.utils.json_to_sheet(rows);
