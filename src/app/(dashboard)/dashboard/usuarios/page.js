@@ -2,11 +2,13 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Search, Filter, Edit2, Shield, AlertCircle, X, Save, UserPlus, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, Loader2, ShieldAlert, DollarSign, Users, CreditCard, TrendingUp, ExternalLink, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatDateOnly } from '@/utils/formatters';
 
 export default function UsersPage() {
-  const [activeTab, setActiveTab] = useState('clientes');
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') === 'cxc' ? 'cxc' : 'clientes');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
