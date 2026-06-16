@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   DollarSign, CheckCircle, XCircle, Clock, Loader2, Eye,
   ChevronDown, ChevronUp, AlertTriangle, CreditCard, Users, Filter,
-  Upload, FileSpreadsheet, Zap, ArrowRight, X, Banknote, ArrowDownCircle, ArrowUpCircle, Wallet, Plus, Calendar,
+  Upload, FileSpreadsheet, Zap, ArrowRight, X, Banknote, ArrowDownCircle, ArrowUpCircle, Wallet, Plus, Calendar, Paperclip,
   PenTool, ShieldCheck, Download
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -43,6 +43,7 @@ export default function AdminPagosPage() {
   const [manualMatchPaymentId, setManualMatchPaymentId] = useState('');
   // Cash control
   const [cashReceivedBy, setCashReceivedBy] = useState({});
+  const [uploadingReceiptId, setUploadingReceiptId] = useState(null);
   const [cashMovements, setCashMovements] = useState([]);
   const [showExitModal, setShowExitModal] = useState(false);
   const [exitForm, setExitForm] = useState({ amount: '', concept: '', responsible: '', notes: '', movement_date: new Date().toISOString().split('T')[0] });
@@ -835,12 +836,33 @@ export default function AdminPagosPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          {p.receipt_url && (
+                          {p.receipt_url ? (
                             <button onClick={() => handleViewReceipt(p.receipt_url)}
                               className="w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center border-none cursor-pointer transition-colors"
                               title="Ver comprobante">
                               <Eye size={16} className="text-slate-500" />
                             </button>
+                          ) : (
+                            <label
+                              className={`w-9 h-9 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 flex items-center justify-center cursor-pointer transition-colors ${uploadingReceiptId === p.id ? 'animate-pulse' : ''}`}
+                              title="Subir comprobante"
+                            >
+                              {uploadingReceiptId === p.id ? <Loader2 size={14} className="animate-spin text-amber-500" /> : <Paperclip size={14} className="text-amber-500" />}
+                              <input type="file" accept="image/*,.pdf" className="hidden" onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                setUploadingReceiptId(p.id);
+                                const ext = file.name.split('.').pop();
+                                const path = `${Date.now()}_${p.id}.${ext}`;
+                                const { error: upErr } = await supabase.storage.from('payment-receipts').upload(path, file, { contentType: file.type });
+                                if (upErr) { alert('Error al subir: ' + upErr.message); setUploadingReceiptId(null); return; }
+                                const { data: urlData } = supabase.storage.from('payment-receipts').getPublicUrl(path);
+                                const publicUrl = urlData?.publicUrl || path;
+                                await supabase.from('distributor_payments').update({ receipt_url: publicUrl }).eq('id', p.id);
+                                setPayments(prev => prev.map(pp => pp.id === p.id ? { ...pp, receipt_url: publicUrl } : pp));
+                                setUploadingReceiptId(null);
+                              }} />
+                            </label>
                           )}
                           {p.status === 'pending' && (
                             <div className="flex flex-col gap-2">
