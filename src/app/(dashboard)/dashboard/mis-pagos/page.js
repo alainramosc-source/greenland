@@ -192,6 +192,11 @@ export default function MisPagosPage() {
       .filter(a => a.order_id !== '__containers__')
       .map(a => ({ order_id: a.order_id, amount: Number(a.amount) }));
     const containerAlloc = allocations.find(a => a.order_id === '__containers__');
+    const hasOrders = allocsPayload.length > 0;
+    const hasContainers = !!containerAlloc;
+    const paymentType = hasContainers && hasOrders ? 'mixed' : hasContainers ? 'containers' : 'order';
+    const containerAmt = containerAlloc ? Number(containerAlloc.amount) : 0;
+
     const { data, error } = await supabase.rpc('submit_distributor_payment', {
       p_amount: validAmount,
       p_payment_method: form.payment_method,
@@ -200,33 +205,13 @@ export default function MisPagosPage() {
       p_receipt_url: form.receipt_url || null,
       p_notes: sanitizeText(form.notes, 500) || (containerAlloc ? `Incluye $${Number(containerAlloc.amount).toLocaleString('es-MX', {minimumFractionDigits:2})} aplicado a saldo de contenedores` : null),
       p_order_id: allocsPayload[0]?.order_id || null,
-      p_allocations: allocsPayload.length > 0 ? allocsPayload : [{ order_id: null, amount: validAmount }]
+      p_allocations: allocsPayload.length > 0 ? allocsPayload : [{ order_id: null, amount: validAmount }],
+      p_payment_type: paymentType,
+      p_container_amount: containerAmt
     });
     setSubmitting(false);
     if (error) { alert('Error: ' + error.message); return; }
     if (data && !data.success) { alert(data.error || 'Error al registrar el pago. Contacta al administrador.'); return; }
-
-    // Set payment_type and container_amount on the just-created record
-    const hasOrders = allocsPayload.length > 0;
-    const hasContainers = !!containerAlloc;
-    const paymentType = hasContainers && hasOrders ? 'mixed' : hasContainers ? 'containers' : 'order';
-    const containerAmt = containerAlloc ? Number(containerAlloc.amount) : 0;
-    // Find the payment just created (most recent by this user)
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (authUser) {
-      const { data: recentPayment } = await supabase
-        .from('distributor_payments')
-        .select('id')
-        .eq('distributor_id', authUser.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      if (recentPayment) {
-        await supabase.from('distributor_payments')
-          .update({ payment_type: paymentType, container_amount: containerAmt })
-          .eq('id', recentPayment.id);
-      }
-    }
 
     setShowModal(false);
     setForm({ amount: '', payment_method: 'transferencia', reference: '', payment_date: new Date().toISOString().split('T')[0], notes: '', receipt_url: '' });
