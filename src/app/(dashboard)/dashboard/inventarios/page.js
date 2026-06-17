@@ -156,16 +156,15 @@ export default function InventariosPage() {
     }
     setMovementLogs(logs);
 
-    // Fetch retail sales for PRO users (from inventory_logs — sales are stock adjustments)
+    // Fetch retail sales for PRO users (from lastmile_orders)
     if (isPro) {
-      const { data: salesLogs } = await supabase
-        .from('inventory_logs')
-        .select('*, product:products(name, sku, price)')
-        .eq('user_id', user.id)
-        .lt('quantity_change', 0)
+      const { data: salesData } = await supabase
+        .from('lastmile_orders')
+        .select('*')
+        .eq('created_by', user.id)
         .order('created_at', { ascending: false })
         .limit(500);
-      setRetailSales(salesLogs || []);
+      setRetailSales(salesData || []);
     }
 
     setUserId(user.id);
@@ -184,36 +183,84 @@ export default function InventariosPage() {
       return;
     }
 
-    // For PRO sales, negate the quantity (user enters positive, we subtract)
-    const finalQty = isProUser ? -Math.abs(qty) : qty;
-
-    if (finalQty < 0) {
+    if (isProUser) {
+      // PRO: create proper retail sale via RPC
+      const absQty = Math.abs(qty);
       const ws = getWhStock(selectedProduct.id, selectedWarehouse);
       const currentStock = ws.stock - ws.reserved;
-      if (currentStock + finalQty < 0) {
-        alert(`No puedes vender ${Math.abs(finalQty)} unidades. Stock disponible: ${currentStock}`);
+      if (absQty > currentStock) {
+        alert(`No puedes vender ${absQty} unidades. Stock disponible: ${currentStock}`);
         return;
       }
-    }
 
-    setSubmitting(true);
-    const { data, error } = await supabase.rpc('adjust_warehouse_stock', {
-      p_product_id: selectedProduct.id,
-      p_warehouse_id: selectedWarehouse,
-      p_quantity_change: finalQty,
-      p_reason: sanitizeText(adjustmentReason, 300) || (isProUser ? 'Venta a público' : 'Ajuste manual')
-    });
+      setSubmitting(true);
+      const items = [{
+        product_id: selectedProduct.id,
+        sku: selectedProduct.sku,
+        name: selectedProduct.name,
+        quantity: absQty,
+        sale_price: Number(selectedProduct.price || 0),
+      }];
+      const noteText = sanitizeText(adjustmentReason, 300) || 'Venta a público';
+      const { data, error } = await supabase.rpc('create_retail_sale', {
+        p_conversation_id: null,
+        p_warehouse_id: selectedWarehouse,
+        p_delivery_type: 'pickup',
+        p_items: items,
+        p_notes: noteText,
+      });
 
-    if (error) {
-      alert('Error: ' + error.message);
+      if (error) {
+        alert('Error: ' + error.message);
+      } else if (data && !data.success) {
+        alert(data.error || 'Error al registrar la venta.');
+      } else {
+        // Auto-mark as paid
+        if (data?.order_id) {
+          await supabase.from('lastmile_orders').update({
+            payment_method: 'cash',
+            payment_status: 'paid',
+          }).eq('id', data.order_id);
+        }
+        await fetchData();
+        setSelectedProduct(null);
+        setAdjustmentAmount('');
+        setAdjustmentReason('');
+        setSelectedWarehouse('');
+      }
+      setSubmitting(false);
     } else {
-      await fetchData();
-      setSelectedProduct(null);
-      setAdjustmentAmount('');
-      setAdjustmentReason('');
-      setSelectedWarehouse('');
+      // Admin: regular stock adjustment
+      const finalQty = qty;
+
+      if (finalQty < 0) {
+        const ws = getWhStock(selectedProduct.id, selectedWarehouse);
+        const currentStock = ws.stock - ws.reserved;
+        if (currentStock + finalQty < 0) {
+          alert(`Stock insuficiente. Disponible: ${currentStock}`);
+          return;
+        }
+      }
+
+      setSubmitting(true);
+      const { data, error } = await supabase.rpc('adjust_warehouse_stock', {
+        p_product_id: selectedProduct.id,
+        p_warehouse_id: selectedWarehouse,
+        p_quantity_change: finalQty,
+        p_reason: sanitizeText(adjustmentReason, 300) || 'Ajuste manual'
+      });
+
+      if (error) {
+        alert('Error: ' + error.message);
+      } else {
+        await fetchData();
+        setSelectedProduct(null);
+        setAdjustmentAmount('');
+        setAdjustmentReason('');
+        setSelectedWarehouse('');
+      }
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   const handleTransfer = async (e) => {
@@ -793,65 +840,79 @@ export default function InventariosPage() {
             const filtered = retailSales.filter(s => {
               if (!salesSearch) return true;
               const q = salesSearch.toLowerCase();
-              return (s.product?.name || '').toLowerCase().includes(q) || (s.product?.sku || '').toLowerCase().includes(q) || (s.reason || '').toLowerCase().includes(q);
+              return (s.order_number || '').toLowerCase().includes(q) || (s.notes || '').toLowerCase().includes(q) ||
+                (s.items || []).some(i => (i.name || '').toLowerCase().includes(q) || (i.sku || '').toLowerCase().includes(q));
             });
-            const totalPieces = filtered.reduce((s, log) => s + Math.abs(log.quantity_change || 0), 0);
-            const totalValue = filtered.reduce((s, log) => s + (Math.abs(log.quantity_change || 0) * Number(log.product?.price || 0)), 0);
+            const totalSales = filtered.reduce((s, o) => s + Number(o.total || 0), 0);
+            const totalPieces = filtered.reduce((s, o) => s + (o.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0), 0);
             return (
               <div>
                 <div className="flex items-center gap-3 mb-6 flex-wrap">
                   <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input type="text" placeholder="Buscar por producto, SKU, motivo..."
+                    <input type="text" placeholder="Buscar por orden, producto, notas..."
                       value={salesSearch} onChange={(e) => setSalesSearch(e.target.value)}
                       className="w-full pl-12 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm placeholder:text-slate-400 text-slate-800 outline-none shadow-sm" />
                   </div>
-                  <p className="text-sm text-slate-500 m-0 ml-auto">{filtered.length} movimientos · {totalPieces} pzas · <span className="font-bold text-slate-800">${totalValue.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span> (valor estimado)</p>
+                  <p className="text-sm text-slate-500 m-0 ml-auto">{filtered.length} ventas · {totalPieces} pzas · <span className="font-bold text-slate-800">${totalSales.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span></p>
                 </div>
                 <div className="glass-panel bg-white/60 backdrop-blur-md rounded-2xl border border-white/50 shadow-xl overflow-hidden">
                   <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
                     <table className="w-full text-left border-collapse">
                       <thead className="sticky top-0 z-10">
                         <tr className="bg-slate-50 border-b border-slate-200">
-                          <th className="px-5 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Fecha</th>
-                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">SKU</th>
-                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Producto</th>
-                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center">Cantidad</th>
-                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-right">Precio Unit.</th>
-                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-right">Subtotal</th>
-                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Motivo</th>
+                          <th className="px-5 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Orden</th>
+                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Fecha</th>
+                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Productos</th>
+                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-right">Total</th>
+                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center">Pago</th>
+                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center">Estado</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {filtered.length === 0 ? (
-                          <tr><td colSpan="7" className="px-6 py-12 text-center text-slate-400">No hay ventas registradas.</td></tr>
-                        ) : filtered.map(log => {
-                          const qty = Math.abs(log.quantity_change || 0);
-                          const price = Number(log.product?.price || 0);
-                          const subtotal = qty * price;
+                          <tr><td colSpan="6" className="px-6 py-12 text-center text-slate-400">No hay ventas registradas.</td></tr>
+                        ) : filtered.map(sale => {
+                          const items = sale.items || [];
                           return (
-                            <tr key={log.id} className="hover:bg-white/50 transition-colors">
+                            <tr key={sale.id} className="hover:bg-white/50 transition-colors">
                               <td className="px-5 py-3">
-                                <span className="text-sm text-slate-600">{new Date(log.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
-                                <p className="text-[10px] text-slate-400 m-0">{new Date(log.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
+                                <span className="font-bold text-sm text-slate-800">#{sale.order_number}</span>
+                                {sale.notes && <p className="text-[10px] text-slate-400 m-0 mt-0.5 truncate max-w-[160px]">{sale.notes}</p>}
                               </td>
                               <td className="px-4 py-3">
-                                <span className="font-mono text-xs text-slate-500 font-bold">{log.product?.sku || '—'}</span>
+                                <span className="text-sm text-slate-600">{new Date(sale.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
+                                <p className="text-[10px] text-slate-400 m-0">{new Date(sale.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
                               </td>
                               <td className="px-4 py-3">
-                                <span className="text-sm font-medium text-slate-800">{log.product?.name || 'Producto'}</span>
+                                <div className="space-y-0.5">
+                                  {items.slice(0, 3).map((item, idx) => (
+                                    <p key={idx} className="text-xs text-slate-700 m-0">
+                                      <span className="font-bold">{item.quantity}x</span> <span className="font-mono text-[10px] text-slate-400">{item.sku}</span> {item.name}
+                                    </p>
+                                  ))}
+                                  {items.length > 3 && <p className="text-[10px] text-slate-400 m-0">+{items.length - 3} más</p>}
+                                  {items.length === 0 && <span className="text-xs text-slate-400">—</span>}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <span className="font-black text-sm text-slate-900">${Number(sale.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
                               </td>
                               <td className="px-4 py-3 text-center">
-                                <span className="text-sm font-black text-red-500">{qty}</span>
+                                <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border ${
+                                  sale.payment_status === 'paid' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-amber-50 text-amber-600 border-amber-200'
+                                }`}>
+                                  {sale.payment_status === 'paid' ? '✅ Pagado' : '⏳ Pendiente'}
+                                </span>
                               </td>
-                              <td className="px-4 py-3 text-right">
-                                <span className="text-sm text-slate-600">${price.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                <span className="text-sm font-bold text-slate-900">${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className="text-xs text-slate-500 truncate block max-w-[200px]">{log.reason || '—'}</span>
+                              <td className="px-4 py-3 text-center">
+                                <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border ${
+                                  sale.status === 'delivered' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+                                  sale.status === 'cancelled' ? 'bg-red-50 text-red-600 border-red-200' :
+                                  'bg-slate-50 text-slate-500 border-slate-200'
+                                }`}>
+                                  {sale.status === 'delivered' ? 'Entregado' : sale.status === 'cancelled' ? 'Cancelado' : sale.status || 'Completado'}
+                                </span>
                               </td>
                             </tr>
                           );
@@ -1524,25 +1585,39 @@ export default function InventariosPage() {
                     onClick={async () => {
                       setSaleSaving(true);
                       const whId = proWarehouseId || warehouses[0]?.id;
-                      let success = 0, failed = 0;
-                      const reason = saleNote.trim()
-                        ? `Venta a público — ${saleNote.trim()} — Total: $${saleItems.reduce((s, i) => s + (i.quantity * i.price), 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
-                        : `Venta a público — Total: $${saleItems.reduce((s, i) => s + (i.quantity * i.price), 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
-                      for (const item of saleItems) {
-                        const { error } = await supabase.rpc('adjust_warehouse_stock', {
-                          p_product_id: item.productId,
-                          p_warehouse_id: whId,
-                          p_quantity_change: -Math.abs(item.quantity),
-                          p_reason: reason
-                        });
-                        if (error) failed++; else success++;
+                      const noteText = saleNote.trim() || 'Venta a público';
+                      const items = saleItems.map(item => ({
+                        product_id: item.productId,
+                        sku: item.sku,
+                        name: item.name,
+                        quantity: parseInt(item.quantity),
+                        sale_price: Number(item.price),
+                      }));
+
+                      const { data, error } = await supabase.rpc('create_retail_sale', {
+                        p_conversation_id: null,
+                        p_warehouse_id: whId,
+                        p_delivery_type: 'pickup',
+                        p_items: items,
+                        p_notes: noteText,
+                      });
+
+                      if (error) {
+                        alert('Error: ' + error.message);
+                      } else if (data && !data.success) {
+                        alert(data.error || 'Error al registrar la venta.');
+                      } else {
+                        // Auto-mark as paid
+                        if (data?.order_id) {
+                          await supabase.from('lastmile_orders').update({
+                            payment_method: 'cash',
+                            payment_status: 'paid',
+                          }).eq('id', data.order_id);
+                        }
+                        await fetchData();
+                        setShowBulkSale(false);
                       }
                       setSaleSaving(false);
-                      if (failed > 0) {
-                        alert(`${success} productos actualizados, ${failed} con error.`);
-                      }
-                      await fetchData();
-                      setShowBulkSale(false);
                     }}
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700 cursor-pointer transition-all shadow-lg shadow-green-600/20 border-none disabled:opacity-50"
                   >
