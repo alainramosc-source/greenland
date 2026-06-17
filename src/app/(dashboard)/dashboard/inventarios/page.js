@@ -156,15 +156,16 @@ export default function InventariosPage() {
     }
     setMovementLogs(logs);
 
-    // Fetch retail sales for PRO users (from lastmile_orders)
+    // Fetch retail sales for PRO users (from inventory_logs)
     if (isPro) {
-      const { data: salesData } = await supabase
-        .from('lastmile_orders')
-        .select('*')
-        .eq('created_by', user.id)
+      const { data: salesLogs } = await supabase
+        .from('inventory_logs')
+        .select('*, product:products(name, sku, price)')
+        .eq('user_id', user.id)
+        .lt('quantity_change', 0)
         .order('created_at', { ascending: false })
         .limit(500);
-      setRetailSales(salesData || []);
+      setRetailSales(salesLogs || []);
     }
 
     setUserId(user.id);
@@ -834,85 +835,70 @@ export default function InventariosPage() {
               })()}
             </>
           )}
-
           {/* ===== VENTAS TAB (PRO) ===== */}
           {activeTab === 'ventas' && isProUser && (() => {
             const filtered = retailSales.filter(s => {
               if (!salesSearch) return true;
               const q = salesSearch.toLowerCase();
-              return (s.order_number || '').toLowerCase().includes(q) || (s.notes || '').toLowerCase().includes(q) ||
-                (s.items || []).some(i => (i.name || '').toLowerCase().includes(q) || (i.sku || '').toLowerCase().includes(q));
+              return (s.product?.name || '').toLowerCase().includes(q) || (s.product?.sku || '').toLowerCase().includes(q) || (s.reason || '').toLowerCase().includes(q);
             });
-            const totalSales = filtered.reduce((s, o) => s + Number(o.total || 0), 0);
-            const totalPieces = filtered.reduce((s, o) => s + (o.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0), 0);
+            const totalPieces = filtered.reduce((s, log) => s + Math.abs(log.quantity_change || 0), 0);
+            const totalValue = filtered.reduce((s, log) => s + (Math.abs(log.quantity_change || 0) * Number(log.product?.price || 0)), 0);
             return (
               <div>
                 <div className="flex items-center gap-3 mb-6 flex-wrap">
                   <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input type="text" placeholder="Buscar por orden, producto, notas..."
+                    <input type="text" placeholder="Buscar por producto, SKU, motivo..."
                       value={salesSearch} onChange={(e) => setSalesSearch(e.target.value)}
                       className="w-full pl-12 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm placeholder:text-slate-400 text-slate-800 outline-none shadow-sm" />
                   </div>
-                  <p className="text-sm text-slate-500 m-0 ml-auto">{filtered.length} ventas · {totalPieces} pzas · <span className="font-bold text-slate-800">${totalSales.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span></p>
+                  <p className="text-sm text-slate-500 m-0 ml-auto">{filtered.length} ventas · {totalPieces} pzas · <span className="font-bold text-slate-800">${totalValue.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span></p>
                 </div>
                 <div className="glass-panel bg-white/60 backdrop-blur-md rounded-2xl border border-white/50 shadow-xl overflow-hidden">
                   <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
                     <table className="w-full text-left border-collapse">
                       <thead className="sticky top-0 z-10">
                         <tr className="bg-slate-50 border-b border-slate-200">
-                          <th className="px-5 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Orden</th>
-                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Fecha</th>
-                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Productos</th>
-                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-right">Total</th>
-                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center">Pago</th>
-                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center">Estado</th>
+                          <th className="px-5 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Fecha</th>
+                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">SKU</th>
+                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Producto</th>
+                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center">Cantidad</th>
+                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-right">Precio Unit.</th>
+                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500 text-right">Subtotal</th>
+                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Motivo</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {filtered.length === 0 ? (
-                          <tr><td colSpan="6" className="px-6 py-12 text-center text-slate-400">No hay ventas registradas.</td></tr>
-                        ) : filtered.map(sale => {
-                          const items = sale.items || [];
+                          <tr><td colSpan="7" className="px-6 py-12 text-center text-slate-400">No hay ventas registradas.</td></tr>
+                        ) : filtered.map(log => {
+                          const qty = Math.abs(log.quantity_change || 0);
+                          const price = Number(log.product?.price || 0);
+                          const subtotal = qty * price;
                           return (
-                            <tr key={sale.id} className="hover:bg-white/50 transition-colors">
+                            <tr key={log.id} className="hover:bg-white/50 transition-colors">
                               <td className="px-5 py-3">
-                                <span className="font-bold text-sm text-slate-800">#{sale.order_number}</span>
-                                {sale.notes && <p className="text-[10px] text-slate-400 m-0 mt-0.5 truncate max-w-[160px]">{sale.notes}</p>}
+                                <span className="text-sm text-slate-600">{new Date(log.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
+                                <p className="text-[10px] text-slate-400 m-0">{new Date(log.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
                               </td>
                               <td className="px-4 py-3">
-                                <span className="text-sm text-slate-600">{new Date(sale.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
-                                <p className="text-[10px] text-slate-400 m-0">{new Date(sale.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
+                                <span className="font-mono text-xs text-slate-500 font-bold">{log.product?.sku || '—'}</span>
                               </td>
                               <td className="px-4 py-3">
-                                <div className="space-y-0.5">
-                                  {items.slice(0, 3).map((item, idx) => (
-                                    <p key={idx} className="text-xs text-slate-700 m-0">
-                                      <span className="font-bold">{item.quantity}x</span> <span className="font-mono text-[10px] text-slate-400">{item.sku}</span> {item.name}
-                                    </p>
-                                  ))}
-                                  {items.length > 3 && <p className="text-[10px] text-slate-400 m-0">+{items.length - 3} más</p>}
-                                  {items.length === 0 && <span className="text-xs text-slate-400">—</span>}
-                                </div>
+                                <span className="text-sm font-medium text-slate-800">{log.product?.name || 'Producto'}</span>
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <span className="text-sm font-black text-red-500">{qty}</span>
                               </td>
                               <td className="px-4 py-3 text-right">
-                                <span className="font-black text-sm text-slate-900">${Number(sale.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                                <span className="text-sm text-slate-600">${price.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
                               </td>
-                              <td className="px-4 py-3 text-center">
-                                <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border ${
-                                  sale.payment_status === 'paid' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-amber-50 text-amber-600 border-amber-200'
-                                }`}>
-                                  {sale.payment_status === 'paid' ? '✅ Pagado' : '⏳ Pendiente'}
-                                </span>
+                              <td className="px-4 py-3 text-right">
+                                <span className="text-sm font-bold text-slate-900">${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
                               </td>
-                              <td className="px-4 py-3 text-center">
-                                <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border ${
-                                  sale.status === 'delivered' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
-                                  sale.status === 'cancelled' ? 'bg-red-50 text-red-600 border-red-200' :
-                                  'bg-slate-50 text-slate-500 border-slate-200'
-                                }`}>
-                                  {sale.status === 'delivered' ? 'Entregado' : sale.status === 'cancelled' ? 'Cancelado' : sale.status || 'Completado'}
-                                </span>
+                              <td className="px-4 py-3">
+                                <span className="text-xs text-slate-500 truncate block max-w-[200px]">{log.reason || '—'}</span>
                               </td>
                             </tr>
                           );
