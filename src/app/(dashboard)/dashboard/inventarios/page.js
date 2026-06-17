@@ -161,7 +161,7 @@ export default function InventariosPage() {
       const { data: salesLogs } = await supabase
         .from('inventory_logs')
         .select('*, product:products(name, sku, price)')
-        .eq('warehouse_id', profile.assigned_warehouse_id)
+        .eq('user_id', user.id)
         .lt('quantity_change', 0)
         .order('created_at', { ascending: false })
         .limit(500);
