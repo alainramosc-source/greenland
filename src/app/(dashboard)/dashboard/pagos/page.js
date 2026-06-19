@@ -5,7 +5,7 @@ import {
   DollarSign, CheckCircle, XCircle, Clock, Loader2, Eye,
   ChevronDown, ChevronUp, AlertTriangle, CreditCard, Users, Filter,
   Upload, FileSpreadsheet, Zap, ArrowRight, X, Banknote, ArrowDownCircle, ArrowUpCircle, Wallet, Plus, Calendar, Paperclip,
-  PenTool, ShieldCheck, Download
+  PenTool, ShieldCheck, Download, ClipboardCheck, Scale
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AlertCircle, Link2 } from 'lucide-react';
@@ -48,6 +48,11 @@ export default function AdminPagosPage() {
   const [showExitModal, setShowExitModal] = useState(false);
   const [exitForm, setExitForm] = useState({ amount: '', concept: '', responsible: '', notes: '', movement_date: new Date().toISOString().split('T')[0] });
   const [exitSubmitting, setExitSubmitting] = useState(false);
+  // Cash audits (arqueo de caja)
+  const [cashAudits, setCashAudits] = useState([]);
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [auditForm, setAuditForm] = useState({ counted: '', notes: '', performed_by: '' });
+  const [auditSubmitting, setAuditSubmitting] = useState(false);
   const [cajaDateFrom, setCajaDateFrom] = useState(() => {
     const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0];
   });
@@ -153,6 +158,13 @@ export default function AdminPagosPage() {
       .order('movement_date', { ascending: false })
       .order('created_at', { ascending: false });
     if (cashData) setCashMovements(cashData);
+
+    // Fetch cash audits
+    const { data: auditData } = await supabase
+      .from('cash_audits')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (auditData) setCashAudits(auditData);
 
     setLoading(false);
   };
@@ -975,7 +987,11 @@ export default function AdminPagosPage() {
                   <input type="date" value={cajaDateTo} onChange={e => setCajaDateTo(e.target.value)}
                     className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#6a9a04]" />
                 </div>
-                <div className="ml-auto">
+                <div className="ml-auto flex gap-2">
+                  <button onClick={() => { setAuditForm({ counted: '', notes: '', performed_by: '' }); setShowAuditModal(true); }}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer shadow-lg shadow-indigo-500/20 transition-all">
+                    <ClipboardCheck size={16} /> Arqueo de Caja
+                  </button>
                   <button onClick={() => setShowExitModal(true)}
                     className="flex items-center gap-2 px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer shadow-lg shadow-red-500/20 transition-all">
                     <ArrowUpCircle size={16} /> Registrar Salida
@@ -1058,6 +1074,166 @@ export default function AdminPagosPage() {
               )}
             </div>
           </div>
+
+            {/* ===== ARQUEO DE CAJA HISTORY ===== */}
+            <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-200">
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <ClipboardCheck className="w-5 h-5 text-indigo-500" /> Historial de Arqueos
+                  <span className="text-xs font-normal text-slate-400 ml-1">({cashAudits.length})</span>
+                </h2>
+              </div>
+              {cashAudits.length === 0 ? (
+                <div className="text-center py-10 text-slate-400">
+                  <ClipboardCheck size={36} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-sm font-medium">No hay arqueos registrados</p>
+                  <p className="text-xs">Realiza tu primer arqueo para iniciar el historial</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {cashAudits.map(audit => {
+                    const diff = Number(audit.difference || 0);
+                    const absDiff = Math.abs(diff);
+                    const diffColor = absDiff === 0 ? 'text-emerald-600' : absDiff <= 500 ? 'text-amber-600' : 'text-red-600';
+                    const diffBg = absDiff === 0 ? 'bg-emerald-50' : absDiff <= 500 ? 'bg-amber-50' : 'bg-red-50';
+                    const diffIcon = absDiff === 0 ? '✅' : absDiff <= 500 ? '⚠️' : '🔴';
+                    return (
+                      <div key={audit.id} className="px-5 py-3.5 flex items-center gap-4 hover:bg-white/40 transition-colors">
+                        <div className={`w-10 h-10 rounded-xl ${diffBg} flex items-center justify-center text-lg`}>
+                          {diffIcon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-900">
+                              {new Date(audit.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {new Date(audit.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-0.5">
+                            <span className="text-xs text-slate-500">Esperado: <strong>${Number(audit.expected_balance).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong></span>
+                            <span className="text-xs text-slate-500">Contado: <strong>${Number(audit.counted_balance).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong></span>
+                          </div>
+                          {audit.notes && <p className="text-[11px] text-slate-400 mt-0.5 truncate">{audit.notes}</p>}
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-sm font-black ${diffColor}`}>
+                            {diff >= 0 ? '+' : ''}${diff.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-[10px] text-slate-400">{audit.performed_by}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ===== ARQUEO MODAL ===== */}
+            {showAuditModal && (() => {
+              const allEntriesTotal = cashMovements.filter(m => m.type === 'entry').reduce((s, m) => s + Number(m.amount), 0);
+              const allExitsTotal = cashMovements.filter(m => m.type === 'exit' && m.approval_status === 'approved').reduce((s, m) => s + Number(m.amount), 0);
+              const expectedBalance = allEntriesTotal - allExitsTotal;
+              const countedVal = parseFloat(auditForm.counted) || 0;
+              const diff = countedVal - expectedBalance;
+              const absDiff = Math.abs(diff);
+              const diffColor = auditForm.counted === '' ? 'text-slate-400' : absDiff === 0 ? 'text-emerald-600' : absDiff <= 500 ? 'text-amber-600' : 'text-red-600';
+              const diffBg = auditForm.counted === '' ? 'bg-slate-50' : absDiff === 0 ? 'bg-emerald-50 border-emerald-200' : absDiff <= 500 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
+
+              const handleSubmitAudit = async () => {
+                if (!auditForm.counted || countedVal < 0) { alert('Ingresa el monto contado'); return; }
+                if (!auditForm.performed_by.trim()) { alert('Ingresa quién realizó el conteo'); return; }
+                setAuditSubmitting(true);
+                const userId = (await supabase.auth.getUser()).data.user?.id;
+                const { error } = await supabase.from('cash_audits').insert({
+                  audit_date: new Date().toISOString().split('T')[0],
+                  expected_balance: expectedBalance,
+                  counted_balance: countedVal,
+                  notes: auditForm.notes.trim() || null,
+                  performed_by: auditForm.performed_by.trim(),
+                  created_by: userId,
+                });
+                setAuditSubmitting(false);
+                if (error) { alert('Error: ' + error.message); return; }
+                setShowAuditModal(false);
+                fetchData();
+              };
+
+              return (
+                <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowAuditModal(false)}>
+                  <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+                    <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                      <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                        <Scale size={20} className="text-indigo-500" /> Arqueo de Caja
+                      </h3>
+                      <button onClick={() => setShowAuditModal(false)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 bg-transparent border-none cursor-pointer">
+                        <X size={18} />
+                      </button>
+                    </div>
+                    <div className="px-6 py-5 space-y-4">
+                      {/* Expected balance */}
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Saldo Esperado en Caja (Sistema)</p>
+                        <p className="text-3xl font-black text-slate-900">${expectedBalance.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+                        <p className="text-[10px] text-slate-400 mt-1">Histórico total: entradas - salidas aprobadas</p>
+                      </div>
+
+                      {/* Counted input */}
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Monto Contado (Efectivo Físico)</label>
+                        <input type="number" step="0.01" min="0" value={auditForm.counted}
+                          onChange={e => setAuditForm(f => ({ ...f, counted: e.target.value }))}
+                          placeholder="0.00"
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 text-2xl font-black text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                      </div>
+
+                      {/* Difference display */}
+                      <div className={`rounded-xl p-4 border ${diffBg} transition-all`}>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Diferencia</p>
+                        <p className={`text-2xl font-black ${diffColor}`}>
+                          {auditForm.counted === '' ? '—' : `${diff >= 0 ? '+' : ''}$${diff.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`}
+                        </p>
+                        {auditForm.counted !== '' && (
+                          <p className={`text-xs mt-1 ${diffColor}`}>
+                            {absDiff === 0 ? '✅ Cuadra perfecto' : absDiff <= 500 ? '⚠️ Diferencia menor — revisar' : '🔴 Diferencia significativa — investigar'}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Performed by */}
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">¿Quién realizó el conteo?</label>
+                        <input type="text" value={auditForm.performed_by}
+                          onChange={e => setAuditForm(f => ({ ...f, performed_by: e.target.value }))}
+                          placeholder="Nombre del responsable"
+                          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-400" />
+                      </div>
+
+                      {/* Notes */}
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Notas / Observaciones</label>
+                        <textarea value={auditForm.notes}
+                          onChange={e => setAuditForm(f => ({ ...f, notes: e.target.value }))}
+                          placeholder="Ej: Faltaron $200 del cambio de la venta de mostrador..."
+                          rows={2}
+                          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-400 resize-none" />
+                      </div>
+                    </div>
+                    <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-2">
+                      <button onClick={() => setShowAuditModal(false)}
+                        className="px-4 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 bg-transparent border-none cursor-pointer">Cancelar</button>
+                      <button onClick={handleSubmitAudit} disabled={auditSubmitting}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50">
+                        {auditSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ClipboardCheck size={16} />}
+                        Registrar Arqueo
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
         );
       })()}
 
