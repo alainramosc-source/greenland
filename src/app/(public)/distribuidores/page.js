@@ -17,14 +17,14 @@ const PRODUCTS = [
 const STATS = [
     { value: 'Directo', label: 'Importador sin intermediarios' },
     { value: '25%', label: 'Margen promedio' },
-    { value: '48hrs', label: 'Despacho garantizado' },
+    { value: '24hrs', label: 'Despacho garantizado' },
     { value: '100%', label: 'Cobertura nacional' },
 ];
 
 const BENEFITS = [
     { icon: TrendingUp, title: 'Márgenes del 20-35%', desc: 'Precios directos de importador. Sin intermediarios. Tu margen es real y competitivo.' },
     { icon: Package, title: 'Stock Permanente', desc: 'Inventario disponible en bodegas nacionales. No dependes de tiempos de importación.' },
-    { icon: Truck, title: 'Envío Nacional', desc: 'Red logística propia con cobertura a toda la República. Despacho en 48hrs.' },
+    { icon: Truck, title: 'Envío Nacional', desc: 'Red logística propia con cobertura a toda la República. Despacho en 24hrs.' },
     { icon: Shield, title: 'Territorio Protegido', desc: 'Red de distribución controlada. Evitamos la saturación para cuidar tu mercado.' },
     { icon: Star, title: 'Portal B2B Exclusivo', desc: 'Plataforma digital para pedidos, inventario, pagos, ventas e indicadores en tiempo real.' },
     { icon: Users, title: 'Soporte Directo', desc: 'Línea directa con el equipo comercial. Capacitación y acompañamiento constante.' },
