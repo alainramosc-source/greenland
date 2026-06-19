@@ -81,8 +81,8 @@ export default function NuevoPedidoPage() {
 
         if (productsData) setProducts(productsData);
 
-        // Unique categories
-        const uniqueCats = Array.from(new Set((productsData || []).map(p => p.categories?.name).filter(Boolean)));
+        // Unique categories (from FK or text field)
+        const uniqueCats = Array.from(new Set((productsData || []).map(p => p.categories?.name || p.category).filter(Boolean)));
         setCategories(uniqueCats);
 
         // Fetch distributor addresses and product segment
@@ -212,14 +212,16 @@ export default function NuevoPedidoPage() {
     const safeQuery = searchQuery?.toLowerCase() || '';
     const matchesSearch = (product.name && product.name.toLowerCase().includes(safeQuery)) ||
       (product.sku && product.sku.toLowerCase().includes(safeQuery));
+    // Get category name from FK or text field
+    const catName = (product.categories?.name || product.category || '').toLowerCase();
     let matchesCategory;
     if (selectedCategory === 'all') {
       matchesCategory = true;
     } else if (selectedCategory === 'mobiliario') {
       // Show everything except Deco
-      matchesCategory = product.categories?.name?.toLowerCase() !== 'deco';
+      matchesCategory = catName !== 'deco';
     } else {
-      matchesCategory = product.categories?.name === selectedCategory;
+      matchesCategory = catName === selectedCategory.toLowerCase();
     }
     return matchesSearch && matchesCategory;
   });
