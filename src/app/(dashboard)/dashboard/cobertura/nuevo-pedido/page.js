@@ -173,7 +173,9 @@ export default function NuevoPedidoPage() {
 
     // Summary
     const allItems = useMemo(() => {
-        return containers.flatMap(c => c.items.filter(i => i.quantity > 0));
+        return containers.flatMap(c => c.items.filter(i => i.quantity > 0).map(i => ({
+            ...i, containerName: c.name, departureDate: c.departure_date || null,
+        })));
     }, [containers]);
 
     const totalUnits = useMemo(() => allItems.reduce((s, i) => s + i.quantity, 0), [allItems]);
@@ -258,6 +260,8 @@ export default function NuevoPedidoPage() {
             purchase_order_id: po.id, product_id: i.productId,
             supplier_sku: getSupplierSku(i.productId), quantity: i.quantity,
             unit_price_usd: getUnitPrice(i.productId),
+            container_name: i.containerName || null,
+            departure_date: i.departureDate || null,
         }));
 
         console.log('[PO] Inserting items:', JSON.stringify(items));

@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
     ArrowLeft, FileSpreadsheet, Clock, CheckCircle, Send, Package,
-    AlertTriangle, ChevronDown, ChevronUp, Truck, Eye, History, Save, Loader2, Trash2, Plus
+    AlertTriangle, ChevronDown, ChevronUp, Truck, Eye, History, Save, Loader2, Trash2, Plus, Container, Layers
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 
@@ -55,6 +55,7 @@ export default function HistorialPedidosPage() {
     const [skuMapping, setSkuMapping] = useState([]);
     const [addingProduct, setAddingProduct] = useState(null);
     const [warehouses, setWarehouses] = useState([]);
+    const [containerView, setContainerView] = useState({});
 
     useEffect(() => { fetchOrders(); }, []);
 
@@ -602,6 +603,135 @@ export default function HistorialPedidosPage() {
 
                                         {/* Items table */}
                                         {items.length > 0 ? (
+                                            <>
+                                            {/* View toggle — only show if items have container data */}
+                                            {items.some(i => i.container_name) && (
+                                                <div className="flex gap-2 mb-3">
+                                                    <button
+                                                        onClick={() => setContainerView(prev => ({ ...prev, [order.id]: false }))}
+                                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border ${!containerView[order.id] ? 'bg-[#6a9a04] text-white border-[#6a9a04]' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
+                                                        <Layers size={13} /> General
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setContainerView(prev => ({ ...prev, [order.id]: true }))}
+                                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border ${containerView[order.id] ? 'bg-[#6a9a04] text-white border-[#6a9a04]' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
+                                                        <Container size={13} /> Por Contenedor
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {containerView[order.id] && items.some(i => i.container_name) ? (
+                                                /* CONTAINER VIEW */
+                                                (() => {
+                                                    // Group items by container_name
+                                                    const containerGroups = [];
+                                                    const containerMap = new Map();
+                                                    items.forEach(item => {
+                                                        const key = item.container_name || 'Sin contenedor';
+                                                        if (!containerMap.has(key)) {
+                                                            containerMap.set(key, { name: key, departure: item.departure_date, items: [] });
+                                                            containerGroups.push(containerMap.get(key));
+                                                        }
+                                                        containerMap.get(key).items.push(item);
+                                                    });
+                                                    return (
+                                                        <div className="space-y-4">
+                                                            {containerGroups.map((group, gIdx) => {
+                                                                const groupTotal = group.items.reduce((s, i) => {
+                                                                    const q = editedQtys[order.id]?.[i.id] ?? i.quantity;
+                                                                    return s + q;
+                                                                }, 0);
+                                                                return (
+                                                                    <div key={gIdx} className="border border-slate-200 rounded-xl overflow-hidden">
+                                                                        {/* Container header */}
+                                                                        <div className="bg-slate-800 text-white px-4 py-2.5 flex items-center justify-between">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Package size={14} className="text-yellow-400" />
+                                                                                <span className="font-black text-sm">{group.name}</span>
+                                                                                <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                                                                    {group.items.length} prod · {groupTotal.toLocaleString()} uds
+                                                                                </span>
+                                                                            </div>
+                                                                            {group.departure && (
+                                                                                <span className="text-[10px] font-bold text-amber-300">
+                                                                                    DEPARTURE: {new Date(group.departure + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <table className="w-full border-collapse text-sm">
+                                                                            <thead>
+                                                                                <tr className="border-b border-slate-200">
+                                                                                    <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-slate-400">SKU Fab.</th>
+                                                                                    <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-slate-400">GL SKU</th>
+                                                                                    <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-slate-400">Producto</th>
+                                                                                    <th className="px-3 py-2 text-right text-[10px] font-black uppercase tracking-wider text-slate-400">Cantidad</th>
+                                                                                    <th className="px-3 py-2 text-right text-[10px] font-black uppercase tracking-wider text-slate-400">FOB</th>
+                                                                                    <th className="px-3 py-2 text-right text-[10px] font-black uppercase tracking-wider text-slate-400">Monto</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody className="divide-y divide-slate-100">
+                                                                                {group.items.map(item => {
+                                                                                    const product = products.find(p => p.id === item.product_id);
+                                                                                    const currentQty = editedQtys[order.id]?.[item.id] ?? item.quantity;
+                                                                                    const currentPrice = editedPrices[order.id]?.[item.id] ?? parseFloat(item.unit_price_usd || 0);
+                                                                                    const lineAmount = currentQty * currentPrice;
+                                                                                    return (
+                                                                                        <tr key={item.id} className="hover:bg-white/50">
+                                                                                            <td className="px-3 py-2 font-mono text-xs text-slate-500">{item.supplier_sku}</td>
+                                                                                            <td className="px-3 py-2 font-mono text-[11px] font-black text-[#6a9a04]">{product?.sku || '—'}</td>
+                                                                                            <td className="px-3 py-2 text-xs text-slate-700">{product?.name || '—'}</td>
+                                                                                            <td className="px-3 py-2 text-right font-black text-sm text-slate-900">{currentQty.toLocaleString()}</td>
+                                                                                            <td className="px-3 py-2 text-right text-xs text-slate-500">
+                                                                                                {currentPrice > 0 ? `$${currentPrice.toFixed(2)}` : '—'}
+                                                                                            </td>
+                                                                                            <td className="px-3 py-2 text-right text-xs font-bold text-slate-600">
+                                                                                                {lineAmount > 0 ? `$${lineAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    );
+                                                                                })}
+                                                                            </tbody>
+                                                                            <tfoot>
+                                                                                <tr className="border-t border-slate-300 bg-slate-50">
+                                                                                    <td colSpan="3" className="px-3 py-2 text-right text-[10px] font-black text-slate-400 uppercase">Subtotal</td>
+                                                                                    <td className="px-3 py-2 text-right font-black text-sm text-[#6a9a04]">{groupTotal.toLocaleString()}</td>
+                                                                                    <td></td>
+                                                                                    <td className="px-3 py-2 text-right font-bold text-xs text-slate-600">
+                                                                                        {(() => {
+                                                                                            const sub = group.items.reduce((s, i) => {
+                                                                                                const q = editedQtys[order.id]?.[i.id] ?? i.quantity;
+                                                                                                const p = editedPrices[order.id]?.[i.id] ?? parseFloat(i.unit_price_usd || 0);
+                                                                                                return s + (q * p);
+                                                                                            }, 0);
+                                                                                            return sub > 0 ? `$${sub.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '';
+                                                                                        })()}
+                                                                                    </td>
+                                                                                </tr>
+                                                                            </tfoot>
+                                                                        </table>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                            {/* Grand total */}
+                                                            <div className="flex justify-end gap-6 px-3 py-2">
+                                                                <span className="text-xs font-black text-slate-500 uppercase">Total General:</span>
+                                                                <span className="font-black text-sm text-[#6a9a04]">{totalQty.toLocaleString()} uds</span>
+                                                                <span className="font-black text-sm text-[#1a365d]">
+                                                                    {(() => {
+                                                                        const gt = items.reduce((s, i) => {
+                                                                            const q = editedQtys[order.id]?.[i.id] ?? i.quantity;
+                                                                            const p = editedPrices[order.id]?.[i.id] ?? parseFloat(i.unit_price_usd || 0);
+                                                                            return s + (q * p);
+                                                                        }, 0);
+                                                                        return gt > 0 ? `$${gt.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '';
+                                                                    })()}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()
+                                            ) : (
+                                            /* FLAT VIEW (original) */
                                             <table className="w-full border-collapse text-sm">
                                                 <thead>
                                                     <tr className="border-b border-slate-200">
@@ -686,6 +816,8 @@ export default function HistorialPedidosPage() {
                                                     </tr>
                                                 </tfoot>
                                             </table>
+                                            )}
+                                            </>
                                         ) : (
                                             <p className="text-xs text-slate-400 text-center py-4 m-0">Cargando items...</p>
                                         )}
