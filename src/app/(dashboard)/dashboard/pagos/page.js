@@ -1073,7 +1073,6 @@ export default function AdminPagosPage() {
                 </div>
               )}
             </div>
-          </div>
 
             {/* ===== ARQUEO DE CAJA HISTORY ===== */}
             <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden">
@@ -1234,6 +1233,7 @@ export default function AdminPagosPage() {
               );
             })()}
 
+          </div>
         );
       })()}
 
