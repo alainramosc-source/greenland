@@ -218,8 +218,8 @@ export default function NuevoPedidoPage() {
     if (selectedCategory === 'all') {
       matchesCategory = true;
     } else if (selectedCategory === 'mobiliario') {
-      // Show everything except Deco
-      matchesCategory = catName !== 'deco';
+      // Show everything except Deco and Spaces
+      matchesCategory = catName !== 'deco' && catName !== 'spaces';
     } else {
       matchesCategory = catName === selectedCategory.toLowerCase();
     }
@@ -428,25 +428,21 @@ export default function NuevoPedidoPage() {
               </div>
 
               <div className="flex gap-2 flex-wrap">
-                <button
-                  className={`px-4 py-1.5 rounded-full text-sm transition-all border ${selectedCategory === 'all' ? 'bg-[#6a9a04] text-white border-[#6a9a04] font-bold shadow-md shadow-[#6a9a04]/20' : 'bg-white/60 text-slate-600 border-white/60 hover:bg-white hover:border-slate-200'}`}
-                  onClick={() => setSelectedCategory('all')}
-                >
-                  Todos
-                </button>
-                <button
-                  className={`px-4 py-1.5 rounded-full text-sm transition-all border ${selectedCategory === 'mobiliario' ? 'bg-[#6a9a04] text-white border-[#6a9a04] font-bold shadow-md shadow-[#6a9a04]/20' : 'bg-white/60 text-slate-600 border-white/60 hover:bg-white hover:border-slate-200'}`}
-                  onClick={() => setSelectedCategory('mobiliario')}
-                >
-                  🪑 Mobiliario
-                </button>
-                {categories.map(cat => (
+                {[
+                  { key: 'all', label: 'Todos' },
+                  { key: 'mobiliario', label: '🪑 Mobiliario' },
+                  { key: 'Mesas Plegables', label: 'Mesas Plegables' },
+                  { key: 'Sillas de Evento', label: 'Sillas Plegables' },
+                  { key: 'Toldos Profesionales', label: 'Toldos Profesionales' },
+                  { key: 'Deco', label: 'Deco' },
+                  { key: 'Spaces', label: 'Spaces' },
+                ].filter(tab => tab.key === 'all' || tab.key === 'mobiliario' || categories.some(c => c.toLowerCase() === tab.key.toLowerCase())).map(tab => (
                   <button
-                    key={cat}
-                    className={`px-4 py-1.5 rounded-full text-sm transition-all border ${selectedCategory === cat ? 'bg-[#6a9a04] text-white border-[#6a9a04] font-bold shadow-md shadow-[#6a9a04]/20' : 'bg-white/60 text-slate-600 border-white/60 hover:bg-white hover:border-slate-200'}`}
-                    onClick={() => setSelectedCategory(cat)}
+                    key={tab.key}
+                    className={`px-4 py-1.5 rounded-full text-sm transition-all border ${selectedCategory === tab.key ? 'bg-[#6a9a04] text-white border-[#6a9a04] font-bold shadow-md shadow-[#6a9a04]/20' : 'bg-white/60 text-slate-600 border-white/60 hover:bg-white hover:border-slate-200'}`}
+                    onClick={() => setSelectedCategory(tab.key)}
                   >
-                    {cat}
+                    {tab.label}
                   </button>
                 ))}
               </div>
