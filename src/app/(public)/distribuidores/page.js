@@ -15,7 +15,7 @@ const PRODUCTS = [
 ];
 
 const STATS = [
-    { value: 'Directo', label: 'Importador sin intermediarios' },
+    { value: 'Directo', label: 'Precio importador · Sin intermediarios' },
     { value: '25%', label: 'Margen promedio' },
     { value: '24hrs', label: 'Despacho garantizado' },
     { value: '100%', label: 'Cobertura nacional' },
