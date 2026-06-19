@@ -85,15 +85,33 @@ export default function NuevoPedidoPage() {
         const uniqueCats = Array.from(new Set((productsData || []).map(p => p.categories?.name).filter(Boolean)));
         setCategories(uniqueCats);
 
-        // Fetch distributor addresses
+        // Fetch distributor addresses and product segment
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           let addrUserId = user.id;
           // Check admin simulation
-          const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+          const { data: prof } = await supabase.from('profiles').select('role, product_segment').eq('id', user.id).single();
           if (prof?.role === 'admin' && typeof window !== 'undefined' && sessionStorage.getItem('test_view_role') === 'distributor') {
             const simId = sessionStorage.getItem('test_view_distributor_id');
             if (simId) addrUserId = simId;
+            // Fetch simulated distributor's segment
+            const { data: simProf } = await supabase.from('profiles').select('product_segment').eq('id', simId).single();
+            if (simProf?.product_segment) {
+              if (simProf.product_segment === 'deco') {
+                const decoCat = uniqueCats.find(c => c.toLowerCase() === 'deco');
+                if (decoCat) setSelectedCategory(decoCat);
+              } else {
+                setSelectedCategory('mobiliario');
+              }
+            }
+          } else if (prof?.product_segment) {
+            // Set default category based on distributor's product segment
+            if (prof.product_segment === 'deco') {
+              const decoCat = uniqueCats.find(c => c.toLowerCase() === 'deco');
+              if (decoCat) setSelectedCategory(decoCat);
+            } else {
+              setSelectedCategory('mobiliario');
+            }
           }
           setDistributorId(addrUserId);
           const { data: addrData } = await supabase
@@ -194,7 +212,15 @@ export default function NuevoPedidoPage() {
     const safeQuery = searchQuery?.toLowerCase() || '';
     const matchesSearch = (product.name && product.name.toLowerCase().includes(safeQuery)) ||
       (product.sku && product.sku.toLowerCase().includes(safeQuery));
-    const matchesCategory = selectedCategory === "all" || product.categories?.name === selectedCategory;
+    let matchesCategory;
+    if (selectedCategory === 'all') {
+      matchesCategory = true;
+    } else if (selectedCategory === 'mobiliario') {
+      // Show everything except Deco
+      matchesCategory = product.categories?.name?.toLowerCase() !== 'deco';
+    } else {
+      matchesCategory = product.categories?.name === selectedCategory;
+    }
     return matchesSearch && matchesCategory;
   });
 
@@ -405,6 +431,12 @@ export default function NuevoPedidoPage() {
                   onClick={() => setSelectedCategory('all')}
                 >
                   Todos
+                </button>
+                <button
+                  className={`px-4 py-1.5 rounded-full text-sm transition-all border ${selectedCategory === 'mobiliario' ? 'bg-[#6a9a04] text-white border-[#6a9a04] font-bold shadow-md shadow-[#6a9a04]/20' : 'bg-white/60 text-slate-600 border-white/60 hover:bg-white hover:border-slate-200'}`}
+                  onClick={() => setSelectedCategory('mobiliario')}
+                >
+                  🪑 Mobiliario
                 </button>
                 {categories.map(cat => (
                   <button

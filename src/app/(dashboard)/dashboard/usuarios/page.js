@@ -117,9 +117,11 @@ export default function UsersPage() {
     if (selectedUser.role === 'distributor') {
       updateData.parent_distributor_id = selectedUser.parent_distributor_id || null;
       updateData.assigned_warehouse_id = selectedUser.sub_role === 'distributor_pro' ? (selectedUser.assigned_warehouse_id || null) : null;
+      updateData.product_segment = selectedUser.product_segment || 'mobiliario';
     } else {
       updateData.parent_distributor_id = null;
       updateData.assigned_warehouse_id = null;
+      updateData.product_segment = null;
     }
     const { error } = await supabase
       .from('profiles')
@@ -952,6 +954,17 @@ export default function UsersPage() {
                     >
                       <option value="">Distribuidor Regular</option>
                       <option value="distributor_pro">Distribuidor PRO (gestiona zona)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Línea de Producto</label>
+                    <select
+                      value={selectedUser.product_segment || 'mobiliario'}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, product_segment: e.target.value })}
+                      className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
+                    >
+                      <option value="mobiliario">🪑 Mobiliario</option>
+                      <option value="deco">🏠 Deco (Revestimientos)</option>
                     </select>
                   </div>
                   {selectedUser.sub_role !== 'distributor_pro' && (
