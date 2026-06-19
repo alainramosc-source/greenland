@@ -94,8 +94,8 @@ export default function DistribuidoresPage() {
                             fontSize: 'clamp(2.5rem, 5vw, 4rem)', fontWeight: 900, lineHeight: 1.05,
                             color: 'white', marginBottom: '1.5rem', letterSpacing: '-0.02em'
                         }}>
-                            Vende productos que<br />
-                            <span style={{ color: '#4ade20' }}>se venden solos.</span>
+                            Vende productos de<br />
+                            <span style={{ color: '#4ade20' }}>alta rotación.</span>
                         </h1>
 
                         <p style={{
