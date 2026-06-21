@@ -54,7 +54,21 @@ export default function DistribuidoresPage() {
                 body: JSON.stringify(form),
             });
             const data = await res.json();
-            setStatus(data.success ? 'sent' : 'error');
+            if (data.success) {
+                setStatus('sent');
+                // Google Analytics conversion event
+                if (typeof window !== 'undefined' && window.gtag) {
+                    window.gtag('event', 'generate_lead', {
+                        event_category: 'distributor_application',
+                        event_label: form.city,
+                        value: 1,
+                        company: form.company,
+                        city: form.city,
+                    });
+                }
+            } else {
+                setStatus('error');
+            }
         } catch {
             setStatus('error');
         }
@@ -62,6 +76,16 @@ export default function DistribuidoresPage() {
 
     const scrollToForm = () => {
         document.getElementById('form-section')?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    const trackWhatsApp = (location) => {
+        if (typeof window !== 'undefined' && window.gtag) {
+            window.gtag('event', 'contact', {
+                event_category: 'whatsapp_click',
+                event_label: location,
+                method: 'WhatsApp',
+            });
+        }
     };
 
     return (
@@ -116,7 +140,7 @@ export default function DistribuidoresPage() {
                             }}>
                                 Quiero ser distribuidor <ArrowRight size={18} />
                             </button>
-                            <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${WHATSAPP_MSG}`} target="_blank" rel="noopener noreferrer" style={{
+                            <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${WHATSAPP_MSG}`} target="_blank" rel="noopener noreferrer" onClick={() => trackWhatsApp('hero')} style={{
                                 display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
                                 background: 'rgba(255,255,255,0.1)', color: 'white', padding: '1rem 2rem',
                                 borderRadius: '9999px', fontWeight: 700, fontSize: '0.95rem',
@@ -259,7 +283,7 @@ export default function DistribuidoresPage() {
                         </div>
 
                         {/* WhatsApp CTA */}
-                        <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${WHATSAPP_MSG}`} target="_blank" rel="noopener noreferrer" style={{
+                        <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${WHATSAPP_MSG}`} target="_blank" rel="noopener noreferrer" onClick={() => trackWhatsApp('form_section')} style={{
                             display: 'inline-flex', alignItems: 'center', gap: '0.75rem',
                             background: '#25d366', color: 'white', padding: '1rem 2rem',
                             borderRadius: '9999px', fontWeight: 800, fontSize: '0.9rem',
@@ -395,7 +419,7 @@ export default function DistribuidoresPage() {
             </section>
 
             {/* ============ FLOATING WHATSAPP ============ */}
-            <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${WHATSAPP_MSG}`} target="_blank" rel="noopener noreferrer"
+            <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${WHATSAPP_MSG}`} target="_blank" rel="noopener noreferrer" onClick={() => trackWhatsApp('floating_button')}
                 style={{
                     position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 50,
                     width: '60px', height: '60px', borderRadius: '50%',
