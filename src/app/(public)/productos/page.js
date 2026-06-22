@@ -50,18 +50,12 @@ export default async function ProductosPage({ searchParams }) {
 
     const { data: products } = await query;
 
-    // Client-side filtering for 'divisions' if needed
-    let displayProducts = products || [];
-    if (categoryFilter === 'spaces') {
-        displayProducts = displayProducts.filter(p => ['mesas', 'sillas', 'toldos'].includes(p.categories?.slug));
-    } else if (categoryFilter === 'deco') {
-        displayProducts = displayProducts.filter(p => ['bancas'].includes(p.categories?.slug));
-    }
+    // Filter to show only core products (mesas, sillas, toldos) — Deco/Spaces have their own pages
+    const coreCategories = ['mesas', 'sillas', 'toldos'];
+    let displayProducts = (products || []).filter(p => coreCategories.includes(p.categories?.slug));
 
     const getPageTitle = () => {
         if (!categoryFilter) return 'Catálogo Completo';
-        if (categoryFilter === 'spaces') return 'Greenland Spaces';
-        if (categoryFilter === 'deco') return 'Greenland Deco';
         const cat = categories?.find(c => c.slug === categoryFilter);
         return cat ? cat.name : 'Productos';
     };
@@ -85,24 +79,12 @@ export default async function ProductosPage({ searchParams }) {
                 {/* Sidebar / Filters */}
                 <aside className="catalog-sidebar">
                     <div className="sidebar-section">
-                        <h3>Divisiones</h3>
-                        <nav className="nav-vertical">
-                            <Link href="/spaces" className="nav-item">
-                                Spaces (Soluciones Modulares)
-                            </Link>
-                            <Link href="/deco" className="nav-item">
-                                Deco (Recubrimientos Decorativos)
-                            </Link>
-                        </nav>
-                    </div>
-
-                    <div className="sidebar-section" style={{ marginTop: '2rem' }}>
                         <h3>Categorías</h3>
                         <nav className="nav-vertical">
                             <Link href="/productos" className={`nav-item ${!categoryFilter ? 'active' : ''}`}>
                                 Ver Todo
                             </Link>
-                            {categories?.map(cat => (
+                            {categories?.filter(cat => coreCategories.includes(cat.slug)).map(cat => (
                                 <Link
                                     key={cat.id}
                                     href={`/productos?cat=${cat.slug}`}
