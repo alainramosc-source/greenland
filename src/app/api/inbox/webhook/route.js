@@ -329,8 +329,8 @@ async function storeInboundMessage(conversationId, content, contentType, mediaUr
     }
   }
 
-  // Insert message
-  await getAdminClient()
+  // Insert message (with race condition protection via unique constraint on platform_message_id)
+  const { error: insertError } = await getAdminClient()
     .from('inbox_messages')
     .insert({
       conversation_id: conversationId,
@@ -341,6 +341,15 @@ async function storeInboundMessage(conversationId, content, contentType, mediaUr
       platform_message_id: platformMessageId,
       status: 'delivered',
     });
+
+  // If insert failed due to unique constraint (race condition duplicate), skip processing
+  if (insertError) {
+    if (insertError.code === '23505') {
+      console.log(`[Inbox] ⏭️ Race condition duplicate caught: ${platformMessageId}`);
+      return;
+    }
+    console.error('[Inbox] Insert error:', insertError);
+  }
 
   // Update conversation with last message info and increment unread
   const { data: conv } = await getAdminClient()

@@ -1,6 +1,6 @@
 // ============================================================
 // Follow-up Cron Job — Proactive bot messages
-// Runs every 3 minutes via Vercel Cron
+// Runs every 5 minutes via Vercel Cron
 // Sends follow-up messages to customers who stopped responding
 // ============================================================
 

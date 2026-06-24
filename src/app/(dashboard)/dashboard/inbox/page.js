@@ -1570,8 +1570,10 @@ export default function InboxPage() {
       })
       .subscribe();
 
-    // Polling fallback: refetch conversations every 10 seconds
+    // Polling fallback: refetch conversations every 15 seconds (Realtime handles instant updates)
     const pollInterval = setInterval(async () => {
+      // Don't poll when tab is in background — Realtime still delivers updates
+      if (document.visibilityState === 'hidden') return;
       try {
         const { data: { user: pollUser } } = await supabase.auth.getUser();
         if (!pollUser) return;
@@ -1611,7 +1613,7 @@ export default function InboxPage() {
           });
         }
       } catch (e) { /* silently ignore poll errors */ }
-    }, 10000);
+    }, 15000);
 
     return () => {
       supabase.removeChannel(convChannel);
@@ -1662,8 +1664,10 @@ export default function InboxPage() {
       })
       .subscribe();
 
-    // Message polling fallback (3 seconds) — ensures messages always appear
+    // Message polling fallback (5 seconds) — Realtime handles instant updates, this is a safety net
     const msgPoll = setInterval(async () => {
+      // Don't poll when tab is in background
+      if (document.visibilityState === 'hidden') return;
       try {
         const { data } = await supabase
           .from('inbox_messages')
@@ -1683,7 +1687,7 @@ export default function InboxPage() {
           });
         }
       } catch (e) { /* ignore poll errors */ }
-    }, 3000);
+    }, 5000);
 
     return () => {
       supabase.removeChannel(channel);
