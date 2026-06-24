@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   Package, History, X, Search, AlertTriangle, Shield, ArrowRightLeft, Warehouse,
   ClipboardList, Plus, Loader2, ChevronRight, Calendar, User, Lock, Eye, EyeOff, Filter,
-  Upload, FileSpreadsheet, CheckCircle2, XCircle, Download, ShoppingCart, Trash2, Check, DollarSign
+  Upload, FileSpreadsheet, CheckCircle2, XCircle, Download, ShoppingCart, Trash2, Check, DollarSign, FileDown
 } from 'lucide-react';
 import { useRef } from 'react';
 
@@ -933,7 +933,35 @@ export default function InventariosPage() {
                       value={movementSearch} onChange={(e) => setMovementSearch(e.target.value)}
                       className="w-full pl-12 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm placeholder:text-slate-400 text-slate-800 outline-none shadow-sm" />
                   </div>
-                  <p className="text-sm text-slate-500 m-0 ml-auto">{filteredLogs.length} movimientos</p>
+                  <button onClick={() => {
+                    const headers = ['Fecha', 'Hora', 'SKU', 'Producto', 'Cantidad', 'Bodega', 'Motivo', 'Usuario'];
+                    const rows = filteredLogs.map(log => {
+                      const whMatch = (log.reason || '').match(/\[Bodega:\s*(.+?)\]/);
+                      const warehouseName = whMatch ? whMatch[1] : '';
+                      const cleanReason = (log.reason || '').replace(/\s*\[Bodega:.*?\]/, '').trim();
+                      return [
+                        new Date(log.created_at).toLocaleDateString('es-MX'),
+                        new Date(log.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                        log.product?.sku || '',
+                        log.product?.name || '',
+                        log.quantity_change || 0,
+                        warehouseName,
+                        cleanReason,
+                        log.user?.full_name || log.user?.email || ''
+                      ];
+                    });
+                    const csv = '\uFEFF' + [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url;
+                    a.download = `movimientos_${new Date().toISOString().slice(0,10)}.csv`;
+                    a.click(); URL.revokeObjectURL(url);
+                  }} disabled={filteredLogs.length === 0}
+                    className="ml-auto flex items-center gap-2 px-4 py-2.5 bg-[#6a9a04] hover:bg-[#5a8503] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl shadow-sm transition-colors cursor-pointer border-none">
+                    <FileDown size={16} />
+                    Exportar Excel
+                  </button>
+                  <p className="text-sm text-slate-500 m-0">{filteredLogs.length} movimientos</p>
                 </div>
 
                 {filteredLogs.length === 0 ? (
