@@ -1,7 +1,7 @@
 'use client';
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { ScrollText, Search, Filter, Loader2, User, Package, CreditCard, ShieldCheck, ClipboardList } from 'lucide-react';
+import { ScrollText, Search, Filter, Loader2, User, Package, CreditCard, ShieldCheck, ClipboardList, Download } from 'lucide-react';
 
 const ACTION_LABELS = {
     stock_increase: { label: 'Entrada de Inventario', icon: Package, color: '#059669' },
@@ -47,6 +47,39 @@ export default function AuditoriaPage() {
 
     const uniqueActions = [...new Set(logs.map(l => l.action))];
 
+    const exportToExcel = () => {
+        const headers = ['Fecha', 'Usuario', 'Acción', 'SKU', 'Almacén', 'Antes', 'Después', 'Cambio', 'Razón', 'Detalles'];
+        const rows = filteredLogs.map(log => {
+            const d = log.details || {};
+            const isStock = log.action === 'stock_increase' || log.action === 'stock_decrease';
+            const actionLabel = ACTION_LABELS[log.action]?.label || log.action;
+            return [
+                new Date(log.created_at).toLocaleString('es-MX'),
+                log.user?.full_name || log.user?.email || 'Sistema',
+                actionLabel,
+                isStock ? (d.sku || '') : '',
+                isStock ? (d.warehouse || '') : '',
+                isStock ? (d.before ?? '') : '',
+                isStock ? (d.after ?? '') : '',
+                isStock ? (d.change ?? '') : '',
+                d.reason || '',
+                !isStock ? Object.entries(d).map(([k, v]) => `${k}: ${v}`).join(' | ') : ''
+            ];
+        });
+
+        const csvContent = '\uFEFF' + [headers, ...rows]
+            .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+            .join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `auditoria_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
     if (loading) return (
         <div className="flex items-center justify-center min-h-[60vh]">
             <Loader2 size={32} className="animate-spin text-[#6a9a04]" />
@@ -78,6 +111,11 @@ export default function AuditoriaPage() {
                             <option key={a} value={a}>{ACTION_LABELS[a]?.label || a}</option>
                         ))}
                     </select>
+                    <button onClick={exportToExcel} disabled={filteredLogs.length === 0}
+                        className="ml-auto flex items-center gap-2 px-4 py-2.5 bg-[#6a9a04] hover:bg-[#5a8503] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl shadow-sm transition-colors">
+                        <Download size={16} />
+                        Exportar Excel
+                    </button>
                 </div>
 
                 {/* Logs Table */}
