@@ -157,34 +157,36 @@ export default function InventariosPage() {
 
     // Fetch order movements (confirmed/shipped/closed orders)
     try {
-      const { data: orderItems } = await supabase
-        .from('order_items')
+      const { data: ordersData } = await supabase
+        .from('orders')
         .select(`
-          id, quantity, product_id, warehouse_id, created_at,
-          products(name, sku),
-          orders!inner(id, order_number, status, created_at, confirmed_at, shipped_at,
-            profiles:distributor_id(full_name))
+          id, order_number, status, created_at, confirmed_at, shipped_at,
+          profiles:distributor_id(full_name),
+          order_items(id, quantity, product_id, warehouse_id,
+            products(name, sku))
         `)
-        .in('orders.status', ['confirmed', 'in_fulfillment', 'shipped', 'closed'])
+        .in('status', ['confirmed', 'in_fulfillment', 'shipped', 'closed'])
         .order('created_at', { ascending: false })
-        .limit(300);
+        .limit(100);
 
-      if (orderItems) {
-        const orderLogs = orderItems.map(item => {
-          const o = item.orders;
+      if (ordersData) {
+        const orderLogs = [];
+        ordersData.forEach(o => {
           const dateUsed = o.shipped_at || o.confirmed_at || o.created_at;
-          const whName = whData?.find(w => w.id === item.warehouse_id)?.name || '';
           const statusLabel = o.status === 'shipped' || o.status === 'closed' ? 'Enviado' :
                               o.status === 'in_fulfillment' ? 'En Surtido' : 'Confirmado';
-          return {
-            id: `order-${item.id}`,
-            created_at: dateUsed,
-            quantity_change: -(item.quantity),
-            reason: `Pedido #${o.order_number} (${statusLabel}) [Bodega: ${whName}]`,
-            product: item.products,
-            user: { full_name: o.profiles?.full_name || 'Distribuidor' },
-            _source: 'order'
-          };
+          (o.order_items || []).forEach(item => {
+            const whName = whData?.find(w => w.id === item.warehouse_id)?.name || '';
+            orderLogs.push({
+              id: `order-${item.id}`,
+              created_at: dateUsed,
+              quantity_change: -(item.quantity),
+              reason: `Pedido #${o.order_number} (${statusLabel}) [Bodega: ${whName}]`,
+              product: item.products,
+              user: { full_name: o.profiles?.full_name || 'Distribuidor' },
+              _source: 'order'
+            });
+          });
         });
         logs = [...logs, ...orderLogs];
       }
