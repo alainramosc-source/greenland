@@ -150,10 +150,48 @@ export default function InventariosPage() {
         .limit(200);
       logs = (logsData || []).map(l => ({
         ...l,
-        product: products.find(p => p.id === l.product_id) || null,
+        product: productsData.find(p => p.id === l.product_id) || null,
         user: null
       }));
     }
+
+    // Fetch order movements (confirmed/shipped/closed orders)
+    try {
+      const { data: orderItems } = await supabase
+        .from('order_items')
+        .select(`
+          id, quantity, product_id, warehouse_id, created_at,
+          products(name, sku),
+          orders!inner(id, order_number, status, created_at, confirmed_at, shipped_at,
+            profiles:distributor_id(full_name))
+        `)
+        .in('orders.status', ['confirmed', 'in_fulfillment', 'shipped', 'closed'])
+        .order('created_at', { ascending: false })
+        .limit(300);
+
+      if (orderItems) {
+        const orderLogs = orderItems.map(item => {
+          const o = item.orders;
+          const dateUsed = o.shipped_at || o.confirmed_at || o.created_at;
+          const whName = whData?.find(w => w.id === item.warehouse_id)?.name || '';
+          const statusLabel = o.status === 'shipped' || o.status === 'closed' ? 'Enviado' :
+                              o.status === 'in_fulfillment' ? 'En Surtido' : 'Confirmado';
+          return {
+            id: `order-${item.id}`,
+            created_at: dateUsed,
+            quantity_change: -(item.quantity),
+            reason: `Pedido #${o.order_number} (${statusLabel}) [Bodega: ${whName}]`,
+            product: item.products,
+            user: { full_name: o.profiles?.full_name || 'Distribuidor' },
+            _source: 'order'
+          };
+        });
+        logs = [...logs, ...orderLogs];
+      }
+    } catch (e) { console.error('Error fetching order movements:', e); }
+
+    // Sort all logs by date descending
+    logs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     setMovementLogs(logs);
 
     // Fetch retail sales for PRO users (from inventory_logs)
