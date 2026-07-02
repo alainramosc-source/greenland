@@ -82,11 +82,32 @@ export default function MisPagosPage() {
       .eq('distributor_id', targetUserId)
       .not('status', 'in', '("cancelled","rejected")')
       .order('created_at', { ascending: false });
+
+    // Fetch PENDING distributor_payments to factor into balance (prevent overpayment)
+    const { data: pendingDPs } = await supabase
+      .from('distributor_payments')
+      .select('id, allocations')
+      .eq('distributor_id', targetUserId)
+      .eq('status', 'pending');
+
+    // Build map: order_id -> total pending amount from unapproved payments
+    const pendingByOrder = {};
+    (pendingDPs || []).forEach(dp => {
+      if (dp.allocations && Array.isArray(dp.allocations)) {
+        dp.allocations.forEach(a => {
+          if (a.order_id) {
+            pendingByOrder[a.order_id] = (pendingByOrder[a.order_id] || 0) + Number(a.amount || 0);
+          }
+        });
+      }
+    });
+
     if (ordData) {
-      // Calculate paid amount per order
+      // Calculate paid amount per order (approved + pending)
       ordData.forEach(o => {
         o.total_paid = (o.order_payments || []).reduce((s, p) => s + Number(p.amount), 0);
-        o.balance = Number(o.total_amount) - o.total_paid;
+        o.pending_amount = pendingByOrder[o.id] || 0;
+        o.balance = Math.max(Number(o.total_amount) - o.total_paid - o.pending_amount, 0);
       });
       setOrders(ordData);
     }
@@ -539,6 +560,11 @@ export default function MisPagosPage() {
                                 <span className={`ml-2 font-bold ${o.balance > 0 ? 'text-red-500' : 'text-green-500'}`}>
                                   Saldo: ${o.balance.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                                 </span>
+                                {o.pending_amount > 0 && (
+                                  <span className="ml-2 text-amber-500 font-medium">
+                                    (${o.pending_amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} en revisión)
+                                  </span>
+                                )}
                               </p>
                             </div>
                           </button>
