@@ -5,7 +5,7 @@ import NextImage from 'next/image';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // SKUs that need object-contain (wide/panoramic images)
-const CONTAIN_SKUS = ['GL06', 'GL29', 'GL35', 'GL36', 'GL37', 'GL38'];
+const CONTAIN_SKUS = ['GL06', 'GL27', 'GL29', 'GL35', 'GL36', 'GL37', 'GL38'];
 
 export default function InteractiveGallery({ sku, productName }) {
     const objectFit = CONTAIN_SKUS.includes(sku) ? 'object-contain' : 'object-cover';
