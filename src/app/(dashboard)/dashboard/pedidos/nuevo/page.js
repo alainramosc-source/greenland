@@ -224,6 +224,20 @@ export default function NuevoPedidoPage() {
       matchesCategory = catName === selectedCategory.toLowerCase();
     }
     return matchesSearch && matchesCategory;
+  }).sort((a, b) => {
+    // Sort priority: products with images first, grouped by type
+    // Lambrines (Wall Panel) → Angulos (Angular) → everything else
+    const getPriority = (p) => {
+      const name = (p.name || '').toLowerCase();
+      if (name.includes('lambr') || name.includes('wall panel')) return 1;
+      if (name.includes('angul') || name.includes('angular')) return 2;
+      if (name.includes('toldo')) return 3;
+      return 9;
+    };
+    const pa = getPriority(a);
+    const pb = getPriority(b);
+    if (pa !== pb) return pa - pb;
+    return (a.name || '').localeCompare(b.name || '');
   });
 
   // Cart logic
