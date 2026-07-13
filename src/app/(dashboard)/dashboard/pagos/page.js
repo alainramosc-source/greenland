@@ -343,15 +343,19 @@ export default function AdminPagosPage() {
 
   // Dual signature handler
   const handleSignExit = async (movementId) => {
-    const movement = cashMovements.find(m => m.id === movementId);
-    if (!movement) return;
     setActionLoading(movementId);
+    // Fetch fresh data from DB to avoid race conditions
+    const { data: movement, error: fetchErr } = await supabase
+      .from('cash_movements')
+      .select('id, approved_by_1, approved_by_2')
+      .eq('id', movementId)
+      .single();
+    if (fetchErr || !movement) { setActionLoading(null); return; }
     const updateData = {};
     // Check if signer 1 slot is free or already taken by someone else
     if (!movement.approved_by_1) {
       updateData.approved_by_1 = currentUserId;
       updateData.approved_at_1 = new Date().toISOString();
-      // If signer 2 already signed, this completes it
       updateData.approval_status = movement.approved_by_2 ? 'approved' : 'partially_signed';
     } else if (!movement.approved_by_2 && movement.approved_by_1 !== currentUserId) {
       updateData.approved_by_2 = currentUserId;
@@ -1058,7 +1062,7 @@ export default function AdminPagosPage() {
                               )}
                             </>
                           )}
-                          {m.approval_status === 'approved' && m.type === 'exit' && m.reference_type === 'manual' && (
+                          {m.approval_status === 'approved' && m.type === 'exit' && (
                             <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700 flex items-center gap-1">
                               <ShieldCheck size={10} /> Aprobado
                             </span>
