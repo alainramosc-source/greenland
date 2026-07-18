@@ -67,16 +67,24 @@ export default function AdminPagosPage() {
   // Generate signed URL for receipt viewing
   const handleViewReceipt = async (receiptUrl) => {
     if (!receiptUrl) return;
+    // Extract just the storage path from full URLs or use as-is for plain paths
     let storagePath = receiptUrl;
     const match = receiptUrl.match(/payment-receipts\/([^?]+)/);
     if (match) {
-      storagePath = match[1];
+      storagePath = decodeURIComponent(match[1]);
     }
-    const { data } = await supabase.storage.from('payment-receipts').createSignedUrl(storagePath, 3600);
+    // Try signed URL first (for private buckets)
+    const { data, error } = await supabase.storage.from('payment-receipts').createSignedUrl(storagePath, 3600);
     if (data?.signedUrl) {
       setLightboxImg(data.signedUrl);
     } else {
-      setLightboxImg(receiptUrl);
+      // Fallback: try public URL
+      const { data: pubData } = supabase.storage.from('payment-receipts').getPublicUrl(storagePath);
+      if (pubData?.publicUrl) {
+        setLightboxImg(pubData.publicUrl);
+      } else {
+        alert('No se pudo cargar el comprobante. El archivo puede no existir en el almacenamiento.');
+      }
     }
   };
 
@@ -1572,7 +1580,22 @@ export default function AdminPagosPage() {
       {/* Lightbox */}
       {lightboxImg && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setLightboxImg(null)}>
-          <img src={lightboxImg} alt="Comprobante" className="max-w-full max-h-full rounded-xl shadow-2xl" />
+          <button onClick={() => setLightboxImg(null)} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center border-none cursor-pointer transition-colors z-10">
+            <X size={20} className="text-white" />
+          </button>
+          {lightboxImg.toLowerCase().includes('.pdf') ? (
+            <iframe src={lightboxImg} className="w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl bg-white" title="Comprobante PDF" />
+          ) : (
+            <img
+              src={lightboxImg}
+              alt="Comprobante"
+              className="max-w-full max-h-full rounded-xl shadow-2xl"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.parentNode.insertAdjacentHTML('beforeend', '<div style="background:white;padding:40px;border-radius:16px;text-align:center"><p style="font-size:18px;font-weight:bold;color:#334155;margin-bottom:8px">⚠️ No se pudo cargar el comprobante</p><p style="font-size:14px;color:#94a3b8">El archivo puede no existir o el bucket de almacenamiento no tiene los permisos correctos.</p></div>');
+              }}
+            />
+          )}
         </div>
       )}
     </div>
