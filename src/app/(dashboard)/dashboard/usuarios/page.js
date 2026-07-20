@@ -461,12 +461,20 @@ export default function UsersPage() {
 
     if (ordErr) console.error('[CxC] Orders query error:', ordErr);
 
-    const { data: payments, error: payErr } = await supabase
+    // order_payments — used for per-order detail and reconciliation
+    const { data: orderPayments, error: payErr } = await supabase
       .from('order_payments')
       .select('id, order_id, amount, payment_date')
       .order('payment_date', { ascending: false });
 
     if (payErr) console.error('[CxC] Payments query error:', payErr);
+
+    // distributor_payments (approved) — source of truth for total paid
+    const { data: allDistPayments } = await supabase
+      .from('distributor_payments')
+      .select('distributor_id, amount, container_amount, payment_type, payment_date')
+      .eq('status', 'approved')
+      .order('payment_date', { ascending: false });
 
     // Get container reception charges for PRO distributors
     const { data: receptions } = await supabase
@@ -475,13 +483,6 @@ export default function UsersPage() {
       .eq('status', 'completed')
       .not('distributor_id', 'is', null)
       .gt('charge_amount', 0);
-
-    // Get approved container payments (payment_type = 'containers' or 'mixed')
-    const { data: containerPayments } = await supabase
-      .from('distributor_payments')
-      .select('distributor_id, amount, container_amount, payment_type, payment_date')
-      .eq('status', 'approved')
-      .in('payment_type', ['containers', 'mixed']);
 
     // Build per-distributor summary
     const summary = distributors.map(dist => {
@@ -494,23 +495,18 @@ export default function UsersPage() {
 
       const totalFacturado = totalFacturadoOrders + totalFacturadoReceptions;
 
-      // Payments applied to orders (from order_payments)
-      const orderIds = distOrders.map(o => o.id);
-      const distPayments = (payments || []).filter(p => orderIds.includes(p.order_id));
-      const totalPagadoPedidos = distPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-
-      // Payments applied to containers (from distributor_payments where payment_type is containers/mixed)
-      const distContainerPayments = (containerPayments || []).filter(cp => cp.distributor_id === dist.id);
-      const totalPagadoContenedores = distContainerPayments.reduce((sum, cp) => {
-        if (cp.payment_type === 'containers') return sum + Number(cp.amount || 0);
-        // For mixed, only count the container_amount portion
-        return sum + Number(cp.container_amount || 0);
-      }, 0);
-
+      // Total paid from distributor_payments (source of truth — actual money received)
+      const distDPs = (allDistPayments || []).filter(dp => dp.distributor_id === dist.id);
+      const totalPagadoPedidos = distDPs.reduce((sum, dp) => sum + Number(dp.amount || 0) - Number(dp.container_amount || 0), 0);
+      const totalPagadoContenedores = distDPs.reduce((sum, dp) => sum + Number(dp.container_amount || 0), 0);
       const totalPagado = totalPagadoPedidos + totalPagadoContenedores;
-      const lastOrderPayment = distPayments.length > 0 ? distPayments[0].payment_date : null;
-      const lastContainerPayment = distContainerPayments.length > 0 ? distContainerPayments[0].payment_date : null;
-      const lastPayment = [lastOrderPayment, lastContainerPayment].filter(Boolean).sort().reverse()[0] || null;
+
+      // Reconciliation: compare order portion of dp vs order_payments
+      const orderIds = distOrders.map(o => o.id);
+      const totalApplied = (orderPayments || []).filter(p => orderIds.includes(p.order_id)).reduce((sum, p) => sum + (p.amount || 0), 0);
+      const discrepancy = Math.round((totalPagadoPedidos - totalApplied) * 100) / 100;
+
+      const lastPayment = distDPs.length > 0 ? distDPs[0].payment_date : null;
 
       return {
         ...dist,
@@ -518,6 +514,7 @@ export default function UsersPage() {
         totalPagado,
         totalPagadoPedidos,
         totalPagadoContenedores,
+        discrepancy,
         balance: totalFacturado - totalPagado,
         orderCount: distOrders.length,
         receptionCount: distReceptions.length,
@@ -1194,12 +1191,13 @@ export default function UsersPage() {
                         Saldo {cxcSort.key === 'balance' && (cxcSort.dir === 'desc' ? '↓' : '↑')}
                       </th>
                       <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Último Pago</th>
+                      <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center">Auditoría</th>
                       <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 text-center">Reporte</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredCxc.length === 0 ? (
-                      <tr><td colSpan={8} className="px-6 py-12 text-center text-slate-400">No se encontraron distribuidores con saldo.</td></tr>
+                      <tr><td colSpan={9} className="px-6 py-12 text-center text-slate-400">No se encontraron distribuidores con saldo.</td></tr>
                     ) : (
                       filteredCxc.map(d => (
                         <tr key={d.id} className="hover:bg-white/50 transition-colors">
@@ -1224,6 +1222,16 @@ export default function UsersPage() {
                           </td>
                           <td className="px-4 py-4 text-sm text-slate-500">
                             {d.lastPayment ? new Date(d.lastPayment).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : <span className="text-slate-300">Sin pagos</span>}
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            {d.discrepancy !== 0 ? (
+                              <span title={`Discrepancia de $${Math.abs(d.discrepancy).toLocaleString('es-MX', { minimumFractionDigits: 2 })} entre pagos aprobados y pagos aplicados a pedidos`}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700 cursor-help">
+                                ⚠️ ${Math.abs(d.discrepancy).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-green-50 text-green-600">✓</span>
+                            )}
                           </td>
                           <td className="px-4 py-4 text-center">
                             <button
