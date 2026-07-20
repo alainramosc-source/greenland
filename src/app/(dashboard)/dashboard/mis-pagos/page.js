@@ -121,14 +121,12 @@ export default function MisPagosPage() {
       .order('reception_date', { ascending: false });
     setReceptions(recData || []);
 
-    // Calculate balance using order_payments (same source as admin CxC — prevents discrepancies)
-    const totalPaidToOrders = (ordData || []).reduce((s, o) => s + (o.total_paid || 0), 0);
-    // Container payments don't go through order_payments, so count them from distributor_payments
-    const totalPaidContainers = (payData || []).filter(p => p.status === 'approved' && Number(p.container_amount) > 0).reduce((s, p) => s + Number(p.container_amount), 0);
-    const totalPaid = totalPaidToOrders + totalPaidContainers;
+    // Calculate balance using distributor_payments (represents actual money received/approved)
+    // This is the source of truth — order_payments can have gaps due to cap logic in approval
+    const approved = (payData || []).filter(p => p.status === 'approved').reduce((s, p) => s + Number(p.amount), 0);
     const totalOrders = (ordData || []).reduce((s, o) => s + Number(o.total_amount), 0);
     const totalContainers = (recData || []).reduce((s, r) => s + Number(r.charge_amount || 0), 0);
-    setBalance({ total_orders: totalOrders, total_containers: totalContainers, total_paid: totalPaid, balance: (totalOrders + totalContainers) - totalPaid });
+    setBalance({ total_orders: totalOrders, total_containers: totalContainers, total_paid: approved, balance: (totalOrders + totalContainers) - approved });
 
     setLoading(false);
   };
