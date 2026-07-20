@@ -148,10 +148,11 @@ export default function AdminPagosPage() {
         const totalOrders = dOrders.reduce((s, o) => s + Number(o.total_amount), 0);
         const dPayments = (payData || []).filter(p => p.distributor_id === d.id && p.status === 'approved');
         const totalPaid = dPayments.reduce((s, p) => s + Number(p.amount), 0);
-        // Reconciliation: compare with order_payments to detect gaps
+        // Reconciliation: compare only ORDER payments (exclude containers) vs order_payments
+        const totalPaidToOrders = dPayments.reduce((s, p) => s + Number(p.amount) - Number(p.container_amount || 0), 0);
         const dOrderIds = dOrders.map(o => o.id);
         const totalApplied = (orderPaymentsData || []).filter(p => dOrderIds.includes(p.order_id)).reduce((s, p) => s + Number(p.amount), 0);
-        const discrepancy = Math.round((totalPaid - totalApplied) * 100) / 100;
+        const discrepancy = Math.round((totalPaidToOrders - totalApplied) * 100) / 100;
         return { ...d, total_orders: totalOrders, total_paid: totalPaid, balance: totalOrders - totalPaid, discrepancy };
       });
       setBalances(bals);
