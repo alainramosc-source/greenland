@@ -532,18 +532,29 @@ export default function VentaMostradorPage() {
   };
 
   // ──────────── FETCH HISTORIAL ────────────
-  const fetchHistorial = async () => {
-    setHistorialLoading(true);
+  const HIST_PAGE_SIZE = 100;
+  const [hasMoreHistory, setHasMoreHistory] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const fetchHistorial = async (loadMore = false) => {
+    if (loadMore) setLoadingMore(true); else setHistorialLoading(true);
+    const offset = loadMore ? salesHistory.length : 0;
     const { data, error } = await supabase
       .from('counter_sales')
       .select('*, seller:profiles!counter_sales_sold_by_fkey(full_name), warehouse:warehouses!counter_sales_warehouse_id_fkey(name)')
       .order('created_at', { ascending: false })
-      .limit(100);
+      .range(offset, offset + HIST_PAGE_SIZE - 1);
 
     if (!error && data) {
-      setSalesHistory(data);
+      if (loadMore) {
+        setSalesHistory(prev => [...prev, ...data]);
+      } else {
+        setSalesHistory(data);
+      }
+      setHasMoreHistory(data.length === HIST_PAGE_SIZE);
     }
     setHistorialLoading(false);
+    setLoadingMore(false);
   };
 
   useEffect(() => {
@@ -1274,10 +1285,19 @@ export default function VentaMostradorPage() {
                   </div>
 
                   {/* Footer */}
-                  <div className="px-4 py-3 bg-slate-50/50 border-t border-slate-200">
+                  <div className="px-4 py-3 bg-slate-50/50 border-t border-slate-200 flex items-center justify-between">
                     <p className="text-xs font-medium text-slate-500 m-0">
                       Mostrando {filteredHistory.length} de {salesHistory.length} ventas
                     </p>
+                    {hasMoreHistory && (
+                      <button
+                        onClick={() => fetchHistorial(true)}
+                        disabled={loadingMore}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#6a9a04]/10 text-[#6a9a04] text-xs font-bold hover:bg-[#6a9a04]/20 transition-all cursor-pointer border-none disabled:opacity-50"
+                      >
+                        {loadingMore ? 'Cargando...' : 'Cargar más ventas'}
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
