@@ -495,18 +495,28 @@ export default function UsersPage() {
 
       const totalFacturado = totalFacturadoOrders + totalFacturadoReceptions;
 
-      // Total paid from distributor_payments (source of truth — actual money received)
+      // Payments applied to orders (from order_payments — original calculation)
+      const orderIds = distOrders.map(o => o.id);
+      const distPayments = (orderPayments || []).filter(p => orderIds.includes(p.order_id));
+      const totalPagadoPedidos = distPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+      // Payments applied to containers (from distributor_payments where payment_type is containers/mixed)
       const distDPs = (allDistPayments || []).filter(dp => dp.distributor_id === dist.id);
-      const totalPagadoPedidos = distDPs.reduce((sum, dp) => sum + Number(dp.amount || 0) - Number(dp.container_amount || 0), 0);
-      const totalPagadoContenedores = distDPs.reduce((sum, dp) => sum + Number(dp.container_amount || 0), 0);
+      const distContainerPayments = distDPs.filter(cp => cp.payment_type === 'containers' || cp.payment_type === 'mixed');
+      const totalPagadoContenedores = distContainerPayments.reduce((sum, cp) => {
+        if (cp.payment_type === 'containers') return sum + Number(cp.amount || 0);
+        return sum + Number(cp.container_amount || 0);
+      }, 0);
+
       const totalPagado = totalPagadoPedidos + totalPagadoContenedores;
 
-      // Reconciliation: compare order portion of dp vs order_payments
-      const orderIds = distOrders.map(o => o.id);
-      const totalApplied = (orderPayments || []).filter(p => orderIds.includes(p.order_id)).reduce((sum, p) => sum + (p.amount || 0), 0);
-      const discrepancy = Math.round((totalPagadoPedidos - totalApplied) * 100) / 100;
+      // Audit: compare distributor_payments (order portion only) vs order_payments
+      const dpOrderTotal = distDPs.reduce((sum, dp) => sum + Number(dp.amount || 0) - Number(dp.container_amount || 0), 0);
+      const discrepancy = Math.round((dpOrderTotal - totalPagadoPedidos) * 100) / 100;
 
-      const lastPayment = distDPs.length > 0 ? distDPs[0].payment_date : null;
+      const lastOrderPayment = distPayments.length > 0 ? distPayments[0].payment_date : null;
+      const lastContainerPayment = distContainerPayments.length > 0 ? distContainerPayments[0].payment_date : null;
+      const lastPayment = [lastOrderPayment, lastContainerPayment].filter(Boolean).sort().reverse()[0] || null;
 
       return {
         ...dist,
