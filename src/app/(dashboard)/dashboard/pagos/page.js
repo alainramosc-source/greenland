@@ -141,17 +141,12 @@ export default function AdminPagosPage() {
         .from('order_payments')
         .select('order_id, amount, payment_date');
 
-      // Use order_payments as source for balance calculation (original logic)
       const bals = distribs.map(d => {
         const dOrders = (ordersData || []).filter(o => o.distributor_id === d.id);
         const totalOrders = dOrders.reduce((s, o) => s + Number(o.total_amount), 0);
         const dOrderIds = dOrders.map(o => o.id);
         const totalPaid = (orderPaymentsData || []).filter(p => dOrderIds.includes(p.order_id)).reduce((s, p) => s + Number(p.amount), 0);
-        // Audit: compare distributor_payments vs order_payments to detect gaps
-        const dPayments = (payData || []).filter(p => p.distributor_id === d.id && p.status === 'approved');
-        const totalPaidDP = dPayments.reduce((s, p) => s + Number(p.amount) - Number(p.container_amount || 0), 0);
-        const discrepancy = Math.round((totalPaidDP - totalPaid) * 100) / 100;
-        return { ...d, total_orders: totalOrders, total_paid: totalPaid, balance: totalOrders - totalPaid, discrepancy };
+        return { ...d, total_orders: totalOrders, total_paid: totalPaid, balance: totalOrders - totalPaid };
       });
       setBalances(bals);
     }
@@ -259,8 +254,6 @@ export default function AdminPagosPage() {
         ? payment.allocations
         : payment.order_id ? [{ order_id: payment.order_id, amount: payment.amount }] : [];
 
-      let totalUnapplied = 0; // Track money that couldn't be applied due to order caps
-
       for (const alloc of allocations) {
         if (!alloc.order_id) continue; // Skip allocations without order
 
@@ -273,7 +266,7 @@ export default function AdminPagosPage() {
 
         const { data: order } = await supabase
           .from('orders')
-          .select('total_amount, order_number')
+          .select('total_amount')
           .eq('id', alloc.order_id)
           .single();
 
@@ -282,11 +275,6 @@ export default function AdminPagosPage() {
         const remaining = Number(order.total_amount) - alreadyPaid;
         // Cap allocation to remaining balance (prevent overpayment)
         const safeAmount = Math.min(Number(alloc.amount), Math.max(remaining, 0));
-        const cappedAmount = Number(alloc.amount) - safeAmount;
-
-        if (cappedAmount > 0) {
-          totalUnapplied += cappedAmount;
-        }
 
         if (safeAmount <= 0) continue; // Order already fully paid
 
@@ -306,12 +294,6 @@ export default function AdminPagosPage() {
         const totalPaid = alreadyPaid + safeAmount;
         const newStatus = totalPaid >= order.total_amount ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid';
         await supabase.from('orders').update({ payment_status: newStatus }).eq('id', alloc.order_id);
-      }
-
-      // Alert admin if money was capped and couldn't be applied
-      if (totalUnapplied > 0) {
-        const distName = payments.find(p => p.id === paymentId)?.profiles?.full_name || 'Distribuidor';
-        alert(`⚠️ ATENCIÓN: $${totalUnapplied.toLocaleString('es-MX', { minimumFractionDigits: 2 })} del pago de ${distName} no pudieron aplicarse porque los pedidos destino ya estaban pagados. Este monto queda aprobado pero sin acreditar a un pedido. Revisa la sección CxC para redistribuir.`);
       }
 
       // 4. Auto-insert cash entry if payment method is cash
@@ -748,7 +730,6 @@ export default function AdminPagosPage() {
                     <th className="text-right px-5 py-3 font-bold text-slate-500 text-xs uppercase">Total Pedidos</th>
                     <th className="text-right px-5 py-3 font-bold text-slate-500 text-xs uppercase">Total Pagado</th>
                     <th className="text-right px-5 py-3 font-bold text-slate-500 text-xs uppercase">Saldo</th>
-                    <th className="text-center px-5 py-3 font-bold text-slate-500 text-xs uppercase">Auditoría</th>
                   </tr></thead>
                   <tbody className="divide-y divide-slate-100">
                     {balances.map(b => (
@@ -759,13 +740,6 @@ export default function AdminPagosPage() {
                         <td className="px-5 py-3 text-right text-green-600 font-medium">${b.total_paid.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
                         <td className={`px-5 py-3 text-right font-bold ${b.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                           ${b.balance.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-5 py-3 text-center">
-                          {b.discrepancy !== 0 && (
-                            <span title={`Discrepancia: $${b.discrepancy.toLocaleString('es-MX', { minimumFractionDigits: 2 })} entre pagos aprobados y pagos aplicados a pedidos`} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 cursor-help">
-                              ⚠️ ${Math.abs(b.discrepancy).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                            </span>
-                          )}
                         </td>
                       </tr>
                     ))}

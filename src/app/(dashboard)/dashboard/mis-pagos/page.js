@@ -121,8 +121,7 @@ export default function MisPagosPage() {
       .order('reception_date', { ascending: false });
     setReceptions(recData || []);
 
-    // Calculate balance using distributor_payments (represents actual money received/approved)
-    // This is the source of truth — order_payments can have gaps due to cap logic in approval
+    // Calculate balance (orders + containers - payments)
     const approved = (payData || []).filter(p => p.status === 'approved').reduce((s, p) => s + Number(p.amount), 0);
     const totalOrders = (ordData || []).reduce((s, o) => s + Number(o.total_amount), 0);
     const totalContainers = (recData || []).reduce((s, r) => s + Number(r.charge_amount || 0), 0);
