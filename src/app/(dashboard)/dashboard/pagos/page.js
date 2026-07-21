@@ -141,18 +141,16 @@ export default function AdminPagosPage() {
         .from('order_payments')
         .select('order_id, amount, payment_date');
 
-      // Use distributor_payments (approved) as source of truth for paid amounts
-      // This matches what the distributor sees and represents actual money received
+      // Use order_payments as source for balance calculation (original logic)
       const bals = distribs.map(d => {
         const dOrders = (ordersData || []).filter(o => o.distributor_id === d.id);
         const totalOrders = dOrders.reduce((s, o) => s + Number(o.total_amount), 0);
-        const dPayments = (payData || []).filter(p => p.distributor_id === d.id && p.status === 'approved');
-        const totalPaid = dPayments.reduce((s, p) => s + Number(p.amount), 0);
-        // Reconciliation: compare only ORDER payments (exclude containers) vs order_payments
-        const totalPaidToOrders = dPayments.reduce((s, p) => s + Number(p.amount) - Number(p.container_amount || 0), 0);
         const dOrderIds = dOrders.map(o => o.id);
-        const totalApplied = (orderPaymentsData || []).filter(p => dOrderIds.includes(p.order_id)).reduce((s, p) => s + Number(p.amount), 0);
-        const discrepancy = Math.round((totalPaidToOrders - totalApplied) * 100) / 100;
+        const totalPaid = (orderPaymentsData || []).filter(p => dOrderIds.includes(p.order_id)).reduce((s, p) => s + Number(p.amount), 0);
+        // Audit: compare distributor_payments vs order_payments to detect gaps
+        const dPayments = (payData || []).filter(p => p.distributor_id === d.id && p.status === 'approved');
+        const totalPaidDP = dPayments.reduce((s, p) => s + Number(p.amount) - Number(p.container_amount || 0), 0);
+        const discrepancy = Math.round((totalPaidDP - totalPaid) * 100) / 100;
         return { ...d, total_orders: totalOrders, total_paid: totalPaid, balance: totalOrders - totalPaid, discrepancy };
       });
       setBalances(bals);
