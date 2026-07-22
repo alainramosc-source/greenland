@@ -656,7 +656,6 @@ export default function VentaMostradorPage() {
             {/* Header - Business Info */}
             <div className="bg-gradient-to-r from-[#6a9a04] to-[#7db505] px-6 py-5 text-center">
               <h1 className="text-xl font-black text-white tracking-tight m-0">GREENLAND PRODUCTS</h1>
-              <p className="text-white/90 text-[10px] font-semibold mt-1 m-0">Materiales y Acabados para Construcción</p>
             </div>
             <div className="bg-[#5a8503] px-6 py-2 text-center">
               <p className="text-white/80 text-[9px] m-0 leading-relaxed">
@@ -1297,7 +1296,6 @@ export default function VentaMostradorPage() {
                                       {/* Header */}
                                       <div className="bg-gradient-to-r from-[#6a9a04] to-[#7db505] px-5 py-3 text-center">
                                         <h4 className="text-base font-black text-white m-0">GREENLAND PRODUCTS</h4>
-                                        <p className="text-white/90 text-[9px] font-semibold m-0">Materiales y Acabados para Construcción</p>
                                       </div>
                                       <div className="bg-[#5a8503] px-5 py-1.5 text-center">
                                         <p className="text-white/80 text-[8px] m-0">RFC: GPR210915XX0 • Tel: (812) 345-6789</p>
