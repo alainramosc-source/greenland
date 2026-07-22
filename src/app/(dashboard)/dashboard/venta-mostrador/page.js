@@ -624,14 +624,18 @@ export default function VentaMostradorPage() {
               padding: 0 !important;
             }
             body * { visibility: hidden !important; }
-            #receipt-print-area, #receipt-print-area * { visibility: visible !important; }
+            #receipt-print-area, #receipt-print-area * {
+              visibility: visible !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
             #receipt-print-area {
               position: absolute !important;
               left: 0 !important;
               top: 0 !important;
-              width: 448px !important;
-              max-width: 448px !important;
-              transform: scale(0.64) !important;
+              width: 400px !important;
+              max-width: 400px !important;
+              transform: scale(0.72) !important;
               transform-origin: top left !important;
               margin: 0 !important;
               background: white !important;
@@ -808,14 +812,18 @@ export default function VentaMostradorPage() {
             padding: 0 !important;
           }
           body * { visibility: hidden !important; }
-          #receipt-print-area, #receipt-print-area * { visibility: visible !important; }
+          #receipt-print-area, #receipt-print-area * {
+            visibility: visible !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           #receipt-print-area {
             position: absolute !important;
             left: 0 !important;
             top: 0 !important;
-            width: 448px !important;
-            max-width: 448px !important;
-            transform: scale(0.64) !important;
+            width: 400px !important;
+            max-width: 400px !important;
+            transform: scale(0.72) !important;
             transform-origin: top left !important;
             margin: 0 !important;
             background: white !important;
