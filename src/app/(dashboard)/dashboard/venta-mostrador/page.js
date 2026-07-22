@@ -34,7 +34,7 @@ export default function VentaMostradorPage() {
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [saleItems, setSaleItems] = useState([]);
   const [customerName, setCustomerName] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('Efectivo');
+  const [paymentMethod, setPaymentMethod] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -369,7 +369,7 @@ export default function VentaMostradorPage() {
   const resetSale = () => {
     setSaleItems([]);
     setCustomerName('');
-    setPaymentMethod('Efectivo');
+    setPaymentMethod('');
     setNotes('');
     setSearchTerm('');
     setShowReceipt(false);
@@ -408,6 +408,10 @@ export default function VentaMostradorPage() {
     }
     if (!selectedWarehouse) {
       alert('Selecciona una bodega.');
+      return;
+    }
+    if (!paymentMethod) {
+      alert('Selecciona el método de pago (Efectivo o Transferencia).');
       return;
     }
 
@@ -1043,10 +1047,15 @@ export default function VentaMostradorPage() {
                       <select
                         value={paymentMethod}
                         onChange={(e) => setPaymentMethod(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 appearance-none cursor-pointer"
+                        className={`w-full px-4 py-2.5 bg-white border rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-[#6a9a04]/20 appearance-none cursor-pointer ${
+                          !paymentMethod
+                            ? 'border-amber-400 text-slate-400 animate-pulse'
+                            : 'border-slate-200 text-slate-800'
+                        }`}
                       >
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Transferencia">Transferencia</option>
+                        <option value="" disabled>— Selecciona método —</option>
+                        <option value="Efectivo">💵 Efectivo</option>
+                        <option value="Transferencia">🏦 Transferencia</option>
                       </select>
                       <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     </div>
