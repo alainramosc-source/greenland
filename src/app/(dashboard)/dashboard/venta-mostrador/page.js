@@ -1298,7 +1298,7 @@ export default function VentaMostradorPage() {
                                         <h4 className="text-base font-black text-white m-0">GREENLAND PRODUCTS</h4>
                                       </div>
                                       <div className="bg-[#5a8503] px-5 py-1.5 text-center">
-                                        <p className="text-white/80 text-[8px] m-0">RFC: GPR230911971 • Tel: (844) 105 8692 / (871) 211 5806</p>
+                                        <p className="text-white/80 text-[8px] m-0 leading-relaxed">RFC: GPR230911971 • Tel: (844) 105 8692 / (871) 211 5806<br/>Blvd. Vito Alessio Robles #3550 Int. 9, Col. Nazario S. Ortiz Garza, Saltillo, Coah. C.P. 25100</p>
                                       </div>
                                       <div className="px-5 py-4">
                                         <div className="text-center mb-3 pb-2 border-b border-dashed border-slate-300">
