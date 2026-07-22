@@ -681,6 +681,16 @@ export default function VentaMostradorPage() {
             #receipt-print-area .shadow-2xl,
             #receipt-print-area .shadow-xl,
             #receipt-print-area .shadow-lg { box-shadow: none !important; }
+            #receipt-print-area .max-w-md,
+            #receipt-print-area .max-w-lg { max-width: 100% !important; width: 100% !important; }
+            #receipt-print-area .w-12 { width: 8mm !important; flex-shrink: 0 !important; }
+            #receipt-print-area .w-16 { width: 8mm !important; flex-shrink: 0 !important; }
+            #receipt-print-area .w-20 { width: 12mm !important; flex-shrink: 0 !important; }
+            #receipt-print-area .w-24 { width: 15mm !important; flex-shrink: 0 !important; }
+            #receipt-print-area .w-10 { width: 8mm !important; flex-shrink: 0 !important; }
+            #receipt-print-area .flex-1 { flex: 1 1 0% !important; min-width: 0 !important; }
+            #receipt-print-area .flex { flex-wrap: nowrap !important; }
+            #receipt-print-area [class*="pr-2"] { padding-right: 1mm !important; }
             .no-print { display: none !important; }
           }
         `}</style>
@@ -906,6 +916,16 @@ export default function VentaMostradorPage() {
           #receipt-print-area .shadow-2xl,
           #receipt-print-area .shadow-xl,
           #receipt-print-area .shadow-lg { box-shadow: none !important; }
+          #receipt-print-area .max-w-md,
+          #receipt-print-area .max-w-lg { max-width: 100% !important; width: 100% !important; }
+          #receipt-print-area .w-12 { width: 8mm !important; flex-shrink: 0 !important; }
+          #receipt-print-area .w-16 { width: 8mm !important; flex-shrink: 0 !important; }
+          #receipt-print-area .w-20 { width: 12mm !important; flex-shrink: 0 !important; }
+          #receipt-print-area .w-24 { width: 15mm !important; flex-shrink: 0 !important; }
+          #receipt-print-area .w-10 { width: 8mm !important; flex-shrink: 0 !important; }
+          #receipt-print-area .flex-1 { flex: 1 1 0% !important; min-width: 0 !important; }
+          #receipt-print-area .flex { flex-wrap: nowrap !important; }
+          #receipt-print-area [class*="pr-2"] { padding-right: 1mm !important; }
           .no-print { display: none !important; }
         }
       `}</style>
