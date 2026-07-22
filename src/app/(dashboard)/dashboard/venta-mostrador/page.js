@@ -35,6 +35,7 @@ export default function VentaMostradorPage() {
   const [saleItems, setSaleItems] = useState([]);
   const [customerName, setCustomerName] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('');
+  const [amountReceived, setAmountReceived] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -370,6 +371,7 @@ export default function VentaMostradorPage() {
     setSaleItems([]);
     setCustomerName('');
     setPaymentMethod('');
+    setAmountReceived('');
     setNotes('');
     setSearchTerm('');
     setShowReceipt(false);
@@ -413,6 +415,13 @@ export default function VentaMostradorPage() {
     if (!paymentMethod) {
       alert('Selecciona el método de pago (Efectivo o Transferencia).');
       return;
+    }
+    if (paymentMethod === 'Efectivo' && amountReceived) {
+      const received = parseFloat(amountReceived);
+      if (isNaN(received) || received < saleTotal) {
+        alert(`El monto recibido ($${amountReceived}) debe ser mayor o igual al total ($${saleTotal.toFixed(2)}).`);
+        return;
+      }
     }
 
     // Validate all items
@@ -515,6 +524,7 @@ export default function VentaMostradorPage() {
 
       // Show receipt
       const warehouseName = warehouses.find(w => w.id === selectedWarehouse)?.name || '';
+      const receivedNum = paymentMethod === 'Efectivo' && amountReceived ? parseFloat(amountReceived) : subtotal;
       setReceiptData({
         sale_number: saleNumber,
         created_at: saleRecord.created_at || new Date().toISOString(),
@@ -522,9 +532,12 @@ export default function VentaMostradorPage() {
         payment_method: paymentMethod,
         items: itemsJson,
         total: subtotal,
+        amount_received: receivedNum,
+        change: Math.round((receivedNum - subtotal) * 100) / 100,
         sold_by_name: userName,
         warehouse_name: warehouseName,
         notes: notesFinal,
+        items_count: itemsJson.reduce((s, i) => s + i.quantity, 0),
       });
       setShowReceipt(true);
 
@@ -640,15 +653,26 @@ export default function VentaMostradorPage() {
 
           {/* Receipt card */}
           <div id="receipt-print-area" ref={receiptRef} className="max-w-md mx-auto bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
-            {/* Header */}
+            {/* Header - Business Info */}
             <div className="bg-gradient-to-r from-[#6a9a04] to-[#7db505] px-6 py-5 text-center">
               <h1 className="text-xl font-black text-white tracking-tight m-0">GREENLAND PRODUCTS</h1>
-              <p className="text-white/80 text-xs font-medium mt-1 m-0">Venta en Mostrador</p>
+              <p className="text-white/90 text-[10px] font-semibold mt-1 m-0">Materiales y Acabados para Construcción</p>
+            </div>
+            <div className="bg-[#5a8503] px-6 py-2 text-center">
+              <p className="text-white/80 text-[9px] m-0 leading-relaxed">
+                RFC: GPR210915XX0 &nbsp;•&nbsp; Tel: (812) 345-6789<br/>
+                Av. Vito Alessio Robles #123, Col. Industrial, Monterrey, N.L. C.P. 64000
+              </p>
             </div>
 
             <div className="px-6 py-5">
+              {/* Ticket type */}
+              <div className="text-center mb-4 pb-3 border-b border-dashed border-slate-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 m-0">— Comprobante de Venta —</p>
+              </div>
+
               {/* Sale info */}
-              <div className="flex items-center justify-between mb-4 pb-4 border-b border-dashed border-slate-200">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-dashed border-slate-200">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 m-0">Folio</p>
                   <p className="text-sm font-black text-slate-900 m-0 font-mono">{receiptData.sale_number}</p>
@@ -664,59 +688,93 @@ export default function VentaMostradorPage() {
                 </div>
               </div>
 
+              {/* Customer */}
+              <div className="flex items-center justify-between mb-3 text-sm">
+                <span className="text-slate-500">Cliente:</span>
+                <span className="font-bold text-slate-800">{receiptData.customer_name}</span>
+              </div>
+
               {/* Items */}
-              <div className="space-y-2 mb-4 pb-4 border-b border-dashed border-slate-200">
-                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                  <span className="flex-1">Producto</span>
-                  <span className="w-16 text-center">Cant</span>
-                  <span className="w-20 text-right">Precio</span>
-                  <span className="w-24 text-right">Subtotal</span>
+              <div className="mb-4 pb-3 border-b border-dashed border-slate-200">
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 pb-1 border-b border-slate-100">
+                  <span className="flex-1">Descripción</span>
+                  <span className="w-12 text-center">Cant</span>
+                  <span className="w-20 text-right">P.Unit</span>
+                  <span className="w-24 text-right">Importe</span>
                 </div>
-                {receiptData.items.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-sm">
-                    <span className="flex-1 text-slate-800 font-medium truncate pr-2">{item.name}</span>
-                    <span className="w-16 text-center text-slate-600">{item.quantity}</span>
-                    <span className="w-20 text-right text-slate-600">${item.unit_price.toFixed(2)}</span>
-                    <span className="w-24 text-right font-bold text-slate-900">${item.subtotal.toFixed(2)}</span>
-                  </div>
-                ))}
+                <div className="space-y-1.5">
+                  {receiptData.items.map((item, idx) => (
+                    <div key={idx} className="flex items-start justify-between text-sm">
+                      <span className="flex-1 text-slate-800 font-medium pr-2 leading-tight">{item.name}</span>
+                      <span className="w-12 text-center text-slate-600">{item.quantity}</span>
+                      <span className="w-20 text-right text-slate-600">${item.unit_price.toFixed(2)}</span>
+                      <span className="w-24 text-right font-bold text-slate-900">${item.subtotal.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between text-[11px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                  <span>Artículos: {receiptData.items_count || receiptData.items.reduce((s, i) => s + i.quantity, 0)}</span>
+                  <span>{receiptData.items.length} concepto{receiptData.items.length !== 1 ? 's' : ''}</span>
+                </div>
               </div>
 
-              {/* Total */}
-              <div className="flex items-center justify-between mb-4 pb-4 border-b border-dashed border-slate-200">
-                <span className="text-lg font-black text-slate-900">TOTAL</span>
-                <span className="text-2xl font-black text-[#6a9a04]">${receiptData.total.toFixed(2)}</span>
+              {/* Totals section */}
+              <div className="mb-4 pb-3 border-b border-dashed border-slate-200">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-bold text-slate-600">Subtotal</span>
+                  <span className="text-sm font-bold text-slate-700">${receiptData.total.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 -mx-1">
+                  <span className="text-lg font-black text-slate-900">TOTAL</span>
+                  <span className="text-2xl font-black text-[#6a9a04]">${receiptData.total.toFixed(2)}</span>
+                </div>
               </div>
 
-              {/* Payment & Customer */}
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 flex items-center gap-1.5"><CreditCard size={14} /> Pago</span>
+              {/* Payment details */}
+              <div className="mb-4 pb-3 border-b border-dashed border-slate-200 space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500">Forma de pago:</span>
                   <span className="font-bold text-slate-800">{receiptData.payment_method}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 flex items-center gap-1.5"><User size={14} /> Cliente</span>
-                  <span className="font-bold text-slate-800">{receiptData.customer_name}</span>
+                {receiptData.payment_method === 'Efectivo' && (
+                  <>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-500">Recibido:</span>
+                      <span className="font-bold text-slate-800">${receiptData.amount_received.toFixed(2)}</span>
+                    </div>
+                    {receiptData.change > 0 && (
+                      <div className="flex items-center justify-between bg-amber-50 rounded-lg px-3 py-1.5 -mx-1">
+                        <span className="text-sm font-bold text-amber-700">Cambio:</span>
+                        <span className="text-lg font-black text-amber-600">${receiptData.change.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Sale info */}
+              <div className="space-y-1 text-xs text-slate-500">
+                <div className="flex justify-between">
+                  <span>Atendió:</span>
+                  <span className="font-semibold text-slate-700">{receiptData.sold_by_name}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 flex items-center gap-1.5"><Warehouse size={14} /> Bodega</span>
-                  <span className="font-bold text-slate-800">{receiptData.warehouse_name}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 flex items-center gap-1.5"><User size={14} /> Atendió</span>
-                  <span className="font-bold text-slate-800">{receiptData.sold_by_name}</span>
+                <div className="flex justify-between">
+                  <span>Sucursal:</span>
+                  <span className="font-semibold text-slate-700">{receiptData.warehouse_name}</span>
                 </div>
                 {receiptData.notes && (
-                  <div className="mt-2 pt-2 border-t border-slate-100">
-                    <p className="text-xs text-slate-400 m-0">Notas: {receiptData.notes}</p>
+                  <div className="pt-1.5 mt-1.5 border-t border-slate-100">
+                    <p className="text-slate-400 m-0">Obs: {receiptData.notes}</p>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Footer */}
-            <div className="bg-slate-50 px-6 py-3 text-center">
-              <p className="text-[10px] text-slate-400 m-0">¡Gracias por su compra!</p>
+            <div className="bg-slate-50 px-6 py-4 text-center space-y-1">
+              <p className="text-xs font-bold text-slate-600 m-0">¡Gracias por su compra!</p>
+              <p className="text-[9px] text-slate-400 m-0">Este documento es un comprobante de venta. Consérvelo para cualquier aclaración.</p>
+              <p className="text-[9px] text-slate-400 m-0">No se aceptan devoluciones sin este comprobante.</p>
             </div>
           </div>
         </div>
@@ -1061,6 +1119,33 @@ export default function VentaMostradorPage() {
                     </div>
                   </div>
 
+                  {/* Amount received (cash only) */}
+                  {paymentMethod === 'Efectivo' && saleItems.length > 0 && (
+                    <div>
+                      <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5 block">
+                        💵 Monto Recibido
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min={saleTotal}
+                          placeholder={saleTotal.toFixed(2)}
+                          value={amountReceived}
+                          onChange={(e) => setAmountReceived(e.target.value)}
+                          className="w-full pl-8 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 placeholder:text-slate-400"
+                        />
+                      </div>
+                      {amountReceived && parseFloat(amountReceived) >= saleTotal && (
+                        <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center justify-between">
+                          <span className="text-xs font-bold text-amber-700">Cambio:</span>
+                          <span className="text-base font-black text-amber-600">${(parseFloat(amountReceived) - saleTotal).toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Notes */}
                   <div>
                     <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5 block">
@@ -1209,12 +1294,18 @@ export default function VentaMostradorPage() {
                                 <tr>
                                   <td colSpan={8} className="px-0 py-0 bg-slate-50/50">
                                     <div id="receipt-print-area" className="max-w-lg mx-auto my-4 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden">
-                                      {/* Mini receipt header */}
+                                      {/* Header */}
                                       <div className="bg-gradient-to-r from-[#6a9a04] to-[#7db505] px-5 py-3 text-center">
                                         <h4 className="text-base font-black text-white m-0">GREENLAND PRODUCTS</h4>
-                                        <p className="text-white/80 text-[10px] font-medium m-0">Venta en Mostrador</p>
+                                        <p className="text-white/90 text-[9px] font-semibold m-0">Materiales y Acabados para Construcción</p>
+                                      </div>
+                                      <div className="bg-[#5a8503] px-5 py-1.5 text-center">
+                                        <p className="text-white/80 text-[8px] m-0">RFC: GPR210915XX0 • Tel: (812) 345-6789</p>
                                       </div>
                                       <div className="px-5 py-4">
+                                        <div className="text-center mb-3 pb-2 border-b border-dashed border-slate-300">
+                                          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 m-0">— Comprobante de Venta —</p>
+                                        </div>
                                         <div className="flex justify-between items-start mb-3 pb-3 border-b border-dashed border-slate-200">
                                           <div>
                                             <p className="text-[10px] text-slate-400 font-bold uppercase m-0">Folio</p>
@@ -1230,51 +1321,74 @@ export default function VentaMostradorPage() {
                                           </div>
                                         </div>
 
+                                        {/* Customer */}
+                                        <div className="flex justify-between text-sm mb-2">
+                                          <span className="text-slate-500">Cliente:</span>
+                                          <span className="font-bold text-slate-800">{sale.customer_name}</span>
+                                        </div>
+
                                         {/* Items */}
                                         <div className="mb-3 pb-3 border-b border-dashed border-slate-200">
+                                          <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 pb-1 border-b border-slate-100">
+                                            <span className="flex-1">Descripción</span>
+                                            <span className="w-10 text-center">Cant</span>
+                                            <span className="w-16 text-right">P.Unit</span>
+                                            <span className="w-20 text-right">Importe</span>
+                                          </div>
                                           {items.map((item, idx) => (
-                                            <div key={idx} className="flex items-center justify-between text-sm py-1">
-                                              <span className="flex-1 text-slate-700 truncate pr-2">{item.name}</span>
-                                              <span className="text-slate-500 text-xs mr-3">{item.quantity} × ${Number(item.unit_price).toFixed(2)}</span>
-                                              <span className="font-bold text-slate-900">${Number(item.subtotal).toFixed(2)}</span>
+                                            <div key={idx} className="flex items-start justify-between text-sm py-0.5">
+                                              <span className="flex-1 text-slate-700 pr-2 leading-tight">{item.name}</span>
+                                              <span className="w-10 text-center text-slate-500">{item.quantity}</span>
+                                              <span className="w-16 text-right text-slate-500">${Number(item.unit_price).toFixed(2)}</span>
+                                              <span className="w-20 text-right font-bold text-slate-900">${Number(item.subtotal).toFixed(2)}</span>
                                             </div>
                                           ))}
+                                          <div className="flex justify-between text-[10px] text-slate-400 mt-1.5 pt-1 border-t border-slate-100">
+                                            <span>Artículos: {items.reduce((s, i) => s + i.quantity, 0)}</span>
+                                            <span>{items.length} concepto{items.length !== 1 ? 's' : ''}</span>
+                                          </div>
                                         </div>
 
                                         {/* Total */}
-                                        <div className="flex justify-between items-center mb-3 pb-3 border-b border-dashed border-slate-200">
+                                        <div className="flex justify-between items-center bg-slate-50 rounded-lg px-3 py-2 mb-3">
                                           <span className="text-base font-black text-slate-900">TOTAL</span>
                                           <span className="text-xl font-black text-[#6a9a04]">${Number(sale.total).toFixed(2)}</span>
                                         </div>
 
-                                        {/* Details */}
-                                        <div className="space-y-1.5 text-sm">
+                                        {/* Payment details */}
+                                        <div className="space-y-1 text-sm mb-3 pb-3 border-b border-dashed border-slate-200">
                                           <div className="flex justify-between">
-                                            <span className="text-slate-500">Pago</span>
+                                            <span className="text-slate-500">Forma de pago:</span>
                                             <span className="font-bold text-slate-800">{sale.payment_method}</span>
                                           </div>
+                                        </div>
+
+                                        {/* Sale info */}
+                                        <div className="space-y-1 text-xs text-slate-500">
                                           <div className="flex justify-between">
-                                            <span className="text-slate-500">Cliente</span>
-                                            <span className="font-bold text-slate-800">{sale.customer_name}</span>
+                                            <span>Atendió:</span>
+                                            <span className="font-semibold text-slate-700">{sale.seller?.full_name || '—'}</span>
                                           </div>
                                           <div className="flex justify-between">
-                                            <span className="text-slate-500">Bodega</span>
-                                            <span className="font-bold text-slate-800">{sale.warehouse?.name || '—'}</span>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span className="text-slate-500">Atendió</span>
-                                            <span className="font-bold text-slate-800">{sale.seller?.full_name || '—'}</span>
+                                            <span>Sucursal:</span>
+                                            <span className="font-semibold text-slate-700">{sale.warehouse?.name || '—'}</span>
                                           </div>
                                           {sale.notes && (
-                                            <div className="pt-2 border-t border-slate-100">
-                                              <p className="text-xs text-slate-400 m-0">Notas: {sale.notes}</p>
+                                            <div className="pt-1.5 mt-1 border-t border-slate-100">
+                                              <p className="text-slate-400 m-0">Obs: {sale.notes}</p>
                                             </div>
                                           )}
                                         </div>
                                       </div>
 
+                                      {/* Footer */}
+                                      <div className="bg-slate-50 px-5 py-3 text-center space-y-0.5">
+                                        <p className="text-[10px] font-bold text-slate-600 m-0">¡Gracias por su compra!</p>
+                                        <p className="text-[8px] text-slate-400 m-0">Conserve este comprobante para cualquier aclaración.</p>
+                                      </div>
+
                                       {/* Print button */}
-                                      <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-center no-print">
+                                      <div className="px-5 py-3 border-t border-slate-100 flex justify-center no-print">
                                         <button
                                           onClick={(e) => { e.stopPropagation(); handlePrint(); }}
                                           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#6a9a04] text-white text-xs font-bold hover:bg-[#5a8503] transition-all cursor-pointer border-none shadow-sm"
