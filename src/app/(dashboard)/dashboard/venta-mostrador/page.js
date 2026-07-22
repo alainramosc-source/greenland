@@ -470,6 +470,7 @@ export default function VentaMostradorPage() {
           payment_method: paymentMethod,
           subtotal: subtotal,
           total: subtotal,
+          amount_received: paymentMethod === 'Efectivo' && amountReceived ? parseFloat(amountReceived) : null,
           notes: notesFinal || null,
           items: itemsJson,
           status: 'completed',
@@ -633,11 +634,11 @@ export default function VentaMostradorPage() {
               position: absolute !important;
               left: 0 !important;
               top: 0 !important;
-              width: 400px !important;
-              max-width: 400px !important;
-              transform: scale(0.72) !important;
-              transform-origin: top left !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              zoom: 0.65 !important;
               margin: 0 !important;
+              padding: 0 !important;
               background: white !important;
               box-shadow: none !important;
               border: none !important;
@@ -821,11 +822,11 @@ export default function VentaMostradorPage() {
             position: absolute !important;
             left: 0 !important;
             top: 0 !important;
-            width: 400px !important;
-            max-width: 400px !important;
-            transform: scale(0.72) !important;
-            transform-origin: top left !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            zoom: 0.65 !important;
             margin: 0 !important;
+            padding: 0 !important;
             background: white !important;
             box-shadow: none !important;
             border: none !important;
@@ -1391,6 +1392,20 @@ export default function VentaMostradorPage() {
                                             <span className="text-slate-500">Forma de pago:</span>
                                             <span className="font-bold text-slate-800">{sale.payment_method}</span>
                                           </div>
+                                          {sale.payment_method === 'Efectivo' && sale.amount_received && (
+                                            <>
+                                              <div className="flex justify-between">
+                                                <span className="text-slate-500">Recibido:</span>
+                                                <span className="font-bold text-slate-800">${Number(sale.amount_received).toFixed(2)}</span>
+                                              </div>
+                                              {Number(sale.amount_received) > Number(sale.total) && (
+                                                <div className="flex justify-between bg-amber-50 rounded-lg px-3 py-1 -mx-1">
+                                                  <span className="font-bold text-amber-700">Cambio:</span>
+                                                  <span className="font-black text-amber-600">${(Number(sale.amount_received) - Number(sale.total)).toFixed(2)}</span>
+                                                </div>
+                                              )}
+                                            </>
+                                          )}
                                         </div>
 
                                         {/* Sale info */}
