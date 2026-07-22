@@ -1130,7 +1130,7 @@ export default function VentaMostradorPage() {
                           type="number"
                           step="0.01"
                           min={saleTotal}
-                          placeholder={saleTotal.toFixed(2)}
+                          placeholder="Ingresa monto recibido"
                           value={amountReceived}
                           onChange={(e) => setAmountReceived(e.target.value)}
                           className="w-full pl-8 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 placeholder:text-slate-400"
