@@ -620,77 +620,26 @@ export default function VentaMostradorPage() {
           }
           @media print {
             html, body {
-              width: 80mm !important;
               margin: 0 !important;
               padding: 0 !important;
-              overflow: visible !important;
             }
             body * { visibility: hidden !important; }
-            #receipt-print-area, #receipt-print-area * {
-              visibility: visible !important;
-              overflow: visible !important;
-              word-wrap: break-word !important;
-              overflow-wrap: break-word !important;
-            }
+            #receipt-print-area, #receipt-print-area * { visibility: visible !important; }
             #receipt-print-area {
               position: absolute !important;
               left: 0 !important;
               top: 0 !important;
-              width: 76mm !important;
-              max-width: 76mm !important;
-              padding: 1mm !important;
+              width: 448px !important;
+              max-width: 448px !important;
+              transform: scale(0.64) !important;
+              transform-origin: top left !important;
               margin: 0 !important;
               background: white !important;
               box-shadow: none !important;
               border: none !important;
               border-radius: 0 !important;
-              font-size: 9px !important;
-              line-height: 1.3 !important;
+              overflow: visible !important;
             }
-            #receipt-print-area * {
-              max-width: 100% !important;
-              box-sizing: border-box !important;
-            }
-            #receipt-print-area h1 { font-size: 14px !important; }
-            #receipt-print-area h4 { font-size: 12px !important; }
-            #receipt-print-area .text-2xl { font-size: 14px !important; }
-            #receipt-print-area .text-xl { font-size: 13px !important; }
-            #receipt-print-area .text-lg { font-size: 11px !important; }
-            #receipt-print-area .text-base { font-size: 10px !important; }
-            #receipt-print-area .text-sm { font-size: 9px !important; }
-            #receipt-print-area .text-xs { font-size: 8px !important; }
-            #receipt-print-area .text-\[10px\] { font-size: 7px !important; }
-            #receipt-print-area .text-\[11px\] { font-size: 8px !important; }
-            #receipt-print-area .text-\[9px\] { font-size: 7px !important; }
-            #receipt-print-area .text-\[8px\] { font-size: 6px !important; }
-            #receipt-print-area .px-6 { padding-left: 3mm !important; padding-right: 3mm !important; }
-            #receipt-print-area .px-5 { padding-left: 2mm !important; padding-right: 2mm !important; }
-            #receipt-print-area .py-5 { padding-top: 2mm !important; padding-bottom: 2mm !important; }
-            #receipt-print-area .py-4 { padding-top: 1.5mm !important; padding-bottom: 1.5mm !important; }
-            #receipt-print-area .py-3 { padding-top: 1mm !important; padding-bottom: 1mm !important; }
-            #receipt-print-area .mb-4 { margin-bottom: 2mm !important; }
-            #receipt-print-area .mb-3 { margin-bottom: 1.5mm !important; }
-            #receipt-print-area .pb-3, #receipt-print-area .pb-4 { padding-bottom: 1.5mm !important; }
-            #receipt-print-area .gap-1\.5 { gap: 1px !important; }
-            #receipt-print-area .space-y-1\.5 > * + * { margin-top: 1px !important; }
-            #receipt-print-area .space-y-1 > * + * { margin-top: 1px !important; }
-            #receipt-print-area .truncate { overflow: visible !important; white-space: normal !important; text-overflow: unset !important; }
-            #receipt-print-area .rounded-2xl,
-            #receipt-print-area .rounded-xl,
-            #receipt-print-area .rounded-lg { border-radius: 0 !important; }
-            #receipt-print-area .shadow-2xl,
-            #receipt-print-area .shadow-xl,
-            #receipt-print-area .shadow-lg { box-shadow: none !important; }
-            #receipt-print-area .max-w-md,
-            #receipt-print-area .max-w-lg { max-width: 100% !important; width: 100% !important; }
-            #receipt-print-area .w-12 { width: 8mm !important; flex-shrink: 0 !important; }
-            #receipt-print-area .w-16 { width: 8mm !important; flex-shrink: 0 !important; }
-            #receipt-print-area .w-20 { width: 12mm !important; flex-shrink: 0 !important; }
-            #receipt-print-area .w-24 { width: 15mm !important; flex-shrink: 0 !important; }
-            #receipt-print-area .w-10 { width: 8mm !important; flex-shrink: 0 !important; }
-            #receipt-print-area .flex-1 { flex: 1 1 0% !important; min-width: 0 !important; }
-            #receipt-print-area .flex { flex-wrap: nowrap !important; }
-            #receipt-print-area [class*="pr-2"] { padding-right: 1mm !important; }
             .no-print { display: none !important; }
           }
         `}</style>
@@ -855,77 +804,26 @@ export default function VentaMostradorPage() {
         }
         @media print {
           html, body {
-            width: 80mm !important;
             margin: 0 !important;
             padding: 0 !important;
-            overflow: visible !important;
           }
           body * { visibility: hidden !important; }
-          #receipt-print-area, #receipt-print-area * {
-            visibility: visible !important;
-            overflow: visible !important;
-            word-wrap: break-word !important;
-            overflow-wrap: break-word !important;
-          }
+          #receipt-print-area, #receipt-print-area * { visibility: visible !important; }
           #receipt-print-area {
             position: absolute !important;
             left: 0 !important;
             top: 0 !important;
-            width: 76mm !important;
-            max-width: 76mm !important;
-            padding: 1mm !important;
+            width: 448px !important;
+            max-width: 448px !important;
+            transform: scale(0.64) !important;
+            transform-origin: top left !important;
             margin: 0 !important;
             background: white !important;
             box-shadow: none !important;
             border: none !important;
             border-radius: 0 !important;
-            font-size: 9px !important;
-            line-height: 1.3 !important;
+            overflow: visible !important;
           }
-          #receipt-print-area * {
-            max-width: 100% !important;
-            box-sizing: border-box !important;
-          }
-          #receipt-print-area h1 { font-size: 14px !important; }
-          #receipt-print-area h4 { font-size: 12px !important; }
-          #receipt-print-area .text-2xl { font-size: 14px !important; }
-          #receipt-print-area .text-xl { font-size: 13px !important; }
-          #receipt-print-area .text-lg { font-size: 11px !important; }
-          #receipt-print-area .text-base { font-size: 10px !important; }
-          #receipt-print-area .text-sm { font-size: 9px !important; }
-          #receipt-print-area .text-xs { font-size: 8px !important; }
-          #receipt-print-area .text-\[10px\] { font-size: 7px !important; }
-          #receipt-print-area .text-\[11px\] { font-size: 8px !important; }
-          #receipt-print-area .text-\[9px\] { font-size: 7px !important; }
-          #receipt-print-area .text-\[8px\] { font-size: 6px !important; }
-          #receipt-print-area .px-6 { padding-left: 3mm !important; padding-right: 3mm !important; }
-          #receipt-print-area .px-5 { padding-left: 2mm !important; padding-right: 2mm !important; }
-          #receipt-print-area .py-5 { padding-top: 2mm !important; padding-bottom: 2mm !important; }
-          #receipt-print-area .py-4 { padding-top: 1.5mm !important; padding-bottom: 1.5mm !important; }
-          #receipt-print-area .py-3 { padding-top: 1mm !important; padding-bottom: 1mm !important; }
-          #receipt-print-area .mb-4 { margin-bottom: 2mm !important; }
-          #receipt-print-area .mb-3 { margin-bottom: 1.5mm !important; }
-          #receipt-print-area .pb-3, #receipt-print-area .pb-4 { padding-bottom: 1.5mm !important; }
-          #receipt-print-area .gap-1\.5 { gap: 1px !important; }
-          #receipt-print-area .space-y-1\.5 > * + * { margin-top: 1px !important; }
-          #receipt-print-area .space-y-1 > * + * { margin-top: 1px !important; }
-          #receipt-print-area .truncate { overflow: visible !important; white-space: normal !important; text-overflow: unset !important; }
-          #receipt-print-area .rounded-2xl,
-          #receipt-print-area .rounded-xl,
-          #receipt-print-area .rounded-lg { border-radius: 0 !important; }
-          #receipt-print-area .shadow-2xl,
-          #receipt-print-area .shadow-xl,
-          #receipt-print-area .shadow-lg { box-shadow: none !important; }
-          #receipt-print-area .max-w-md,
-          #receipt-print-area .max-w-lg { max-width: 100% !important; width: 100% !important; }
-          #receipt-print-area .w-12 { width: 8mm !important; flex-shrink: 0 !important; }
-          #receipt-print-area .w-16 { width: 8mm !important; flex-shrink: 0 !important; }
-          #receipt-print-area .w-20 { width: 12mm !important; flex-shrink: 0 !important; }
-          #receipt-print-area .w-24 { width: 15mm !important; flex-shrink: 0 !important; }
-          #receipt-print-area .w-10 { width: 8mm !important; flex-shrink: 0 !important; }
-          #receipt-print-area .flex-1 { flex: 1 1 0% !important; min-width: 0 !important; }
-          #receipt-print-area .flex { flex-wrap: nowrap !important; }
-          #receipt-print-area [class*="pr-2"] { padding-right: 1mm !important; }
           .no-print { display: none !important; }
         }
       `}</style>
