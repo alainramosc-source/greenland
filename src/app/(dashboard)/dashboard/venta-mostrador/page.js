@@ -612,22 +612,44 @@ export default function VentaMostradorPage() {
     const receiptDate = new Date(receiptData.created_at);
     return (
       <>
-        {/* Print-only styles */}
+        {/* Print-only styles - optimized for 80mm thermal printer */}
         <style>{`
+          @page {
+            size: 80mm auto;
+            margin: 0;
+          }
           @media print {
+            html, body {
+              width: 80mm !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
             body * { visibility: hidden !important; }
             #receipt-print-area, #receipt-print-area * { visibility: visible !important; }
             #receipt-print-area {
               position: absolute !important;
               left: 0 !important;
               top: 0 !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              padding: 20px !important;
+              width: 80mm !important;
+              max-width: 80mm !important;
+              padding: 2mm !important;
+              margin: 0 !important;
               background: white !important;
               box-shadow: none !important;
               border: none !important;
+              border-radius: 0 !important;
+              font-size: 11px !important;
             }
+            #receipt-print-area h1 { font-size: 16px !important; }
+            #receipt-print-area h4 { font-size: 14px !important; }
+            #receipt-print-area .text-2xl { font-size: 18px !important; }
+            #receipt-print-area .text-lg { font-size: 14px !important; }
+            #receipt-print-area .rounded-2xl,
+            #receipt-print-area .rounded-xl,
+            #receipt-print-area .rounded-lg { border-radius: 0 !important; }
+            #receipt-print-area .shadow-2xl,
+            #receipt-print-area .shadow-xl,
+            #receipt-print-area .shadow-lg { box-shadow: none !important; }
             .no-print { display: none !important; }
           }
         `}</style>
@@ -784,22 +806,44 @@ export default function VentaMostradorPage() {
   // ──────────── MAIN PAGE ────────────
   return (
     <>
-      {/* Print styles for receipt in historial */}
+      {/* Print styles for receipt in historial - optimized for 80mm thermal printer */}
       <style>{`
+        @page {
+          size: 80mm auto;
+          margin: 0;
+        }
         @media print {
+          html, body {
+            width: 80mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
           body * { visibility: hidden !important; }
           #receipt-print-area, #receipt-print-area * { visibility: visible !important; }
           #receipt-print-area {
             position: absolute !important;
             left: 0 !important;
             top: 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            padding: 20px !important;
+            width: 80mm !important;
+            max-width: 80mm !important;
+            padding: 2mm !important;
+            margin: 0 !important;
             background: white !important;
             box-shadow: none !important;
             border: none !important;
+            border-radius: 0 !important;
+            font-size: 11px !important;
           }
+          #receipt-print-area h1 { font-size: 16px !important; }
+          #receipt-print-area h4 { font-size: 14px !important; }
+          #receipt-print-area .text-2xl { font-size: 18px !important; }
+          #receipt-print-area .text-lg { font-size: 14px !important; }
+          #receipt-print-area .rounded-2xl,
+          #receipt-print-area .rounded-xl,
+          #receipt-print-area .rounded-lg { border-radius: 0 !important; }
+          #receipt-print-area .shadow-2xl,
+          #receipt-print-area .shadow-xl,
+          #receipt-print-area .shadow-lg { box-shadow: none !important; }
           .no-print { display: none !important; }
         }
       `}</style>
