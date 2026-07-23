@@ -583,6 +583,20 @@ export default function VentaMostradorPage() {
 
   // ──────────── PRINT RECEIPT ────────────
   const handlePrint = () => {
+    // Dynamically calculate receipt height and set @page size
+    const receipt = document.getElementById('receipt-print-area');
+    if (receipt) {
+      const height = receipt.scrollHeight;
+      const zoomedHeightMm = Math.ceil((height * 0.65) / 3.78) + 5; // px to mm + 5mm margin
+      // Remove old dynamic style if exists
+      const old = document.getElementById('dynamic-print-page-size');
+      if (old) old.remove();
+      // Inject new @page size
+      const style = document.createElement('style');
+      style.id = 'dynamic-print-page-size';
+      style.textContent = `@page { size: 80mm ${zoomedHeightMm}mm; margin: 0; }`;
+      document.head.appendChild(style);
+    }
     window.print();
   };
 
@@ -615,10 +629,6 @@ export default function VentaMostradorPage() {
       <>
         {/* Print-only styles - optimized for 80mm thermal printer */}
         <style>{`
-          @page {
-            size: 80mm auto;
-            margin: 0;
-          }
           @media print {
             html, body {
               margin: 0 !important;
@@ -809,10 +819,6 @@ export default function VentaMostradorPage() {
     <>
       {/* Print styles for receipt in historial - optimized for 80mm thermal printer */}
       <style>{`
-        @page {
-          size: 80mm auto;
-          margin: 0;
-        }
         @media print {
           html, body {
             margin: 0 !important;
