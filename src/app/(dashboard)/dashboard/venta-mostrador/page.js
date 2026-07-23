@@ -623,8 +623,11 @@ export default function VentaMostradorPage() {
             html, body {
               margin: 0 !important;
               padding: 0 !important;
+              height: 0 !important;
+              overflow: hidden !important;
             }
-            body * { visibility: hidden !important; }
+            body > * { display: none !important; }
+            #receipt-print-area { display: block !important; }
             #receipt-print-area, #receipt-print-area * {
               visibility: visible !important;
               -webkit-print-color-adjust: exact !important;
@@ -811,8 +814,11 @@ export default function VentaMostradorPage() {
           html, body {
             margin: 0 !important;
             padding: 0 !important;
+            height: 0 !important;
+            overflow: hidden !important;
           }
-          body * { visibility: hidden !important; }
+          body > * { display: none !important; }
+          #receipt-print-area { display: block !important; }
           #receipt-print-area, #receipt-print-area * {
             visibility: visible !important;
             -webkit-print-color-adjust: exact !important;
