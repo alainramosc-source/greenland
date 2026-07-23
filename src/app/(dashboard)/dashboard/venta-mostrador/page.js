@@ -1321,67 +1321,76 @@ export default function VentaMostradorPage() {
                                   <td colSpan={8} className="px-0 py-0 bg-slate-50/50">
                                     <div id="receipt-print-area" className="max-w-lg mx-auto my-4 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden">
                                       {/* Header */}
-                                      <div className="bg-gradient-to-r from-[#6a9a04] to-[#7db505] px-5 py-3 text-center">
+                                      <div className="bg-gradient-to-r from-[#6a9a04] to-[#7db505] px-5 py-4 text-center">
                                         <h4 className="text-base font-black text-white m-0">GREENLAND PRODUCTS S.A. de C.V.</h4>
                                       </div>
-                                      <div className="bg-[#5a8503] px-5 py-1.5 text-center">
-                                        <p className="text-white/80 text-[8px] m-0 leading-relaxed">RFC: GPR230911971 • Tel: (844) 105 8692 / (871) 211 5806<br/>Blvd. Vito Alessio Robles #3550 Int. 9, Col. Nazario S. Ortiz Garza, Saltillo, Coah. C.P. 25100</p>
+                                      <div className="bg-[#5a8503] px-5 py-2 text-center">
+                                        <p className="text-white/90 text-[8px] m-0 leading-relaxed font-medium">
+                                          RFC: GPR230911971<br/>
+                                          Tel: (844) 105 8692 / (871) 211 5806<br/>
+                                          Blvd. Vito Alessio Robles #3550 Int. 9, Col. Nazario S. Ortiz Garza<br/>
+                                          Saltillo, Coah. C.P. 25100
+                                        </p>
                                       </div>
                                       <div className="px-5 py-4">
-                                        <div className="text-center mb-3 pb-2 border-b border-dashed border-slate-300">
-                                          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 m-0">— Comprobante de Venta —</p>
-                                        </div>
-                                        <div className="flex justify-between items-start mb-3 pb-3 border-b border-dashed border-slate-200">
-                                          <div>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase m-0">Folio</p>
-                                            <p className="text-sm font-black text-slate-900 m-0 font-mono">{sale.sale_number}</p>
-                                          </div>
-                                          <div className="text-right">
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase m-0">Fecha</p>
-                                            <p className="text-sm font-bold text-slate-700 m-0">
-                                              {saleDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                              {' '}
-                                              {saleDate.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City' })}
-                                            </p>
-                                          </div>
+                                        <div className="text-center mb-3 pb-2 border-b-2 border-double border-slate-300">
+                                          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-600 m-0">★ Comprobante de Venta ★</p>
                                         </div>
 
-                                        {/* Customer */}
-                                        <div className="flex justify-between text-sm mb-2">
-                                          <span className="text-slate-500">Cliente:</span>
-                                          <span className="font-bold text-slate-800">{sale.customer_name}</span>
+                                        {/* Sale info */}
+                                        <div className="mb-3 pb-2 border-b border-dashed border-slate-200">
+                                          <div className="flex justify-between items-start mb-1">
+                                            <div>
+                                              <p className="text-[9px] text-slate-400 font-bold uppercase m-0">Folio</p>
+                                              <p className="text-sm font-black text-slate-900 m-0 font-mono">{sale.sale_number}</p>
+                                            </div>
+                                            <div className="text-right">
+                                              <p className="text-[9px] text-slate-400 font-bold uppercase m-0">Fecha / Hora</p>
+                                              <p className="text-sm font-bold text-slate-700 m-0">
+                                                {saleDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                {' '}
+                                                {saleDate.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City' })}
+                                              </p>
+                                            </div>
+                                          </div>
+                                          <div className="flex justify-between text-sm">
+                                            <span className="text-slate-500">Cliente:</span>
+                                            <span className="font-bold text-slate-800">{sale.customer_name}</span>
+                                          </div>
                                         </div>
 
                                         {/* Items */}
-                                        <div className="mb-3 pb-3 border-b border-dashed border-slate-200">
-                                          <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 pb-1 border-b border-slate-100">
+                                        <div className="mb-3 pb-2 border-b border-dashed border-slate-200">
+                                          <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-slate-500 mb-1.5 pb-1 border-b border-slate-200">
                                             <span className="flex-1">Descripción</span>
                                             <span className="w-10 text-center">Cant</span>
                                             <span className="w-16 text-right">P.Unit</span>
                                             <span className="w-20 text-right">Importe</span>
                                           </div>
                                           {items.map((item, idx) => (
-                                            <div key={idx} className="flex items-start justify-between text-sm py-0.5">
+                                            <div key={idx} className="flex items-start justify-between text-[13px] py-0.5">
                                               <span className="flex-1 text-slate-700 pr-2 leading-tight">{item.name}</span>
                                               <span className="w-10 text-center text-slate-500">{item.quantity}</span>
                                               <span className="w-16 text-right text-slate-500">${Number(item.unit_price).toFixed(2)}</span>
                                               <span className="w-20 text-right font-bold text-slate-900">${Number(item.subtotal).toFixed(2)}</span>
                                             </div>
                                           ))}
-                                          <div className="flex justify-between text-[10px] text-slate-400 mt-1.5 pt-1 border-t border-slate-100">
+                                          <div className="flex justify-between text-[10px] text-slate-500 mt-1.5 pt-1 border-t border-slate-100">
                                             <span>Artículos: {items.reduce((s, i) => s + i.quantity, 0)}</span>
                                             <span>{items.length} concepto{items.length !== 1 ? 's' : ''}</span>
                                           </div>
                                         </div>
 
                                         {/* Total */}
-                                        <div className="flex justify-between items-center bg-slate-50 rounded-lg px-3 py-2 mb-3">
-                                          <span className="text-base font-black text-slate-900">TOTAL</span>
-                                          <span className="text-xl font-black text-[#6a9a04]">${Number(sale.total).toFixed(2)}</span>
+                                        <div className="mb-3 pb-2 border-b-2 border-double border-slate-300">
+                                          <div className="flex justify-between items-center px-2 py-2">
+                                            <span className="text-lg font-black text-slate-900">TOTAL</span>
+                                            <span className="text-xl font-black text-slate-900">${Number(sale.total).toFixed(2)}</span>
+                                          </div>
                                         </div>
 
                                         {/* Payment details */}
-                                        <div className="space-y-1 text-sm mb-3 pb-3 border-b border-dashed border-slate-200">
+                                        <div className="space-y-1 text-sm mb-3 pb-2 border-b border-dashed border-slate-200">
                                           <div className="flex justify-between">
                                             <span className="text-slate-500">Forma de pago:</span>
                                             <span className="font-bold text-slate-800">{sale.payment_method}</span>
@@ -1393,17 +1402,17 @@ export default function VentaMostradorPage() {
                                                 <span className="font-bold text-slate-800">${Number(sale.amount_received).toFixed(2)}</span>
                                               </div>
                                               {Number(sale.amount_received) > Number(sale.total) && (
-                                                <div className="flex justify-between bg-amber-50 rounded-lg px-3 py-1 -mx-1">
-                                                  <span className="font-bold text-amber-700">Cambio:</span>
-                                                  <span className="font-black text-amber-600">${(Number(sale.amount_received) - Number(sale.total)).toFixed(2)}</span>
+                                                <div className="flex justify-between pt-1 border-t border-slate-100">
+                                                  <span className="font-black text-slate-700">Su cambio:</span>
+                                                  <span className="text-lg font-black text-slate-900">${(Number(sale.amount_received) - Number(sale.total)).toFixed(2)}</span>
                                                 </div>
                                               )}
                                             </>
                                           )}
                                         </div>
 
-                                        {/* Sale info */}
-                                        <div className="space-y-1 text-xs text-slate-500">
+                                        {/* Attendant & Branch */}
+                                        <div className="space-y-0.5 text-[11px] text-slate-500 mb-3 pb-2 border-b border-dashed border-slate-200">
                                           <div className="flex justify-between">
                                             <span>Atendió:</span>
                                             <span className="font-semibold text-slate-700">{sale.seller?.full_name || '—'}</span>
@@ -1413,7 +1422,7 @@ export default function VentaMostradorPage() {
                                             <span className="font-semibold text-slate-700">{sale.warehouse?.name || '—'}</span>
                                           </div>
                                           {sale.notes && (
-                                            <div className="pt-1.5 mt-1 border-t border-slate-100">
+                                            <div className="pt-1 mt-1 border-t border-slate-100">
                                               <p className="text-slate-400 m-0">Obs: {sale.notes}</p>
                                             </div>
                                           )}
@@ -1421,9 +1430,13 @@ export default function VentaMostradorPage() {
                                       </div>
 
                                       {/* Footer */}
-                                      <div className="bg-slate-50 px-5 py-3 text-center space-y-0.5">
-                                        <p className="text-[10px] font-bold text-slate-600 m-0">¡Gracias por su compra!</p>
-                                        <p className="text-[8px] text-slate-400 m-0">Conserve este comprobante para cualquier aclaración.</p>
+                                      <div className="bg-slate-50 px-5 py-3 text-center space-y-1.5">
+                                        <p className="text-[10px] font-black text-slate-600 m-0">¡Gracias por su compra!</p>
+                                        <div className="border-t border-slate-200 pt-1.5 space-y-0.5">
+                                          <p className="text-[8px] text-slate-400 m-0 leading-relaxed">Este documento es un comprobante de venta y NO es un comprobante fiscal.</p>
+                                          <p className="text-[8px] text-slate-400 m-0 leading-relaxed">Conserve este ticket para cualquier aclaración.</p>
+                                          <p className="text-[8px] text-slate-400 m-0 leading-relaxed font-semibold">GREENLAND PRODUCTS S.A. de C.V. — Todos los derechos reservados.</p>
+                                        </div>
                                       </div>
 
                                       {/* Print button */}
