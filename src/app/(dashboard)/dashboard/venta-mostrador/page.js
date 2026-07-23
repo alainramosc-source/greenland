@@ -402,6 +402,14 @@ export default function VentaMostradorPage() {
     return `${prefix}-${String(seq).padStart(3, '0')}`;
   };
 
+  // ──────────── HELPERS ────────────
+  // Remove second last name: "Juan Paulo Montelongo Medina" → "Juan Paulo Montelongo"
+  const shortName = (name) => {
+    if (!name) return '—';
+    const parts = name.trim().split(/\s+/);
+    return parts.length > 2 ? parts.slice(0, -1).join(' ') : name;
+  };
+
   // ──────────── SUBMIT SALE ────────────
   const handleSubmitSale = async () => {
     if (saleItems.length === 0) {
@@ -801,7 +809,7 @@ export default function VentaMostradorPage() {
               <div className="space-y-0.5 text-[11px] text-slate-500 mb-3 pb-2 border-b border-dashed border-slate-200">
                 <div className="flex justify-between">
                   <span>Atendió:</span>
-                  <span className="font-semibold text-slate-700">{receiptData.sold_by_name}</span>
+                  <span className="font-semibold text-slate-700">{shortName(receiptData.sold_by_name)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Sucursal:</span>
@@ -1419,7 +1427,7 @@ export default function VentaMostradorPage() {
                                         <div className="space-y-0.5 text-[11px] text-slate-500 mb-3 pb-2 border-b border-dashed border-slate-200">
                                           <div className="flex justify-between">
                                             <span>Atendió:</span>
-                                            <span className="font-semibold text-slate-700">{sale.seller?.full_name || '—'}</span>
+                                            <span className="font-semibold text-slate-700">{shortName(sale.seller?.full_name)}</span>
                                           </div>
                                           <div className="flex justify-between">
                                             <span>Sucursal:</span>
