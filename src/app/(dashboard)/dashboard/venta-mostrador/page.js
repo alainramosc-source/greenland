@@ -596,8 +596,12 @@ export default function VentaMostradorPage() {
       style.id = 'dynamic-print-page-size';
       style.textContent = `@page { size: 80mm ${zoomedHeightMm}mm; margin: 0; }`;
       document.head.appendChild(style);
+      // Scroll to top of receipt before printing
+      receipt.scrollIntoView({ behavior: 'instant', block: 'start' });
     }
-    window.print();
+    // Scroll page to absolute top and print after scroll completes
+    window.scrollTo(0, 0);
+    setTimeout(() => window.print(), 150);
   };
 
   // ──────────── FILTERED HISTORIAL ────────────
