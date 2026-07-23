@@ -631,7 +631,7 @@ export default function VentaMostradorPage() {
               print-color-adjust: exact !important;
             }
             #receipt-print-area {
-              position: absolute !important;
+              position: fixed !important;
               left: 0 !important;
               top: 0 !important;
               width: 100% !important;
@@ -819,7 +819,7 @@ export default function VentaMostradorPage() {
             print-color-adjust: exact !important;
           }
           #receipt-print-area {
-            position: absolute !important;
+            position: fixed !important;
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
