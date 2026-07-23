@@ -583,25 +583,57 @@ export default function VentaMostradorPage() {
 
   // ──────────── PRINT RECEIPT ────────────
   const handlePrint = () => {
-    // Dynamically calculate receipt height and set @page size
     const receipt = document.getElementById('receipt-print-area');
-    if (receipt) {
-      const height = receipt.scrollHeight;
-      const zoomedHeightMm = Math.ceil((height * 0.65) / 3.78) + 5; // px to mm + 5mm margin
-      // Remove old dynamic style if exists
-      const old = document.getElementById('dynamic-print-page-size');
-      if (old) old.remove();
-      // Inject new @page size
-      const style = document.createElement('style');
-      style.id = 'dynamic-print-page-size';
-      style.textContent = `@page { size: 80mm ${zoomedHeightMm}mm; margin: 0; }`;
-      document.head.appendChild(style);
-      // Scroll to top of receipt before printing
-      receipt.scrollIntoView({ behavior: 'instant', block: 'start' });
-    }
-    // Scroll page to absolute top and print after scroll completes
-    window.scrollTo(0, 0);
-    setTimeout(() => window.print(), 150);
+    if (!receipt) return;
+
+    // Clone receipt and append directly to body
+    const clone = receipt.cloneNode(true);
+    clone.id = 'receipt-print-clone';
+    clone.removeAttribute('ref');
+    document.body.appendChild(clone);
+
+    // Calculate page height based on clone content
+    const heightMm = Math.ceil((clone.scrollHeight * 0.65) / 3.78) + 8;
+
+    // Inject dynamic print styles
+    const oldStyle = document.getElementById('dynamic-print-style');
+    if (oldStyle) oldStyle.remove();
+    const style = document.createElement('style');
+    style.id = 'dynamic-print-style';
+    style.textContent = `
+      @page { size: 80mm ${heightMm}mm; margin: 0; }
+      @media print {
+        body > *:not(#receipt-print-clone) { display: none !important; }
+        #receipt-print-clone {
+          display: block !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          zoom: 0.65 !important;
+          margin: 0 !important;
+          padding: 5mm 2mm 2mm 2mm !important;
+          background: white !important;
+          box-shadow: none !important;
+          border: none !important;
+          border-radius: 0 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        #receipt-print-clone * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          visibility: visible !important;
+        }
+        .no-print { display: none !important; }
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Print and cleanup
+    setTimeout(() => {
+      window.print();
+      clone.remove();
+      style.remove();
+    }, 100);
   };
 
   // ──────────── FILTERED HISTORIAL ────────────
@@ -631,43 +663,7 @@ export default function VentaMostradorPage() {
     const receiptDate = new Date(receiptData.created_at);
     return (
       <>
-        {/* Print-only styles - optimized for 80mm thermal printer */}
-        <style>{`
-          @media print {
-            html, body {
-              margin: 0 !important;
-              padding: 0 !important;
-            }
-            body > * {
-              height: 0 !important;
-              overflow: hidden !important;
-              margin: 0 !important;
-              padding: 0 !important;
-            }
-            body * { visibility: hidden !important; }
-            #receipt-print-area, #receipt-print-area * {
-              visibility: visible !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            #receipt-print-area {
-              position: fixed !important;
-              left: 0 !important;
-              top: 3mm !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              zoom: 0.65 !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              background: white !important;
-              box-shadow: none !important;
-              border: none !important;
-              border-radius: 0 !important;
-              overflow: visible !important;
-            }
-            .no-print { display: none !important; }
-          }
-        `}</style>
+        {/* Print styles handled dynamically by handlePrint */}
         <div className="max-w-7xl mx-auto">
           {/* Action buttons */}
           <div className="flex items-center justify-center gap-3 mb-6 no-print">
@@ -821,43 +817,7 @@ export default function VentaMostradorPage() {
   // ──────────── MAIN PAGE ────────────
   return (
     <>
-      {/* Print styles for receipt in historial - optimized for 80mm thermal printer */}
-      <style>{`
-        @media print {
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          body > * {
-            height: 0 !important;
-            overflow: hidden !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          body * { visibility: hidden !important; }
-          #receipt-print-area, #receipt-print-area * {
-            visibility: visible !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          #receipt-print-area {
-            position: fixed !important;
-            left: 0 !important;
-            top: 3mm !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            zoom: 0.65 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            box-shadow: none !important;
-            border: none !important;
-            border-radius: 0 !important;
-            overflow: visible !important;
-          }
-          .no-print { display: none !important; }
-        }
-      `}</style>
+      {/* Print styles handled dynamically by handlePrint */}
 
       <div className="relative">
         <div className="relative z-10 max-w-7xl mx-auto">
