@@ -653,7 +653,7 @@ export default function VentaMostradorPage() {
             #receipt-print-area {
               position: fixed !important;
               left: 0 !important;
-              top: 0 !important;
+              top: 3mm !important;
               width: 100% !important;
               max-width: 100% !important;
               zoom: 0.65 !important;
@@ -692,7 +692,7 @@ export default function VentaMostradorPage() {
           <div id="receipt-print-area" ref={receiptRef} className="max-w-md mx-auto bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
             {/* Header - Business Info */}
             <div className="bg-gradient-to-r from-[#6a9a04] to-[#7db505] px-6 py-5 text-center">
-              <h1 className="text-xl font-black text-white tracking-tight m-0">GREENLAND PRODUCTS</h1>
+              <h1 className="text-xl font-black text-white tracking-tight m-0">GREENLAND PRODUCTS S.A. de C.V.</h1>
             </div>
             <div className="bg-[#5a8503] px-6 py-2 text-center">
               <p className="text-white/80 text-[9px] m-0 leading-relaxed">
@@ -843,7 +843,7 @@ export default function VentaMostradorPage() {
           #receipt-print-area {
             position: fixed !important;
             left: 0 !important;
-            top: 0 !important;
+            top: 3mm !important;
             width: 100% !important;
             max-width: 100% !important;
             zoom: 0.65 !important;
@@ -1350,7 +1350,7 @@ export default function VentaMostradorPage() {
                                     <div id="receipt-print-area" className="max-w-lg mx-auto my-4 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden">
                                       {/* Header */}
                                       <div className="bg-gradient-to-r from-[#6a9a04] to-[#7db505] px-5 py-3 text-center">
-                                        <h4 className="text-base font-black text-white m-0">GREENLAND PRODUCTS</h4>
+                                        <h4 className="text-base font-black text-white m-0">GREENLAND PRODUCTS S.A. de C.V.</h4>
                                       </div>
                                       <div className="bg-[#5a8503] px-5 py-1.5 text-center">
                                         <p className="text-white/80 text-[8px] m-0 leading-relaxed">RFC: GPR230911971 • Tel: (844) 105 8692 / (871) 211 5806<br/>Blvd. Vito Alessio Robles #3550 Int. 9, Col. Nazario S. Ortiz Garza, Saltillo, Coah. C.P. 25100</p>
