@@ -701,83 +701,78 @@ export default function VentaMostradorPage() {
           {/* Receipt card */}
           <div id="receipt-print-area" ref={receiptRef} className="max-w-md mx-auto bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
             {/* Header - Business Info */}
-            <div className="bg-gradient-to-r from-[#6a9a04] to-[#7db505] px-6 py-5 text-center">
+            <div className="bg-gradient-to-r from-[#6a9a04] to-[#7db505] px-6 py-4 text-center">
               <h1 className="text-xl font-black text-white tracking-tight m-0">GREENLAND PRODUCTS S.A. de C.V.</h1>
             </div>
             <div className="bg-[#5a8503] px-6 py-2 text-center">
-              <p className="text-white/80 text-[9px] m-0 leading-relaxed">
-                RFC: GPR230911971 &nbsp;•&nbsp; Tel: (844) 105 8692 / (871) 211 5806<br/>
-                Blvd. Vito Alessio Robles #3550 Int. 9, Col. Nazario S. Ortiz Garza, Saltillo, Coah. C.P. 25100
+              <p className="text-white/90 text-[9px] m-0 leading-relaxed font-medium">
+                RFC: GPR230911971<br/>
+                Tel: (844) 105 8692 / (871) 211 5806<br/>
+                Blvd. Vito Alessio Robles #3550 Int. 9, Col. Nazario S. Ortiz Garza<br/>
+                Saltillo, Coah. C.P. 25100
               </p>
             </div>
 
-            <div className="px-6 py-5">
+            <div className="px-6 py-4">
               {/* Ticket type */}
-              <div className="text-center mb-4 pb-3 border-b border-dashed border-slate-300">
-                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 m-0">— Comprobante de Venta —</p>
+              <div className="text-center mb-3 pb-2 border-b-2 border-double border-slate-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-600 m-0">★ Comprobante de Venta ★</p>
               </div>
 
-              {/* Sale info */}
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-dashed border-slate-200">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 m-0">Folio</p>
-                  <p className="text-sm font-black text-slate-900 m-0 font-mono">{receiptData.sale_number}</p>
+              {/* Sale info row */}
+              <div className="mb-3 pb-2 border-b border-dashed border-slate-200">
+                <div className="flex items-center justify-between mb-1">
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 m-0">Folio</p>
+                    <p className="text-sm font-black text-slate-900 m-0 font-mono">{receiptData.sale_number}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 m-0">Fecha / Hora</p>
+                    <p className="text-sm font-bold text-slate-700 m-0">
+                      {receiptDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })} {receiptDate.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City' })}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 m-0">Fecha</p>
-                  <p className="text-sm font-bold text-slate-700 m-0">
-                    {receiptDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
-                  </p>
-                  <p className="text-xs text-slate-500 m-0">
-                    {receiptDate.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City' })}
-                  </p>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500">Cliente:</span>
+                  <span className="font-bold text-slate-800">{receiptData.customer_name}</span>
                 </div>
               </div>
 
-              {/* Customer */}
-              <div className="flex items-center justify-between mb-3 text-sm">
-                <span className="text-slate-500">Cliente:</span>
-                <span className="font-bold text-slate-800">{receiptData.customer_name}</span>
-              </div>
-
-              {/* Items */}
-              <div className="mb-4 pb-3 border-b border-dashed border-slate-200">
-                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 pb-1 border-b border-slate-100">
+              {/* Items table */}
+              <div className="mb-3 pb-2 border-b border-dashed border-slate-200">
+                <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-slate-500 mb-1.5 pb-1 border-b border-slate-200">
                   <span className="flex-1">Descripción</span>
-                  <span className="w-12 text-center">Cant</span>
-                  <span className="w-20 text-right">P.Unit</span>
-                  <span className="w-24 text-right">Importe</span>
+                  <span className="w-10 text-center">Cant</span>
+                  <span className="w-16 text-right">P.Unit</span>
+                  <span className="w-20 text-right">Importe</span>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   {receiptData.items.map((item, idx) => (
-                    <div key={idx} className="flex items-start justify-between text-sm">
+                    <div key={idx} className="flex items-start justify-between text-[13px]">
                       <span className="flex-1 text-slate-800 font-medium pr-2 leading-tight">{item.name}</span>
-                      <span className="w-12 text-center text-slate-600">{item.quantity}</span>
-                      <span className="w-20 text-right text-slate-600">${item.unit_price.toFixed(2)}</span>
-                      <span className="w-24 text-right font-bold text-slate-900">${item.subtotal.toFixed(2)}</span>
+                      <span className="w-10 text-center text-slate-600">{item.quantity}</span>
+                      <span className="w-16 text-right text-slate-600">${item.unit_price.toFixed(2)}</span>
+                      <span className="w-20 text-right font-bold text-slate-900">${item.subtotal.toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
-                <div className="flex justify-between text-[11px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                <div className="flex justify-between text-[10px] text-slate-500 mt-2 pt-1 border-t border-slate-100">
                   <span>Artículos: {receiptData.items_count || receiptData.items.reduce((s, i) => s + i.quantity, 0)}</span>
                   <span>{receiptData.items.length} concepto{receiptData.items.length !== 1 ? 's' : ''}</span>
                 </div>
               </div>
 
-              {/* Totals section */}
-              <div className="mb-4 pb-3 border-b border-dashed border-slate-200">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-bold text-slate-600">Subtotal</span>
-                  <span className="text-sm font-bold text-slate-700">${receiptData.total.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 -mx-1">
+              {/* Total */}
+              <div className="mb-3 pb-2 border-b-2 border-double border-slate-300">
+                <div className="flex items-center justify-between px-2 py-2">
                   <span className="text-lg font-black text-slate-900">TOTAL</span>
-                  <span className="text-2xl font-black text-[#6a9a04]">${receiptData.total.toFixed(2)}</span>
+                  <span className="text-2xl font-black text-slate-900">${receiptData.total.toFixed(2)}</span>
                 </div>
               </div>
 
               {/* Payment details */}
-              <div className="mb-4 pb-3 border-b border-dashed border-slate-200 space-y-1.5">
+              <div className="mb-3 pb-2 border-b border-dashed border-slate-200 space-y-1">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-500">Forma de pago:</span>
                   <span className="font-bold text-slate-800">{receiptData.payment_method}</span>
@@ -789,17 +784,17 @@ export default function VentaMostradorPage() {
                       <span className="font-bold text-slate-800">${receiptData.amount_received.toFixed(2)}</span>
                     </div>
                     {receiptData.change > 0 && (
-                      <div className="flex items-center justify-between bg-amber-50 rounded-lg px-3 py-1.5 -mx-1">
-                        <span className="text-sm font-bold text-amber-700">Cambio:</span>
-                        <span className="text-lg font-black text-amber-600">${receiptData.change.toFixed(2)}</span>
+                      <div className="flex items-center justify-between text-sm pt-1 border-t border-slate-100">
+                        <span className="font-black text-slate-700">Su cambio:</span>
+                        <span className="text-lg font-black text-slate-900">${receiptData.change.toFixed(2)}</span>
                       </div>
                     )}
                   </>
                 )}
               </div>
 
-              {/* Sale info */}
-              <div className="space-y-1 text-xs text-slate-500">
+              {/* Attendant & Branch */}
+              <div className="space-y-0.5 text-[11px] text-slate-500 mb-3 pb-2 border-b border-dashed border-slate-200">
                 <div className="flex justify-between">
                   <span>Atendió:</span>
                   <span className="font-semibold text-slate-700">{receiptData.sold_by_name}</span>
@@ -809,7 +804,7 @@ export default function VentaMostradorPage() {
                   <span className="font-semibold text-slate-700">{receiptData.warehouse_name}</span>
                 </div>
                 {receiptData.notes && (
-                  <div className="pt-1.5 mt-1.5 border-t border-slate-100">
+                  <div className="pt-1 mt-1 border-t border-slate-100">
                     <p className="text-slate-400 m-0">Obs: {receiptData.notes}</p>
                   </div>
                 )}
@@ -817,10 +812,14 @@ export default function VentaMostradorPage() {
             </div>
 
             {/* Footer */}
-            <div className="bg-slate-50 px-6 py-4 text-center space-y-1">
-              <p className="text-xs font-bold text-slate-600 m-0">¡Gracias por su compra!</p>
-              <p className="text-[9px] text-slate-400 m-0">Este documento es un comprobante de venta. Consérvelo para cualquier aclaración.</p>
-              <p className="text-[9px] text-slate-400 m-0">No se aceptan devoluciones sin este comprobante.</p>
+            <div className="bg-slate-50 px-6 py-3 text-center space-y-1.5">
+              <p className="text-xs font-black text-slate-600 m-0">¡Gracias por su compra!</p>
+              <div className="border-t border-slate-200 pt-1.5 space-y-0.5">
+                <p className="text-[8px] text-slate-400 m-0 leading-relaxed">Este documento es un comprobante de venta y NO es un comprobante fiscal.</p>
+                <p className="text-[8px] text-slate-400 m-0 leading-relaxed">Conserve este ticket para cualquier aclaración o devolución.</p>
+                <p className="text-[8px] text-slate-400 m-0 leading-relaxed">No se aceptan devoluciones después de 8 días naturales sin este comprobante.</p>
+                <p className="text-[8px] text-slate-400 m-0 leading-relaxed font-semibold">GREENLAND PRODUCTS S.A. de C.V. — Todos los derechos reservados.</p>
+              </div>
             </div>
           </div>
         </div>
