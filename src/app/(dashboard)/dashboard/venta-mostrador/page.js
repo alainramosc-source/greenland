@@ -816,8 +816,7 @@ export default function VentaMostradorPage() {
               <p className="text-xs font-black text-slate-600 m-0">¡Gracias por su compra!</p>
               <div className="border-t border-slate-200 pt-1.5 space-y-0.5">
                 <p className="text-[8px] text-slate-400 m-0 leading-relaxed">Este documento es un comprobante de venta y NO es un comprobante fiscal.</p>
-                <p className="text-[8px] text-slate-400 m-0 leading-relaxed">Conserve este ticket para cualquier aclaración o devolución.</p>
-                <p className="text-[8px] text-slate-400 m-0 leading-relaxed">No se aceptan devoluciones después de 8 días naturales sin este comprobante.</p>
+                <p className="text-[8px] text-slate-400 m-0 leading-relaxed">Conserve este ticket para cualquier aclaración.</p>
                 <p className="text-[8px] text-slate-400 m-0 leading-relaxed font-semibold">GREENLAND PRODUCTS S.A. de C.V. — Todos los derechos reservados.</p>
               </div>
             </div>
