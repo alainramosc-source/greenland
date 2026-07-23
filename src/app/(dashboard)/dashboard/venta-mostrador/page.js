@@ -416,7 +416,11 @@ export default function VentaMostradorPage() {
       alert('Selecciona el método de pago (Efectivo o Transferencia).');
       return;
     }
-    if (paymentMethod === 'Efectivo' && amountReceived) {
+    if (paymentMethod === 'Efectivo') {
+      if (!amountReceived) {
+        alert('Ingresa el monto recibido del cliente.');
+        return;
+      }
       const received = parseFloat(amountReceived);
       if (isNaN(received) || received < saleTotal) {
         alert(`El monto recibido ($${amountReceived}) debe ser mayor o igual al total ($${saleTotal.toFixed(2)}).`);
