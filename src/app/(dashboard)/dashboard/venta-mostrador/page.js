@@ -624,6 +624,20 @@ export default function VentaMostradorPage() {
           visibility: visible !important;
         }
         .no-print { display: none !important; }
+        /* Remove colored backgrounds for thermal printer */
+        #receipt-print-clone > div:first-child,
+        #receipt-print-clone > div:nth-child(2) {
+          background: white !important;
+          background-image: none !important;
+          border-bottom: 1.5px solid #000 !important;
+          padding: 6px 16px !important;
+        }
+        #receipt-print-clone > div:first-child h1,
+        #receipt-print-clone > div:first-child h4,
+        #receipt-print-clone > div:nth-child(2) p {
+          color: #000 !important;
+          opacity: 1 !important;
+        }
       }
     `;
     document.head.appendChild(style);
