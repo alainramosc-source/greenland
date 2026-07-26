@@ -215,105 +215,26 @@ export default function AdminPagosPage() {
   const handleApprove = async (paymentId) => {
     setActionLoading(paymentId);
     try {
-      // 1. Get the payment
-      const { data: payment, error: fetchErr } = await supabase
-        .from('distributor_payments')
-        .select('*')
-        .eq('id', paymentId)
-        .eq('status', 'pending')
-        .single();
-      if (fetchErr || !payment) { alert('Pago no encontrado o ya fue revisado'); setActionLoading(null); return; }
-
-      // Check received_by for cash payments
+      // Pre-validate received_by for cash payments (avoid unnecessary RPC call)
+      const payment = payments.find(p => p.id === paymentId);
       const receivedBy = cashReceivedBy[paymentId] || '';
-      if (payment.payment_method === 'efectivo' && !receivedBy.trim()) {
+      if (payment?.payment_method === 'efectivo' && !receivedBy.trim()) {
         alert('Para pagos en efectivo, debes llenar el campo "Recibido por"');
         setActionLoading(null);
         return;
       }
 
-      const userId = (await supabase.auth.getUser()).data.user.id;
+      // Single atomic RPC call — all validations and writes happen server-side
+      const { data, error } = await supabase.rpc('approve_distributor_payment_atomic', {
+        p_payment_id: paymentId,
+        p_received_by: receivedBy.trim() || null
+      });
 
-      // 2. Approve the payment
-      const updateData = {
-        status: 'approved',
-        reviewed_by: userId,
-        reviewed_at: new Date().toISOString()
-      };
-      if (payment.payment_method === 'efectivo') {
-        updateData.received_by = receivedBy.trim();
-      }
-      const { error: updateErr } = await supabase
-        .from('distributor_payments')
-        .update(updateData)
-        .eq('id', paymentId);
-      if (updateErr) { alert('Error: ' + updateErr.message); setActionLoading(null); return; }
+      if (error) { alert('Error: ' + error.message); setActionLoading(null); return; }
+      if (data && !data.success) { alert(data.error); setActionLoading(null); return; }
 
-      // 3. Process allocations or legacy order_id
-      const allocations = payment.allocations && payment.allocations.length > 0
-        ? payment.allocations
-        : payment.order_id ? [{ order_id: payment.order_id, amount: payment.amount }] : [];
-
-      for (const alloc of allocations) {
-        if (!alloc.order_id) continue; // Skip allocations without order
-
-        // Get current order balance to prevent overpayment
-        const { data: existingPayments } = await supabase
-          .from('order_payments')
-          .select('amount')
-          .eq('order_id', alloc.order_id);
-        const alreadyPaid = (existingPayments || []).reduce((sum, p) => sum + Number(p.amount), 0);
-
-        const { data: order } = await supabase
-          .from('orders')
-          .select('total_amount')
-          .eq('id', alloc.order_id)
-          .single();
-
-        if (!order) continue;
-
-        const remaining = Number(order.total_amount) - alreadyPaid;
-        // Cap allocation to remaining balance (prevent overpayment)
-        const safeAmount = Math.min(Number(alloc.amount), Math.max(remaining, 0));
-
-        if (safeAmount <= 0) continue; // Order already fully paid
-
-        // Insert into order_payments
-        await supabase.from('order_payments').insert({
-          order_id: alloc.order_id,
-          amount: safeAmount,
-          payment_method: payment.payment_method,
-          reference: payment.reference,
-          payment_date: payment.payment_date,
-          notes: safeAmount < Number(alloc.amount)
-            ? `Aprobado (ajustado de $${Number(alloc.amount).toFixed(2)} a $${safeAmount.toFixed(2)} para evitar sobrepago)`
-            : 'Aprobado desde pagos distribuidor'
-        });
-
-        // Update order payment_status
-        const totalPaid = alreadyPaid + safeAmount;
-        const newStatus = totalPaid >= order.total_amount ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid';
-        await supabase.from('orders').update({ payment_status: newStatus }).eq('id', alloc.order_id);
-      }
-
-      // 4. Auto-insert cash entry if payment method is cash
-      if (payment.payment_method === 'efectivo') {
-        const distName = payments.find(p => p.id === paymentId)?.profiles?.full_name || 'Distribuidor';
-        await supabase.from('cash_movements').insert({
-          type: 'entry',
-          amount: payment.amount,
-          concept: `Pago distribuidor: ${distName}`,
-          responsible: receivedBy.trim(),
-          reference_id: paymentId,
-          reference_type: 'distributor_payment',
-          movement_date: payment.payment_date || new Date().toISOString().split('T')[0],
-          created_by: userId
-        });
-      }
-
-      // Send email notification
-      const p = payments.find(p => p.id === paymentId);
-      if (p) sendPaymentNotification(p, 'approved');
+      // Send email notification (stays client-side — requires API route)
+      if (payment) sendPaymentNotification(payment, 'approved');
       setCashReceivedBy(prev => { const n = { ...prev }; delete n[paymentId]; return n; });
       fetchData();
     } catch (err) {
