@@ -18,22 +18,34 @@ const ACTION_LABELS = {
 export default function AuditoriaPage() {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterAction, setFilterAction] = useState('all');
 
+    const PAGE_SIZE = 200;
     const supabase = createClient();
 
     useEffect(() => { fetchLogs(); }, []);
 
-    const fetchLogs = async () => {
-        setLoading(true);
+    const fetchLogs = async (loadMore = false) => {
+        if (loadMore) setLoadingMore(true); else setLoading(true);
+        const offset = loadMore ? logs.length : 0;
         const { data } = await supabase
             .from('audit_log')
             .select('*, user:profiles!audit_log_user_id_fkey(full_name, email)')
             .order('created_at', { ascending: false })
-            .limit(200);
-        setLogs(data || []);
+            .range(offset, offset + PAGE_SIZE - 1);
+        if (data) {
+            if (loadMore) {
+                setLogs(prev => [...prev, ...data]);
+            } else {
+                setLogs(data);
+            }
+            setHasMore(data.length === PAGE_SIZE);
+        }
         setLoading(false);
+        setLoadingMore(false);
     };
 
     const filteredLogs = logs.filter(log => {
@@ -195,6 +207,21 @@ export default function AuditoriaPage() {
                             })
                         )}
                     </div>
+                    {hasMore && (
+                        <div className="p-4 text-center border-t border-slate-100">
+                            <button
+                                onClick={() => fetchLogs(true)}
+                                disabled={loadingMore}
+                                className="px-6 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 bg-white hover:bg-slate-50 cursor-pointer transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {loadingMore ? (
+                                    <span className="flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Cargando...</span>
+                                ) : (
+                                    `Cargar más registros (${logs.length} cargados)`
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
