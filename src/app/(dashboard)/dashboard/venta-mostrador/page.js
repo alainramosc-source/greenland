@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   ShoppingBag, Search, Plus, Minus, Trash2, Printer, Package, Loader2,
   ShoppingCart, Receipt, Calendar, User, Warehouse, CreditCard, X, Check,
-  ChevronDown, RotateCcw, Clock, ChevronUp, Hash, Camera
+  ChevronDown, RotateCcw, Clock, ChevronUp, Hash, Camera, FileSpreadsheet
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -662,6 +662,67 @@ export default function VentaMostradorPage() {
     }, 100);
   };
 
+  // ──────────── EXPORT TO EXCEL ────────────
+  const exportToExcel = () => {
+    const dataToExport = filteredHistory.length > 0 ? filteredHistory : salesHistory;
+    if (dataToExport.length === 0) {
+      alert('No hay ventas para exportar.');
+      return;
+    }
+
+    // Group by product
+    const productMap = {};
+    dataToExport.forEach(sale => {
+      const warehouseName = sale.warehouse?.name || '—';
+      (sale.items || []).forEach(item => {
+        const key = `${item.sku}_${warehouseName}`;
+        if (!productMap[key]) {
+          productMap[key] = {
+            sku: item.sku || '—',
+            nombre: item.name || '—',
+            bodega: warehouseName,
+            cantidad: 0,
+            monto: 0,
+          };
+        }
+        productMap[key].cantidad += item.quantity || 0;
+        productMap[key].monto += item.subtotal || (item.quantity * item.unit_price) || 0;
+      });
+    });
+
+    const rows = Object.values(productMap).sort((a, b) => b.monto - a.monto);
+
+    // Build CSV
+    const headers = ['SKU', 'Producto', 'Bodega', 'Cantidad Vendida', 'Monto Total'];
+    const csvRows = [
+      headers.join(','),
+      ...rows.map(r => [
+        r.sku,
+        `"${r.nombre}"`,
+        `"${r.bodega}"`,
+        r.cantidad,
+        `$${r.monto.toFixed(2)}`
+      ].join(','))
+    ];
+
+    // Add totals row
+    const totalQty = rows.reduce((s, r) => s + r.cantidad, 0);
+    const totalAmt = rows.reduce((s, r) => s + r.monto, 0);
+    csvRows.push('');
+    csvRows.push(`,,TOTAL,${totalQty},$${totalAmt.toFixed(2)}`);
+
+    // Download
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const today = new Date().toLocaleDateString('en-CA');
+    a.download = `ventas-mostrador-por-producto_${today}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // ──────────── FILTERED HISTORIAL ────────────
   const filteredHistory = salesHistory.filter(sale => {
     if (!historialSearch) return true;
@@ -1253,6 +1314,12 @@ export default function VentaMostradorPage() {
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 bg-white hover:bg-slate-50 cursor-pointer transition-all shadow-sm"
                 >
                   <RotateCcw size={14} /> Actualizar
+                </button>
+                <button
+                  onClick={exportToExcel}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#6a9a04]/30 text-sm font-bold text-[#6a9a04] bg-[#6a9a04]/5 hover:bg-[#6a9a04]/10 cursor-pointer transition-all shadow-sm"
+                >
+                  <FileSpreadsheet size={14} /> Exportar Excel
                 </button>
                 <p className="text-sm text-slate-500 m-0 ml-auto">{filteredHistory.length} ventas</p>
               </div>
