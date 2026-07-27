@@ -670,46 +670,60 @@ export default function VentaMostradorPage() {
       return;
     }
 
-    // Group by product
-    const productMap = {};
+    // One row per sale item (line by line)
+    const rows = [];
     dataToExport.forEach(sale => {
-      const warehouseName = sale.warehouse?.name || '—';
+      const fecha = new Date(sale.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' });
+      const hora = new Date(sale.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+      const folio = sale.sale_number || '—';
+      const cliente = sale.customer_name || 'Público General';
+      const vendedor = sale.seller?.full_name || '—';
+      const bodega = sale.warehouse?.name || '—';
+      const metodoPago = sale.payment_method || '—';
+
       (sale.items || []).forEach(item => {
-        const key = `${item.sku}_${warehouseName}`;
-        if (!productMap[key]) {
-          productMap[key] = {
-            sku: item.sku || '—',
-            nombre: item.name || '—',
-            bodega: warehouseName,
-            cantidad: 0,
-            monto: 0,
-          };
-        }
-        productMap[key].cantidad += item.quantity || 0;
-        productMap[key].monto += item.subtotal || (item.quantity * item.unit_price) || 0;
+        rows.push({
+          fecha,
+          hora,
+          folio,
+          cliente,
+          sku: item.sku || '—',
+          producto: item.name || '—',
+          cantidad: item.quantity || 0,
+          precio_unitario: item.unit_price || 0,
+          subtotal: item.subtotal || (item.quantity * item.unit_price) || 0,
+          vendedor,
+          bodega,
+          metodo_pago: metodoPago,
+        });
       });
     });
 
-    const rows = Object.values(productMap).sort((a, b) => b.monto - a.monto);
-
     // Build CSV
-    const headers = ['SKU', 'Producto', 'Bodega', 'Cantidad Vendida', 'Monto Total'];
+    const headers = ['Fecha', 'Hora', 'Folio', 'Cliente', 'SKU', 'Producto', 'Cantidad', 'Precio Unitario', 'Subtotal', 'Vendedor', 'Bodega', 'Método de Pago'];
     const csvRows = [
       headers.join(','),
       ...rows.map(r => [
+        r.fecha,
+        r.hora,
+        r.folio,
+        `"${r.cliente}"`,
         r.sku,
-        `"${r.nombre}"`,
-        `"${r.bodega}"`,
+        `"${r.producto}"`,
         r.cantidad,
-        `$${r.monto.toFixed(2)}`
+        r.precio_unitario.toFixed(2),
+        r.subtotal.toFixed(2),
+        `"${r.vendedor}"`,
+        `"${r.bodega}"`,
+        `"${r.metodo_pago}"`,
       ].join(','))
     ];
 
     // Add totals row
     const totalQty = rows.reduce((s, r) => s + r.cantidad, 0);
-    const totalAmt = rows.reduce((s, r) => s + r.monto, 0);
+    const totalAmt = rows.reduce((s, r) => s + r.subtotal, 0);
     csvRows.push('');
-    csvRows.push(`,,TOTAL,${totalQty},$${totalAmt.toFixed(2)}`);
+    csvRows.push(`,,,,,,${totalQty},,${totalAmt.toFixed(2)},,,`);
 
     // Download
     const BOM = '\uFEFF';
@@ -718,7 +732,7 @@ export default function VentaMostradorPage() {
     const a = document.createElement('a');
     a.href = url;
     const today = new Date().toLocaleDateString('en-CA');
-    a.download = `ventas-mostrador-por-producto_${today}.csv`;
+    a.download = `ventas-mostrador_${today}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
