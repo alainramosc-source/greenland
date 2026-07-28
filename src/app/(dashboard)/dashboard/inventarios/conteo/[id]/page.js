@@ -6,7 +6,7 @@ import * as XLSX from 'xlsx';
 import {
     ArrowLeft, ClipboardList, Save, Loader2, Search, Upload, Download,
     Package, AlertTriangle, CheckCircle, FileSpreadsheet, X, Clock,
-    Send, ShieldCheck, Zap, ChevronRight
+    Send, ShieldCheck, Zap, ChevronRight, Plus
 } from 'lucide-react';
 
 const STATUS_LABELS = {
@@ -100,8 +100,8 @@ export default function ConteoDetailPage() {
         fetchSession();
     };
 
-    // Quick SKU input — find line and focus
-    const handleSkuSubmit = (e) => {
+    // Quick SKU input — in partial/free mode: ADD new line; in full mode: find and focus
+    const handleSkuSubmit = async (e) => {
         e.preventDefault();
         const sku = skuInput.trim().toUpperCase();
         if (!sku) return;
@@ -110,12 +110,58 @@ export default function ConteoDetailPage() {
             (l.sku || l.product?.sku || '').toUpperCase() === sku
         );
 
-        if (lineIndex === -1) {
-            alert(`SKU "${sku}" no encontrado en esta sesión`);
-        } else {
-            // Focus the input for that line
+        if (lineIndex !== -1) {
+            // SKU already exists in this count — focus it
             const input = document.getElementById(`count-input-${lines[lineIndex].id}`);
             if (input) { input.focus(); input.select(); }
+            setSkuInput('');
+            return;
+        }
+
+        // In partial/free mode: add new line
+        if (session.count_type === 'partial' || session.count_type === 'free') {
+            // Find product by SKU
+            const { data: product } = await supabase
+                .from('products')
+                .select('id, sku, name')
+                .ilike('sku', sku)
+                .single();
+
+            if (!product) {
+                alert(`SKU "${sku}" no existe en el catálogo de productos.`);
+                setSkuInput('');
+                return;
+            }
+
+            // Get current stock for this product in this warehouse
+            const { data: wsData } = await supabase
+                .from('warehouse_stock')
+                .select('stock_quantity')
+                .eq('product_id', product.id)
+                .eq('warehouse_id', session.warehouse_id)
+                .single();
+
+            const currentStock = wsData?.stock_quantity || 0;
+
+            // Insert new count line
+            const { data: newLine, error } = await supabase
+                .from('inventory_count_lines')
+                .insert({
+                    session_id: id,
+                    product_id: product.id,
+                    sku: product.sku,
+                    qty_system_snapshot: currentStock,
+                })
+                .select('*, product:products(name, sku)')
+                .single();
+
+            if (error) {
+                alert('Error al agregar SKU: ' + error.message);
+            } else if (newLine) {
+                setLines(prev => [...prev, newLine].sort((a, b) => (a.sku || '').localeCompare(b.sku || '')));
+            }
+        } else {
+            alert(`SKU "${sku}" no encontrado en esta sesión`);
         }
         setSkuInput('');
     };
@@ -371,10 +417,13 @@ export default function ConteoDetailPage() {
                     <div className="flex flex-wrap items-center gap-3 mb-6">
                         <form onSubmit={handleSkuSubmit} className="flex items-center gap-2">
                             <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                {(session.count_type === 'partial' || session.count_type === 'free')
+                                    ? <Plus className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6a9a04]" />
+                                    : <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                }
                                 <input ref={skuInputRef} type="text" value={skuInput} onChange={e => setSkuInput(e.target.value)}
-                                    placeholder="SKU rápido + Enter"
-                                    className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none w-48 shadow-sm focus:ring-2 focus:ring-[#6a9a04]/20" />
+                                    placeholder={(session.count_type === 'partial' || session.count_type === 'free') ? "Agregar SKU + Enter" : "SKU rápido + Enter"}
+                                    className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none w-52 shadow-sm focus:ring-2 focus:ring-[#6a9a04]/20" />
                             </div>
                         </form>
                         <div className="relative">

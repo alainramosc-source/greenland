@@ -1350,9 +1350,8 @@ export default function InventariosPage() {
                   <label className="block text-sm font-bold text-slate-700 mb-1">Tipo de Conteo</label>
                   <select value={newCount.count_type} onChange={e => setNewCount(p => ({ ...p, count_type: e.target.value }))}
                     className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm outline-none shadow-sm">
-                    <option value="full">Completo (todos los SKUs)</option>
-                    <option value="partial">Parcial (SKUs con stock)</option>
-                    <option value="free">Libre (agregar manualmente)</option>
+                    <option value="full">Completo (todos los SKUs de la bodega)</option>
+                    <option value="partial">Parcial (yo elijo los SKUs)</option>
                   </select>
                 </div>
                 <div>
