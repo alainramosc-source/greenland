@@ -391,6 +391,16 @@ export default function InventariosPage() {
     router.push(`/dashboard/inventarios/conteo/${data.session_id}`);
   };
 
+  const handleDeleteSession = async (e, session) => {
+    e.stopPropagation();
+    if (!confirm(`¿Eliminar conteo ${session.session_code}? Esta acción no se puede deshacer.`)) return;
+    // Delete lines first, then session
+    await supabase.from('inventory_count_lines').delete().eq('session_id', session.id);
+    const { error } = await supabase.from('inventory_count_sessions').delete().eq('id', session.id);
+    if (error) { alert('Error al eliminar: ' + error.message); return; }
+    setCountSessions(prev => prev.filter(s => s.id !== session.id));
+  };
+
   // CSV Upload handler — supports two formats:
   // 1) Pivot: SKU | Bodega1 | Bodega2 | ...  (warehouse names as headers)
   // 2) Row:   SKU | Bodega | Cantidad         (one row per SKU+warehouse)
@@ -1128,7 +1138,18 @@ export default function InventariosPage() {
                               <span className="text-xs text-slate-400 flex items-center gap-1"><Calendar size={12} /> {new Date(session.created_at).toLocaleDateString('es-MX')}</span>
                             </div>
                           </div>
-                          <ChevronRight size={18} className="text-slate-300 group-hover:text-[#6a9a04] transition-colors shrink-0" />
+                          <div className="flex items-center gap-2 shrink-0">
+                            {(session.status === 'draft' || session.status === 'in_progress') && (
+                              <button
+                                onClick={(e) => handleDeleteSession(e, session)}
+                                className="p-2 rounded-lg hover:bg-red-50 bg-transparent border-none cursor-pointer text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                title="Eliminar conteo"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
+                            <ChevronRight size={18} className="text-slate-300 group-hover:text-[#6a9a04] transition-colors" />
+                          </div>
                         </div>
                       );
                     })}
