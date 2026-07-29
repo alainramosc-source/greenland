@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Recycle, Package, DollarSign, TrendingUp, Settings, Plus, Edit3, Trash2,
   ShoppingCart, Send, Filter, Calendar, Loader2, Check, X, BarChart3,
-  Search, ChevronDown, Save, ToggleLeft, ToggleRight, Phone, FileText, Users, Weight
+  Search, ChevronDown, Save, ToggleLeft, ToggleRight, Phone, FileText, Users, Weight, Download
 } from 'lucide-react';
 
 const fmt = (n) => Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -156,6 +156,38 @@ export default function RecyclingPage() {
     if (historyFilter.dateTo) filtered = filtered.filter(i => i.date <= historyFilter.dateTo + 'T23:59:59');
     return filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [purchases, sales, historyFilter]);
+
+  // Export history to Excel/CSV
+  const exportHistoryExcel = () => {
+    if (historyItems.length === 0) { alert('No hay movimientos para exportar.'); return; }
+    const headers = ['Fecha', 'Hora', 'Tipo', 'Folio', 'Material', 'Proveedor/Comprador', 'Kilos', 'Precio/Kg', 'Total'];
+    const rows = historyItems.map(item => {
+      const d = new Date(item.date);
+      return [
+        d.toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' }),
+        d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        item.type === 'compra' ? 'Compra' : 'Venta',
+        item.number || '—',
+        `"${item.material}"`,
+        `"${item.who}"`,
+        Number(item.quantity_kg || 0).toFixed(3),
+        Number(item.price_per_kg || 0).toFixed(2),
+        Number(item.total_amount || 0).toFixed(2),
+      ].join(',');
+    });
+    const totalKg = historyItems.reduce((s, i) => s + Number(i.quantity_kg || 0), 0);
+    const totalAmt = historyItems.reduce((s, i) => s + (i.type === 'compra' ? -1 : 1) * Number(i.total_amount || 0), 0);
+    rows.push('');
+    rows.push(`,,,,,,${totalKg.toFixed(3)},,${totalAmt.toFixed(2)}`);
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + [headers.join(','), ...rows].join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reciclaje-historial_${new Date().toLocaleDateString('en-CA')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // ========== PURCHASE LOGIC ==========
 
@@ -770,11 +802,15 @@ export default function RecyclingPage() {
 
           {/* History Table */}
           <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200">
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-[#6a9a04]" /> Historial de Movimientos
                 <span className="text-xs font-normal text-slate-400 ml-1">({historyItems.length})</span>
               </h2>
+              <button onClick={exportHistoryExcel} disabled={historyItems.length === 0}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#6a9a04]/30 text-sm font-bold text-[#6a9a04] bg-[#6a9a04]/5 hover:bg-[#6a9a04]/10 cursor-pointer transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                <Download size={14} /> Exportar Excel
+              </button>
             </div>
             {historyItems.length === 0 ? (
               <div className="text-center py-12 text-slate-400">
