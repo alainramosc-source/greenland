@@ -1107,7 +1107,31 @@ export default function AdminPagosPage() {
                     const absDiff = Math.abs(diff);
                     const diffColor = absDiff === 0 ? 'text-emerald-600' : absDiff <= 500 ? 'text-amber-600' : 'text-red-600';
                     const diffBg = absDiff === 0 ? 'bg-emerald-50' : absDiff <= 500 ? 'bg-amber-50' : 'bg-red-50';
-                    const diffIcon = absDiff === 0 ? '✅' : absDiff <= 500 ? '⚠️' : '🔴';
+                    const diffIcon = audit.applied ? '✅' : absDiff === 0 ? '✅' : absDiff <= 500 ? '⚠️' : '🔴';
+
+                    const handleApplyAudit = async () => {
+                      const tipo = diff < 0 ? 'faltante' : 'sobrante';
+                      if (!confirm(`¿Aplicar ajuste de caja por ${tipo} de $${absDiff.toLocaleString('es-MX', { minimumFractionDigits: 2 })}?\n\nEsto creará un movimiento de ${diff < 0 ? 'salida' : 'entrada'} automático para cuadrar el saldo.`)) return;
+                      const userId = (await supabase.auth.getUser()).data.user?.id;
+                      // Create cash movement
+                      const { error: moveErr } = await supabase.from('cash_movements').insert({
+                        type: diff < 0 ? 'exit' : 'entry',
+                        amount: absDiff,
+                        concept: `Ajuste por arqueo de caja — ${tipo}`,
+                        responsible: audit.performed_by,
+                        notes: `Arqueo ${new Date(audit.created_at).toLocaleDateString('es-MX')}. Esperado: $${Number(audit.expected_balance).toLocaleString('es-MX')} / Contado: $${Number(audit.counted_balance).toLocaleString('es-MX')}`,
+                        reference_type: 'manual',
+                        movement_date: audit.audit_date,
+                        created_by: userId,
+                        registered_by: currentUserName,
+                        approval_status: 'approved',
+                      });
+                      if (moveErr) { alert('Error al crear movimiento: ' + moveErr.message); return; }
+                      // Mark audit as applied
+                      await supabase.from('cash_audits').update({ applied: true, applied_at: new Date().toISOString() }).eq('id', audit.id);
+                      fetchData();
+                    };
+
                     return (
                       <div key={audit.id} className="px-5 py-3.5 flex items-center gap-4 hover:bg-white/40 transition-colors">
                         <div className={`w-10 h-10 rounded-xl ${diffBg} flex items-center justify-center text-lg`}>
@@ -1121,6 +1145,9 @@ export default function AdminPagosPage() {
                             <span className="text-[10px] text-slate-400">
                               {new Date(audit.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
                             </span>
+                            {audit.applied && (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-600">Aplicado</span>
+                            )}
                           </div>
                           <div className="flex items-center gap-3 mt-0.5">
                             <span className="text-xs text-slate-500">Esperado: <strong>${Number(audit.expected_balance).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong></span>
@@ -1128,11 +1155,21 @@ export default function AdminPagosPage() {
                           </div>
                           {audit.notes && <p className="text-[11px] text-slate-400 mt-0.5 truncate">{audit.notes}</p>}
                         </div>
-                        <div className="text-right">
-                          <p className={`text-sm font-black ${diffColor}`}>
-                            {diff >= 0 ? '+' : ''}${diff.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                          </p>
-                          <p className="text-[10px] text-slate-400">{audit.performed_by}</p>
+                        <div className="text-right flex items-center gap-3">
+                          <div>
+                            <p className={`text-sm font-black ${diffColor}`}>
+                              {diff >= 0 ? '+' : ''}${diff.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-[10px] text-slate-400">{audit.performed_by}</p>
+                          </div>
+                          {!audit.applied && absDiff > 0 && (
+                            <button
+                              onClick={handleApplyAudit}
+                              className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 cursor-pointer transition-colors"
+                            >
+                              Aplicar Ajuste
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
