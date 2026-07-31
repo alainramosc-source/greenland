@@ -189,7 +189,6 @@ export default function SupplierDetailPage() {
     { id: 'info', label: 'Información' },
     { id: 'orders', label: `Órdenes (${orders.length})` },
     { id: 'invoices', label: `Facturas (${invoices.length})` },
-    { id: 'documents', label: `Documentos (${evidence.length})` },
   ];
 
   // KPIs
@@ -569,51 +568,6 @@ export default function SupplierDetailPage() {
       )}
 
       {/* Tab: Documents */}
-      {activeTab === 'documents' && (
-        <div className="space-y-4">
-          {evidence.length === 0 ? (
-            <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-12 text-center text-slate-400">
-              <FileText size={40} className="mx-auto mb-3 opacity-30" />
-              <p className="font-medium">Sin documentos subidos por el proveedor</p>
-            </div>
-          ) : (
-            <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden divide-y divide-slate-100">
-              {evidence.map(doc => {
-                const order = orders.find(o => o.id === doc.service_order_id);
-                const catColors = {
-                  factura_pdf: 'border-l-blue-500 bg-blue-50/30',
-                  factura_xml: 'border-l-blue-400 bg-blue-50/20',
-                  carta_porte: 'border-l-indigo-500 bg-indigo-50/20',
-                  pedimento: 'border-l-amber-500 bg-amber-50/20',
-                  cita_carga: 'border-l-orange-500 bg-orange-50/20',
-                  evidence: 'border-l-slate-400 bg-slate-50/20',
-                };
-                const catClass = catColors[doc.document_category] || catColors.evidence;
-                return (
-                  <div key={doc.id} className={`px-5 py-3.5 border-l-4 ${catClass} flex items-center gap-4`}>
-                    <FileText size={18} className="text-slate-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-900">{DOC_LABELS[doc.document_category] || doc.document_category}</span>
-                        <span className="text-[10px] text-slate-400">{doc.file_name}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {order?.description || 'Orden'} · {new Date(doc.created_at).toLocaleDateString('es-MX')}
-                      </p>
-                    </div>
-                    {doc.file_url && (
-                      <button onClick={() => viewFile(doc.file_url)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 cursor-pointer transition-colors">
-                        <Eye size={14} /> Ver
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Contracts (always visible at bottom) */}
       {contracts.length > 0 && (
