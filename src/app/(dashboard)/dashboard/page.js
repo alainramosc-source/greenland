@@ -312,6 +312,11 @@ export default function DashboardPage() {
         const testRole = typeof window !== 'undefined' ? sessionStorage.getItem('test_view_role') : null;
         const effectiveRole = (profile?.role === 'admin' && testRole === 'distributor') ? 'distributor' : profile?.role;
 
+        if (effectiveRole === 'supplier') {
+          router.push('/dashboard/mis-ordenes');
+          return;
+        }
+
         if (effectiveRole === 'distributor') {
           setIsDistributor(true);
           setLoading(false);

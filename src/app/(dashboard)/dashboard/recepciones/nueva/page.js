@@ -610,6 +610,40 @@ export default function NuevaRecepcionPage() {
       }
     }
 
+    // 4. Auto-create service order for transport supplier (flete)
+    try {
+      const { data: fleteSuppliers } = await supabase
+        .from('suppliers')
+        .select('id')
+        .contains('service_types', ['flete'])
+        .eq('is_active', true)
+        .limit(1);
+
+      if (fleteSuppliers && fleteSuppliers.length > 0) {
+        const freightAmount = Number(form.freight_national) || 0;
+        const refParts = [];
+        if (form.container_label) refParts.push(`Contenedor: ${form.container_label}`);
+        if (form.pedimento_number) refParts.push(`Pedimento: ${form.pedimento_number}`);
+        if (form.customs_broker_ref) refParts.push(`Ref. Aduanal: ${form.customs_broker_ref}`);
+        if (form.operation_number) refParts.push(`Operación: ${form.operation_number}`);
+
+        await supabase.from('service_orders').insert({
+          supplier_id: fleteSuppliers[0].id,
+          service_type: 'flete',
+          description: `Flete contenedor ${form.container_label || ''} — Op ${form.operation_number || ''}`.trim(),
+          location: suppliers.find(s => s.id === form.supplier_id)?.short_name || 'Puerto',
+          reference_info: refParts.join(' | '),
+          agreed_amount: freightAmount,
+          status: 'completada',
+          scheduled_date: form.reception_date,
+          reception_id: id,
+        });
+      }
+    } catch (soErr) {
+      console.error('Error creating service order:', soErr);
+      // Non-blocking: reception still succeeds even if SO creation fails
+    }
+
     if (stockErrors.length) {
       alert(`Recepción confirmada con algunos errores de stock:\n${stockErrors.join('\n')}`);
     } else {
