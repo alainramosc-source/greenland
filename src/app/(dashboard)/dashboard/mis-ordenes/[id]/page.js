@@ -107,7 +107,8 @@ export default function SupplierOrderDetailPage() {
     try {
       setUploadingDoc(category);
       const timestamp = new Date().getTime();
-      const fileName = `${category}_${timestamp}_${file.name}`;
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_');
+      const fileName = `${category}_${timestamp}_${safeName}`;
       const storagePath = `${order.supplier_id}/${order.id}/${fileName}`;
 
       // Upload to storage
