@@ -166,7 +166,7 @@ export default function SupplierOrderDetailPage() {
       }
     } catch (err) {
       console.error('Error uploading file:', err);
-      alert('Hubo un error al subir el archivo.');
+      alert('Error al subir archivo: ' + (err?.message || err?.statusCode || JSON.stringify(err)));
     } finally {
       setUploadingDoc(null);
     }
