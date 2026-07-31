@@ -58,26 +58,15 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Error al crear proveedor: ' + supplierError.message }, { status: 400 });
     }
 
-    // 4. Send password reset email so supplier can set their own password
-    const { error: resetError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'recovery',
-      email,
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://greenland-products.com.mx'}/portal-proveedores`
-      }
-    });
-
-    // Even if email fails, supplier was created — admin can share the link manually
+    // Email NOT sent automatically — admin will send welcome email manually when ready
     const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://greenland-products.com.mx'}/portal-proveedores`;
 
     return NextResponse.json({
       success: true,
       supplier,
       portalUrl,
-      emailSent: !resetError,
-      message: resetError
-        ? 'Proveedor creado. El email no pudo enviarse automáticamente — comparte el link manualmente.'
-        : 'Proveedor creado y email enviado para que establezca su contraseña.'
+      emailSent: false,
+      message: 'Proveedor creado. Envía el link de acceso al portal cuando estés listo.'
     });
 
   } catch (err) {

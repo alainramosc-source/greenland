@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, Building, Mail, Phone, MapPin, FileText, Loader2,
   CheckCircle, XCircle, Truck, DollarSign, Eye, Download, Check, X,
-  Upload, Clock, AlertTriangle, CreditCard, ExternalLink
+  Upload, Clock, AlertTriangle, CreditCard, ExternalLink, Send
 } from 'lucide-react';
 
 const fmt = (n) => Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -42,6 +42,8 @@ export default function SupplierDetailPage() {
   const [rejectingInvoice, setRejectingInvoice] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [payProofUploading, setPayProofUploading] = useState(null);
+  const [sendingWelcome, setSendingWelcome] = useState(false);
+  const [welcomeSent, setWelcomeSent] = useState(false);
 
   useEffect(() => {
     if (id) fetchAll();
@@ -76,6 +78,21 @@ export default function SupplierDetailPage() {
     const newStatus = !supplier.is_active;
     await supabase.from('suppliers').update({ is_active: newStatus }).eq('id', id);
     setSupplier(prev => ({ ...prev, is_active: newStatus }));
+  };
+
+  const sendWelcomeEmail = async () => {
+    if (!confirm(`¿Enviar email de bienvenida a ${supplier.email}?\n\nIncluirá link para establecer contraseña y acceder al portal.`)) return;
+    setSendingWelcome(true);
+    try {
+      const res = await fetch('/api/suppliers/send-welcome', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ supplier_id: id }),
+      });
+      const data = await res.json();
+      if (data.success) { setWelcomeSent(true); alert('✅ Email enviado a ' + supplier.email); }
+      else alert('Error: ' + (data.error || 'No se pudo enviar'));
+    } catch (err) { alert('Error: ' + err.message); }
+    setSendingWelcome(false);
   };
 
   const handleApproveInvoice = async (inv) => {
@@ -165,10 +182,17 @@ export default function SupplierDetailPage() {
             <p className="text-sm text-slate-500">{supplier.contact_name} · {supplier.email} · {(supplier.service_types || []).join(', ')}</p>
           </div>
         </div>
-        <button onClick={toggleActive}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none transition-all ${supplier.is_active ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}>
-          {supplier.is_active ? <><XCircle size={16} /> Desactivar</> : <><CheckCircle size={16} /> Activar</>}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={sendWelcomeEmail} disabled={sendingWelcome || welcomeSent}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none transition-all bg-blue-50 text-blue-600 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed">
+            {sendingWelcome ? <Loader2 size={16} className="animate-spin" /> : welcomeSent ? <CheckCircle size={16} /> : <Send size={16} />}
+            {sendingWelcome ? 'Enviando...' : welcomeSent ? 'Email Enviado' : 'Enviar Email de Acceso'}
+          </button>
+          <button onClick={toggleActive}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none transition-all ${supplier.is_active ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}>
+            {supplier.is_active ? <><XCircle size={16} /> Desactivar</> : <><CheckCircle size={16} /> Activar</>}
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}

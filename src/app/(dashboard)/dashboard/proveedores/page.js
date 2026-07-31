@@ -353,7 +353,7 @@ export default function SuppliersPage() {
 
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
                   <p className="text-xs font-medium text-blue-700">
-                    📧 Al crear el proveedor, se enviará un email automático a <strong>{form.email || '...'}</strong> con un enlace para que establezca su contraseña y acceda al portal.
+                    📧 Se creará la cuenta del proveedor <strong>{form.email || '...'}</strong>. El email de acceso se envía manualmente desde el detalle del proveedor cuando estés listo.
                   </p>
                 </div>
 
