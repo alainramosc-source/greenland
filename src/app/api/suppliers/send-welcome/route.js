@@ -4,7 +4,7 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-function buildSupplierWelcomeEmail({ companyName, contactName, portalUrl, resetLink }) {
+function buildSupplierWelcomeEmail({ companyName, contactName, portalUrl, resetLink, email }) {
   return `
 <!DOCTYPE html>
 <html>
@@ -24,7 +24,7 @@ function buildSupplierWelcomeEmail({ companyName, contactName, portalUrl, resetL
           📋 Cargar documentos de materialidad (Carta Porte, Pedimentos, Citas de Carga)<br/>
           💬 Comunicarse directamente con el equipo administrativo<br/>
           💰 Dar seguimiento al estado de pago de sus facturas<br/><br/>
-          <strong>Su usuario de acceso es:</strong> ${supplier.email}<br/><br/>
+          <strong>Su usuario de acceso es:</strong> ${email}<br/><br/>
           Para comenzar, establezca su contraseña haciendo clic en el botón de abajo.</p>
         </div>
         <div style="background:#f8fafc;border-radius:12px;padding:16px;margin-bottom:20px;border:1px solid #e2e8f0;">
@@ -79,6 +79,7 @@ export async function POST(request) {
     const html = buildSupplierWelcomeEmail({
       companyName: supplier.company_name,
       contactName: supplier.contact_name,
+      email: supplier.email,
       portalUrl,
       resetLink,
     });
