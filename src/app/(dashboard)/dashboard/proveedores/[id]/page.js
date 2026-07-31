@@ -45,12 +45,26 @@ export default function SupplierDetailPage() {
   const [sendingWelcome, setSendingWelcome] = useState(false);
   const [welcomeSent, setWelcomeSent] = useState(false);
 
+  // New States
+  const [comments, setComments] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [newComment, setNewComment] = useState('');
+  const [postingComment, setPostingComment] = useState(false);
+
   useEffect(() => {
     if (id) fetchAll();
   }, [id]);
 
   const fetchAll = async () => {
     setLoading(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      setCurrentUser(profile || { id: user.id, full_name: user.email });
+    }
+
     const [supplierRes, ordersRes, contractsRes] = await Promise.all([
       supabase.from('suppliers').select('*').eq('id', id).single(),
       supabase.from('service_orders').select('*').eq('supplier_id', id).order('created_at', { ascending: false }),
@@ -61,15 +75,17 @@ export default function SupplierDetailPage() {
     setOrders(ords);
     if (contractsRes.data) setContracts(contractsRes.data);
 
-    // Fetch invoices and evidence for all orders
+    // Fetch invoices, evidence and comments for all orders
     if (ords.length > 0) {
       const orderIds = ords.map(o => o.id);
-      const [invRes, evRes] = await Promise.all([
+      const [invRes, evRes, commRes] = await Promise.all([
         supabase.from('service_order_invoices').select('*').in('service_order_id', orderIds).order('created_at', { ascending: false }),
         supabase.from('service_order_evidence').select('*').in('service_order_id', orderIds).order('created_at', { ascending: false }),
+        supabase.from('service_order_comments').select('*').in('service_order_id', orderIds).order('created_at', { ascending: true }),
       ]);
       setInvoices(invRes.data || []);
       setEvidence(evRes.data || []);
+      setComments(commRes.data || []);
     }
     setLoading(false);
   };
@@ -78,6 +94,25 @@ export default function SupplierDetailPage() {
     const newStatus = !supplier.is_active;
     await supabase.from('suppliers').update({ is_active: newStatus }).eq('id', id);
     setSupplier(prev => ({ ...prev, is_active: newStatus }));
+  };
+
+  const handlePostComment = async (orderId) => {
+    if (!newComment.trim() || !currentUser) return;
+    setPostingComment(true);
+    const { data, error } = await supabase.from('service_order_comments').insert([{
+      service_order_id: orderId,
+      user_id: currentUser.id,
+      user_name: currentUser.full_name,
+      message: newComment.trim()
+    }]).select();
+    
+    if (error) {
+      alert('Error al publicar comentario: ' + error.message);
+    } else if (data && data.length > 0) {
+      setComments(prev => [...prev, data[0]]);
+      setNewComment('');
+    }
+    setPostingComment(false);
   };
 
   const sendWelcomeEmail = async () => {
@@ -267,12 +302,19 @@ export default function SupplierDetailPage() {
                 const sc = STATUS_COLORS[o.status] || STATUS_COLORS.pendiente;
                 const orderInvoices = invoices.filter(i => i.service_order_id === o.id);
                 const orderDocs = evidence.filter(e => e.service_order_id === o.id);
+                const orderComments = comments.filter(c => c.service_order_id === o.id);
                 const docCount = orderDocs.length;
                 const invStatus = orderInvoices.length > 0 ? orderInvoices[0].validation_status : null;
                 const payStatus = orderInvoices.length > 0 ? orderInvoices[0].payment_status : null;
+                const isExpanded = selectedOrder === o.id;
+                const inv = orderInvoices.length > 0 ? orderInvoices[0] : null;
+
                 return (
-                  <div key={o.id} className="px-5 py-4 hover:bg-white/40 transition-colors">
-                    <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div key={o.id} className="flex flex-col">
+                    <div 
+                      onClick={() => setSelectedOrder(isExpanded ? null : o.id)}
+                      className="px-5 py-4 hover:bg-white/40 transition-colors cursor-pointer flex items-center justify-between flex-wrap gap-3"
+                    >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-black text-slate-900">{o.description || `Flete #${o.order_number || ''}`}</span>
@@ -288,6 +330,126 @@ export default function SupplierDetailPage() {
                         {o.reference_info && <p className="text-[11px] text-slate-400 mt-0.5 truncate">{o.reference_info}</p>}
                       </div>
                     </div>
+                    {isExpanded && (
+                      <div className="p-5 bg-white/40 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6" onClick={e => e.stopPropagation()}>
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Documentos de la Orden</h4>
+                          {orderDocs.length === 0 ? (
+                            <p className="text-sm text-slate-400 italic">No hay documentos subidos</p>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {orderDocs.map(doc => {
+                                const catColors = {
+                                  factura_pdf: 'border-l-blue-500 bg-blue-50/30',
+                                  factura_xml: 'border-l-blue-400 bg-blue-50/20',
+                                  carta_porte: 'border-l-indigo-500 bg-indigo-50/20',
+                                  pedimento: 'border-l-amber-500 bg-amber-50/20',
+                                  cita_carga: 'border-l-orange-500 bg-orange-50/20',
+                                  evidence: 'border-l-slate-400 bg-slate-50/20',
+                                };
+                                const catClass = catColors[doc.document_category] || catColors.evidence;
+                                return (
+                                  <div key={doc.id} className={`p-3 rounded-lg border border-slate-100 border-l-4 ${catClass} flex flex-col gap-2`}>
+                                    <div>
+                                      <p className="text-xs font-bold text-slate-900">{DOC_LABELS[doc.document_category] || doc.document_category}</p>
+                                      <p className="text-[10px] text-slate-500 truncate" title={doc.file_name}>{doc.file_name}</p>
+                                    </div>
+                                    <button onClick={() => viewFile(doc.file_url)}
+                                      className="self-start px-3 py-1 rounded-md text-[10px] font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
+                                      Ver Documento
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-6">
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Comentarios</h4>
+                            <div className="bg-white/80 border border-slate-200 rounded-xl overflow-hidden flex flex-col h-64">
+                              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                                {orderComments.length === 0 ? (
+                                  <p className="text-xs text-slate-400 text-center italic">Sin comentarios</p>
+                                ) : (
+                                  orderComments.map(c => (
+                                    <div key={c.id} className="bg-slate-50 p-3 rounded-lg text-sm border border-slate-100">
+                                      <div className="flex justify-between items-center mb-1">
+                                        <span className="font-bold text-slate-800 text-xs">{c.user_name}</span>
+                                        <span className="text-[10px] text-slate-400">{new Date(c.created_at).toLocaleString('es-MX')}</span>
+                                      </div>
+                                      <p className="text-slate-600 whitespace-pre-wrap">{c.message}</p>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                              <div className="border-t border-slate-200 p-3 bg-slate-50 flex gap-2">
+                                <input type="text" value={newComment} onChange={e => setNewComment(e.target.value)} 
+                                  placeholder="Escribe un comentario..." 
+                                  className="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-200 outline-none focus:border-[#6a9a04]"
+                                  onKeyDown={e => { if (e.key === 'Enter') handlePostComment(o.id); }}
+                                />
+                                <button onClick={() => handlePostComment(o.id)} disabled={postingComment || !newComment.trim()}
+                                  className="px-4 py-2 bg-[#6a9a04] text-white rounded-lg text-sm font-bold disabled:opacity-50 hover:bg-[#5b8503]">
+                                  {postingComment ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {inv && (
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Acciones de Pago / Factura</h4>
+                              <div className="bg-white/80 p-4 border border-slate-200 rounded-xl flex items-center justify-between gap-4 flex-wrap">
+                                <div>
+                                  <p className="text-sm font-bold text-slate-800">Factura por ${fmt(inv.invoiced_amount)}</p>
+                                  <p className="text-xs text-slate-500">Estado: <span className="uppercase font-semibold">{inv.validation_status}</span></p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {inv.validation_status === 'pendiente' && (
+                                    <>
+                                      <button onClick={() => handleApproveInvoice(inv)}
+                                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200">
+                                        <Check size={14} /> Aprobar
+                                      </button>
+                                      {rejectingInvoice === inv.id ? (
+                                        <div className="flex items-center gap-2">
+                                          <input type="text" value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+                                            placeholder="Motivo..." className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg w-32 outline-none" autoFocus />
+                                          <button onClick={() => handleRejectInvoice(inv)} className="text-red-600 font-bold bg-red-50 p-1.5 rounded-lg border border-red-200"><Check size={14}/></button>
+                                          <button onClick={() => { setRejectingInvoice(null); setRejectReason(''); }} className="text-slate-500 font-bold bg-slate-50 p-1.5 rounded-lg border border-slate-200"><X size={14}/></button>
+                                        </div>
+                                      ) : (
+                                        <button onClick={() => setRejectingInvoice(inv.id)}
+                                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 border border-red-200">
+                                          <X size={14} /> Rechazar
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                  {inv.validation_status === 'aprobada' && inv.payment_status !== 'paid' && (
+                                    <>
+                                      <button onClick={() => handleMarkPaid(inv)}
+                                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200">
+                                          <DollarSign size={14} /> Marcar Pagada
+                                      </button>
+                                      <label className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 cursor-pointer">
+                                        <Upload size={14} /> {payProofUploading === inv.id ? 'Subiendo...' : 'Comp. Pago'}
+                                        <input type="file" accept=".pdf,.jpg,.png" className="hidden" onChange={e => handlePayProofUpload(inv, e.target.files?.[0])} />
+                                      </label>
+                                    </>
+                                  )}
+                                  {inv.payment_status === 'paid' && (
+                                    <span className="px-3 py-1.5 rounded-lg text-xs font-bold bg-green-100 text-green-800 border border-green-200">Pagada</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

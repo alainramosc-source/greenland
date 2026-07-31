@@ -199,7 +199,7 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
             <div className="text-right hidden sm:block">
               <p className="text-sm font-bold text-slate-800 leading-none">{userName || 'Usuario'}</p>
               <p className="text-[10px] uppercase tracking-widest text-[#6a9a04] font-black mt-1">
-                {userRole === 'admin' ? 'Administrador' : 'Distribuidor'}
+                {userRole === 'admin' ? 'Administrador' : userRole === 'supplier' ? 'Proveedor' : 'Distribuidor'}
               </p>
             </div>
           </div>
