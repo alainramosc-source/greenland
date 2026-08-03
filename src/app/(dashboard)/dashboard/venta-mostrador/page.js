@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation';
 import {
   ShoppingBag, Search, Plus, Minus, Trash2, Printer, Package, Loader2,
   ShoppingCart, Receipt, Calendar, User, Warehouse, CreditCard, X, Check,
-  ChevronDown, RotateCcw, Clock, ChevronUp, Hash, Camera, FileSpreadsheet
+  ChevronDown, RotateCcw, Clock, ChevronUp, Hash, Camera, FileSpreadsheet, BarChart3
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
+import RetailStatsTab from './RetailStatsTab';
 
 export default function VentaMostradorPage() {
   const supabase = createClient();
@@ -938,6 +939,7 @@ export default function VentaMostradorPage() {
             {[
               { key: 'nueva', label: 'Nueva Venta', icon: ShoppingCart },
               { key: 'historial', label: 'Historial', icon: Receipt },
+              { key: 'stats', label: 'Estadísticas', icon: BarChart3 },
             ].map(t => (
               <button
                 key={t.key}
@@ -1573,6 +1575,9 @@ export default function VentaMostradorPage() {
           )}
         </div>
       </div>
+
+      {/* ═══════════════ ESTADÍSTICAS TAB ═══════════════ */}
+      {activeTab === 'stats' && <RetailStatsTab />}
 
       {/* ═══════════════ BARCODE SCANNER MODAL ═══════════════ */}
       {showScanner && (
