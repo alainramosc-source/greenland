@@ -73,7 +73,10 @@ export default function RetailStatsTab() {
       });
     });
     const products = Object.values(productMap).sort((a, b) => b.quantity - a.quantity);
-    const truncName = (n) => n.length > 22 ? n.slice(0, 22) + '…' : n;
+    const truncName = (n) => {
+      if (n.length <= 28) return n;
+      return n.slice(0, 12) + '…' + n.slice(-14);
+    };
     const topByQty = products.slice(0, 10).map(p => ({ ...p, shortName: truncName(p.name) }));
     const topByRevenue = [...products].sort((a, b) => b.revenue - a.revenue).slice(0, 10).map(p => ({ ...p, shortName: truncName(p.name) }));
     const totalUnits = products.reduce((s, p) => s + p.quantity, 0);
