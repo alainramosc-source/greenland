@@ -73,8 +73,9 @@ export default function RetailStatsTab() {
       });
     });
     const products = Object.values(productMap).sort((a, b) => b.quantity - a.quantity);
-    const topByQty = products.slice(0, 10);
-    const topByRevenue = [...products].sort((a, b) => b.revenue - a.revenue).slice(0, 10);
+    const truncName = (n) => n.length > 22 ? n.slice(0, 22) + '…' : n;
+    const topByQty = products.slice(0, 10).map(p => ({ ...p, shortName: truncName(p.name) }));
+    const topByRevenue = [...products].sort((a, b) => b.revenue - a.revenue).slice(0, 10).map(p => ({ ...p, shortName: truncName(p.name) }));
     const totalUnits = products.reduce((s, p) => s + p.quantity, 0);
 
     // Payment method breakdown
@@ -251,12 +252,12 @@ export default function RetailStatsTab() {
               <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Award size={16} className="text-amber-500" /> Más Vendidos (Unidades)
               </h3>
-              <div className="h-72">
+              <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={stats.topByQty} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#475569' }} width={120} />
+                    <YAxis type="category" dataKey="shortName" tick={{ fontSize: 10, fill: '#475569' }} width={160} interval={0} />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="quantity" name="Unidades" fill="#6a9a04" radius={[0, 6, 6, 0]} barSize={20}>
                       {stats.topByQty.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
@@ -271,12 +272,12 @@ export default function RetailStatsTab() {
               <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <DollarSign size={16} className="text-green-600" /> Más Vendidos (Ingresos)
               </h3>
-              <div className="h-72">
+              <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={stats.topByRevenue} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
                     <XAxis type="number" tickFormatter={fmtShort} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#475569' }} width={120} />
+                    <YAxis type="category" dataKey="shortName" tick={{ fontSize: 10, fill: '#475569' }} width={160} interval={0} />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="revenue" name="$ Ingresos" fill="#2563eb" radius={[0, 6, 6, 0]} barSize={20}>
                       {stats.topByRevenue.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
