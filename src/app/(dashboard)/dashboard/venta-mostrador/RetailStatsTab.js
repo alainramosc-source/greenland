@@ -66,8 +66,9 @@ export default function RetailStatsTab() {
     sales.forEach(sale => {
       const items = typeof sale.items === 'string' ? JSON.parse(sale.items) : (sale.items || []);
       items.forEach(item => {
-        const key = item.name || item.sku;
+        const key = item.sku || item.name;
         if (!productMap[key]) productMap[key] = { name: item.name, sku: item.sku, quantity: 0, revenue: 0 };
+        else productMap[key].name = item.name; // always keep latest name
         productMap[key].quantity += Number(item.quantity || 0);
         productMap[key].revenue += Number(item.subtotal || item.quantity * item.unit_price || 0);
       });
