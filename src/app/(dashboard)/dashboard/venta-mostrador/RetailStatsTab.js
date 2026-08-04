@@ -131,6 +131,20 @@ export default function RetailStatsTab() {
     { key: 'custom', label: 'Rango' },
   ];
 
+  // Custom Y-axis tick that shows full name on hover
+  const CustomYAxisTick = ({ x, y, payload, data }) => {
+    const item = data?.find(d => d.shortName === payload.value);
+    const fullName = item?.name || payload.value;
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <title>{fullName}</title>
+        <text x={-5} y={0} dy={4} textAnchor="end" fontSize={10} fill="#475569" style={{ cursor: 'pointer' }}>
+          {payload.value}
+        </text>
+      </g>
+    );
+  };
+
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     return (
@@ -257,7 +271,7 @@ export default function RetailStatsTab() {
                   <BarChart data={stats.topByQty} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                    <YAxis type="category" dataKey="shortName" tick={{ fontSize: 10, fill: '#475569' }} width={160} interval={0} />
+                    <YAxis type="category" dataKey="shortName" tick={<CustomYAxisTick data={stats.topByQty} />} width={160} interval={0} />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="quantity" name="Unidades" fill="#6a9a04" radius={[0, 6, 6, 0]} barSize={20}>
                       {stats.topByQty.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
@@ -277,7 +291,7 @@ export default function RetailStatsTab() {
                   <BarChart data={stats.topByRevenue} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
                     <XAxis type="number" tickFormatter={fmtShort} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                    <YAxis type="category" dataKey="shortName" tick={{ fontSize: 10, fill: '#475569' }} width={160} interval={0} />
+                    <YAxis type="category" dataKey="shortName" tick={<CustomYAxisTick data={stats.topByRevenue} />} width={160} interval={0} />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="revenue" name="$ Ingresos" fill="#2563eb" radius={[0, 6, 6, 0]} barSize={20}>
                       {stats.topByRevenue.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
