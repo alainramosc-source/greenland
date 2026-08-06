@@ -41,6 +41,9 @@ export default function InventariosPage() {
   const [transferTo, setTransferTo] = useState('');
   const [transferQty, setTransferQty] = useState('');
   const [transferring, setTransferring] = useState(false);
+  const [transferCreditAmount, setTransferCreditAmount] = useState('');
+  const [transferProInfo, setTransferProInfo] = useState(null);
+  const [proDistributors, setProDistributors] = useState([]);
   // Counting sessions
   const [countSessions, setCountSessions] = useState([]);
   const [showNewCount, setShowNewCount] = useState(false);
@@ -105,6 +108,17 @@ export default function InventariosPage() {
     if (isPro) whQuery = whQuery.eq('id', profile.assigned_warehouse_id);
     const { data: whData } = await whQuery;
     setWarehouses(whData || []);
+
+    // Fetch PRO distributors (for transfer credit detection)
+    if (profile?.role === 'admin') {
+      const { data: proDistData } = await supabase
+        .from('profiles')
+        .select('id, full_name, client_number, assigned_warehouse_id')
+        .eq('role', 'distributor')
+        .eq('sub_role', 'distributor_pro')
+        .eq('is_active', true);
+      setProDistributors(proDistData || []);
+    }
 
     // Fetch all warehouse stock
     const { data: wsData } = await supabase.from('warehouse_stock').select('*');
@@ -304,6 +318,14 @@ export default function InventariosPage() {
     }
   };
 
+  const handleTransferFromChange = (warehouseId) => {
+    setTransferFrom(warehouseId);
+    if (!warehouseId) { setTransferProInfo(null); setTransferCreditAmount(''); return; }
+    const pro = proDistributors.find(d => d.assigned_warehouse_id === warehouseId);
+    setTransferProInfo(pro ? { id: pro.id, name: pro.full_name, clientNumber: pro.client_number } : null);
+    if (!pro) setTransferCreditAmount('');
+  };
+
   const handleTransfer = async (e) => {
     e.preventDefault();
     if (!showTransfer || !transferFrom || !transferTo || !transferQty) return;
@@ -313,6 +335,18 @@ export default function InventariosPage() {
     if (isNaN(qty) || qty < 1) {
       alert('La cantidad de transferencia debe ser un número entero mayor a 0.');
       return;
+    }
+
+    const creditAmt = Number(transferCreditAmount) || 0;
+    if (transferProInfo && creditAmt > 0) {
+      const destName = warehouses.find(w => w.id === transferTo)?.name || 'otra bodega';
+      if (!confirm(
+        `¿Confirmar transferencia con crédito PRO?\n\n` +
+        `• ${qty} pzas de ${showTransfer.sku} — ${showTransfer.name}\n` +
+        `• De: ${warehouses.find(w => w.id === transferFrom)?.name} → A: ${destName}\n` +
+        `• Crédito de $${creditAmt.toLocaleString('es-MX', { minimumFractionDigits: 2 })} al saldo de ${transferProInfo.name}\n\n` +
+        `El saldo pendiente del distribuidor PRO se reducirá por este monto.`
+      )) { return; }
     }
 
     setTransferring(true);
@@ -328,11 +362,49 @@ export default function InventariosPage() {
     } else if (data && !data.success) {
       alert(data.error);
     } else {
+      // Create PRO credit record if applicable
+      if (transferProInfo && creditAmt > 0) {
+        const destName = warehouses.find(w => w.id === transferTo)?.name || 'otra bodega';
+        const fromName = warehouses.find(w => w.id === transferFrom)?.name || 'bodega origen';
+        const unitPrice = Math.round((creditAmt / qty) * 100) / 100;
+        const { data: creditData, error: creditError } = await supabase
+          .from('container_receptions')
+          .insert({
+            distributor_id: transferProInfo.id,
+            warehouse_id: transferFrom,
+            reception_date: new Date().toISOString().split('T')[0],
+            container_label: `Traspaso ${fromName} → ${destName}`,
+            charge_amount: -creditAmt,
+            total_origin_cost: 0,
+            total_additional_costs: 0,
+            total_landed_cost: 0,
+            status: 'completed',
+            notes: `Crédito por traspaso de ${qty} pzas de ${showTransfer.sku} (${showTransfer.name}) de ${fromName} a ${destName}. Precio unitario: $${unitPrice.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
+            created_by: userId,
+          })
+          .select('id')
+          .single();
+        if (creditError) {
+          alert('⚠️ Stock transferido, pero error al crear crédito: ' + creditError.message);
+        } else if (creditData) {
+          // Insert item detail for traceability
+          await supabase.from('container_reception_items').insert({
+            reception_id: creditData.id,
+            product_id: showTransfer.id,
+            quantity: qty,
+            unit_origin_cost: 0,
+            unit_landed_cost: 0,
+            unit_pro_price: unitPrice,
+          });
+        }
+      }
       await fetchData();
       setShowTransfer(null);
       setTransferFrom('');
       setTransferTo('');
       setTransferQty('');
+      setTransferCreditAmount('');
+      setTransferProInfo(null);
     }
     setTransferring(false);
   };
@@ -1248,7 +1320,7 @@ export default function InventariosPage() {
                   <ArrowRightLeft className="w-5 h-5 text-[#6a9a04]" />
                   Transferir: {showTransfer.name}
                 </h3>
-                <button onClick={() => { setShowTransfer(null); setTransferFrom(''); setTransferTo(''); setTransferQty(''); }}
+                <button onClick={() => { setShowTransfer(null); setTransferFrom(''); setTransferTo(''); setTransferQty(''); setTransferCreditAmount(''); setTransferProInfo(null); }}
                   className="p-1 rounded-lg hover:bg-slate-100 bg-transparent border-none cursor-pointer">
                   <X className="w-5 h-5 text-slate-500" />
                 </button>
@@ -1272,7 +1344,7 @@ export default function InventariosPage() {
                   <label className="block text-sm font-medium text-slate-600 mb-1">De bodega *</label>
                   <select
                     value={transferFrom}
-                    onChange={(e) => setTransferFrom(e.target.value)}
+                    onChange={(e) => handleTransferFromChange(e.target.value)}
                     required
                     className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none shadow-sm"
                   >
@@ -1309,8 +1381,39 @@ export default function InventariosPage() {
                     className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none text-lg shadow-sm"
                   />
                 </div>
+
+                {/* PRO Credit Section */}
+                {transferProInfo && (
+                  <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-purple-600" />
+                      <p className="text-sm font-bold text-purple-800 m-0">Crédito al Distribuidor PRO</p>
+                    </div>
+                    <p className="text-xs text-purple-600 m-0">
+                      La bodega origen pertenece a <strong>{transferProInfo.name}</strong> ({transferProInfo.clientNumber}).
+                      Ingresa el monto total a descontar de su saldo.
+                    </p>
+                    <div>
+                      <label className="block text-xs font-medium text-purple-700 mb-1">Monto a descontar del saldo ($) *</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={transferCreditAmount}
+                        onChange={(e) => setTransferCreditAmount(e.target.value)}
+                        placeholder="Ej. 5000.00"
+                        className="w-full px-4 py-3 bg-white border border-purple-300 rounded-xl focus:ring-2 focus:ring-purple-400/30 text-slate-800 outline-none text-lg shadow-sm"
+                      />
+                    </div>
+                    {transferCreditAmount && Number(transferCreditAmount) > 0 && (
+                      <p className="text-xs font-bold text-purple-700 m-0 bg-purple-100 rounded-lg px-3 py-2">
+                        💰 Se descontarán ${Number(transferCreditAmount).toLocaleString('es-MX', { minimumFractionDigits: 2 })} del saldo de {transferProInfo.name}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="flex justify-end gap-3 pt-2">
-                  <button type="button" onClick={() => { setShowTransfer(null); setTransferFrom(''); setTransferTo(''); setTransferQty(''); }}
+                  <button type="button" onClick={() => { setShowTransfer(null); setTransferFrom(''); setTransferTo(''); setTransferQty(''); setTransferCreditAmount(''); setTransferProInfo(null); }}
                     className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm"
                   >Cancelar</button>
                   <button type="submit" disabled={transferring || !transferFrom || !transferTo || !transferQty}

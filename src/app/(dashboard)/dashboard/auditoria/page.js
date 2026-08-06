@@ -1,11 +1,12 @@
 'use client';
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { ScrollText, Search, Filter, Loader2, User, Package, CreditCard, ShieldCheck, ClipboardList, Download } from 'lucide-react';
+import { ScrollText, Search, Filter, Loader2, User, Package, CreditCard, ShieldCheck, ClipboardList, Download, ArrowRightLeft } from 'lucide-react';
 
 const ACTION_LABELS = {
     stock_increase: { label: 'Entrada de Inventario', icon: Package, color: '#059669' },
     stock_decrease: { label: 'Salida de Inventario', icon: Package, color: '#ef4444' },
+    stock_transfer: { label: 'Transferencia de Stock', icon: ArrowRightLeft, color: '#8b5cf6' },
     count_created: { label: 'Conteo Creado', icon: ClipboardList, color: '#3b82f6' },
     count_submitted: { label: 'Conteo Enviado', icon: ClipboardList, color: '#f59e0b' },
     count_approved: { label: 'Conteo Aprobado', icon: ShieldCheck, color: '#6a9a04' },
@@ -144,6 +145,7 @@ export default function AuditoriaPage() {
                                 const IconComp = actionInfo.icon;
                                 const d = log.details || {};
                                 const isStock = log.action === 'stock_increase' || log.action === 'stock_decrease';
+                                const isTransfer = log.action === 'stock_transfer';
                                 return (
                                     <div key={log.id} className="px-6 py-4 hover:bg-white/50 transition-colors">
                                         <div className="flex items-start gap-4">
@@ -153,11 +155,36 @@ export default function AuditoriaPage() {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     <span className="text-sm font-bold text-slate-900">{actionInfo.label}</span>
-                                                    {isStock && d.sku && (
+                                                    {(isStock || isTransfer) && d.sku && (
                                                         <span className="px-2 py-0.5 rounded-md text-[11px] font-black bg-[#6a9a04]/10 text-[#6a9a04]">{d.sku}</span>
                                                     )}
                                                 </div>
-                                                {isStock ? (
+                                                {isTransfer ? (
+                                                    <div className="mt-2 space-y-1.5">
+                                                        <div className="flex items-center gap-2 text-xs text-slate-600">
+                                                            <span className="font-semibold text-slate-400 w-16 shrink-0">Ruta</span>
+                                                            <span className="font-bold">{d.from_warehouse}</span>
+                                                            <span className="text-purple-500 font-black">→</span>
+                                                            <span className="font-bold">{d.to_warehouse}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-xs">
+                                                            <span className="font-semibold text-slate-400 w-16 shrink-0">Piezas</span>
+                                                            <span className="font-mono font-black text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">{d.quantity}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-xs">
+                                                            <span className="font-semibold text-slate-400 w-16 shrink-0">Origen</span>
+                                                            <span className="font-mono text-slate-500">{d.from_before}</span>
+                                                            <span className="text-slate-300">→</span>
+                                                            <span className="font-mono font-bold text-slate-900">{d.from_after}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-xs">
+                                                            <span className="font-semibold text-slate-400 w-16 shrink-0">Destino</span>
+                                                            <span className="font-mono text-slate-500">{d.to_before}</span>
+                                                            <span className="text-slate-300">→</span>
+                                                            <span className="font-mono font-bold text-slate-900">{d.to_after}</span>
+                                                        </div>
+                                                    </div>
+                                                ) : isStock ? (
                                                     <div className="mt-2 space-y-1.5">
                                                         {d.warehouse && (
                                                             <div className="flex items-center gap-2 text-xs text-slate-600">

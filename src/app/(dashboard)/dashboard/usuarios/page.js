@@ -468,13 +468,12 @@ export default function UsersPage() {
 
     if (payErr) console.error('[CxC] Payments query error:', payErr);
 
-    // Get container reception charges for PRO distributors
+    // Get container reception charges for PRO distributors (includes negative credits from transfers)
     const { data: receptions } = await supabase
       .from('container_receptions')
       .select('id, distributor_id, charge_amount, status, reception_date')
       .eq('status', 'completed')
-      .not('distributor_id', 'is', null)
-      .gt('charge_amount', 0);
+      .not('distributor_id', 'is', null);
 
     // Get approved container payments (payment_type = 'containers' or 'mixed')
     const { data: containerPayments } = await supabase
