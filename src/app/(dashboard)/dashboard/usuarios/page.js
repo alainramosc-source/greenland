@@ -58,6 +58,7 @@ export default function UsersPage() {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
+      .neq('role', 'supplier')
       .order('created_at', { ascending: false });
     if (!error && data) setUsers(data);
     // Fetch warehouses for PRO assignment
