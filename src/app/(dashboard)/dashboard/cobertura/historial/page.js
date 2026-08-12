@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
-    ArrowLeft, FileSpreadsheet, Clock, CheckCircle, Send, Package,
+    ArrowLeft, FileSpreadsheet, Clock, CheckCircle, Send, Package, PackageCheck,
     AlertTriangle, ChevronDown, ChevronUp, Truck, Eye, History, Save, Loader2, Trash2, Plus, Container, Layers
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
@@ -27,14 +27,16 @@ const BUYER_INFO = {
 
 const STATUS_CONFIG = {
     draft: { label: 'Borrador', icon: Clock, color: 'text-slate-500', bg: 'bg-slate-100', border: 'border-slate-200', next: 'sent' },
-    sent: { label: 'Enviado', icon: Send, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', next: 'received' },
+    sent: { label: 'Enviado', icon: Send, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', next: 'partially_received' },
+    partially_received: { label: 'Parcial', icon: PackageCheck, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', next: 'received' },
     received: { label: 'Recibido', icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200', next: null },
     cancelled: { label: 'Cancelado', icon: AlertTriangle, color: 'text-red-500', bg: 'bg-red-50', border: 'border-red-200', next: null },
 };
 
 const NEXT_STATUS_LABEL = {
     draft: 'Marcar como Enviado',
-    sent: 'Marcar como Recibido',
+    sent: 'Marcar como Recibido Parcial',
+    partially_received: 'Marcar como Recibido',
 };
 
 export default function HistorialPedidosPage() {

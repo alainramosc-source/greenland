@@ -101,7 +101,7 @@ export default function NuevaRecepcionPage() {
     const { data: posData, error: posError } = await supabase
       .from('purchase_orders')
       .select('id, po_number, status, supplier_id')
-      .in('status', ['draft', 'sent'])
+      .in('status', ['draft', 'sent', 'partially_received'])
       .order('created_at', { ascending: false });
 
     if (posError) {
@@ -586,26 +586,40 @@ export default function NuevaRecepcionPage() {
         .eq('id', item.product_id);
     }
 
-    // 3. If PO exists, mark as received and resolve transits
+    // 3. If PO exists, mark as partially_received and resolve transits for received products
     if (form.purchase_order_id) {
-      await supabase.from('purchase_orders').update({ status: 'received' }).eq('id', form.purchase_order_id);
+      await supabase.from('purchase_orders').update({ status: 'partially_received' }).eq('id', form.purchase_order_id);
       
-      // Try to delete transits by purchase_order_id first
-      const { data: deletedByPO } = await supabase.from('transit_shipments')
-        .delete()
-        .eq('purchase_order_id', form.purchase_order_id)
-        .select('id');
-      
-      // Fallback: if no transits had purchase_order_id, find by product + supplier + warehouse
-      if (!deletedByPO || deletedByPO.length === 0) {
-        const supplierName = suppliers.find(s => s.id === form.supplier_id)?.short_name || '';
-        for (const item of items) {
-          await supabase.from('transit_shipments')
-            .delete()
-            .eq('product_id', item.product_id)
-            .eq('warehouse_id', form.warehouse_id)
-            .eq('origin', supplierName)
-            .eq('status', 'in_transit');
+      // Resolve transits: reduce quantity for each received product (don't delete all)
+      const supplierName = suppliers.find(s => s.id === form.supplier_id)?.short_name || '';
+      for (const item of items) {
+        const qtyReceived = Number(item.quantity) || 0;
+        if (qtyReceived <= 0) continue;
+
+        // Find matching transit shipments for this product
+        const { data: transits } = await supabase.from('transit_shipments')
+          .select('id, quantity')
+          .eq('product_id', item.product_id)
+          .eq('warehouse_id', form.warehouse_id)
+          .eq('status', 'in_transit')
+          .order('created_at', { ascending: true });
+
+        if (!transits || transits.length === 0) continue;
+
+        let remaining = qtyReceived;
+        for (const t of transits) {
+          if (remaining <= 0) break;
+          if (remaining >= t.quantity) {
+            // Fully consumed — delete this transit
+            await supabase.from('transit_shipments').delete().eq('id', t.id);
+            remaining -= t.quantity;
+          } else {
+            // Partially consumed — reduce quantity
+            await supabase.from('transit_shipments')
+              .update({ quantity: t.quantity - remaining })
+              .eq('id', t.id);
+            remaining = 0;
+          }
         }
       }
     }
