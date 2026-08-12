@@ -5,7 +5,7 @@ import {
   DollarSign, CheckCircle, XCircle, Clock, Loader2, Eye,
   ChevronDown, ChevronUp, AlertTriangle, CreditCard, Users, Filter,
   Upload, FileSpreadsheet, Zap, ArrowRight, X, Banknote, ArrowDownCircle, ArrowUpCircle, Wallet, Plus, Calendar, Paperclip,
-  PenTool, ShieldCheck, Download, ClipboardCheck, Scale
+  PenTool, ShieldCheck, Download, ClipboardCheck, Scale, Edit3
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AlertCircle, Link2 } from 'lucide-react';
@@ -48,6 +48,12 @@ export default function AdminPagosPage() {
   const [showExitModal, setShowExitModal] = useState(false);
   const [exitForm, setExitForm] = useState({ amount: '', concept: '', responsible: '', notes: '', movement_date: new Date().toISOString().split('T')[0] });
   const [exitSubmitting, setExitSubmitting] = useState(false);
+  const [editModal, setEditModal] = useState(null);
+  const [editForm, setEditForm] = useState({ amount: '', concept: '', responsible: '', notes: '', movement_date: '' });
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [showEntryModal, setShowEntryModal] = useState(false);
+  const [entryForm, setEntryForm] = useState({ amount: '', concept: '', responsible: '', notes: '', movement_date: new Date().toISOString().split('T')[0] });
+  const [entrySubmitting, setEntrySubmitting] = useState(false);
   // Cash audits (arqueo de caja)
   const [cashAudits, setCashAudits] = useState([]);
   const [showAuditModal, setShowAuditModal] = useState(false);
@@ -346,6 +352,49 @@ export default function AdminPagosPage() {
     if (error) { alert('Error: ' + error.message); return; }
     setShowExitModal(false);
     setExitForm({ amount: '', concept: '', responsible: '', notes: '', movement_date: new Date().toISOString().split('T')[0] });
+    fetchData();
+  };
+
+  const handleEditMovement = async () => {
+    const amount = parseFloat(editForm.amount);
+    if (!amount || amount <= 0) { alert('Ingresa un monto válido'); return; }
+    if (!editForm.concept.trim()) { alert('Ingresa un concepto'); return; }
+    setEditSubmitting(true);
+    const { error } = await supabase.from('cash_movements').update({
+      amount,
+      concept: editForm.concept.trim(),
+      responsible: editForm.responsible.trim(),
+      notes: editForm.notes.trim() || null,
+      movement_date: editForm.movement_date
+    }).eq('id', editModal.id);
+    setEditSubmitting(false);
+    if (error) { alert('Error: ' + error.message); return; }
+    setEditModal(null);
+    fetchData();
+  };
+
+  const handleRegisterEntry = async () => {
+    const amount = parseFloat(entryForm.amount);
+    if (!amount || amount <= 0) { alert('Ingresa un monto válido'); return; }
+    if (!entryForm.concept.trim()) { alert('Ingresa un concepto'); return; }
+    if (!entryForm.responsible.trim()) { alert('Ingresa quién trajo el efectivo'); return; }
+    setEntrySubmitting(true);
+    const userId = (await supabase.auth.getUser()).data.user.id;
+    const { error } = await supabase.from('cash_movements').insert({
+      type: 'entry',
+      amount,
+      concept: entryForm.concept.trim(),
+      responsible: entryForm.responsible.trim(),
+      notes: entryForm.notes.trim() || null,
+      reference_type: 'manual',
+      movement_date: entryForm.movement_date,
+      created_by: userId,
+      registered_by: currentUserName
+    });
+    setEntrySubmitting(false);
+    if (error) { alert('Error: ' + error.message); return; }
+    setShowEntryModal(false);
+    setEntryForm({ amount: '', concept: '', responsible: '', notes: '', movement_date: new Date().toISOString().split('T')[0] });
     fetchData();
   };
 
@@ -1004,6 +1053,12 @@ export default function AdminPagosPage() {
                     className="flex items-center gap-2 px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer shadow-lg shadow-indigo-500/20 transition-all">
                     <ClipboardCheck size={16} /> Arqueo de Caja
                   </button>
+                  {SIGNERS.some(s => currentUserName.toLowerCase().includes(s.toLowerCase().split(' ')[0])) && (
+                    <button onClick={() => setShowEntryModal(true)}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer shadow-lg shadow-emerald-500/20 transition-all">
+                      <Plus size={16} /> Registrar Entrada
+                    </button>
+                  )}
                   <button onClick={() => setShowExitModal(true)}
                     className="flex items-center gap-2 px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer shadow-lg shadow-red-500/20 transition-all">
                     <ArrowUpCircle size={16} /> Registrar Salida
@@ -1057,6 +1112,13 @@ export default function AdminPagosPage() {
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
+                          {SIGNERS.some(s => currentUserName.toLowerCase().includes(s.toLowerCase().split(' ')[0])) && m.reference_type === 'manual' && (
+                            <button onClick={() => { setEditModal(m); setEditForm({ amount: m.amount, concept: m.concept, responsible: m.responsible || '', notes: m.notes || '', movement_date: m.movement_date }); }}
+                              className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-blue-100 flex items-center justify-center border-none cursor-pointer transition-colors"
+                              title="Editar movimiento">
+                              <Edit3 size={14} className="text-slate-500 hover:text-blue-600" />
+                            </button>
+                          )}
                           {isPendingSig && (
                             <>
                               <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${sigCount === 0 ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
@@ -1607,6 +1669,116 @@ export default function AdminPagosPage() {
                 <button onClick={handleRegisterExit} disabled={exitSubmitting}
                   className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold text-sm border-none cursor-pointer hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-2">
                   {exitSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowUpCircle size={16} />} Registrar Salida
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cash Entry Modal */}
+      {showEntryModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowEntryModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2"><ArrowDownCircle size={20} className="text-emerald-500" /> Registrar Entrada de Caja</h3>
+            <p className="text-sm text-slate-500 mb-5">Registra ingreso de efectivo externo a la caja.</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Monto *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                  <input type="number" step="0.01" value={entryForm.amount}
+                    onChange={e => setEntryForm(f => ({ ...f, amount: e.target.value }))}
+                    className="w-full pl-8 pr-4 py-3 rounded-xl border border-slate-200 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 outline-none text-lg font-bold"
+                    placeholder="0.00" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Concepto *</label>
+                <input type="text" value={entryForm.concept}
+                  onChange={e => setEntryForm(f => ({ ...f, concept: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-emerald-400 outline-none"
+                  placeholder="Ej: Reposición de caja, transferencia interna..." />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">¿Quién trajo el efectivo? *</label>
+                <input type="text" value={entryForm.responsible}
+                  onChange={e => setEntryForm(f => ({ ...f, responsible: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-emerald-400 outline-none"
+                  placeholder="Nombre de quien trajo el efectivo" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Fecha</label>
+                <input type="date" value={entryForm.movement_date}
+                  onChange={e => setEntryForm(f => ({ ...f, movement_date: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-emerald-400 outline-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Notas (opcional)</label>
+                <input type="text" value={entryForm.notes}
+                  onChange={e => setEntryForm(f => ({ ...f, notes: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-emerald-400 outline-none"
+                  placeholder="Detalles adicionales..." />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setShowEntryModal(false)}
+                  className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm cursor-pointer bg-white hover:bg-slate-50">Cancelar</button>
+                <button onClick={handleRegisterEntry} disabled={entrySubmitting}
+                  className="flex-1 py-3 rounded-xl bg-emerald-500 text-white font-bold text-sm border-none cursor-pointer hover:bg-emerald-600 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {entrySubmitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowDownCircle size={16} />} Registrar Entrada
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Movement Modal */}
+      {editModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setEditModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2"><Edit3 size={20} className="text-blue-500" /> Editar Movimiento de Caja</h3>
+            <div className="space-y-4 mt-5">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Monto *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                  <input type="number" step="0.01" value={editForm.amount}
+                    onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))}
+                    className="w-full pl-8 pr-4 py-3 rounded-xl border border-slate-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 outline-none text-lg font-bold"
+                    placeholder="0.00" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Concepto *</label>
+                <input type="text" value={editForm.concept}
+                  onChange={e => setEditForm(f => ({ ...f, concept: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-400 outline-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Responsable *</label>
+                <input type="text" value={editForm.responsible}
+                  onChange={e => setEditForm(f => ({ ...f, responsible: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-400 outline-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Fecha</label>
+                <input type="date" value={editForm.movement_date}
+                  onChange={e => setEditForm(f => ({ ...f, movement_date: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-400 outline-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Notas (opcional)</label>
+                <input type="text" value={editForm.notes}
+                  onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-400 outline-none" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setEditModal(null)}
+                  className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm cursor-pointer bg-white hover:bg-slate-50">Cancelar</button>
+                <button onClick={handleEditMovement} disabled={editSubmitting}
+                  className="flex-1 py-3 rounded-xl bg-blue-500 text-white font-bold text-sm border-none cursor-pointer hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {editSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Edit3 size={16} />} Guardar Cambios
                 </button>
               </div>
             </div>
