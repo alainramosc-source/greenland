@@ -210,16 +210,42 @@ export default function NuevaRecepcionPage() {
       }
     }
 
-    // Load items from PO
+    // Load items from PO, subtracting already-received quantities
     if (po.items?.length) {
-      setItems(po.items.map(i => ({
-        product_id: i.product_id,
-        name: i.products?.name || '',
-        sku: i.products?.sku || '',
-        quantity: i.quantity,
-        unit_origin_cost: i.unit_price_usd || '',
-        unit_pro_price: '',
-      })));
+      // Check if there are previous completed receptions for this PO
+      let receivedMap = {};
+      if (po.status === 'partially_received') {
+        const { data: pastReceptions } = await supabase
+          .from('container_receptions')
+          .select('id')
+          .eq('purchase_order_id', poId)
+          .eq('status', 'completed');
+        if (pastReceptions?.length) {
+          const receptionIds = pastReceptions.map(r => r.id);
+          const { data: receivedItems } = await supabase
+            .from('container_reception_items')
+            .select('product_id, quantity')
+            .in('reception_id', receptionIds);
+          if (receivedItems) {
+            for (const ri of receivedItems) {
+              receivedMap[ri.product_id] = (receivedMap[ri.product_id] || 0) + Number(ri.quantity);
+            }
+          }
+        }
+      }
+
+      const remaining = po.items
+        .map(i => ({
+          product_id: i.product_id,
+          name: i.products?.name || '',
+          sku: i.products?.sku || '',
+          quantity: i.quantity - (receivedMap[i.product_id] || 0),
+          unit_origin_cost: i.unit_price_usd || '',
+          unit_pro_price: '',
+        }))
+        .filter(i => i.quantity > 0);
+
+      setItems(remaining);
     }
   };
 
