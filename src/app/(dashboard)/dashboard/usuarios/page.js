@@ -865,9 +865,11 @@ export default function UsersPage() {
       {/* Edit User Modal */}
       {isModalOpen && selectedUser && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center px-4">
-          <div className="bg-white/90 backdrop-blur-xl border border-white max-w-[500px] w-full rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="bg-white/90 backdrop-blur-xl border border-white max-w-[520px] w-full rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div className="p-6 border-b border-slate-200/50 flex justify-between items-center bg-white/50">
-              <h3 className="text-lg font-bold text-slate-900 m-0">Editar Cliente</h3>
+              <h3 className="text-lg font-bold text-slate-900 m-0">
+                {selectedUser.role === 'admin' ? '👤 Editar Colaborador / Empleado' : '🏢 Editar Cliente'}
+              </h3>
               <button onClick={() => setIsModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 bg-transparent border border-transparent transition-colors cursor-pointer text-slate-500 hover:text-slate-900">
                 <X className="w-5 h-5" />
               </button>
@@ -886,50 +888,69 @@ export default function UsersPage() {
                   className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 cursor-not-allowed"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Nombre de la Empresa</label>
-                <input type="text" value={selectedUser.company_name || ''}
-                  onChange={(e) => setSelectedUser({ ...selectedUser, company_name: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
-                  placeholder="Ej. Mi Empresa S.A."
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              {/* Exclusive fields for Distributor (Cliente) */}
+              {selectedUser.role === 'distributor' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Nombre de la Empresa</label>
+                    <input type="text" value={selectedUser.company_name || ''}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, company_name: e.target.value })}
+                      className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
+                      placeholder="Ej. Mi Empresa S.A."
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-600 mb-1">Ciudad</label>
+                      <input type="text" value={selectedUser.city || ''}
+                        onChange={(e) => setSelectedUser({ ...selectedUser, city: e.target.value })}
+                        className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
+                        placeholder="Ej. Monterrey, NL"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-600 mb-1">Teléfono</label>
+                      <input type="tel" value={selectedUser.phone || ''}
+                        onChange={(e) => setSelectedUser({ ...selectedUser, phone: e.target.value })}
+                        className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
+                        placeholder="81 1234 5678"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Domicilio</label>
+                    <input type="text" value={selectedUser.address || ''}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, address: e.target.value })}
+                      className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
+                      placeholder="Ej. Calle Falsa 123"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Phone only for Admin if applicable */}
+              {selectedUser.role === 'admin' && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Ciudad</label>
-                  <input type="text" value={selectedUser.city || ''}
-                    onChange={(e) => setSelectedUser({ ...selectedUser, city: e.target.value })}
-                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
-                    placeholder="Ej. Monterrey, NL"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Teléfono</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Teléfono (Opcional)</label>
                   <input type="tel" value={selectedUser.phone || ''}
                     onChange={(e) => setSelectedUser({ ...selectedUser, phone: e.target.value })}
                     className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
-                    placeholder="81 1234 5678"
+                    placeholder="844 123 4567"
                   />
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Domicilio</label>
-                <input type="text" value={selectedUser.address || ''}
-                  onChange={(e) => setSelectedUser({ ...selectedUser, address: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
-                  placeholder="Ej. Calle Falsa 123"
-                />
-              </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Rol</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Rol de Usuario</label>
                   <select
                     value={selectedUser.role}
                     onChange={(e) => setSelectedUser({ ...selectedUser, role: e.target.value })}
                     className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
                   >
-                    <option value="distributor">Distribuidor</option>
-                    <option value="admin">Administrador</option>
+                    <option value="distributor">Distribuidor / Cliente</option>
+                    <option value="admin">Administrador / Empleado</option>
                   </select>
                 </div>
                 <div>
@@ -944,6 +965,7 @@ export default function UsersPage() {
                   </select>
                 </div>
               </div>
+
               {selectedUser.role === 'distributor' && (
                 <>
                 <div className="grid grid-cols-2 gap-4">
@@ -1003,59 +1025,61 @@ export default function UsersPage() {
                 )}
                 </>
               )}
-            </div>
-            {selectedUser.role === 'admin' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Sub-Rol Admin</label>
-                  <select
-                    value={selectedUser.sub_role || 'viewer'}
-                    onChange={(e) => setSelectedUser({ ...selectedUser, sub_role: e.target.value })}
-                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
-                  >
-                    <option value="super_admin">Super Admin (acceso total)</option>
-                    <option value="warehouse_admin">Admin Bodega (inventarios)</option>
-                    <option value="accountant">Contabilidad (pagos/precios)</option>
-                    <option value="viewer">Solo Lectura</option>
-                  </select>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+              {/* Exclusive fields for Admin / Collaborator */}
+              {selectedUser.role === 'admin' && (
+                <div className="space-y-4 pt-2 border-t border-slate-200">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">🔢 PIN Autorización Signer</label>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      placeholder="Ej. 1234"
-                      value={selectedUser.authorization_pin || ''}
-                      onChange={(e) => setSelectedUser({ ...selectedUser, authorization_pin: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm font-mono outline-none shadow-sm"
-                    />
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Sub-Rol Admin</label>
+                    <select
+                      value={selectedUser.sub_role || 'viewer'}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, sub_role: e.target.value })}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none"
+                    >
+                      <option value="super_admin">Super Admin (acceso total y autorizaciones)</option>
+                      <option value="warehouse_admin">Admin Bodega (inventarios y mostrador)</option>
+                      <option value="accountant">Contabilidad (pagos/precios)</option>
+                      <option value="viewer">Solo Lectura</option>
+                    </select>
                   </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">🏷️ Código de Barras Empleado</label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const rand = Math.floor(100000 + Math.random() * 900000);
-                          setSelectedUser({ ...selectedUser, employee_barcode: `EMP-${rand}` });
-                        }}
-                        className="text-[10px] font-bold text-[#6a9a04] hover:underline bg-transparent border-none cursor-pointer"
-                      >
-                        ⚡ Generar código
-                      </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">🔢 PIN Autorización Signer</label>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        placeholder="Ej. 1234"
+                        value={selectedUser.authorization_pin || ''}
+                        onChange={(e) => setSelectedUser({ ...selectedUser, authorization_pin: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm font-mono outline-none shadow-sm"
+                      />
                     </div>
-                    <input
-                      type="text"
-                      placeholder="Ej. EMP-101024"
-                      value={selectedUser.employee_barcode || ''}
-                      onChange={(e) => setSelectedUser({ ...selectedUser, employee_barcode: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm font-mono outline-none shadow-sm"
-                    />
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">🏷️ Código Barras</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const rand = Math.floor(100000 + Math.random() * 900000);
+                            setSelectedUser({ ...selectedUser, employee_barcode: `EMP-${rand}` });
+                          }}
+                          className="text-[10px] font-bold text-[#6a9a04] hover:underline bg-transparent border-none cursor-pointer"
+                        >
+                          ⚡ Generar
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Ej. EMP-101024"
+                        value={selectedUser.employee_barcode || ''}
+                        onChange={(e) => setSelectedUser({ ...selectedUser, employee_barcode: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm font-mono outline-none shadow-sm"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
             <div className="p-6 border-t border-slate-200 flex justify-end gap-3">
               <button onClick={() => setIsModalOpen(false)} disabled={updating}
                 className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white/50 border border-slate-200 hover:bg-white cursor-pointer transition-all"
