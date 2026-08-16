@@ -113,6 +113,8 @@ export default function UsersPage() {
       sub_role: selectedUser.role === 'admin' ? (selectedUser.sub_role || 'viewer')
              : selectedUser.role === 'distributor' ? (selectedUser.sub_role || null)
              : null,
+      authorization_pin: selectedUser.authorization_pin || null,
+      employee_barcode: selectedUser.employee_barcode || null,
     };
     // Only include parent_distributor_id and assigned_warehouse_id for distributors
     if (selectedUser.role === 'distributor') {
@@ -1003,18 +1005,55 @@ export default function UsersPage() {
               )}
             </div>
             {selectedUser.role === 'admin' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Sub-Rol Admin</label>
-                <select
-                  value={selectedUser.sub_role || 'viewer'}
-                  onChange={(e) => setSelectedUser({ ...selectedUser, sub_role: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
-                >
-                  <option value="super_admin">Super Admin (acceso total)</option>
-                  <option value="warehouse_admin">Admin Bodega (inventarios)</option>
-                  <option value="accountant">Contabilidad (pagos/precios)</option>
-                  <option value="viewer">Solo Lectura</option>
-                </select>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Sub-Rol Admin</label>
+                  <select
+                    value={selectedUser.sub_role || 'viewer'}
+                    onChange={(e) => setSelectedUser({ ...selectedUser, sub_role: e.target.value })}
+                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 focus:border-[#6a9a04] text-slate-800 outline-none"
+                  >
+                    <option value="super_admin">Super Admin (acceso total)</option>
+                    <option value="warehouse_admin">Admin Bodega (inventarios)</option>
+                    <option value="accountant">Contabilidad (pagos/precios)</option>
+                    <option value="viewer">Solo Lectura</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">🔢 PIN Autorización Signer</label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      placeholder="Ej. 1234"
+                      value={selectedUser.authorization_pin || ''}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, authorization_pin: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm font-mono outline-none shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">🏷️ Código de Barras Empleado</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const rand = Math.floor(100000 + Math.random() * 900000);
+                          setSelectedUser({ ...selectedUser, employee_barcode: `EMP-${rand}` });
+                        }}
+                        className="text-[10px] font-bold text-[#6a9a04] hover:underline bg-transparent border-none cursor-pointer"
+                      >
+                        ⚡ Generar código
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Ej. EMP-101024"
+                      value={selectedUser.employee_barcode || ''}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, employee_barcode: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/20 text-sm font-mono outline-none shadow-sm"
+                    />
+                  </div>
+                </div>
               </div>
             )}
             <div className="p-6 border-t border-slate-200 flex justify-end gap-3">

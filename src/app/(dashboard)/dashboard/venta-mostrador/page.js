@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import {
   ShoppingBag, Search, Plus, Minus, Trash2, Printer, Package, Loader2,
   ShoppingCart, Receipt, Calendar, User, Warehouse, CreditCard, X, Check,
-  ChevronDown, RotateCcw, Clock, ChevronUp, Hash, Camera, FileSpreadsheet, BarChart3
+  ChevronDown, RotateCcw, Clock, ChevronUp, Hash, Camera, FileSpreadsheet, BarChart3,
+  ShieldAlert, AlertTriangle, Key
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import RetailStatsTab from './RetailStatsTab';
@@ -50,6 +51,18 @@ export default function VentaMostradorPage() {
   const [historialSearch, setHistorialSearch] = useState('');
   const [expandedSale, setExpandedSale] = useState(null);
 
+  // User role details for authorization
+  const [actualRole, setActualRole] = useState('');
+  const [subRole, setSubRole] = useState('');
+
+  // Return / Devolución state
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [selectedSaleToReturn, setSelectedSaleToReturn] = useState(null);
+  const [returnReason, setReturnReason] = useState('');
+  const [signerAuthInput, setSignerAuthInput] = useState('');
+  const [processingReturn, setProcessingReturn] = useState(false);
+  const [returnSuccessData, setReturnSuccessData] = useState(null);
+
   const searchRef = useRef(null);
   const searchInputRef = useRef(null);
   const receiptRef = useRef(null);
@@ -71,9 +84,14 @@ export default function VentaMostradorPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, full_name')
+        .select('role, sub_role, full_name')
         .eq('id', user.id)
         .single();
+
+      if (profile) {
+        setActualRole(profile.role || '');
+        setSubRole(profile.sub_role || '');
+      }
 
       if (profile?.role !== 'admin') {
         router.push('/dashboard');
@@ -572,7 +590,7 @@ export default function VentaMostradorPage() {
     const offset = loadMore ? salesHistory.length : 0;
     const { data, error } = await supabase
       .from('counter_sales')
-      .select('*, seller:profiles!counter_sales_sold_by_fkey(full_name), warehouse:warehouses!counter_sales_warehouse_id_fkey(name)')
+      .select('*, seller:profiles!counter_sales_sold_by_fkey(full_name), approver:profiles!counter_sales_approved_by_fkey(full_name), warehouse:warehouses!counter_sales_warehouse_id_fkey(name)')
       .order('created_at', { ascending: false })
       .range(offset, offset + HIST_PAGE_SIZE - 1);
 
@@ -593,6 +611,140 @@ export default function VentaMostradorPage() {
       fetchHistorial();
     }
   }, [activeTab]);
+
+  // ──────────── PROCESS RETURN / DEVOLUCIÓN ────────────
+  const handleOpenReturnModal = (sale) => {
+    setSelectedSaleToReturn(sale);
+    setReturnReason('');
+    setSignerAuthInput('');
+    setShowReturnModal(true);
+  };
+
+  const handleProcessReturn = async () => {
+    if (!selectedSaleToReturn) return;
+    const reason = returnReason.trim();
+    if (!reason) {
+      alert('Por favor especifica un motivo obligatorio para la devolución.');
+      return;
+    }
+
+    setProcessingReturn(true);
+    try {
+      const authInput = signerAuthInput.trim();
+      let approverId = null;
+      let approverName = userName;
+
+      const isAdmin = actualRole === 'admin' || subRole === 'super_admin';
+
+      if (authInput) {
+        // Query profiles matching PIN or employee barcode
+        const { data: matchedSigners } = await supabase
+          .from('profiles')
+          .select('id, full_name, role, sub_role')
+          .or(`authorization_pin.eq.${authInput},employee_barcode.eq.${authInput}`);
+
+        if (matchedSigners && matchedSigners.length > 0) {
+          approverId = matchedSigners[0].id;
+          approverName = matchedSigners[0].full_name;
+        } else if (isAdmin) {
+          // If current logged-in user is admin, allow self-approval
+          approverId = userId;
+        } else {
+          alert('Código de autorización / PIN / Credencial de Signer no válido. Verifica el PIN o escanea la credencial del Signer.');
+          setProcessingReturn(false);
+          return;
+        }
+      } else if (isAdmin) {
+        approverId = userId;
+      } else {
+        alert('Se requiere el PIN de Autorización, Contraseña o Escaneo de Credencial de un Signer/Admin.');
+        setProcessingReturn(false);
+        return;
+      }
+
+      // 1. Reintegrate Stock (+qty)
+      const items = selectedSaleToReturn.items || [];
+      for (const item of items) {
+        if (item.product_id && selectedSaleToReturn.warehouse_id) {
+          await supabase.rpc('adjust_warehouse_stock', {
+            p_product_id: item.product_id,
+            p_warehouse_id: selectedSaleToReturn.warehouse_id,
+            p_quantity_change: item.quantity,
+            p_reason: `ENTRADA_DEVOLUCION — Venta Mostrador #${selectedSaleToReturn.sale_number} — Motivo: ${reason}`,
+            p_user_id: userId
+          });
+        }
+      }
+
+      // 2. Register Cash Egress if payment was Efectivo
+      if (selectedSaleToReturn.payment_method === 'Efectivo') {
+        const { error: cashErr } = await supabase.from('cash_movements').insert({
+          type: 'exit',
+          amount: Number(selectedSaleToReturn.total),
+          concept: `Egreso por Devolución Venta Mostrador #${selectedSaleToReturn.sale_number}`,
+          responsible: approverName || userName,
+          reference_type: 'counter_sale',
+          notes: `Motivo devolución: ${reason}`,
+          movement_date: new Date().toLocaleDateString('en-CA'),
+          created_by: userId,
+          approval_status: 'approved'
+        });
+        if (cashErr) console.error('Error insertando egreso en caja:', cashErr);
+      }
+
+      // 3. Mark counter_sales status = 'cancelled'
+      const { error: updateErr } = await supabase
+        .from('counter_sales')
+        .update({
+          status: 'cancelled',
+          cancel_reason: reason,
+          cancelled_by: userId,
+          approved_by: approverId,
+          cancelled_at: new Date().toISOString(),
+        })
+        .eq('id', selectedSaleToReturn.id);
+
+      if (updateErr) throw updateErr;
+
+      // 4. Refresh history & stock
+      await fetchHistorial();
+      const { data: wsData } = await supabase.from('warehouse_stock').select('*');
+      if (wsData) {
+        const stockMap = {};
+        wsData.forEach(ws => {
+          if (!stockMap[ws.product_id]) stockMap[ws.product_id] = {};
+          stockMap[ws.product_id][ws.warehouse_id] = ws;
+        });
+        setWarehouseStock(stockMap);
+      }
+
+      setReturnSuccessData(selectedSaleToReturn);
+      setShowReturnModal(false);
+    } catch (err) {
+      alert('Error al procesar la devolución: ' + (err.message || err));
+    } finally {
+      setProcessingReturn(false);
+    }
+  };
+
+  // ──────────── BOTÓN MÁGICO: LOAD RETURNED ITEMS TO CART ────────────
+  const handleLoadReturnedItemsToCart = (sale) => {
+    if (!sale || !sale.items) return;
+    const newItems = sale.items.map(item => ({
+      product_id: item.product_id,
+      sku: item.sku,
+      name: item.name,
+      quantity: Number(item.quantity),
+      unit_price: Number(item.unit_price),
+      subtotal: Number(item.subtotal),
+    }));
+
+    setSaleItems(newItems);
+    if (sale.warehouse_id) setSelectedWarehouse(sale.warehouse_id);
+    setActiveTab('nueva');
+    setReturnSuccessData(null);
+    setScanFeedback('🛒 Productos cargados al carrito para corregir');
+  };
 
   // ──────────── PRINT RECEIPT ────────────
   const handlePrint = () => {
@@ -1358,6 +1510,7 @@ export default function VentaMostradorPage() {
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200">
                           <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Folio</th>
+                          <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Estado</th>
                           <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Fecha</th>
                           <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Cliente</th>
                           <th className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Productos</th>
@@ -1384,6 +1537,17 @@ export default function VentaMostradorPage() {
                               >
                                 <td className="px-4 py-3">
                                   <span className="font-mono text-sm font-bold text-[#6a9a04]">{sale.sale_number}</span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  {sale.status === 'cancelled' ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
+                                      🔴 Devuelto
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                      ✓ Completada
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="px-4 py-3">
                                   <p className="text-sm text-slate-800 m-0 font-medium">
@@ -1413,8 +1577,21 @@ export default function VentaMostradorPage() {
                               {/* Expanded receipt detail */}
                               {isExpanded && (
                                 <tr>
-                                  <td colSpan={8} className="px-0 py-0 bg-slate-50/50">
+                                  <td colSpan={9} className="px-0 py-0 bg-slate-50/50">
                                     <div id="receipt-print-area" className="max-w-lg mx-auto my-4 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden">
+                                      {/* Devuelto Banner if cancelled */}
+                                      {sale.status === 'cancelled' && (
+                                        <div className="bg-red-500 text-white px-5 py-3 text-center space-y-1">
+                                          <div className="inline-flex items-center gap-1.5 font-black text-xs uppercase tracking-wider bg-white/20 px-3 py-1 rounded-lg">
+                                            <ShieldAlert size={14} /> Venta Devuelta / Cancelada
+                                          </div>
+                                          <p className="text-xs font-bold m-0">Motivo: {sale.cancel_reason || 'Sin motivo especificado'}</p>
+                                          {sale.approver?.full_name && (
+                                            <p className="text-[11px] text-white/90 m-0">Autorizado por Signer: <strong>{sale.approver.full_name}</strong></p>
+                                          )}
+                                        </div>
+                                      )}
+
                                       {/* Header */}
                                       <div className="bg-gradient-to-r from-[#6a9a04] to-[#7db505] px-5 py-4 text-center">
                                         <h4 className="text-base font-black text-white m-0">GREENLAND PRODUCTS S.A. de C.V.</h4>
@@ -1534,14 +1711,30 @@ export default function VentaMostradorPage() {
                                         </div>
                                       </div>
 
-                                      {/* Print button */}
-                                      <div className="px-5 py-3 border-t border-slate-100 flex justify-center no-print">
+                                      {/* Print & Action Buttons */}
+                                      <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between no-print gap-2">
                                         <button
                                           onClick={(e) => { e.stopPropagation(); handlePrint(); }}
                                           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#6a9a04] text-white text-xs font-bold hover:bg-[#5a8503] transition-all cursor-pointer border-none shadow-sm"
                                         >
                                           <Printer size={14} /> Imprimir
                                         </button>
+
+                                        {sale.status === 'cancelled' ? (
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); handleLoadReturnedItemsToCart(sale); }}
+                                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all cursor-pointer border-none shadow-sm"
+                                          >
+                                            🚀 Cargar en Carrito para Corregir
+                                          </button>
+                                        ) : (
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); handleOpenReturnModal(sale); }}
+                                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-all text-xs font-bold cursor-pointer border border-red-200"
+                                          >
+                                            <RotateCcw size={14} /> Devolver / Anular
+                                          </button>
+                                        )}
                                       </div>
                                     </div>
                                   </td>
@@ -1643,6 +1836,122 @@ export default function VentaMostradorPage() {
           to { opacity: 1; transform: translate(-50%, 0); }
         }
       `}</style>
+
+      {/* ═══════════════ RETURN / DEVOLUCIÓN MODAL ═══════════════ */}
+      {showReturnModal && selectedSaleToReturn && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-[slideUp_0.2s_ease-out]">
+            <div className="bg-slate-900 px-6 py-4 flex items-center justify-between text-white">
+              <h3 className="text-base font-black m-0 flex items-center gap-2">
+                <RotateCcw className="w-5 h-5 text-amber-400" />
+                Procesar Devolución / Anulación
+              </h3>
+              <button onClick={() => setShowReturnModal(false)} className="bg-transparent border-none text-slate-400 hover:text-white cursor-pointer p-1">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              {/* Sale info summary */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-700 space-y-1">
+                <div className="flex justify-between font-mono font-bold text-slate-900">
+                  <span>Folio: #{selectedSaleToReturn.sale_number}</span>
+                  <span>Total: ${Number(selectedSaleToReturn.total).toFixed(2)} ({selectedSaleToReturn.payment_method})</span>
+                </div>
+                <p className="m-0 text-slate-500">Cliente: {selectedSaleToReturn.customer_name} | Atendió: {selectedSaleToReturn.seller?.full_name || 'Vendedor'}</p>
+                <div className="pt-2 border-t border-slate-200 text-slate-600">
+                  <span className="font-bold">Ítems a devolver al inventario:</span>
+                  <ul className="list-disc pl-4 m-0 mt-1 space-y-0.5">
+                    {(selectedSaleToReturn.items || []).map((it, idx) => (
+                      <li key={idx}>{it.quantity}× {it.name} (${Number(it.subtotal).toFixed(2)})</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Reason field (Mandatory) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">
+                  Motivo Obligatorio de la Devolución *
+                </label>
+                <textarea
+                  rows={3}
+                  value={returnReason}
+                  onChange={e => setReturnReason(e.target.value)}
+                  placeholder="Ej. Error de captura (se seleccionó Nogal en lugar de Negro) / El cliente cambió de opinión"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 outline-none text-xs shadow-sm"
+                />
+              </div>
+
+              {/* Signer Authorization */}
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+                <div className="flex items-center gap-2 text-amber-900 text-xs font-bold">
+                  <Key size={16} className="text-amber-600" />
+                  <span>Autorización del Signer / Admin (PIN, Contraseña o Escáner)</span>
+                </div>
+                <p className="text-[11px] text-amber-700 m-0">
+                  Ingresa tu PIN de 4 dígitos, contraseña, o escanea tu credencial física de Signer.
+                </p>
+                <input
+                  type="password"
+                  value={signerAuthInput}
+                  onChange={e => setSignerAuthInput(e.target.value)}
+                  placeholder="PIN / Escanear credencial Signer..."
+                  className="w-full px-4 py-2.5 bg-white border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-500 font-mono text-sm outline-none shadow-sm"
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+              <button
+                onClick={() => setShowReturnModal(false)}
+                disabled={processingReturn}
+                className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-100 cursor-pointer text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleProcessReturn}
+                disabled={processingReturn || !returnReason.trim()}
+                className="px-6 py-2.5 rounded-xl text-white font-bold bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/20 cursor-pointer border-none text-xs flex items-center gap-2 disabled:opacity-50"
+              >
+                {processingReturn ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                {processingReturn ? 'Procesando Devolución...' : 'Confirmar Devolución'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════ RETURN SUCCESS MODAL (BOTÓN MÁGICO) ═══════════════ */}
+      {returnSuccessData && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center animate-[slideUp_0.2s_ease-out]">
+            <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
+              <Check size={28} />
+            </div>
+            <h3 className="text-lg font-black text-slate-900 m-0 mb-1">¡Devolución Procesada con Éxito!</h3>
+            <p className="text-xs text-slate-500 mb-4">
+              El inventario ha sido devuelto a la bodega y la venta #{returnSuccessData.sale_number} ha sido anulada.
+            </p>
+
+            <div className="space-y-2">
+              <button
+                onClick={() => handleLoadReturnedItemsToCart(returnSuccessData)}
+                className="w-full py-3 px-4 bg-[#6a9a04] hover:bg-[#5a8503] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#6a9a04]/20 transition-all cursor-pointer border-none flex items-center justify-center gap-2"
+              >
+                🚀 Cargar productos al Carrito para Corregir
+              </button>
+              <button
+                onClick={() => setReturnSuccessData(null)}
+                className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-all cursor-pointer border-none"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -63,6 +63,7 @@ export default function OnboardingPage() {
     const [documents, setDocuments] = useState([]);
     const [contract, setContract] = useState(null);
     const [uploading, setUploading] = useState({});
+    const [powerInActa, setPowerInActa] = useState(false);
 
     // Form state
     const [personType, setPersonType] = useState('');
@@ -128,7 +129,14 @@ export default function OnboardingPage() {
                     .from('distributor_documents')
                     .select('*')
                     .eq('distributor_profile_id', dp.id);
-                if (docs) setDocuments(docs);
+                if (docs) {
+                    setDocuments(docs);
+                    const acta = docs.find(d => d.document_type === 'acta_constitutiva');
+                    const poder = docs.find(d => d.document_type === 'poder_representante');
+                    if (acta && poder && (poder.file_url === acta.file_url || (poder.file_name && poder.file_name.includes('Incluido en Acta Constitutiva')))) {
+                        setPowerInActa(true);
+                    }
+                }
 
                 // Load contract
                 const { data: cont } = await supabase
@@ -229,9 +237,56 @@ export default function OnboardingPage() {
     };
 
     // STEP 3: Upload document
+    const handleTogglePowerInActa = async (checked) => {
+        setPowerInActa(checked);
+        if (!profile) return;
+        const acta = documents.find(d => d.document_type === 'acta_constitutiva');
+        const existingPoder = documents.find(d => d.document_type === 'poder_representante');
+
+        if (checked) {
+            if (acta) {
+                if (existingPoder) {
+                    await supabase.from('distributor_documents').delete().eq('id', existingPoder.id);
+                }
+                const ip = await getIp();
+                const { data: doc } = await supabase.from('distributor_documents').insert({
+                    distributor_profile_id: profile.id,
+                    user_id: userId,
+                    document_type: 'poder_representante',
+                    file_name: `${acta.file_name} (Incluido en Acta Constitutiva)`,
+                    file_url: acta.file_url,
+                    file_size: acta.file_size,
+                    mime_type: acta.mime_type,
+                    upload_ip: ip,
+                }).select().single();
+
+                if (doc) {
+                    setDocuments(prev => [...prev.filter(d => d.document_type !== 'poder_representante'), doc]);
+                }
+            }
+        } else {
+            if (existingPoder && (existingPoder.file_name?.includes('Incluido en Acta Constitutiva') || existingPoder.file_url === acta?.file_url)) {
+                await supabase.from('distributor_documents').delete().eq('id', existingPoder.id);
+                setDocuments(prev => prev.filter(d => d.document_type !== 'poder_representante'));
+            }
+        }
+    };
+
     const handleUploadDoc = async (docType, file) => {
         if (!file || !profile) return;
-        setUploading(prev => ({ ...prev, [docType]: true }));
+
+        const MAX_MB = 50;
+        if (file.size > MAX_MB * 1024 * 1024) {
+            alert(`El archivo "${file.name}" pesa ${(file.size / (1024 * 1024)).toFixed(1)} MB, superando el límite máximo de ${MAX_MB} MB.\n\nPor favor compresiónalo gratuitamente en https://www.ilovepdf.com/es/comprimir_pdf antes de subirlo.`);
+            return;
+        }
+
+        const sizeInMb = (file.size / (1024 * 1024)).toFixed(1);
+        setUploading(prev => ({
+            ...prev,
+            [docType]: file.size > 10 * 1024 * 1024 ? `Subiendo (${sizeInMb} MB)... por favor espera` : true
+        }));
+
         const ext = file.name.split('.').pop();
         const path = `${userId}/${docType}_${Date.now()}.${ext}`;
 
@@ -240,7 +295,7 @@ export default function OnboardingPage() {
             .upload(path, file, { cacheControl: '3600', upsert: true });
 
         if (uploadError) {
-            alert('Error al subir: ' + uploadError.message);
+            alert('Error al subir: ' + uploadError.message + '\n\nSi el archivo es muy pesado, te recomendamos comprimirlo previamente en iLovePDF.');
             setUploading(prev => ({ ...prev, [docType]: false }));
             return;
         }
@@ -264,10 +319,37 @@ export default function OnboardingPage() {
             upload_ip: ip,
         }).select().single();
 
+        let updatedDocs = [...documents.filter(d => d.document_type !== docType)];
+
         if (doc) {
-            setDocuments(prev => [...prev.filter(d => d.document_type !== docType), doc]);
+            updatedDocs.push(doc);
             await auditLog('document_uploaded', { document_type: docType, file_name: file.name });
         }
+
+        // If uploading acta_constitutiva and powerInActa is checked, auto-link poder_representante
+        if (docType === 'acta_constitutiva' && powerInActa && doc) {
+            const existingPoder = updatedDocs.find(d => d.document_type === 'poder_representante');
+            if (existingPoder) {
+                await supabase.from('distributor_documents').delete().eq('id', existingPoder.id);
+                updatedDocs = updatedDocs.filter(d => d.document_type !== 'poder_representante');
+            }
+            const { data: poderDoc } = await supabase.from('distributor_documents').insert({
+                distributor_profile_id: profile.id,
+                user_id: userId,
+                document_type: 'poder_representante',
+                file_name: `${file.name} (Incluido en Acta Constitutiva)`,
+                file_url: path,
+                file_size: file.size,
+                mime_type: file.type,
+                upload_ip: ip,
+            }).select().single();
+
+            if (poderDoc) {
+                updatedDocs.push(poderDoc);
+            }
+        }
+
+        setDocuments(updatedDocs);
         setUploading(prev => ({ ...prev, [docType]: false }));
     };
 
@@ -752,13 +834,42 @@ export default function OnboardingPage() {
                 {step === 3 && (
                     <div>
                         <h2 className="text-xl font-bold text-slate-900 mb-2">Carga de Documentos</h2>
-                        <p className="text-sm text-slate-500 mb-6">Sube los documentos requeridos en formato PDF o JPG (máx. 10MB cada uno).</p>
+                        <p className="text-sm text-slate-500 mb-3">Sube los documentos requeridos en formato PDF o JPG (máx. 50MB por archivo).</p>
+
+                        {/* Helper Box: Compression */}
+                        <div className="p-3 bg-emerald-50 border border-emerald-200/80 rounded-xl mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-emerald-900">
+                            <div className="flex items-center gap-2">
+                                <span className="text-base">💡</span>
+                                <span><strong>¿Tus escrituras notariales o poder pesan mucho?</strong> Puedes comprimir tus archivos PDF gratis sin perder legibilidad.</span>
+                            </div>
+                            <a href="https://www.ilovepdf.com/es/comprimir_pdf" target="_blank" rel="noopener noreferrer"
+                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition-all no-underline shrink-0 flex items-center gap-1 shadow-sm">
+                                Comprimir PDF ↗
+                            </a>
+                        </div>
+
+                        {/* Power inside Acta checkbox for Persona Moral */}
+                        {personType === 'moral' && (
+                            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl mb-5 flex items-center gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="powerInActa"
+                                    checked={powerInActa}
+                                    onChange={e => handleTogglePowerInActa(e.target.checked)}
+                                    className="w-4 h-4 text-[#6a9a04] rounded border-slate-300 focus:ring-[#6a9a04] cursor-pointer"
+                                />
+                                <label htmlFor="powerInActa" className="text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                                    El Poder del Representante Legal ya viene integrado dentro del Acta Constitutiva
+                                </label>
+                            </div>
+                        )}
 
                         <div className="space-y-4">
                             {requiredDocs.map(rd => {
                                 const doc = documents.find(d => d.document_type === rd.type);
+                                const isUploadingState = uploading[rd.type];
                                 return (
-                                    <div key={rd.type} className={`p-4 rounded-xl border-2 ${doc ? 'border-[#6a9a04]/30 bg-[#6a9a04]/5' : 'border-dashed border-slate-300 bg-slate-50/50'}`}>
+                                    <div key={rd.type} className={`p-4 rounded-xl border-2 transition-all ${doc ? 'border-[#6a9a04]/30 bg-[#6a9a04]/5' : 'border-dashed border-slate-300 bg-slate-50/50'}`}>
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 {doc ? <Check size={20} className="text-[#6a9a04]" /> : <Upload size={20} className="text-slate-400" />}
@@ -766,28 +877,33 @@ export default function OnboardingPage() {
                                                     <p className="font-bold text-sm text-slate-800">{rd.label}</p>
                                                     {doc && (
                                                         <p className="text-xs text-slate-500 mt-0.5">
-                                                            {doc.file_name} — {new Date(doc.uploaded_at).toLocaleDateString('es-MX')}
+                                                            {doc.file_name} — {new Date(doc.uploaded_at || doc.created_at || Date.now()).toLocaleDateString('es-MX')}
                                                             {doc.status === 'approved' && <span className="ml-2 text-[#6a9a04] font-bold">✓ Aprobado</span>}
                                                             {doc.status === 'rejected' && <span className="ml-2 text-red-500 font-bold">✗ Rechazado</span>}
                                                             {doc.status === 'pending' && <span className="ml-2 text-amber-500 font-bold">⏳ Pendiente</span>}
+                                                        </p>
+                                                    )}
+                                                    {typeof isUploadingState === 'string' && (
+                                                        <p className="text-xs text-blue-600 font-medium mt-1 animate-pulse flex items-center gap-1">
+                                                            <Loader2 size={12} className="animate-spin" /> {isUploadingState}
                                                         </p>
                                                     )}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 {doc && (
-                                                    <button onClick={async () => { const url = await getSignedUrl(doc.file_url); window.open(url, '_blank'); }}
+                                                    <button onClick={async () => { const url = await getSignedUrl(doc.file_url); if (url) window.open(url, '_blank'); }}
                                                         className="p-2 hover:bg-white rounded-lg transition-colors border-none bg-transparent cursor-pointer" title="Ver documento">
                                                         <Eye size={16} className="text-slate-500" />
                                                     </button>
                                                 )}
-                                                <label className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${uploading[rd.type] ? 'bg-slate-200 text-slate-500' : 'bg-[#6a9a04] text-white hover:bg-[#6a9a04]/90 shadow-sm'
+                                                <label className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${isUploadingState ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-[#6a9a04] text-white hover:bg-[#6a9a04]/90 shadow-sm'
                                                     }`}>
-                                                    {uploading[rd.type] ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                                                    {isUploadingState ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
                                                     {doc ? 'Reemplazar' : 'Subir'}
                                                     <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
                                                         onChange={e => { if (e.target.files[0]) handleUploadDoc(rd.type, e.target.files[0]); }}
-                                                        disabled={uploading[rd.type]} />
+                                                        disabled={!!isUploadingState} />
                                                 </label>
                                             </div>
                                         </div>
