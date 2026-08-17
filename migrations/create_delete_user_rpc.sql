@@ -3,13 +3,20 @@
 -- Ejecutar en Supabase SQL Editor
 -- =====================================================
 
--- 1. Función para eliminar un solo usuario (Auth + Profiles)
+-- 1. Función para eliminar un solo usuario (Desvincula referencias FK)
 CREATE OR REPLACE FUNCTION delete_user(user_id UUID)
 RETURNS void AS $$
 BEGIN
-  -- Elimina de la tabla de autenticación (libera el email para re-registro)
+  -- Desvincular de movimientos de caja, ventas y logs para no violar Foreign Keys
+  UPDATE cash_movements SET created_by = NULL WHERE created_by = user_id;
+  UPDATE counter_sales SET sold_by = NULL WHERE sold_by = user_id;
+  UPDATE counter_sales SET cancelled_by = NULL WHERE cancelled_by = user_id;
+  UPDATE counter_sales SET approved_by = NULL WHERE approved_by = user_id;
+  UPDATE inventory_logs SET user_id = NULL WHERE user_id = user_id;
+
+  -- Eliminar de la tabla de autenticación (libera el email para re-registro)
   DELETE FROM auth.users WHERE id = user_id;
-  -- Elimina de la tabla pública de perfiles
+  -- Eliminar de la tabla pública de perfiles
   DELETE FROM public.profiles WHERE id = user_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -18,6 +25,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION delete_users(user_ids UUID[])
 RETURNS void AS $$
 BEGIN
+  UPDATE cash_movements SET created_by = NULL WHERE created_by = ANY(user_ids);
+  UPDATE counter_sales SET sold_by = NULL WHERE sold_by = ANY(user_ids);
+  UPDATE counter_sales SET cancelled_by = NULL WHERE cancelled_by = ANY(user_ids);
+  UPDATE counter_sales SET approved_by = NULL WHERE approved_by = ANY(user_ids);
+  UPDATE inventory_logs SET user_id = NULL WHERE user_id = ANY(user_ids);
+
   DELETE FROM auth.users WHERE id = ANY(user_ids);
   DELETE FROM public.profiles WHERE id = ANY(user_ids);
 END;
@@ -34,16 +47,21 @@ DO $$
 DECLARE
   v_user_id UUID;
 BEGIN
-  -- Buscar por correo en profiles o auth
   SELECT id INTO v_user_id FROM public.profiles WHERE email = 'greenland.reciclando@gmail.com' LIMIT 1;
-  
   IF v_user_id IS NULL THEN
     SELECT id INTO v_user_id FROM auth.users WHERE email = 'greenland.reciclando@gmail.com' LIMIT 1;
   END IF;
 
   IF v_user_id IS NOT NULL THEN
+    -- Desvincular de movimientos de caja y ventas
+    UPDATE cash_movements SET created_by = NULL WHERE created_by = v_user_id;
+    UPDATE counter_sales SET sold_by = NULL WHERE sold_by = v_user_id;
+    UPDATE counter_sales SET cancelled_by = NULL WHERE cancelled_by = v_user_id;
+    UPDATE counter_sales SET approved_by = NULL WHERE approved_by = v_user_id;
+    UPDATE inventory_logs SET user_id = NULL WHERE user_id = v_user_id;
+
+    -- Borrado definitivo
     DELETE FROM auth.users WHERE id = v_user_id;
     DELETE FROM public.profiles WHERE id = v_user_id;
-    RAISE NOTICE 'Usuario greenland.reciclando@gmail.com eliminado completamente.';
   END IF;
 END $$;
