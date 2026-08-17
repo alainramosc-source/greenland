@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Search, Filter, Edit2, Shield, AlertCircle, X, Save, UserPlus, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, Loader2, ShieldAlert, DollarSign, Users, CreditCard, TrendingUp, ExternalLink, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Filter, Edit2, Shield, AlertCircle, X, Save, UserPlus, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, Loader2, ShieldAlert, DollarSign, Users, CreditCard, TrendingUp, ExternalLink, MapPin, ChevronDown, ChevronUp, Printer } from 'lucide-react';
 import { formatDateOnly } from '@/utils/formatters';
 
 export default function UsersPage() {
@@ -20,6 +20,8 @@ export default function UsersPage() {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, isBulk: false, targetId: null });
+  // Badge ID modal state
+  const [badgeUser, setBadgeUser] = useState(null);
   // Collaborator creation
   const [showNewCollab, setShowNewCollab] = useState(false);
   const [newCollab, setNewCollab] = useState({ full_name: '', email: '', password: '', sub_role: 'viewer' });
@@ -750,6 +752,13 @@ export default function UsersPage() {
                           </button>
                         )}
                         <button
+                          className="p-2 rounded-lg hover:bg-emerald-50 transition-colors border border-transparent hover:border-emerald-200 bg-transparent cursor-pointer shadow-sm hover:shadow-sm"
+                          onClick={() => setBadgeUser(user)}
+                          title="Ver / Imprimir Gafete PVC"
+                        >
+                          <CreditCard className="w-4 h-4 text-emerald-600 hover:text-emerald-700" />
+                        </button>
+                        <button
                           className="p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-200 bg-transparent cursor-pointer shadow-sm hover:shadow-sm"
                           onClick={() => handleEditClick(user)}
                           title="Editar Usuario"
@@ -1310,6 +1319,138 @@ export default function UsersPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+      {/* Employee ID Badge Modal */}
+      {badgeUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[110] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 max-w-4xl w-full rounded-3xl shadow-2xl p-6 text-white space-y-6 my-8">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-xl font-black text-white m-0 flex items-center gap-2">
+                  <CreditCard className="text-[#6a9a04]" /> Credencial / Gafete Corporativo — {badgeUser.full_name || badgeUser.email}
+                </h3>
+                <p className="text-xs text-slate-400 m-0">Formato Estándar PVC CR80 (85.6mm × 53.98mm) con Código de Barras escaneable</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-[#6a9a04] hover:bg-[#7db505] text-slate-900 font-bold rounded-xl text-xs flex items-center gap-2 border-none cursor-pointer shadow-lg transition-all"
+                >
+                  <Printer size={14} /> 🖨️ Imprimir Gafete PVC
+                </button>
+                <button onClick={() => setBadgeUser(null)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border-none cursor-pointer">
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Badge Front and Back Cards Container */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center justify-center py-4">
+              
+              {/* FRONT SIDE */}
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-widest text-[#6a9a04]">🟢 Frente (Cara Principal)</span>
+                <div id="badge-front-print" className="w-[300px] h-[460px] bg-gradient-to-b from-slate-950 via-slate-900 to-black rounded-[24px] border-2 border-[#6a9a04]/50 shadow-2xl p-5 flex flex-col justify-between relative overflow-hidden text-center select-none font-sans">
+                  
+                  {/* Hologram Accent */}
+                  <div className="absolute -top-16 -right-16 w-32 h-32 bg-[#6a9a04]/20 rounded-full blur-2xl pointer-events-none"></div>
+                  
+                  {/* Lanyard Hole Mockup */}
+                  <div className="w-12 h-3 bg-slate-800 border border-slate-700 rounded-full mx-auto shadow-inner flex items-center justify-center">
+                    <div className="w-8 h-1 bg-slate-950 rounded-full"></div>
+                  </div>
+
+                  {/* Header Logo */}
+                  <div className="mt-2">
+                    <h4 className="text-base font-black tracking-wider text-white m-0">GREENLAND</h4>
+                    <p className="text-[9px] font-bold tracking-[0.2em] text-[#6a9a04] uppercase m-0">PRODUCTS S.A. DE C.V.</p>
+                  </div>
+
+                  {/* Avatar / Photo Frame */}
+                  <div className="relative mx-auto my-2">
+                    <div className="w-28 h-28 rounded-2xl bg-gradient-to-tr from-[#6a9a04] to-emerald-400 p-[3px] shadow-xl">
+                      <div className="w-full h-full rounded-[13px] bg-slate-900 overflow-hidden flex items-center justify-center">
+                        <div className="w-full h-full bg-slate-800 flex items-center justify-center text-4xl font-black text-[#6a9a04]">
+                          {(badgeUser.full_name || badgeUser.email || 'G').charAt(0).toUpperCase()}
+                        </div>
+                      </div>
+                    </div>
+                    {/* Signer Badge */}
+                    <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#6a9a04] to-emerald-500 text-slate-950 font-black text-[9px] uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-md whitespace-nowrap">
+                      {badgeUser.sub_role === 'super_admin' ? '🛡️ Signer Autorizado' : 'Colaborador Oficial'}
+                    </div>
+                  </div>
+
+                  {/* Name & Role */}
+                  <div className="mt-1">
+                    <h3 className="text-lg font-black text-white m-0 tracking-tight leading-tight">{badgeUser.full_name || 'Nombre Colaborador'}</h3>
+                    <p className="text-xs font-semibold text-slate-400 m-0 mt-0.5">{badgeUser.role === 'admin' ? (badgeUser.sub_role?.toUpperCase() || 'ADMINISTRADOR') : 'DISTRIBUIDOR'}</p>
+                    <span className="inline-block text-[9px] font-mono font-bold text-[#6a9a04] bg-[#6a9a04]/10 border border-[#6a9a04]/30 px-2 py-0.5 rounded-md mt-1">
+                      TIER: {badgeUser.sub_role || 'SUPER_ADMIN'}
+                    </span>
+                  </div>
+
+                  {/* Barcode Section */}
+                  <div className="bg-white/95 rounded-xl p-2 text-slate-900 border border-slate-700 shadow-lg mt-2">
+                    <div className="flex items-center justify-center gap-0.5 h-9 overflow-hidden">
+                      {[3,1,2,4,1,3,2,1,4,2,1,3,1,4,2,3,1,2,4,1,3,2,4,1].map((w, i) => (
+                        <div key={i} className="h-full bg-slate-900" style={{ width: `${w * 1.5}px` }}></div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] font-mono font-bold text-slate-800 m-0 mt-1 tracking-widest uppercase">
+                      {badgeUser.employee_barcode || `EMP-${badgeUser.id.slice(0,6).toUpperCase()}`}
+                    </p>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* BACK SIDE */}
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-widest text-[#6a9a04]">🟢 Reverso (Misión, Visión y Contacto)</span>
+                <div id="badge-back-print" className="w-[300px] h-[460px] bg-gradient-to-b from-slate-950 via-slate-900 to-black rounded-[24px] border-2 border-slate-700 shadow-2xl p-5 flex flex-col justify-between relative overflow-hidden text-center select-none font-sans text-white">
+                  
+                  {/* Lanyard Hole Mockup */}
+                  <div className="w-12 h-3 bg-slate-800 border border-slate-700 rounded-full mx-auto shadow-inner flex items-center justify-center">
+                    <div className="w-8 h-1 bg-slate-950 rounded-full"></div>
+                  </div>
+
+                  {/* Mision & Vision */}
+                  <div className="space-y-2 mt-2 text-left">
+                    <div className="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/50">
+                      <p className="text-[10px] font-black text-[#6a9a04] uppercase tracking-wider m-0 mb-0.5">🚀 Misión</p>
+                      <p className="text-[9px] text-slate-300 m-0 leading-tight">Liderar la innovación sostenible en soluciones modulares e industriales, generando valor excepcional para nuestros clientes.</p>
+                    </div>
+
+                    <div className="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/50">
+                      <p className="text-[10px] font-black text-[#6a9a04] uppercase tracking-wider m-0 mb-0.5">👁️ Visión</p>
+                      <p className="text-[9px] text-slate-300 m-0 leading-tight">Ser la marca referente internacional en revestimientos y equipamiento en Latinoamérica para el 2030.</p>
+                    </div>
+
+                    <div className="bg-slate-800/60 p-2 rounded-xl border border-slate-700/50">
+                      <p className="text-[10px] font-black text-[#6a9a04] uppercase tracking-wider m-0 mb-0.5">💎 Valores</p>
+                      <p className="text-[9px] text-slate-300 m-0 leading-tight font-medium">Excelencia • Innovación • Compromiso • Sostenibilidad</p>
+                    </div>
+                  </div>
+
+                  {/* Contact & Emergency */}
+                  <div className="mt-2 bg-slate-900/90 border border-slate-800 p-2 rounded-xl text-center">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider m-0">📞 Emergencias / Matriz</p>
+                    <p className="text-[10px] font-bold text-white m-0">Tel: (844) 105 8692 | Saltillo, Coah.</p>
+                    <p className="text-[8px] text-slate-400 m-0">contacto@greenland-products.com.mx</p>
+                  </div>
+
+                  {/* Return Legend */}
+                  <div className="text-[8px] text-slate-400 text-center leading-tight border-t border-slate-800 pt-2">
+                    Si encuentra esta tarjeta, favor de devolver a Greenland Products S.A. de C.V. Blvd. Vito Alessio Robles #3550, Saltillo, Coah. CP 25100.
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+          </div>
         </div>
       )}
     </>
