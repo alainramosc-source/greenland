@@ -751,13 +751,15 @@ export default function UsersPage() {
                             <MapPin className={`w-4 h-4 ${isExpanded ? 'text-blue-600' : 'text-slate-500 hover:text-blue-600'}`} />
                           </button>
                         )}
-                        <button
-                          className="p-2 rounded-lg hover:bg-emerald-50 transition-colors border border-transparent hover:border-emerald-200 bg-transparent cursor-pointer shadow-sm hover:shadow-sm"
-                          onClick={() => setBadgeUser(user)}
-                          title="Ver / Imprimir Gafete PVC"
-                        >
-                          <CreditCard className="w-4 h-4 text-emerald-600 hover:text-emerald-700" />
-                        </button>
+                        {user.role === 'admin' && (
+                          <button
+                            className="p-2 rounded-lg hover:bg-emerald-50 transition-colors border border-transparent hover:border-emerald-200 bg-transparent cursor-pointer shadow-sm hover:shadow-sm"
+                            onClick={() => setBadgeUser(user)}
+                            title="Ver / Imprimir Gafete PVC de Colaborador"
+                          >
+                            <CreditCard className="w-4 h-4 text-emerald-600 hover:text-emerald-700" />
+                          </button>
+                        )}
                         <button
                           className="p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-200 bg-transparent cursor-pointer shadow-sm hover:shadow-sm"
                           onClick={() => handleEditClick(user)}
@@ -1323,19 +1325,19 @@ export default function UsersPage() {
       )}
       {/* Employee ID Badge Modal */}
       {badgeUser && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[110] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 max-w-4xl w-full rounded-3xl shadow-2xl p-6 text-white space-y-6 my-8">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-lg z-[110] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-950 border border-slate-800 max-w-4xl w-full rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.8)] p-6 text-white space-y-6 my-8">
+            <div className="flex justify-between items-center border-b border-slate-800/80 pb-4">
               <div>
                 <h3 className="text-xl font-black text-white m-0 flex items-center gap-2">
-                  <CreditCard className="text-[#6a9a04]" /> Credencial / Gafete Corporativo — {badgeUser.full_name || badgeUser.email}
+                  <CreditCard className="text-[#6a9a04]" /> Gafete Corporativo — {badgeUser.full_name || badgeUser.email}
                 </h3>
-                <p className="text-xs text-slate-400 m-0">Formato Estándar PVC CR80 (85.6mm × 53.98mm) con Código de Barras escaneable</p>
+                <p className="text-xs text-slate-400 m-0">Diseño Obsidian Glassmorphism • Formato PVC CR80 (85.6mm × 53.98mm)</p>
               </div>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => window.print()}
-                  className="px-4 py-2 bg-[#6a9a04] hover:bg-[#7db505] text-slate-900 font-bold rounded-xl text-xs flex items-center gap-2 border-none cursor-pointer shadow-lg transition-all"
+                  className="px-4 py-2 bg-gradient-to-r from-[#6a9a04] to-emerald-500 hover:from-[#7db505] hover:to-emerald-400 text-slate-950 font-black rounded-xl text-xs flex items-center gap-2 border-none cursor-pointer shadow-[0_0_20px_rgba(106,154,4,0.4)] transition-all"
                 >
                   <Printer size={14} /> 🖨️ Imprimir Gafete PVC
                 </button>
@@ -1346,59 +1348,71 @@ export default function UsersPage() {
             </div>
 
             {/* Badge Front and Back Cards Container */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center justify-center py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center justify-center py-4">
               
-              {/* FRONT SIDE */}
-              <div className="flex flex-col items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-widest text-[#6a9a04]">🟢 Frente (Cara Principal)</span>
-                <div id="badge-front-print" className="w-[300px] h-[460px] bg-gradient-to-b from-slate-950 via-slate-900 to-black rounded-[24px] border-2 border-[#6a9a04]/50 shadow-2xl p-5 flex flex-col justify-between relative overflow-hidden text-center select-none font-sans">
+              {/* FRONT SIDE (Obsidian Metallic Glass Design) */}
+              <div className="flex flex-col items-center gap-2.5">
+                <span className="text-xs font-black uppercase tracking-widest text-[#6a9a04] flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#6a9a04] animate-pulse"></span> Frente (Cara Principal)
+                </span>
+                
+                <div id="badge-front-print" className="w-[310px] h-[480px] bg-gradient-to-b from-slate-950 via-slate-900 to-black rounded-[26px] border-[3px] border-slate-700/80 shadow-[0_0_35px_rgba(106,154,4,0.25)] p-5 flex flex-col justify-between relative overflow-hidden text-center select-none font-sans">
                   
-                  {/* Hologram Accent */}
-                  <div className="absolute -top-16 -right-16 w-32 h-32 bg-[#6a9a04]/20 rounded-full blur-2xl pointer-events-none"></div>
+                  {/* Glass Reflection Highlight Bar */}
+                  <div className="absolute -top-24 -left-20 w-80 h-40 bg-gradient-to-b from-white/10 to-transparent rotate-45 pointer-events-none"></div>
                   
-                  {/* Lanyard Hole Mockup */}
-                  <div className="w-12 h-3 bg-slate-800 border border-slate-700 rounded-full mx-auto shadow-inner flex items-center justify-center">
-                    <div className="w-8 h-1 bg-slate-950 rounded-full"></div>
+                  {/* Top Laser Glow */}
+                  <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-transparent via-[#6a9a04] to-transparent"></div>
+
+                  {/* Lanyard Grommet Hole */}
+                  <div className="w-10 h-3.5 bg-slate-900 border-2 border-slate-600 rounded-full mx-auto shadow-inner flex items-center justify-center relative z-10">
+                    <div className="w-6 h-1.5 bg-slate-950 rounded-full"></div>
                   </div>
 
-                  {/* Header Logo */}
-                  <div className="mt-2">
-                    <h4 className="text-base font-black tracking-wider text-white m-0">GREENLAND</h4>
-                    <p className="text-[9px] font-bold tracking-[0.2em] text-[#6a9a04] uppercase m-0">PRODUCTS S.A. DE C.V.</p>
+                  {/* Holographic Official Seal */}
+                  <div className="absolute top-10 left-3 w-12 h-12 rounded-full bg-gradient-to-tr from-teal-300 via-emerald-400 to-yellow-300 p-[1.5px] shadow-[0_0_12px_rgba(106,154,4,0.4)] rotate-12 z-10">
+                    <div className="w-full h-full rounded-full bg-slate-950/90 backdrop-blur-sm flex items-center justify-center text-[7px] font-black text-emerald-300 uppercase text-center leading-tight">
+                      GREENLAND<br/>OFFICIAL<br/>SEAL
+                    </div>
                   </div>
 
-                  {/* Avatar / Photo Frame */}
-                  <div className="relative mx-auto my-2">
-                    <div className="w-28 h-28 rounded-2xl bg-gradient-to-tr from-[#6a9a04] to-emerald-400 p-[3px] shadow-xl">
-                      <div className="w-full h-full rounded-[13px] bg-slate-900 overflow-hidden flex items-center justify-center">
-                        <div className="w-full h-full bg-slate-800 flex items-center justify-center text-4xl font-black text-[#6a9a04]">
+                  {/* Header Brand */}
+                  <div className="mt-1 relative z-10">
+                    <h4 className="text-base font-black tracking-wider text-white m-0 drop-shadow-md">GREENLAND</h4>
+                    <p className="text-[9px] font-black tracking-[0.25em] text-[#6a9a04] uppercase m-0">PRODUCTS S.A. DE C.V.</p>
+                  </div>
+
+                  {/* Photo Frame with Glowing Metallic Ring */}
+                  <div className="relative mx-auto my-1 z-10">
+                    <div className="w-32 h-32 rounded-2xl bg-gradient-to-tr from-[#6a9a04] via-emerald-400 to-teal-300 p-[3.5px] shadow-[0_0_20px_rgba(106,154,4,0.35)]">
+                      <div className="w-full h-full rounded-[13px] bg-slate-950 overflow-hidden flex items-center justify-center relative">
+                        <div className="w-full h-full bg-gradient-to-b from-slate-900 to-slate-950 flex items-center justify-center text-5xl font-black text-transparent bg-clip-text bg-gradient-to-tr from-[#6a9a04] to-emerald-300">
                           {(badgeUser.full_name || badgeUser.email || 'G').charAt(0).toUpperCase()}
                         </div>
                       </div>
                     </div>
-                    {/* Signer Badge */}
-                    <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#6a9a04] to-emerald-500 text-slate-950 font-black text-[9px] uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-md whitespace-nowrap">
-                      {badgeUser.sub_role === 'super_admin' ? '🛡️ Signer Autorizado' : 'Colaborador Oficial'}
+                  </div>
+
+                  {/* Name & Title */}
+                  <div className="mt-0.5 relative z-10">
+                    <h3 className="text-xl font-black text-white m-0 tracking-tight leading-snug drop-shadow-md">{badgeUser.full_name || 'Nombre Colaborador'}</h3>
+                    <p className="text-xs font-bold text-slate-300 m-0 mt-0.5">{badgeUser.sub_role === 'super_admin' ? 'Director Operativo & Signer' : (badgeUser.sub_role || 'Colaborador Oficial')}</p>
+                    
+                    {/* Access Tier Capsule */}
+                    <div className="inline-flex items-center gap-1 bg-slate-900/90 border border-[#6a9a04]/40 px-3 py-0.5 rounded-full mt-2 shadow-inner">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">ACCESS TIER:</span>
+                      <span className="text-[9px] font-black text-[#6a9a04] uppercase tracking-wider">{badgeUser.sub_role?.toUpperCase() || 'SUPER ADMIN'}</span>
                     </div>
                   </div>
 
-                  {/* Name & Role */}
-                  <div className="mt-1">
-                    <h3 className="text-lg font-black text-white m-0 tracking-tight leading-tight">{badgeUser.full_name || 'Nombre Colaborador'}</h3>
-                    <p className="text-xs font-semibold text-slate-400 m-0 mt-0.5">{badgeUser.role === 'admin' ? (badgeUser.sub_role?.toUpperCase() || 'ADMINISTRADOR') : 'DISTRIBUIDOR'}</p>
-                    <span className="inline-block text-[9px] font-mono font-bold text-[#6a9a04] bg-[#6a9a04]/10 border border-[#6a9a04]/30 px-2 py-0.5 rounded-md mt-1">
-                      TIER: {badgeUser.sub_role || 'SUPER_ADMIN'}
-                    </span>
-                  </div>
-
-                  {/* Barcode Section */}
-                  <div className="bg-white/95 rounded-xl p-2 text-slate-900 border border-slate-700 shadow-lg mt-2">
-                    <div className="flex items-center justify-center gap-0.5 h-9 overflow-hidden">
-                      {[3,1,2,4,1,3,2,1,4,2,1,3,1,4,2,3,1,2,4,1,3,2,4,1].map((w, i) => (
-                        <div key={i} className="h-full bg-slate-900" style={{ width: `${w * 1.5}px` }}></div>
+                  {/* Scannable Barcode */}
+                  <div className="bg-white rounded-xl p-2 text-slate-950 border border-slate-300 shadow-xl mt-2 relative z-10">
+                    <div className="flex items-center justify-center gap-[2px] h-8 overflow-hidden">
+                      {[3,1,2,4,1,3,2,1,4,2,1,3,1,4,2,3,1,2,4,1,3,2,4,1,2,3,1].map((w, i) => (
+                        <div key={i} className="h-full bg-slate-950" style={{ width: `${w * 1.6}px` }}></div>
                       ))}
                     </div>
-                    <p className="text-[10px] font-mono font-bold text-slate-800 m-0 mt-1 tracking-widest uppercase">
+                    <p className="text-[10px] font-mono font-black text-slate-950 m-0 mt-1 tracking-[0.2em] uppercase">
                       {badgeUser.employee_barcode || `EMP-${badgeUser.id.slice(0,6).toUpperCase()}`}
                     </p>
                   </div>
@@ -1406,44 +1420,74 @@ export default function UsersPage() {
                 </div>
               </div>
 
-              {/* BACK SIDE */}
-              <div className="flex flex-col items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-widest text-[#6a9a04]">🟢 Reverso (Misión, Visión y Contacto)</span>
-                <div id="badge-back-print" className="w-[300px] h-[460px] bg-gradient-to-b from-slate-950 via-slate-900 to-black rounded-[24px] border-2 border-slate-700 shadow-2xl p-5 flex flex-col justify-between relative overflow-hidden text-center select-none font-sans text-white">
+              {/* BACK SIDE (Laser Grid Mision/Vision/Valores Design) */}
+              <div className="flex flex-col items-center gap-2.5">
+                <span className="text-xs font-black uppercase tracking-widest text-[#6a9a04] flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#6a9a04] animate-pulse"></span> Reverso (Misión, Visión y Contacto)
+                </span>
+                
+                <div id="badge-back-print" className="w-[310px] h-[480px] bg-gradient-to-b from-slate-950 via-slate-900 to-black rounded-[26px] border-[3px] border-slate-700/80 shadow-[0_0_35px_rgba(0,0,0,0.5)] p-5 flex flex-col justify-between relative overflow-hidden text-center select-none font-sans text-white">
                   
-                  {/* Lanyard Hole Mockup */}
-                  <div className="w-12 h-3 bg-slate-800 border border-slate-700 rounded-full mx-auto shadow-inner flex items-center justify-center">
-                    <div className="w-8 h-1 bg-slate-950 rounded-full"></div>
+                  {/* Laser Grid Pattern Overlay */}
+                  <div className="absolute inset-0 bg-[radial-gradient(#6a9a04_1px,transparent_1px)] [background-size:14px_14px] opacity-15 pointer-events-none"></div>
+
+                  {/* Lanyard Grommet Hole */}
+                  <div className="w-10 h-3.5 bg-slate-900 border-2 border-slate-600 rounded-full mx-auto shadow-inner flex items-center justify-center relative z-10">
+                    <div className="w-6 h-1.5 bg-slate-950 rounded-full"></div>
                   </div>
 
-                  {/* Mision & Vision */}
-                  <div className="space-y-2 mt-2 text-left">
-                    <div className="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/50">
-                      <p className="text-[10px] font-black text-[#6a9a04] uppercase tracking-wider m-0 mb-0.5">🚀 Misión</p>
-                      <p className="text-[9px] text-slate-300 m-0 leading-tight">Liderar la innovación sostenible en soluciones modulares e industriales, generando valor excepcional para nuestros clientes.</p>
+                  {/* Brand Tag */}
+                  <div className="relative z-10 border-b border-slate-800 pb-1">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#6a9a04] m-0">GREENLAND PRODUCTS — BACK SIDE</p>
+                  </div>
+
+                  {/* Mision, Vision, Valores Blocks */}
+                  <div className="space-y-2 mt-1 text-left relative z-10">
+                    <div className="bg-slate-900/80 backdrop-blur-sm p-2.5 rounded-xl border border-slate-800 shadow-sm">
+                      <p className="text-[10px] font-black text-[#6a9a04] uppercase tracking-wider m-0 mb-0.5 flex items-center gap-1">
+                        <span>🚀</span> MISIÓN
+                      </p>
+                      <p className="text-[9px] text-slate-300 m-0 leading-tight">Liderar la innovación sostenible en soluciones modulares e industriales, impactando positivamente el entorno y la sociedad.</p>
                     </div>
 
-                    <div className="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/50">
-                      <p className="text-[10px] font-black text-[#6a9a04] uppercase tracking-wider m-0 mb-0.5">👁️ Visión</p>
-                      <p className="text-[9px] text-slate-300 m-0 leading-tight">Ser la marca referente internacional en revestimientos y equipamiento en Latinoamérica para el 2030.</p>
+                    <div className="bg-slate-900/80 backdrop-blur-sm p-2.5 rounded-xl border border-slate-800 shadow-sm">
+                      <p className="text-[10px] font-black text-[#6a9a04] uppercase tracking-wider m-0 mb-0.5 flex items-center gap-1">
+                        <span>👁️</span> VISIÓN
+                      </p>
+                      <p className="text-[9px] text-slate-300 m-0 leading-tight">Ser el referente global en soluciones avanzadas, reconocidos por calidad y compromiso ambiental para el 2030.</p>
                     </div>
 
-                    <div className="bg-slate-800/60 p-2 rounded-xl border border-slate-700/50">
-                      <p className="text-[10px] font-black text-[#6a9a04] uppercase tracking-wider m-0 mb-0.5">💎 Valores</p>
-                      <p className="text-[9px] text-slate-300 m-0 leading-tight font-medium">Excelencia • Innovación • Compromiso • Sostenibilidad</p>
+                    <div className="bg-slate-900/80 backdrop-blur-sm p-2 rounded-xl border border-slate-800 shadow-sm">
+                      <p className="text-[10px] font-black text-[#6a9a04] uppercase tracking-wider m-0 mb-0.5 flex items-center gap-1">
+                        <span>💎</span> VALORES
+                      </p>
+                      <p className="text-[8.5px] text-slate-300 m-0 leading-tight font-medium">
+                        <strong>CALIDAD:</strong> Excelencia en cada proceso.<br/>
+                        <strong>INNOVACIÓN:</strong> Soluciones tecnológicas de vanguardia.<br/>
+                        <strong>SOSTENIBILIDAD:</strong> Compromiso con el futuro.
+                      </p>
                     </div>
                   </div>
 
-                  {/* Contact & Emergency */}
-                  <div className="mt-2 bg-slate-900/90 border border-slate-800 p-2 rounded-xl text-center">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider m-0">📞 Emergencias / Matriz</p>
-                    <p className="text-[10px] font-bold text-white m-0">Tel: (844) 105 8692 | Saltillo, Coah.</p>
-                    <p className="text-[8px] text-slate-400 m-0">contacto@greenland-products.com.mx</p>
+                  {/* Emergency Contact & QR Mockup */}
+                  <div className="bg-slate-900/90 border border-slate-800 p-2 rounded-xl text-center relative z-10 flex items-center justify-between px-3">
+                    <div className="text-left">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider m-0">CONTACTO DE EMERGENCIA</p>
+                      <p className="text-[10px] font-black text-white m-0">Tel: (844) 105 8692</p>
+                      <p className="text-[8px] text-slate-400 m-0">contacto@greenland-products.com.mx</p>
+                    </div>
+                    {/* QR Code Container */}
+                    <div className="w-10 h-10 bg-white rounded-lg p-0.5 flex items-center justify-center shadow-md">
+                      <div className="w-full h-full bg-slate-950 rounded border border-slate-800 flex items-center justify-center text-[7px] font-black text-[#6a9a04]">
+                        QR
+                      </div>
+                    </div>
                   </div>
 
                   {/* Return Legend */}
-                  <div className="text-[8px] text-slate-400 text-center leading-tight border-t border-slate-800 pt-2">
-                    Si encuentra esta tarjeta, favor de devolver a Greenland Products S.A. de C.V. Blvd. Vito Alessio Robles #3550, Saltillo, Coah. CP 25100.
+                  <div className="text-[7.5px] text-slate-400 text-center leading-tight border-t border-slate-800/80 pt-1.5 relative z-10">
+                    SI ENCUENTRA ESTA TARJETA, FAVOR DE DEVOLVER A:<br/>
+                    <strong>GREENLAND PRODUCTS SA DE CV</strong> | Blvd. Vito Alessio Robles #3550, Saltillo, Coah., CP 25100.
                   </div>
 
                 </div>
