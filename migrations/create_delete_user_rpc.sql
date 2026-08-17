@@ -1,18 +1,31 @@
 -- =====================================================
--- MIGRACIÓN: Funciones RPC para Eliminación Definitiva de Usuarios
+-- MIGRACIÓN COMPLETA: Funciones RPC para Eliminación Definitiva de Usuarios
 -- Ejecutar en Supabase SQL Editor
 -- =====================================================
 
--- 1. Función para eliminar un solo usuario (Desvincula referencias FK)
+-- 1. Función para eliminar un solo usuario desvinculando todas las FKs
 CREATE OR REPLACE FUNCTION delete_user(user_id UUID)
 RETURNS void AS $$
 BEGIN
-  -- Desvincular de movimientos de caja, ventas y logs para no violar Foreign Keys
+  -- Desvincular de todas las tablas con Claves Foráneas
   UPDATE cash_movements SET created_by = NULL WHERE created_by = user_id;
   UPDATE counter_sales SET sold_by = NULL WHERE sold_by = user_id;
   UPDATE counter_sales SET cancelled_by = NULL WHERE cancelled_by = user_id;
   UPDATE counter_sales SET approved_by = NULL WHERE approved_by = user_id;
   UPDATE inventory_logs SET user_id = NULL WHERE user_id = user_id;
+  UPDATE order_evidence SET uploaded_by = NULL WHERE uploaded_by = user_id;
+  UPDATE bank_movements SET uploaded_by = NULL WHERE uploaded_by = user_id;
+  UPDATE order_payments SET registered_by = NULL WHERE registered_by = user_id;
+
+  -- Intentar desvincular de onboarding y contratos si aplica
+  BEGIN
+    UPDATE distributor_documents SET user_id = NULL WHERE user_id = user_id;
+  EXCEPTION WHEN OTHERS THEN NULL; END;
+
+  BEGIN
+    UPDATE distributor_contracts SET user_id = NULL WHERE user_id = user_id;
+    UPDATE distributor_contracts SET reviewed_by = NULL WHERE reviewed_by = user_id;
+  EXCEPTION WHEN OTHERS THEN NULL; END;
 
   -- Eliminar de la tabla de autenticación (libera el email para re-registro)
   DELETE FROM auth.users WHERE id = user_id;
@@ -30,13 +43,16 @@ BEGIN
   UPDATE counter_sales SET cancelled_by = NULL WHERE cancelled_by = ANY(user_ids);
   UPDATE counter_sales SET approved_by = NULL WHERE approved_by = ANY(user_ids);
   UPDATE inventory_logs SET user_id = NULL WHERE user_id = ANY(user_ids);
+  UPDATE order_evidence SET uploaded_by = NULL WHERE uploaded_by = ANY(user_ids);
+  UPDATE bank_movements SET uploaded_by = NULL WHERE uploaded_by = ANY(user_ids);
+  UPDATE order_payments SET registered_by = NULL WHERE registered_by = ANY(user_ids);
 
   DELETE FROM auth.users WHERE id = ANY(user_ids);
   DELETE FROM public.profiles WHERE id = ANY(user_ids);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Otorgar permisos de ejecución a los roles
+-- Otorgar permisos de ejecución
 GRANT EXECUTE ON FUNCTION delete_user(UUID) TO authenticated, service_role, anon;
 GRANT EXECUTE ON FUNCTION delete_users(UUID[]) TO authenticated, service_role, anon;
 
@@ -53,12 +69,15 @@ BEGIN
   END IF;
 
   IF v_user_id IS NOT NULL THEN
-    -- Desvincular de movimientos de caja y ventas
+    -- Desvincular de todas las tablas asociadas
     UPDATE cash_movements SET created_by = NULL WHERE created_by = v_user_id;
     UPDATE counter_sales SET sold_by = NULL WHERE sold_by = v_user_id;
     UPDATE counter_sales SET cancelled_by = NULL WHERE cancelled_by = v_user_id;
     UPDATE counter_sales SET approved_by = NULL WHERE approved_by = v_user_id;
     UPDATE inventory_logs SET user_id = NULL WHERE user_id = v_user_id;
+    UPDATE order_evidence SET uploaded_by = NULL WHERE uploaded_by = v_user_id;
+    UPDATE bank_movements SET uploaded_by = NULL WHERE uploaded_by = v_user_id;
+    UPDATE order_payments SET registered_by = NULL WHERE registered_by = v_user_id;
 
     -- Borrado definitivo
     DELETE FROM auth.users WHERE id = v_user_id;
