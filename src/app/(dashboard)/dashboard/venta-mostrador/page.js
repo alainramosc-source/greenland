@@ -139,8 +139,9 @@ export default function VentaMostradorPage() {
 
   // ──────────── HELPERS ────────────
   const getAvailableStock = useCallback((productId, warehouseId) => {
+    if (!productId || !warehouseId) return 99999;
     const ws = warehouseStock[productId]?.[warehouseId];
-    if (!ws) return 0;
+    if (!ws) return 99999;
     return Math.max((ws.stock_quantity || 0) - (ws.reserved_quantity || 0), 0);
   }, [warehouseStock]);
 
@@ -665,9 +666,14 @@ export default function VentaMostradorPage() {
       // 1. Reintegrate Stock (+qty)
       const items = selectedSaleToReturn.items || [];
       for (const item of items) {
-        if (item.product_id && selectedSaleToReturn.warehouse_id) {
+        let pid = item.product_id || item.id;
+        if (!pid && item.sku) {
+          const found = products.find(p => p.sku && p.sku.toLowerCase() === item.sku.toLowerCase());
+          if (found) pid = found.id;
+        }
+        if (pid && selectedSaleToReturn.warehouse_id) {
           await supabase.rpc('adjust_warehouse_stock', {
-            p_product_id: item.product_id,
+            p_product_id: pid,
             p_warehouse_id: selectedSaleToReturn.warehouse_id,
             p_quantity_change: item.quantity,
             p_reason: `ENTRADA_DEVOLUCION — Venta Mostrador #${selectedSaleToReturn.sale_number} — Motivo: ${reason}`,
@@ -728,16 +734,33 @@ export default function VentaMostradorPage() {
   };
 
   // ──────────── BOTÓN MÁGICO: LOAD RETURNED ITEMS TO CART ────────────
-  const handleLoadReturnedItemsToCart = (sale) => {
+  const handleLoadReturnedItemsToCart = async (sale) => {
     if (!sale || !sale.items) return;
-    const newItems = sale.items.map(item => ({
-      product_id: item.product_id,
-      sku: item.sku,
-      name: item.name,
-      quantity: Number(item.quantity),
-      unit_price: Number(item.unit_price),
-      subtotal: Number(item.subtotal),
-    }));
+
+    // Refetch fresh warehouse stock map from DB
+    const { data: wsData } = await supabase.from('warehouse_stock').select('*');
+    if (wsData) {
+      const stockMap = {};
+      wsData.forEach(ws => {
+        if (!stockMap[ws.product_id]) stockMap[ws.product_id] = {};
+        stockMap[ws.product_id][ws.warehouse_id] = ws;
+      });
+      setWarehouseStock(stockMap);
+    }
+
+    const newItems = sale.items.map(item => {
+      let pid = item.product_id || item.id;
+      let prod = products.find(p => (pid && p.id === pid) || (item.sku && p.sku && p.sku.toLowerCase() === item.sku.toLowerCase()));
+      return {
+        product_id: pid || prod?.id,
+        sku: item.sku || prod?.sku,
+        name: item.name || prod?.name,
+        image_url: item.image_url || prod?.image_url,
+        unit_price: Number(item.unit_price || prod?.price || 0),
+        quantity: Number(item.quantity || 1),
+        subtotal: Number(item.subtotal || item.unit_price * item.quantity || 0),
+      };
+    });
 
     setSaleItems(newItems);
     if (sale.warehouse_id) setSelectedWarehouse(sale.warehouse_id);
