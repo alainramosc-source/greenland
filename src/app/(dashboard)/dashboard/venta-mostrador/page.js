@@ -668,7 +668,15 @@ export default function VentaMostradorPage() {
       for (const item of items) {
         let pid = item.product_id || item.id;
         if (!pid && item.sku) {
-          const found = products.find(p => p.sku && p.sku.toLowerCase() === item.sku.toLowerCase());
+          const found = products.find(p => p.sku && p.sku.toLowerCase().trim() === item.sku.toLowerCase().trim());
+          if (found) pid = found.id;
+        }
+        if (!pid && item.name) {
+          const found = products.find(p => p.name && p.name.toLowerCase().trim() === item.name.toLowerCase().trim());
+          if (found) pid = found.id;
+        }
+        if (!pid && item.name) {
+          const found = products.find(p => p.name && (p.name.toLowerCase().includes(item.name.toLowerCase().trim()) || item.name.toLowerCase().includes(p.name.toLowerCase().trim())));
           if (found) pid = found.id;
         }
         if (pid && selectedSaleToReturn.warehouse_id) {
@@ -750,11 +758,16 @@ export default function VentaMostradorPage() {
 
     const newItems = sale.items.map(item => {
       let pid = item.product_id || item.id;
-      let prod = products.find(p => (pid && p.id === pid) || (item.sku && p.sku && p.sku.toLowerCase() === item.sku.toLowerCase()));
+      let prod = products.find(p => 
+        (pid && p.id === pid) || 
+        (item.sku && p.sku && p.sku.toLowerCase().trim() === item.sku.toLowerCase().trim()) ||
+        (item.name && p.name && p.name.toLowerCase().trim() === item.name.toLowerCase().trim()) ||
+        (item.name && p.name && (p.name.toLowerCase().includes(item.name.toLowerCase().trim()) || item.name.toLowerCase().includes(p.name.toLowerCase().trim())))
+      );
       return {
         product_id: pid || prod?.id,
-        sku: item.sku || prod?.sku,
-        name: item.name || prod?.name,
+        sku: item.sku || prod?.sku || '',
+        name: item.name || prod?.name || '',
         image_url: item.image_url || prod?.image_url,
         unit_price: Number(item.unit_price || prod?.price || 0),
         quantity: Number(item.quantity || 1),
