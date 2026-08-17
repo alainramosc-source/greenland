@@ -480,9 +480,10 @@ export default function VentaMostradorPage() {
       const customerFinal = sanitizeText(customerName, 200) || 'Público General';
       const notesFinal = sanitizeText(notes, 500);
 
-      // Build items JSON
+      // Build items JSON (Always include product_id, sku, name, quantity, unit_price, subtotal)
       const itemsJson = saleItems.map(item => ({
-        sku: item.sku,
+        product_id: item.product_id,
+        sku: item.sku || '',
         name: item.name,
         quantity: item.quantity,
         unit_price: item.unit_price,
@@ -1026,7 +1027,10 @@ export default function VentaMostradorPage() {
                 <div className="space-y-1">
                   {receiptData.items.map((item, idx) => (
                     <div key={idx} className="flex items-start justify-between text-[13px]">
-                      <span className="flex-1 text-slate-800 font-medium pr-2 leading-tight">{item.name}</span>
+                      <span className="flex-1 text-slate-800 font-medium pr-2 leading-tight">
+                        {item.name}
+                        {item.sku ? <span className="block text-[10px] text-slate-500 font-mono">SKU: {item.sku}</span> : null}
+                      </span>
                       <span className="w-10 text-center text-slate-600">{item.quantity}</span>
                       <span className="w-16 text-right text-slate-600">${item.unit_price.toFixed(2)}</span>
                       <span className="w-20 text-right font-bold text-slate-900">${item.subtotal.toFixed(2)}</span>
@@ -1677,7 +1681,10 @@ export default function VentaMostradorPage() {
                                           </div>
                                           {items.map((item, idx) => (
                                             <div key={idx} className="flex items-start justify-between text-[13px] py-0.5">
-                                              <span className="flex-1 text-slate-700 pr-2 leading-tight">{item.name}</span>
+                                              <span className="flex-1 text-slate-700 pr-2 leading-tight">
+                                                {item.name}
+                                                {item.sku ? <span className="block text-[10px] text-slate-500 font-mono">SKU: {item.sku}</span> : null}
+                                              </span>
                                               <span className="w-10 text-center text-slate-500">{item.quantity}</span>
                                               <span className="w-16 text-right text-slate-500">${Number(item.unit_price).toFixed(2)}</span>
                                               <span className="w-20 text-right font-bold text-slate-900">${Number(item.subtotal).toFixed(2)}</span>
