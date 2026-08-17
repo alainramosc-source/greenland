@@ -20,8 +20,22 @@ export default function UsersPage() {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, isBulk: false, targetId: null });
-  // Badge ID modal state
+  // Badge ID modal & settings state
   const [badgeUser, setBadgeUser] = useState(null);
+  const [showEditBadgeTexts, setShowEditBadgeTexts] = useState(false);
+  const [badgeSettings, setBadgeSettings] = useState({
+    mision: 'Liderar la innovación sostenible en soluciones modulares e industriales, impactando positivamente el entorno y la sociedad.',
+    vision: 'Ser el referente global en soluciones avanzadas, reconocidos por calidad y compromiso ambiental para el 2030.',
+    valores: 'CALIDAD: Excelencia en cada proceso.\nINNOVACIÓN: Soluciones tecnológicas de vanguardia.\nSOSTENIBILIDAD: Compromiso con el futuro.',
+    emergencias: 'Tel: (844) 105 8692 | contacto@greenland-products.com.mx'
+  });
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('greenland_badge_settings');
+      if (saved) setBadgeSettings(JSON.parse(saved));
+    } catch (e) {}
+  }, []);
   // Collaborator creation
   const [showNewCollab, setShowNewCollab] = useState(false);
   const [newCollab, setNewCollab] = useState({ full_name: '', email: '', password: '', sub_role: 'viewer' });
@@ -112,6 +126,7 @@ export default function UsersPage() {
       phone: selectedUser.phone,
       company_name: selectedUser.company_name,
       address: selectedUser.address,
+      job_title: selectedUser.job_title || null,
       sub_role: selectedUser.role === 'admin' ? (selectedUser.sub_role || 'viewer')
              : selectedUser.role === 'distributor' ? (selectedUser.sub_role || null)
              : null,
@@ -1327,14 +1342,20 @@ export default function UsersPage() {
       {badgeUser && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-lg z-[110] flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-slate-950 border border-slate-800 max-w-4xl w-full rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.8)] p-6 text-white space-y-6 my-8">
-            <div className="flex justify-between items-center border-b border-slate-800/80 pb-4">
+            <div className="flex flex-wrap justify-between items-center border-b border-slate-800/80 pb-4 gap-3">
               <div>
                 <h3 className="text-xl font-black text-white m-0 flex items-center gap-2">
                   <CreditCard className="text-[#6a9a04]" /> Gafete Corporativo — {badgeUser.full_name || badgeUser.email}
                 </h3>
                 <p className="text-xs text-slate-400 m-0">Diseño Obsidian Glassmorphism • Formato PVC CR80 (85.6mm × 53.98mm)</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowEditBadgeTexts(!showEditBadgeTexts)}
+                  className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs flex items-center gap-1.5 border border-slate-700 cursor-pointer transition-all"
+                >
+                  <Edit2 size={13} className="text-[#6a9a04]" /> {showEditBadgeTexts ? 'Ocultar Editor' : '⚙️ Editar Misión & Visión'}
+                </button>
                 <button
                   onClick={() => window.print()}
                   className="px-4 py-2 bg-gradient-to-r from-[#6a9a04] to-emerald-500 hover:from-[#7db505] hover:to-emerald-400 text-slate-950 font-black rounded-xl text-xs flex items-center gap-2 border-none cursor-pointer shadow-[0_0_20px_rgba(106,154,4,0.4)] transition-all"
@@ -1346,6 +1367,64 @@ export default function UsersPage() {
                 </button>
               </div>
             </div>
+
+            {/* Custom Mission/Vision Editor Box */}
+            {showEditBadgeTexts && (
+              <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3 text-xs animate-fadeIn">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="font-bold text-[#6a9a04]">⚙️ Personalizar Misión, Visión, Valores y Contacto (Para todas las impresiones)</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.setItem('greenland_badge_settings', JSON.stringify(badgeSettings));
+                      setShowEditBadgeTexts(false);
+                      alert('¡Textos de gafete guardados correctamente!');
+                    }}
+                    className="px-3 py-1 bg-[#6a9a04] text-slate-950 font-bold rounded-lg cursor-pointer border-none"
+                  >
+                    <Save size={12} className="inline mr-1" /> Guardar Cambios
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-400 font-bold mb-1">🚀 Misión:</label>
+                    <textarea
+                      rows={2}
+                      value={badgeSettings.mision}
+                      onChange={(e) => setBadgeSettings({ ...badgeSettings, mision: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white text-xs outline-none focus:border-[#6a9a04]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 font-bold mb-1">👁️ Visión:</label>
+                    <textarea
+                      rows={2}
+                      value={badgeSettings.vision}
+                      onChange={(e) => setBadgeSettings({ ...badgeSettings, vision: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white text-xs outline-none focus:border-[#6a9a04]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 font-bold mb-1">💎 Valores:</label>
+                    <textarea
+                      rows={2}
+                      value={badgeSettings.valores}
+                      onChange={(e) => setBadgeSettings({ ...badgeSettings, valores: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white text-xs outline-none focus:border-[#6a9a04]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 font-bold mb-1">📞 Contacto / Emergencias:</label>
+                    <input
+                      type="text"
+                      value={badgeSettings.emergencias}
+                      onChange={(e) => setBadgeSettings({ ...badgeSettings, emergencias: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white text-xs outline-none focus:border-[#6a9a04]"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Badge Front and Back Cards Container */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center justify-center py-4">
@@ -1396,7 +1475,7 @@ export default function UsersPage() {
                   {/* Name & Title */}
                   <div className="mt-0.5 relative z-10">
                     <h3 className="text-xl font-black text-white m-0 tracking-tight leading-snug drop-shadow-md">{badgeUser.full_name || 'Nombre Colaborador'}</h3>
-                    <p className="text-xs font-bold text-slate-300 m-0 mt-0.5">{badgeUser.sub_role === 'super_admin' ? 'Director Operativo & Signer' : (badgeUser.sub_role || 'Colaborador Oficial')}</p>
+                    <p className="text-xs font-bold text-slate-300 m-0 mt-0.5">{badgeUser.job_title || (badgeUser.sub_role === 'super_admin' ? 'Director Operativo' : 'Colaborador Oficial')}</p>
                     
                     {/* Access Tier Capsule */}
                     <div className="inline-flex items-center gap-1 bg-slate-900/90 border border-[#6a9a04]/40 px-3 py-0.5 rounded-full mt-2 shadow-inner">
@@ -1447,24 +1526,22 @@ export default function UsersPage() {
                       <p className="text-[10px] font-black text-[#6a9a04] uppercase tracking-wider m-0 mb-0.5 flex items-center gap-1">
                         <span>🚀</span> MISIÓN
                       </p>
-                      <p className="text-[9px] text-slate-300 m-0 leading-tight">Liderar la innovación sostenible en soluciones modulares e industriales, impactando positivamente el entorno y la sociedad.</p>
+                      <p className="text-[9px] text-slate-300 m-0 leading-tight whitespace-pre-line">{badgeSettings.mision}</p>
                     </div>
 
                     <div className="bg-slate-900/80 backdrop-blur-sm p-2.5 rounded-xl border border-slate-800 shadow-sm">
                       <p className="text-[10px] font-black text-[#6a9a04] uppercase tracking-wider m-0 mb-0.5 flex items-center gap-1">
                         <span>👁️</span> VISIÓN
                       </p>
-                      <p className="text-[9px] text-slate-300 m-0 leading-tight">Ser el referente global en soluciones avanzadas, reconocidos por calidad y compromiso ambiental para el 2030.</p>
+                      <p className="text-[9px] text-slate-300 m-0 leading-tight whitespace-pre-line">{badgeSettings.vision}</p>
                     </div>
 
                     <div className="bg-slate-900/80 backdrop-blur-sm p-2 rounded-xl border border-slate-800 shadow-sm">
                       <p className="text-[10px] font-black text-[#6a9a04] uppercase tracking-wider m-0 mb-0.5 flex items-center gap-1">
                         <span>💎</span> VALORES
                       </p>
-                      <p className="text-[8.5px] text-slate-300 m-0 leading-tight font-medium">
-                        <strong>CALIDAD:</strong> Excelencia en cada proceso.<br/>
-                        <strong>INNOVACIÓN:</strong> Soluciones tecnológicas de vanguardia.<br/>
-                        <strong>SOSTENIBILIDAD:</strong> Compromiso con el futuro.
+                      <p className="text-[8.5px] text-slate-300 m-0 leading-tight font-medium whitespace-pre-line">
+                        {badgeSettings.valores}
                       </p>
                     </div>
                   </div>
@@ -1473,8 +1550,7 @@ export default function UsersPage() {
                   <div className="bg-slate-900/90 border border-slate-800 p-2 rounded-xl text-center relative z-10 flex items-center justify-between px-3">
                     <div className="text-left">
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider m-0">CONTACTO DE EMERGENCIA</p>
-                      <p className="text-[10px] font-black text-white m-0">Tel: (844) 105 8692</p>
-                      <p className="text-[8px] text-slate-400 m-0">contacto@greenland-products.com.mx</p>
+                      <p className="text-[9.5px] font-black text-white m-0">{badgeSettings.emergencias}</p>
                     </div>
                     {/* QR Code Container */}
                     <div className="w-10 h-10 bg-white rounded-lg p-0.5 flex items-center justify-center shadow-md">
