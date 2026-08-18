@@ -30,6 +30,43 @@ export default function UsersPage() {
     emergencias: 'Tel: (844) 105 8692 | contacto@greenland-products.com.mx'
   });
 
+  const [downloadingFront, setDownloadingFront] = useState(false);
+  const [downloadingBack, setDownloadingBack] = useState(false);
+
+  const downloadBadgeImage = async (elementId, filename, side) => {
+    if (side === 'front') setDownloadingFront(true);
+    if (side === 'back') setDownloadingBack(true);
+
+    try {
+      if (!window.html2canvas) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+      const element = document.getElementById(elementId);
+      if (!element) return;
+      const canvas = await window.html2canvas(element, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: null,
+        logging: false,
+      });
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      alert('Error al generar la imagen: ' + (err.message || err));
+    } finally {
+      if (side === 'front') setDownloadingFront(false);
+      if (side === 'back') setDownloadingBack(false);
+    }
+  };
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem('greenland_badge_settings');
@@ -1369,18 +1406,39 @@ export default function UsersPage() {
                 </h3>
                 <p className="text-xs text-slate-400 m-0">Diseño Obsidian Glassmorphism • Formato PVC CR80 (85.6mm × 53.98mm)</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setShowEditBadgeTexts(!showEditBadgeTexts)}
                   className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs flex items-center gap-1.5 border border-slate-700 cursor-pointer transition-all"
                 >
                   <Edit2 size={13} className="text-[#6a9a04]" /> {showEditBadgeTexts ? 'Ocultar Editor' : '⚙️ Editar Misión & Visión'}
                 </button>
+
+                <button
+                  disabled={downloadingFront}
+                  onClick={() => downloadBadgeImage('badge-front-print', `gafete_frente_${badgeUser.full_name || 'empleado'}.png`, 'front')}
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold rounded-xl text-xs flex items-center gap-1.5 border border-slate-700 cursor-pointer transition-all disabled:opacity-50"
+                  title="Descargar frente en PNG en alta resolución (300 DPI)"
+                >
+                  {downloadingFront ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                  <span>Descargar Frente (PNG)</span>
+                </button>
+
+                <button
+                  disabled={downloadingBack}
+                  onClick={() => downloadBadgeImage('badge-back-print', `gafete_reverso_${badgeUser.full_name || 'empleado'}.png`, 'back')}
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold rounded-xl text-xs flex items-center gap-1.5 border border-slate-700 cursor-pointer transition-all disabled:opacity-50"
+                  title="Descargar reverso en PNG en alta resolución (300 DPI)"
+                >
+                  {downloadingBack ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                  <span>Descargar Reverso (PNG)</span>
+                </button>
+
                 <button
                   onClick={() => window.print()}
                   className="px-4 py-2 bg-gradient-to-r from-[#6a9a04] to-emerald-500 hover:from-[#7db505] hover:to-emerald-400 text-slate-950 font-black rounded-xl text-xs flex items-center gap-2 border-none cursor-pointer shadow-[0_0_20px_rgba(106,154,4,0.4)] transition-all"
                 >
-                  <Printer size={14} /> 🖨️ Imprimir Gafete PVC
+                  <Printer size={14} /> 🖨️ Imprimir PVC / PDF
                 </button>
                 <button onClick={() => setBadgeUser(null)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border-none cursor-pointer">
                   <X size={18} />
