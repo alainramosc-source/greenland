@@ -63,6 +63,15 @@ export default function VentaMostradorPage() {
   const [processingReturn, setProcessingReturn] = useState(false);
   const [returnSuccessData, setReturnSuccessData] = useState(null);
 
+  // Seller PIN identification state
+  const [activeSeller, setActiveSeller] = useState(null); // { id, name }
+  const [showSellerPinModal, setShowSellerPinModal] = useState(false);
+  const [sellerPinInput, setSellerPinInput] = useState('');
+  const [sellerModalError, setSellerModalError] = useState('');
+  const [rememberSeller, setRememberSeller] = useState(true);
+  const [verifyingSeller, setVerifyingSeller] = useState(false);
+  const [pendingSaleAction, setPendingSaleAction] = useState(false);
+
   const searchRef = useRef(null);
   const searchInputRef = useRef(null);
   const receiptRef = useRef(null);
@@ -430,7 +439,7 @@ export default function VentaMostradorPage() {
     return parts.length > 2 ? parts.slice(0, -1).join(' ') : name;
   };
 
-  // ──────────── SUBMIT SALE ────────────
+  // ──────────── VERIFY SELLER PIN & SUBMIT SALE ────────────
   const handleSubmitSale = async () => {
     if (saleItems.length === 0) {
       alert('Agrega al menos un producto a la venta.');
@@ -473,6 +482,79 @@ export default function VentaMostradorPage() {
       }
     }
 
+    // If active seller is already identified and set, proceed directly
+    if (activeSeller) {
+      await executeSale(activeSeller);
+    } else {
+      // Open PIN modal
+      setSellerPinInput('');
+      setSellerModalError('');
+      setPendingSaleAction(true);
+      setShowSellerPinModal(true);
+    }
+  };
+
+  const verifySellerPin = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const cleanInput = sellerPinInput.trim();
+    if (!cleanInput) {
+      setSellerModalError('Ingresa un PIN o escanea tu credencial.');
+      return;
+    }
+
+    setVerifyingSeller(true);
+    setSellerModalError('');
+
+    try {
+      const { data: matchedProfiles, error } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .or(`authorization_pin.eq.${cleanInput},employee_barcode.eq.${cleanInput}`);
+
+      if (error || !matchedProfiles || matchedProfiles.length === 0) {
+        setSellerModalError('PIN o Código de Barras no reconocido. Asigna un PIN al usuario desde el módulo de Usuarios.');
+        setVerifyingSeller(false);
+        return;
+      }
+
+      const foundSeller = {
+        id: matchedProfiles[0].id,
+        name: matchedProfiles[0].full_name || 'Vendedor'
+      };
+
+      if (rememberSeller) {
+        setActiveSeller(foundSeller);
+      } else {
+        setActiveSeller(null);
+      }
+
+      setShowSellerPinModal(false);
+      setSellerPinInput('');
+      setVerifyingSeller(false);
+
+      if (pendingSaleAction) {
+        setPendingSaleAction(false);
+        await executeSale(foundSeller);
+      }
+    } catch (err) {
+      setSellerModalError('Error de verificación: ' + (err.message || err));
+      setVerifyingSeller(false);
+    }
+  };
+
+  const handleKeypadPress = (val) => {
+    if (val === 'C') {
+      setSellerPinInput('');
+    } else if (val === 'DEL') {
+      setSellerPinInput(prev => prev.slice(0, -1));
+    } else {
+      if (sellerPinInput.length < 10) {
+        setSellerPinInput(prev => prev + val);
+      }
+    }
+  };
+
+  const executeSale = async (sellerObj) => {
     setSubmitting(true);
 
     try {
@@ -491,6 +573,8 @@ export default function VentaMostradorPage() {
       }));
 
       const subtotal = Math.round(saleTotal * 100) / 100;
+      const sellerId = sellerObj?.id || userId;
+      const sellerName = sellerObj?.name || userName;
 
       // FIRST: Insert counter_sales record (if this fails, stock is untouched)
       const { data: saleRecord, error: insertError } = await supabase
@@ -498,7 +582,7 @@ export default function VentaMostradorPage() {
         .insert({
           sale_number: saleNumber,
           warehouse_id: selectedWarehouse,
-          sold_by: userId,
+          sold_by: sellerId,
           customer_name: customerFinal,
           payment_method: paymentMethod,
           subtotal: subtotal,
@@ -547,10 +631,10 @@ export default function VentaMostradorPage() {
           type: 'entry',
           amount: subtotal,
           concept: `Venta mostrador #${saleNumber}`,
-          responsible: userName,
+          responsible: sellerName,
           reference_type: 'counter_sale',
           movement_date: new Date().toLocaleDateString('en-CA'),
-          created_by: userId,
+          created_by: sellerId,
           approval_status: 'approved'
         });
         if (cashErr) console.error('Error insertando en caja:', cashErr);
@@ -568,12 +652,17 @@ export default function VentaMostradorPage() {
         total: subtotal,
         amount_received: receivedNum,
         change: Math.round((receivedNum - subtotal) * 100) / 100,
-        sold_by_name: userName,
+        sold_by_name: sellerName,
         warehouse_name: warehouseName,
         notes: notesFinal,
         items_count: itemsJson.reduce((s, i) => s + i.quantity, 0),
       });
       setShowReceipt(true);
+
+      // If rememberSeller is false, clear activeSeller after sale completes
+      if (!rememberSeller) {
+        setActiveSeller(null);
+      }
 
     } catch (err) {
       alert('Error inesperado: ' + (err.message || err));
@@ -1114,7 +1203,7 @@ export default function VentaMostradorPage() {
       <div className="relative">
         <div className="relative z-10 max-w-7xl mx-auto">
           {/* ─── HEADER ─── */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
               <h1 className="text-3xl font-black tracking-tight text-slate-900 m-0 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center">
@@ -1123,6 +1212,40 @@ export default function VentaMostradorPage() {
                 Venta en Mostrador
               </h1>
               <p className="text-slate-500 mt-1 font-medium m-0">Registro de ventas directas en bodega</p>
+            </div>
+
+            {/* Vendedor Activo Badge */}
+            <div className="flex items-center gap-3 bg-white/70 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/60 shadow-sm">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${activeSeller ? 'bg-emerald-500/10 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                <User size={18} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 m-0">Vendedor Registrado</p>
+                {activeSeller ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-slate-900">{activeSeller.name}</span>
+                    <button
+                      onClick={() => setActiveSeller(null)}
+                      className="text-[10px] font-bold text-slate-500 hover:text-red-600 underline bg-transparent border-none cursor-pointer ml-1"
+                      title="Cerrar sesión de vendedor"
+                    >
+                      Cambiar
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setSellerPinInput('');
+                      setSellerModalError('');
+                      setPendingSaleAction(false);
+                      setShowSellerPinModal(true);
+                    }}
+                    className="text-xs font-bold text-[#6a9a04] hover:underline bg-transparent border-none cursor-pointer p-0"
+                  >
+                    + Fijar Vendedor con PIN
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1995,6 +2118,130 @@ export default function VentaMostradorPage() {
           </div>
         </div>
       )}
+
+      {/* ═══════════════ SELLER PIN VERIFICATION MODAL ═══════════════ */}
+      {showSellerPinModal && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-[fadeIn_0.15s_ease-out]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100">
+            {/* Header */}
+            <div className="bg-slate-900 px-6 py-4 flex items-center justify-between text-white">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#6a9a04]/20 flex items-center justify-center text-[#6a9a04]">
+                  <Key size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black m-0 leading-tight">Identificación de Vendedor</h3>
+                  <p className="text-[10px] text-slate-400 m-0">Ingresa tu PIN de 4 dígitos o escanea tu credencial</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowSellerPinModal(false);
+                  setPendingSaleAction(false);
+                }}
+                className="bg-transparent border-none text-slate-400 hover:text-white cursor-pointer p-1 rounded-lg transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Device Context Notice */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center gap-2.5 text-xs text-slate-600">
+                <ShieldAlert size={16} className="text-slate-400 shrink-0" />
+                <span>
+                  Tablet de Bodega: <strong className="text-slate-800">{userName}</strong>
+                </span>
+              </div>
+
+              {/* PIN / Barcode Input */}
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5 text-center">
+                  PIN de Vendedor / Código de Barras
+                </label>
+                <form onSubmit={verifySellerPin}>
+                  <input
+                    type="password"
+                    autoFocus
+                    value={sellerPinInput}
+                    onChange={(e) => {
+                      setSellerPinInput(e.target.value);
+                      if (sellerModalError) setSellerModalError('');
+                    }}
+                    placeholder="••••"
+                    className="w-full text-center tracking-[0.4em] font-mono text-2xl font-black py-3 px-4 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-[#6a9a04] focus:bg-white focus:outline-none transition-all"
+                  />
+                </form>
+                {sellerModalError && (
+                  <p className="text-xs font-bold text-red-600 mt-2 text-center flex items-center justify-center gap-1">
+                    <AlertTriangle size={13} /> {sellerModalError}
+                  </p>
+                )}
+              </div>
+
+              {/* Touch Numeric Keypad for Tablets */}
+              <div className="grid grid-cols-3 gap-2 max-w-[280px] mx-auto">
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'DEL'].map((btn) => (
+                  <button
+                    key={btn}
+                    type="button"
+                    onClick={() => handleKeypadPress(btn)}
+                    className={`h-12 rounded-xl text-lg font-bold transition-all border cursor-pointer active:scale-95 flex items-center justify-center ${
+                      btn === 'C'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                        : btn === 'DEL'
+                        ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                        : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50 shadow-sm'
+                    }`}
+                  >
+                    {btn === 'DEL' ? '⌫' : btn}
+                  </button>
+                ))}
+              </div>
+
+              {/* Remember Seller Checkbox */}
+              <label className="flex items-center justify-center gap-2 text-xs font-medium text-slate-700 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={rememberSeller}
+                  onChange={(e) => setRememberSeller(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-[#6a9a04] focus:ring-[#6a9a04] cursor-pointer"
+                />
+                <span>Mantener mi sesión como vendedor activo para siguientes ventas</span>
+              </label>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSellerPinModal(false);
+                    setPendingSaleAction(false);
+                  }}
+                  disabled={verifyingSeller}
+                  className="flex-1 py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all cursor-pointer border-none"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={verifySellerPin}
+                  disabled={verifyingSeller || !sellerPinInput.trim()}
+                  className="flex-1 py-3 px-4 rounded-xl bg-[#6a9a04] hover:bg-[#5a8503] text-white font-bold text-xs transition-all cursor-pointer border-none shadow-lg shadow-[#6a9a04]/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {verifyingSeller ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Check size={16} />
+                  )}
+                  {pendingSaleAction ? 'Validar y Cobrar' : 'Fijar Vendedor'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
+

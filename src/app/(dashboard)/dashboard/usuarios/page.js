@@ -143,10 +143,20 @@ export default function UsersPage() {
       updateData.assigned_warehouse_id = null;
       updateData.product_segment = null;
     }
-    const { error } = await supabase
+    let { error } = await supabase
       .from('profiles')
       .update(updateData)
       .eq('id', selectedUser.id);
+
+    // Automatic fallback: if job_title column is not yet present in Supabase schema cache, retry without job_title
+    if (error && error.message && error.message.includes('job_title')) {
+      delete updateData.job_title;
+      const retryResult = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', selectedUser.id);
+      error = retryResult.error;
+    }
 
     if (error) {
       alert('Error updating user: ' + error.message);
@@ -1067,6 +1077,16 @@ export default function UsersPage() {
                       <option value="accountant">Contabilidad (pagos/precios)</option>
                       <option value="viewer">Solo Lectura</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">💼 Puesto / Cargo Laboral</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. Operario de Bodega / Director Operativo / Ventas Mostrador"
+                      value={selectedUser.job_title || ''}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, job_title: e.target.value })}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/30 text-slate-800 outline-none"
+                    />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                     <div>
