@@ -918,10 +918,25 @@ export default function AdminPagosPage() {
         const totalExits = filteredCash.filter(m => m.type === 'exit' && m.approval_status === 'approved').reduce((s, m) => s + Number(m.amount), 0);
         const pendingExits = filteredCash.filter(m => m.type === 'exit' && m.approval_status !== 'approved').reduce((s, m) => s + Number(m.amount), 0);
         const saldoDebido = totalEntries - totalExits;
-        // Global balance (all time) — only approved exits
-        const allEntries = cashMovements.filter(m => m.type === 'entry').reduce((s, m) => s + Number(m.amount), 0);
-        const allExits = cashMovements.filter(m => m.type === 'exit' && m.approval_status === 'approved').reduce((s, m) => s + Number(m.amount), 0);
-        const globalBalance = allEntries - allExits;
+        
+        // Global balance anchored to the latest applied audit
+        const latestAppliedAudit = (cashAudits || [])
+          .filter(a => a.applied)
+          .sort((a, b) => new Date(b.created_at || b.audit_date) - new Date(a.created_at || a.audit_date))[0];
+
+        const auditBaseBalance = latestAppliedAudit ? Number(latestAppliedAudit.counted_balance || 0) : 0;
+        const auditCutoffTime = latestAppliedAudit ? new Date(latestAppliedAudit.created_at || latestAppliedAudit.audit_date).getTime() : 0;
+
+        const activeCash = latestAppliedAudit
+          ? cashMovements.filter(m => {
+              const mTime = new Date(m.created_at || m.movement_date).getTime();
+              return mTime >= auditCutoffTime || m.movement_date > latestAppliedAudit.audit_date;
+            })
+          : cashMovements;
+
+        const activeEntries = activeCash.filter(m => m.type === 'entry').reduce((s, m) => s + Number(m.amount), 0);
+        const activeExits = activeCash.filter(m => m.type === 'exit' && m.approval_status === 'approved').reduce((s, m) => s + Number(m.amount), 0);
+        const globalBalance = auditBaseBalance + activeEntries - activeExits;
 
         // Calculate daily running balance historically across ALL movements
         const sortedMovements = [...cashMovements].sort((a, b) => {
@@ -1280,24 +1295,28 @@ export default function AdminPagosPage() {
                     const diffIcon = audit.applied ? '✅' : absDiff === 0 ? '✅' : absDiff <= 500 ? '⚠️' : '🔴';
 
                     const handleApplyAudit = async () => {
-                      const tipo = diff < 0 ? 'faltante' : 'sobrante';
-                      if (!confirm(`¿Aplicar ajuste de caja por ${tipo} de $${absDiff.toLocaleString('es-MX', { minimumFractionDigits: 2 })}?\n\nEsto creará un movimiento de ${diff < 0 ? 'salida' : 'entrada'} automático para cuadrar el saldo.`)) return;
                       const userId = (await supabase.auth.getUser()).data.user?.id;
-                      // Create cash movement
-                      const { error: moveErr } = await supabase.from('cash_movements').insert({
-                        type: diff < 0 ? 'exit' : 'entry',
-                        amount: absDiff,
-                        concept: `Ajuste por arqueo de caja — ${tipo}`,
-                        responsible: audit.performed_by,
-                        notes: `Arqueo ${new Date(audit.created_at).toLocaleDateString('es-MX')}. Esperado: $${Number(audit.expected_balance).toLocaleString('es-MX')} / Contado: $${Number(audit.counted_balance).toLocaleString('es-MX')}`,
-                        reference_type: 'manual',
-                        movement_date: audit.audit_date,
-                        created_by: userId,
-                        registered_by: currentUserName,
-                        approval_status: 'approved',
-                      });
-                      if (moveErr) { alert('Error al crear movimiento: ' + moveErr.message); return; }
-                      // Mark audit as applied
+                      if (absDiff > 0) {
+                        const tipo = diff < 0 ? 'faltante' : 'sobrante';
+                        if (!confirm(`¿Asentar corte de caja y aplicar ajuste por ${tipo} de $${absDiff.toLocaleString('es-MX', { minimumFractionDigits: 2 })}?`)) return;
+                        
+                        const { error: moveErr } = await supabase.from('cash_movements').insert({
+                          type: diff < 0 ? 'exit' : 'entry',
+                          amount: absDiff,
+                          concept: `Ajuste por arqueo de caja — ${tipo}`,
+                          responsible: audit.performed_by,
+                          notes: `Arqueo ${new Date(audit.created_at).toLocaleDateString('es-MX')}. Esperado: $${Number(audit.expected_balance).toLocaleString('es-MX')} / Contado: $${Number(audit.counted_balance).toLocaleString('es-MX')}`,
+                          reference_type: 'manual',
+                          movement_date: audit.audit_date,
+                          created_by: userId,
+                          registered_by: currentUserName,
+                          approval_status: 'approved',
+                        });
+                        if (moveErr) { alert('Error al crear movimiento: ' + moveErr.message); return; }
+                      } else {
+                        if (!confirm(`¿Asentar el corte de caja con saldo de $${Number(audit.counted_balance).toLocaleString('es-MX', { minimumFractionDigits: 2 })}? Esto fijará el punto de partida oficial para las siguientes operaciones.`)) return;
+                      }
+
                       await supabase.from('cash_audits').update({ applied: true, applied_at: new Date().toISOString() }).eq('id', audit.id);
                       fetchData();
                     };
@@ -1332,12 +1351,12 @@ export default function AdminPagosPage() {
                             </p>
                             <p className="text-[10px] text-slate-400">{audit.performed_by}</p>
                           </div>
-                          {!audit.applied && absDiff > 0 && (
+                          {!audit.applied && (
                             <button
                               onClick={handleApplyAudit}
                               className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 cursor-pointer transition-colors"
                             >
-                              Aplicar Ajuste
+                              {absDiff > 0 ? 'Aplicar Ajuste' : '✅ Asentar Corte'}
                             </button>
                           )}
                         </div>
