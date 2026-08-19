@@ -63,6 +63,8 @@ export default function AdminPagosPage() {
     const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0];
   });
   const [cajaDateTo, setCajaDateTo] = useState(new Date().toISOString().split('T')[0]);
+  const [cajaSubTab, setCajaSubTab] = useState('movimientos'); // 'movimientos' | 'diario'
+  const [dailySearchTerm, setDailySearchTerm] = useState('');
   // Order lookup map: uuid -> { order_number, total_amount }
   const [orderMap, setOrderMap] = useState({});
   // Dual signature
@@ -921,6 +923,63 @@ export default function AdminPagosPage() {
         const allExits = cashMovements.filter(m => m.type === 'exit' && m.approval_status === 'approved').reduce((s, m) => s + Number(m.amount), 0);
         const globalBalance = allEntries - allExits;
 
+        // Calculate daily running balance historically across ALL movements
+        const sortedMovements = [...cashMovements].sort((a, b) => {
+          if (a.movement_date !== b.movement_date) {
+            return a.movement_date.localeCompare(b.movement_date);
+          }
+          return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+        });
+
+        let accumulatedBalance = 0;
+        const dailyMap = {};
+
+        sortedMovements.forEach(m => {
+          const amt = Number(m.amount) || 0;
+          const isApproved = m.type === 'entry' || (m.type === 'exit' && m.approval_status === 'approved');
+          const startBal = accumulatedBalance;
+
+          if (isApproved) {
+            if (m.type === 'entry') accumulatedBalance += amt;
+            else accumulatedBalance -= amt;
+          }
+
+          const dateKey = m.movement_date || 'Sin Fecha';
+          if (!dailyMap[dateKey]) {
+            dailyMap[dateKey] = {
+              date: dateKey,
+              entries: 0,
+              exits: 0,
+              startBalance: startBal,
+              endBalance: accumulatedBalance,
+              count: 0,
+              movements: [],
+              hasDrasticDrop: false,
+              netChange: 0,
+            };
+          }
+
+          dailyMap[dateKey].count++;
+          dailyMap[dateKey].movements.push(m);
+          if (m.type === 'entry') dailyMap[dateKey].entries += amt;
+          if (m.type === 'exit' && m.approval_status === 'approved') dailyMap[dateKey].exits += amt;
+          dailyMap[dateKey].endBalance = accumulatedBalance;
+          dailyMap[dateKey].netChange = dailyMap[dateKey].entries - dailyMap[dateKey].exits;
+
+          if (dailyMap[dateKey].netChange <= -100000 || (dailyMap[dateKey].endBalance < 0 && dailyMap[dateKey].startBalance >= 0)) {
+            dailyMap[dateKey].hasDrasticDrop = true;
+          }
+        });
+
+        const dailyList = Object.values(dailyMap).sort((a, b) => b.date.localeCompare(a.date));
+        const filteredDailyList = dailyList.filter(row => {
+          if (!dailySearchTerm) return true;
+          const s = dailySearchTerm.toLowerCase();
+          return row.date.includes(s) || 
+                 row.endBalance.toString().includes(s) ||
+                 row.netChange.toString().includes(s);
+        });
+
         return (
           <div className="space-y-5">
             {/* Caja KPIs */}
@@ -956,46 +1015,172 @@ export default function AdminPagosPage() {
               </div>
             </div>
 
-            {/* Date Filter + Actions */}
-            <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
-              <div className="flex flex-wrap items-end gap-4">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Desde</label>
-                  <input type="date" value={cajaDateFrom} onChange={e => setCajaDateFrom(e.target.value)}
-                    className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#6a9a04]" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Hasta</label>
-                  <input type="date" value={cajaDateTo} onChange={e => setCajaDateTo(e.target.value)}
-                    className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#6a9a04]" />
-                </div>
-                <div className="ml-auto flex gap-2">
-                  <button onClick={() => { setAuditForm({ counted: '', notes: '', performed_by: '' }); setShowAuditModal(true); }}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer shadow-lg shadow-indigo-500/20 transition-all">
-                    <ClipboardCheck size={16} /> Arqueo de Caja
-                  </button>
-                  {SIGNERS.some(s => currentUserName.toLowerCase().includes(s.toLowerCase().split(' ')[0])) && (
-                    <button onClick={() => setShowEntryModal(true)}
-                      className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer shadow-lg shadow-emerald-500/20 transition-all">
-                      <Plus size={16} /> Registrar Entrada
-                    </button>
+            {/* Sub-Tab Navigation Switcher */}
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex gap-2 bg-slate-200/70 p-1.5 rounded-2xl border border-slate-300/50 shadow-inner">
+                <button
+                  onClick={() => setCajaSubTab('movimientos')}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer border-none ${
+                    cajaSubTab === 'movimientos'
+                      ? 'bg-white text-slate-900 shadow-md'
+                      : 'bg-transparent text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Wallet size={15} className={cajaSubTab === 'movimientos' ? 'text-[#6a9a04]' : ''} />
+                  Movimientos del Periodo
+                </button>
+                <button
+                  onClick={() => setCajaSubTab('diario')}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer border-none ${
+                    cajaSubTab === 'diario'
+                      ? 'bg-white text-slate-900 shadow-md'
+                      : 'bg-transparent text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Calendar size={15} className={cajaSubTab === 'diario' ? 'text-[#6a9a04]' : ''} />
+                  📅 Desglose de Saldo Diario (Histórico)
+                  {dailyList.some(d => d.hasDrasticDrop) && (
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping ml-1" title="Hay días con alertas de saldo"></span>
                   )}
-                  <button onClick={() => setShowExitModal(true)}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer shadow-lg shadow-red-500/20 transition-all">
-                    <ArrowUpCircle size={16} /> Registrar Salida
-                  </button>
-                </div>
+                </button>
               </div>
             </div>
 
-            {/* Movements History */}
-            <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-200">
-                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Wallet className="w-5 h-5 text-[#6a9a04]" /> Movimientos de Caja
-                  <span className="text-xs font-normal text-slate-400 ml-1">({filteredCash.length})</span>
-                </h2>
+            {/* View Mode: Daily Breakdown vs. Period Movements */}
+            {cajaSubTab === 'diario' ? (
+              <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden space-y-4">
+                <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-[#6a9a04]" /> Desglose de Saldo Diario Acumulado
+                      <span className="text-xs font-normal text-slate-400">({dailyList.length} días registrados)</span>
+                    </h2>
+                    <p className="text-xs text-slate-500 m-0 mt-0.5">Evolución del saldo al cierre de cada día. Las caídas drásticas se resaltan en rojo.</p>
+                  </div>
+                  <div className="relative max-w-xs w-full">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por fecha o monto..."
+                      value={dailySearchTerm}
+                      onChange={e => setDailySearchTerm(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-[#6a9a04]"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/80 text-[11px] font-black uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                        <th className="py-3 px-5">Fecha</th>
+                        <th className="py-3 px-5">Movimientos</th>
+                        <th className="py-3 px-5 text-right">Entradas del Día</th>
+                        <th className="py-3 px-5 text-right">Salidas Aprobadas</th>
+                        <th className="py-3 px-5 text-right">Balance Neto del Día</th>
+                        <th className="py-3 px-5 text-right">Saldo Acumulado (Cierre)</th>
+                        <th className="py-3 px-5 text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs font-medium">
+                      {filteredDailyList.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-10 text-slate-400 font-medium">
+                            No se encontraron registros de caja para la búsqueda.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredDailyList.map((row) => (
+                          <tr
+                            key={row.date}
+                            className={`hover:bg-slate-50/80 transition-colors ${
+                              row.hasDrasticDrop ? 'bg-red-50/50 border-l-4 border-l-red-500' : ''
+                            }`}
+                          >
+                            <td className="py-3.5 px-5 font-bold text-slate-900 flex items-center gap-2">
+                              <span>{row.date}</span>
+                              {row.hasDrasticDrop && (
+                                <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-black flex items-center gap-1">
+                                  <AlertTriangle size={11} /> ⚠️ Caída Drástica
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-5 text-slate-600">
+                              {row.count} movimiento{row.count !== 1 ? 's' : ''}
+                            </td>
+                            <td className="py-3.5 px-5 text-right font-bold text-emerald-600">
+                              +${row.entries.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-3.5 px-5 text-right font-bold text-red-600">
+                              -${row.exits.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className={`py-3.5 px-5 text-right font-black ${row.netChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {row.netChange >= 0 ? '+' : ''}${row.netChange.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className={`py-3.5 px-5 text-right font-black text-sm ${row.endBalance >= 0 ? 'text-slate-900' : 'text-red-600'}`}>
+                              ${row.endBalance.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-3.5 px-5 text-center">
+                              <button
+                                onClick={() => {
+                                  setCajaDateFrom(row.date);
+                                  setCajaDateTo(row.date);
+                                  setCajaSubTab('movimientos');
+                                }}
+                                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] rounded-lg cursor-pointer transition-colors border-none shadow-sm flex items-center gap-1 mx-auto"
+                              >
+                                <Search size={12} /> Inspeccionar Día
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
+            ) : (
+              <>
+                {/* Date Filter + Actions */}
+                <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
+                  <div className="flex flex-wrap items-end gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Desde</label>
+                      <input type="date" value={cajaDateFrom} onChange={e => setCajaDateFrom(e.target.value)}
+                        className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#6a9a04]" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Hasta</label>
+                      <input type="date" value={cajaDateTo} onChange={e => setCajaDateTo(e.target.value)}
+                        className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#6a9a04]" />
+                    </div>
+                    <div className="ml-auto flex gap-2">
+                      <button onClick={() => { setAuditForm({ counted: '', notes: '', performed_by: '' }); setShowAuditModal(true); }}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer shadow-lg shadow-indigo-500/20 transition-all">
+                        <ClipboardCheck size={16} /> Arqueo de Caja
+                      </button>
+                      {SIGNERS.some(s => currentUserName.toLowerCase().includes(s.toLowerCase().split(' ')[0])) && (
+                        <button onClick={() => setShowEntryModal(true)}
+                          className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer shadow-lg shadow-emerald-500/20 transition-all">
+                          <Plus size={16} /> Registrar Entrada
+                        </button>
+                      )}
+                      <button onClick={() => setShowExitModal(true)}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer shadow-lg shadow-red-500/20 transition-all">
+                        <ArrowUpCircle size={16} /> Registrar Salida
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Movements History */}
+                <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-200">
+                    <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                      <Wallet className="w-5 h-5 text-[#6a9a04]" /> Movimientos de Caja
+                      <span className="text-xs font-normal text-slate-400 ml-1">({filteredCash.length})</span>
+                    </h2>
+                  </div>
               {filteredCash.length === 0 ? (
                 <div className="text-center py-12 text-slate-400">
                   <Wallet size={40} className="mx-auto mb-3 opacity-30" />
@@ -1068,6 +1253,8 @@ export default function AdminPagosPage() {
                 </div>
               )}
             </div>
+          </>
+        )}
 
             {/* ===== ARQUEO DE CAJA HISTORY ===== */}
             <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden">
