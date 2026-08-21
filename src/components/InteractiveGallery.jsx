@@ -4,8 +4,12 @@ import { useState, useEffect } from 'react';
 import NextImage from 'next/image';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-// SKUs that need object-contain (wide/panoramic images)
-const CONTAIN_SKUS = ['GL06', 'GL27', 'GL29', 'GL35', 'GL36', 'GL37', 'GL38'];
+// SKUs that need object-contain (wide/panoramic images and Deco slabs)
+const CONTAIN_SKUS = [
+  'GL06', 'GL27', 'GL28', 'GL29', 'GL35', 'GL36', 'GL37', 'GL38', 
+  'GL39', 'GL40', 'GL41', 'GL42', 'GL45', 'GL46', 'GL47', 'GL48', 
+  'GL49', 'GL50', 'GL51', 'GL52'
+];
 
 // Known image map to load exact files instantly without 404 cascades
 const KNOWN_IMAGES = {
