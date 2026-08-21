@@ -616,19 +616,32 @@ export default function NuevaRecepcionPage() {
     if (form.purchase_order_id) {
       await supabase.from('purchase_orders').update({ status: 'partially_received' }).eq('id', form.purchase_order_id);
       
-      // Resolve transits: reduce quantity for each received product (don't delete all)
+      // Resolve transits: reduce quantity for each received product specifically for THIS purchase order
       const supplierName = suppliers.find(s => s.id === form.supplier_id)?.short_name || '';
       for (const item of items) {
         const qtyReceived = Number(item.quantity) || 0;
         if (qtyReceived <= 0) continue;
 
-        // Find matching transit shipments for this product
-        const { data: transits } = await supabase.from('transit_shipments')
+        // Find matching transit shipments specifically tied to this PO
+        let { data: transits } = await supabase.from('transit_shipments')
           .select('id, quantity')
+          .eq('purchase_order_id', form.purchase_order_id)
           .eq('product_id', item.product_id)
           .eq('warehouse_id', form.warehouse_id)
           .eq('status', 'in_transit')
           .order('created_at', { ascending: true });
+
+        // Fallback: if no transits are linked directly to this PO, check legacy transits with NULL purchase_order_id
+        if (!transits || transits.length === 0) {
+          const { data: legacyTransits } = await supabase.from('transit_shipments')
+            .select('id, quantity')
+            .eq('product_id', item.product_id)
+            .eq('warehouse_id', form.warehouse_id)
+            .eq('status', 'in_transit')
+            .is('purchase_order_id', null)
+            .order('created_at', { ascending: true });
+          transits = legacyTransits;
+        }
 
         if (!transits || transits.length === 0) continue;
 

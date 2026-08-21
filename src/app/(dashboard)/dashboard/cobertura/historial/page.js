@@ -128,13 +128,8 @@ export default function HistorialPedidosPage() {
     const deleteOrder = async (order) => {
         if (!window.confirm(`¿Eliminar ${order.po_number} permanentemente?\n\nEsto borrará el pedido, sus items y tránsitos asociados.`)) return;
         const supplier = getSupplier(order.supplier_id);
-        // Delete transit shipments for each item
-        const items = orderItems[order.id] || [];
-        for (const item of items) {
-            await supabase.from('transit_shipments').delete()
-                .eq('product_id', item.product_id)
-                .eq('origin', supplier?.short_name || '');
-        }
+        // Delete transit shipments tied to this PO
+        await supabase.from('transit_shipments').delete().eq('purchase_order_id', order.id);
         // Delete PO items (cascade should handle, but explicit)
         await supabase.from('purchase_order_items').delete().eq('purchase_order_id', order.id);
         // Delete PO
@@ -202,14 +197,10 @@ export default function HistorialPedidosPage() {
             if (error) { errors++; continue; }
             // Update matching transit_shipment if qty changed
             if (qtyChanged) {
-                const supplier = getSupplier(order.supplier_id);
-                const warehouseId = getWarehouseForDest(order.destination_code);
                 const { data: transits } = await supabase.from('transit_shipments')
                     .select('id, quantity')
+                    .eq('purchase_order_id', order.id)
                     .eq('product_id', item.product_id)
-                    .eq('origin', supplier?.short_name || '')
-                    .eq('warehouse_id', warehouseId)
-                    .order('created_at', { ascending: false })
                     .limit(1);
                 if (transits && transits.length > 0) {
                     await supabase.from('transit_shipments')
@@ -235,12 +226,9 @@ export default function HistorialPedidosPage() {
         const { error } = await supabase.from('purchase_order_items').delete().eq('id', itemId);
         if (error) { showToast('Error: ' + error.message, 'error'); return; }
         // Remove matching transit
-        const supplier = getSupplier(order.supplier_id);
-        const { data: transits } = await supabase.from('transit_shipments')
-            .select('id').eq('product_id', item.product_id)
-            .eq('origin', supplier?.short_name || '')
-            .order('created_at', { ascending: false }).limit(1);
-        if (transits?.[0]) await supabase.from('transit_shipments').delete().eq('id', transits[0].id);
+        await supabase.from('transit_shipments').delete()
+            .eq('purchase_order_id', order.id)
+            .eq('product_id', item.product_id);
         // Refresh
         const { data: refreshed } = await supabase.from('purchase_order_items')
             .select('*').eq('purchase_order_id', order.id);
