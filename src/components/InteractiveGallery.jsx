@@ -64,7 +64,8 @@ const KNOWN_IMAGES = {
 };
 
 export default function InteractiveGallery({ sku, productName }) {
-    const objectFit = CONTAIN_SKUS.includes(sku) ? 'object-contain' : 'object-cover';
+    // Use object-contain for ALL products to preserve exact natural aspect ratios without stretching
+    const objectFit = 'object-contain';
     const [images, setImages] = useState([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [zoomStyle, setZoomStyle] = useState({ display: 'none' });

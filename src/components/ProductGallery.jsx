@@ -64,7 +64,8 @@ const KNOWN_IMAGES = {
 };
 
 export default function ProductGallery({ sku, productName }) {
-    const objectFit = CONTAIN_SKUS.includes(sku) ? 'object-contain' : 'object-cover';
+    // Use object-contain for ALL products to preserve exact natural aspect ratios without stretching
+    const objectFit = 'object-contain';
 
     // Get pre-mapped images if available, otherwise construct default fallback candidate URLs
     const initialUrls = KNOWN_IMAGES[sku] || [
