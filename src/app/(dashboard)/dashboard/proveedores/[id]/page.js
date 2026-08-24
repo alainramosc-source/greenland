@@ -41,6 +41,9 @@ export default function SupplierDetailPage() {
   const [activeTab, setActiveTab] = useState('info');
   const [rejectingInvoice, setRejectingInvoice] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [approvingInvoice, setApprovingInvoice] = useState(null);
+  const [approveAmount, setApproveAmount] = useState('');
+  const [approveReason, setApproveReason] = useState('');
   const [payProofUploading, setPayProofUploading] = useState(null);
   const [sendingWelcome, setSendingWelcome] = useState(false);
   const [welcomeSent, setWelcomeSent] = useState(false);
@@ -116,12 +119,12 @@ export default function SupplierDetailPage() {
   };
 
   const sendWelcomeEmail = async () => {
-    if (!confirm(`¿Enviar email de bienvenida a ${supplier.email}?\n\nIncluirá link para establecer contraseña y acceder al portal.`)) return;
+    if (!supplier?.email) { alert('El proveedor no tiene correo asignado'); return; }
     setSendingWelcome(true);
     try {
       const res = await fetch('/api/suppliers/send-welcome', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ supplier_id: id }),
+        body: JSON.stringify({ supplierId: id }),
       });
       const data = await res.json();
       if (data.success) { setWelcomeSent(true); alert('✅ Email enviado a ' + supplier.email); }
@@ -130,8 +133,48 @@ export default function SupplierDetailPage() {
     setSendingWelcome(false);
   };
 
-  const handleApproveInvoice = async (inv) => {
-    await supabase.from('service_order_invoices').update({ validation_status: 'aprobada' }).eq('id', inv.id);
+  const startApproveInvoice = (inv, order) => {
+    setApprovingInvoice(inv.id);
+    setApproveAmount(inv.invoiced_amount || order?.agreed_amount || order?.amount || '');
+    setApproveReason('');
+  };
+
+  const handleConfirmApproveInvoice = async (inv, order) => {
+    const numericAmount = Number(approveAmount) || Number(inv.invoiced_amount) || Number(order?.agreed_amount) || 0;
+    const originalAmount = Number(order?.agreed_amount || order?.amount || inv.invoiced_amount || 0);
+    const hasAdjustment = numericAmount !== originalAmount || approveReason.trim().length > 0;
+
+    // 1. Update invoice status & amount
+    await supabase.from('service_order_invoices').update({
+      validation_status: 'aprobada',
+      invoiced_amount: numericAmount,
+      notes: approveReason.trim() || null
+    }).eq('id', inv.id);
+
+    // 2. Update service order amount so system total matches invoice 100%
+    if (order?.id) {
+      await supabase.from('service_orders').update({
+        agreed_amount: numericAmount,
+        amount: numericAmount
+      }).eq('id', order.id);
+
+      // 3. Insert audit comment
+      if (hasAdjustment) {
+        const diff = numericAmount - originalAmount;
+        const diffText = diff !== 0 ? ` (Diferencia: ${diff > 0 ? '+' : ''}$${fmt(diff)})` : '';
+        const msg = `[Factura Aprobada] Se aprobó factura por $${fmt(numericAmount)}${diffText}.${approveReason.trim() ? ' Motivo: ' + approveReason.trim() : ''}`;
+        await supabase.from('service_order_comments').insert([{
+          service_order_id: order.id,
+          user_id: currentUser?.id || null,
+          user_name: currentUser?.full_name || 'Admin',
+          message: msg
+        }]);
+      }
+    }
+
+    setApprovingInvoice(null);
+    setApproveAmount('');
+    setApproveReason('');
     fetchAll();
   };
 
@@ -400,49 +443,115 @@ export default function SupplierDetailPage() {
                           {inv && (
                             <div>
                               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Acciones de Pago / Factura</h4>
-                              <div className="bg-white/80 p-4 border border-slate-200 rounded-xl flex items-center justify-between gap-4 flex-wrap">
-                                <div>
-                                  <p className="text-sm font-bold text-slate-800">Factura por ${fmt(inv.invoiced_amount)}</p>
-                                  <p className="text-xs text-slate-500">Estado: <span className="uppercase font-semibold">{inv.validation_status}</span></p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  {inv.validation_status === 'pendiente' && (
-                                    <>
-                                      <button onClick={() => handleApproveInvoice(inv)}
-                                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200">
-                                        <Check size={14} /> Aprobar
-                                      </button>
-                                      {rejectingInvoice === inv.id ? (
-                                        <div className="flex items-center gap-2">
-                                          <input type="text" value={rejectReason} onChange={e => setRejectReason(e.target.value)}
-                                            placeholder="Motivo..." className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg w-32 outline-none" autoFocus />
-                                          <button onClick={() => handleRejectInvoice(inv)} className="text-red-600 font-bold bg-red-50 p-1.5 rounded-lg border border-red-200"><Check size={14}/></button>
-                                          <button onClick={() => { setRejectingInvoice(null); setRejectReason(''); }} className="text-slate-500 font-bold bg-slate-50 p-1.5 rounded-lg border border-slate-200"><X size={14}/></button>
-                                        </div>
-                                      ) : (
-                                        <button onClick={() => setRejectingInvoice(inv.id)}
-                                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 border border-red-200">
-                                          <X size={14} /> Rechazar
-                                        </button>
+                              <div className="bg-white/80 p-4 border border-slate-200 rounded-xl flex flex-col gap-4">
+                                <div className="flex items-center justify-between gap-4 flex-wrap">
+                                  <div>
+                                    <p className="text-sm font-bold text-slate-800">
+                                      Factura por ${fmt(inv.invoiced_amount)}
+                                      {Number(inv.invoiced_amount) !== Number(o.agreed_amount || o.amount) && (
+                                        <span className="ml-2 text-xs font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                                          Tarifa base: ${fmt(o.agreed_amount || o.amount)}
+                                        </span>
                                       )}
-                                    </>
-                                  )}
-                                  {inv.validation_status === 'aprobada' && inv.payment_status !== 'paid' && (
-                                    <>
-                                      <button onClick={() => handleMarkPaid(inv)}
-                                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200">
-                                          <DollarSign size={14} /> Marcar Pagada
-                                      </button>
-                                      <label className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 cursor-pointer">
-                                        <Upload size={14} /> {payProofUploading === inv.id ? 'Subiendo...' : 'Comp. Pago'}
-                                        <input type="file" accept=".pdf,.jpg,.png" className="hidden" onChange={e => handlePayProofUpload(inv, e.target.files?.[0])} />
-                                      </label>
-                                    </>
-                                  )}
-                                  {inv.payment_status === 'paid' && (
-                                    <span className="px-3 py-1.5 rounded-lg text-xs font-bold bg-green-100 text-green-800 border border-green-200">Pagada</span>
-                                  )}
+                                    </p>
+                                    <p className="text-xs text-slate-500">Estado: <span className="uppercase font-semibold">{inv.validation_status}</span></p>
+                                    {inv.notes && <p className="text-xs text-slate-600 mt-1 italic">Nota: "{inv.notes}"</p>}
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    {inv.validation_status === 'pendiente' && approvingInvoice !== inv.id && (
+                                      <>
+                                        <button onClick={() => startApproveInvoice(inv, o)}
+                                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200">
+                                          <Check size={14} /> Aprobar
+                                        </button>
+                                        {rejectingInvoice === inv.id ? (
+                                          <div className="flex items-center gap-2">
+                                            <input type="text" value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+                                              placeholder="Motivo..." className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg w-32 outline-none" autoFocus />
+                                            <button onClick={() => handleRejectInvoice(inv)} className="text-red-600 font-bold bg-red-50 p-1.5 rounded-lg border border-red-200"><Check size={14}/></button>
+                                            <button onClick={() => { setRejectingInvoice(null); setRejectReason(''); }} className="text-slate-500 font-bold bg-slate-50 p-1.5 rounded-lg border border-slate-200"><X size={14}/></button>
+                                          </div>
+                                        ) : (
+                                          <button onClick={() => setRejectingInvoice(inv.id)}
+                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 border border-red-200">
+                                            <X size={14} /> Rechazar
+                                          </button>
+                                        )}
+                                      </>
+                                    )}
+
+                                    {inv.validation_status === 'aprobada' && inv.payment_status !== 'paid' && (
+                                      <>
+                                        <button onClick={() => handleMarkPaid(inv)}
+                                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200">
+                                            <DollarSign size={14} /> Marcar Pagada
+                                        </button>
+                                        <label className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 cursor-pointer">
+                                          <Upload size={14} /> {payProofUploading === inv.id ? 'Subiendo...' : 'Comp. Pago'}
+                                          <input type="file" accept=".pdf,.jpg,.png" className="hidden" onChange={e => handlePayProofUpload(inv, e.target.files?.[0])} />
+                                        </label>
+                                      </>
+                                    )}
+
+                                    {inv.payment_status === 'paid' && (
+                                      <span className="px-3 py-1.5 rounded-lg text-xs font-bold bg-green-100 text-green-800 border border-green-200">Pagada</span>
+                                    )}
+                                  </div>
                                 </div>
+
+                                {inv.validation_status === 'pendiente' && approvingInvoice === inv.id && (
+                                  <div className="w-full bg-emerald-50/60 p-4 rounded-xl border border-emerald-200 space-y-3 mt-1">
+                                    <div className="flex justify-between items-center border-b border-emerald-200 pb-2">
+                                      <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider">Aprobar Factura - Confirmar Monto y Justificación</span>
+                                      <button onClick={() => setApprovingInvoice(null)} className="text-slate-400 hover:text-slate-600">
+                                        <X size={16} />
+                                      </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                      <div>
+                                        <label className="text-[11px] font-bold text-slate-700 block mb-1">Monto Real Facturado ($)</label>
+                                        <input
+                                          type="number"
+                                          step="0.01"
+                                          value={approveAmount}
+                                          onChange={e => setApproveAmount(e.target.value)}
+                                          className="w-full px-3 py-1.5 text-xs font-bold border border-slate-300 rounded-lg outline-none focus:border-emerald-500 bg-white"
+                                          placeholder="0.00"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-[11px] font-bold text-slate-700 block mb-1">Motivo de Cargos Extra / Ajuste</label>
+                                        <input
+                                          type="text"
+                                          value={approveReason}
+                                          onChange={e => setApproveReason(e.target.value)}
+                                          className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-emerald-500 bg-white"
+                                          placeholder="Ej: Maniobras en puerto y sobrepeso"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {Number(approveAmount) !== Number(o.agreed_amount || o.amount) && (
+                                      <div className="p-2.5 bg-white border border-emerald-300 rounded-lg text-xs font-semibold text-emerald-900 flex justify-between items-center flex-wrap gap-2 shadow-xs">
+                                        <span>Tarifa Base Original: <strong>${fmt(o.agreed_amount || o.amount)}</strong></span>
+                                        <span className="text-emerald-700 font-bold">
+                                          Nuevo Total: ${fmt(approveAmount)} ({Number(approveAmount) - Number(o.agreed_amount || o.amount) > 0 ? '+' : ''}${fmt(Number(approveAmount) - Number(o.agreed_amount || o.amount))})
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    <div className="flex justify-end gap-2 pt-2 border-t border-emerald-200">
+                                      <button onClick={() => setApprovingInvoice(null)} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
+                                        Cancelar
+                                      </button>
+                                      <button onClick={() => handleConfirmApproveInvoice(inv, o)} className="px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 flex items-center gap-1 shadow-sm">
+                                        <Check size={14} /> Confirmar Aprobación
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
