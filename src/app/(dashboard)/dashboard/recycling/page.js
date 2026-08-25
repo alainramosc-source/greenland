@@ -36,7 +36,8 @@ export default function RecyclingPage() {
   const [buyerPinInput, setBuyerPinInput] = useState('');
   const [buyerModalError, setBuyerModalError] = useState('');
   const [verifyingBuyer, setVerifyingBuyer] = useState(false);
-  const [rememberBuyer, setRememberBuyer] = useState(false);
+  const [rememberBuyer, setRememberBuyer] = useState(true);
+  const [pendingPurchaseAction, setPendingPurchaseAction] = useState(false);
 
   // Sale modal
   const [saleModal, setSaleModal] = useState(null);
@@ -226,6 +227,7 @@ export default function RecyclingPage() {
       return;
     }
 
+    setPendingPurchaseAction(true);
     setBuyerPinInput('');
     setBuyerModalError('');
     setShowBuyerPinModal(true);
@@ -262,14 +264,19 @@ export default function RecyclingPage() {
       if (rememberBuyer) {
         setActiveBuyer(foundBuyer);
       } else {
-        setActiveBuyer(null);
+        setActiveBuyer(foundBuyer);
       }
 
       setShowBuyerPinModal(false);
       setBuyerPinInput('');
       setVerifyingBuyer(false);
 
-      await executePurchase(foundBuyer);
+      if (pendingPurchaseAction) {
+        setPendingPurchaseAction(false);
+        await executePurchase(foundBuyer);
+      } else {
+        showToast(`Comprador identificado: ${foundBuyer.name}`);
+      }
     } catch (err) {
       setBuyerModalError('Error de verificación: ' + (err.message || err));
       setVerifyingBuyer(false);
@@ -525,13 +532,26 @@ export default function RecyclingPage() {
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <ShoppingCart className="w-5 h-5 text-[#6a9a04]" /> Registrar Compra de Material
               </h2>
-              {activeBuyer && (
+              {activeBuyer ? (
                 <div className="bg-[#6a9a04]/10 border border-[#6a9a04]/30 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-[#6a9a04]">
                   <Users size={14} /> <span>Comprador: <span className="text-slate-900">{activeBuyer.name}</span></span>
                   <button onClick={() => setActiveBuyer(null)} className="text-slate-500 hover:text-slate-700 underline bg-transparent border-none cursor-pointer font-normal text-[11px] ml-1">
                     Cambiar
                   </button>
                 </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBuyerPinInput('');
+                    setBuyerModalError('');
+                    setPendingPurchaseAction(false);
+                    setShowBuyerPinModal(true);
+                  }}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3 py-1.5 rounded-xl border-none cursor-pointer flex items-center gap-1.5 transition-all shadow-sm"
+                >
+                  <Users size={14} className="text-[#6a9a04]" /> Identificar Comprador
+                </button>
               )}
             </div>
             <div className="space-y-5">
