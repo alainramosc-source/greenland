@@ -38,28 +38,52 @@ export default function UsersPage() {
     if (side === 'back') setDownloadingBack(true);
 
     try {
-      if (!window.html2canvas) {
+      if (!window.htmlToImage) {
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js';
           script.onload = resolve;
-          script.onerror = reject;
+          script.onerror = () => reject(new Error('No se pudo cargar la librería de conversión de imagen'));
           document.head.appendChild(script);
         });
       }
       const element = document.getElementById(elementId);
       if (!element) return;
-      const canvas = await window.html2canvas(element, {
-        scale: 3,
-        useCORS: true,
-        backgroundColor: null,
-        logging: false,
+
+      const dataUrl = await window.htmlToImage.toPng(element, {
+        pixelRatio: 3,
+        cacheBust: true,
       });
+
       const link = document.createElement('a');
       link.download = filename;
-      link.href = canvas.toDataURL('image/png');
+      link.href = dataUrl;
       link.click();
     } catch (err) {
+      console.error('Error al generar la imagen con html-to-image:', err);
+      // Fallback Engine: html2canvas
+      try {
+        if (!window.html2canvas) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        }
+        const element = document.getElementById(elementId);
+        if (element && window.html2canvas) {
+          const canvas = await window.html2canvas(element, { scale: 3, useCORS: true, backgroundColor: null, logging: false });
+          const link = document.createElement('a');
+          link.download = filename;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          return;
+        }
+      } catch (fallbackErr) {
+        console.error('Fallback html2canvas también falló:', fallbackErr);
+      }
       alert('Error al generar la imagen: ' + (err.message || err));
     } finally {
       if (side === 'front') setDownloadingFront(false);
