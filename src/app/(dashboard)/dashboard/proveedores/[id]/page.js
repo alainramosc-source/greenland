@@ -140,42 +140,55 @@ export default function SupplierDetailPage() {
   };
 
   const handleConfirmApproveInvoice = async (inv, order) => {
-    const numericAmount = Number(approveAmount) || Number(inv.invoiced_amount) || Number(order?.agreed_amount) || 0;
-    const originalAmount = Number(order?.agreed_amount || order?.amount || inv.invoiced_amount || 0);
-    const hasAdjustment = numericAmount !== originalAmount || approveReason.trim().length > 0;
+    try {
+      const numericAmount = Number(approveAmount) || Number(inv.invoiced_amount) || Number(order?.agreed_amount) || 0;
+      const originalAmount = Number(order?.agreed_amount || inv.invoiced_amount || 0);
+      const hasAdjustment = numericAmount !== originalAmount || approveReason.trim().length > 0;
 
-    // 1. Update invoice status & amount
-    await supabase.from('service_order_invoices').update({
-      validation_status: 'aprobada',
-      invoiced_amount: numericAmount,
-      notes: approveReason.trim() || null
-    }).eq('id', inv.id);
+      // 1. Update invoice status & amount
+      const { error: invErr } = await supabase.from('service_order_invoices').update({
+        validation_status: 'aprobada',
+        invoiced_amount: numericAmount,
+      }).eq('id', inv.id);
 
-    // 2. Update service order amount so system total matches invoice 100%
-    if (order?.id) {
-      await supabase.from('service_orders').update({
-        agreed_amount: numericAmount,
-        amount: numericAmount
-      }).eq('id', order.id);
-
-      // 3. Insert audit comment
-      if (hasAdjustment) {
-        const diff = numericAmount - originalAmount;
-        const diffText = diff !== 0 ? ` (Diferencia: ${diff > 0 ? '+' : ''}$${fmt(diff)})` : '';
-        const msg = `[Factura Aprobada] Se aprobó factura por $${fmt(numericAmount)}${diffText}.${approveReason.trim() ? ' Motivo: ' + approveReason.trim() : ''}`;
-        await supabase.from('service_order_comments').insert([{
-          service_order_id: order.id,
-          user_id: currentUser?.id || null,
-          user_name: currentUser?.full_name || 'Admin',
-          message: msg
-        }]);
+      if (invErr) {
+        alert('Error al aprobar factura: ' + invErr.message);
+        return;
       }
-    }
 
-    setApprovingInvoice(null);
-    setApproveAmount('');
-    setApproveReason('');
-    fetchAll();
+      // 2. Update service order agreed_amount so system total matches invoice 100%
+      if (order?.id) {
+        const { error: ordErr } = await supabase.from('service_orders').update({
+          agreed_amount: numericAmount,
+        }).eq('id', order.id);
+
+        if (ordErr) {
+          alert('Error al actualizar la orden de servicio: ' + ordErr.message);
+          return;
+        }
+
+        // 3. Insert audit comment
+        if (hasAdjustment) {
+          const diff = numericAmount - originalAmount;
+          const diffText = diff !== 0 ? ` (Diferencia: ${diff > 0 ? '+' : ''}$${fmt(diff)})` : '';
+          const msg = `[Factura Aprobada] Se aprobó factura por $${fmt(numericAmount)}${diffText}.${approveReason.trim() ? ' Motivo: ' + approveReason.trim() : ''}`;
+          await supabase.from('service_order_comments').insert([{
+            service_order_id: order.id,
+            user_id: currentUser?.id || null,
+            user_name: currentUser?.full_name || 'Admin',
+            message: msg
+          }]);
+        }
+      }
+
+      setApprovingInvoice(null);
+      setApproveAmount('');
+      setApproveReason('');
+      fetchAll();
+    } catch (err) {
+      console.error('Error en aprobación de factura:', err);
+      alert('Error al procesar la aprobación: ' + (err?.message || err));
+    }
   };
 
   const handleRejectInvoice = async (inv) => {
