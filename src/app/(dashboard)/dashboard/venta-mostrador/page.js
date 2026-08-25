@@ -68,7 +68,7 @@ export default function VentaMostradorPage() {
   const [showSellerPinModal, setShowSellerPinModal] = useState(false);
   const [sellerPinInput, setSellerPinInput] = useState('');
   const [sellerModalError, setSellerModalError] = useState('');
-  const [rememberSeller, setRememberSeller] = useState(true);
+  const [rememberSeller, setRememberSeller] = useState(false);
   const [verifyingSeller, setVerifyingSeller] = useState(false);
   const [pendingSaleAction, setPendingSaleAction] = useState(false);
 

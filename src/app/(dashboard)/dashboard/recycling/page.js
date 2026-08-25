@@ -36,7 +36,7 @@ export default function RecyclingPage() {
   const [buyerPinInput, setBuyerPinInput] = useState('');
   const [buyerModalError, setBuyerModalError] = useState('');
   const [verifyingBuyer, setVerifyingBuyer] = useState(false);
-  const [rememberBuyer, setRememberBuyer] = useState(true);
+  const [rememberBuyer, setRememberBuyer] = useState(false);
   const [pendingPurchaseAction, setPendingPurchaseAction] = useState(false);
 
   // Sale modal
@@ -264,7 +264,7 @@ export default function RecyclingPage() {
       if (rememberBuyer) {
         setActiveBuyer(foundBuyer);
       } else {
-        setActiveBuyer(foundBuyer);
+        setActiveBuyer(null);
       }
 
       setShowBuyerPinModal(false);
@@ -364,6 +364,12 @@ export default function RecyclingPage() {
       setPurchaseForm({ material_type_id: '', supplier_name: 'Público en General', quantity_kg: '', price_per_kg: '', notes: '' });
       setSupplierSearch('Público en General');
       showToast(`Compra ${purchaseNumber} registrada por ${buyerName} — $${fmt(total)}`);
+      
+      // If rememberBuyer is false, clear activeBuyer so next purchase asks for PIN again
+      if (!rememberBuyer) {
+        setActiveBuyer(null);
+      }
+
       fetchData();
     } catch (err) {
       showToast('Error al registrar: ' + err.message, 'error');
