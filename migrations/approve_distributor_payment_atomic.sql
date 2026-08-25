@@ -1,12 +1,14 @@
 -- ============================================================
--- RPC: approve_distributor_payment_atomic
+-- RPC: approve_distributor_payment_atomic (CON SOPORTE PARA CONTENEDORES)
 -- 
 -- Replaces the client-side handleApprove with an atomic 
 -- server-side function. All steps succeed or none do.
 --
--- Covers: payment approval, order_payments allocation with
--- overpayment prevention, payment_status update, cash_movements
--- for cash payments, and received_by tracking.
+-- Supports:
+-- 1. Ordinary Sales Orders (order_id IS NOT NULL) - 100% intact logic
+-- 2. Container Prepayments (order_id IS NULL / payment_type = 'containers')
+-- 3. Overpayment prevention, payment_status updates, cash_movements,
+--    and received_by tracking.
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.approve_distributor_payment_atomic(
@@ -27,7 +29,7 @@ DECLARE
     v_seen_order_ids UUID[] := '{}';
 BEGIN
     -- ============================================
-    -- PHASE 0: AUTH + PAYMENT LOCK
+    -- FASE 0: AUTENTICACIÓN Y BLOQUEO DEL PAGO
     -- ============================================
 
     v_reviewer_id := auth.uid();
@@ -47,24 +49,47 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'Para pagos en efectivo, se requiere el campo "Recibido por"');
     END IF;
 
-    -- Build allocations (normalize legacy single-order to array)
+    -- Normalizar asignaciones (Pedidos u Ordenes de Contenedores)
     IF v_payment.allocations IS NOT NULL AND jsonb_array_length(v_payment.allocations) > 0 THEN
         NULL;
     ELSIF v_payment.order_id IS NOT NULL THEN
         v_payment.allocations := jsonb_build_array(
             jsonb_build_object('order_id', v_payment.order_id, 'amount', v_payment.amount)
         );
+    ELSIF v_payment.payment_type = 'containers' OR v_payment.container_amount > 0 THEN
+        -- VÍA CONTENEDORES: Asignación explícita con order_id nulo
+        v_payment.allocations := jsonb_build_array(
+            jsonb_build_object('order_id', NULL, 'amount', v_payment.amount)
+        );
     ELSE
-        RETURN jsonb_build_object('success', false, 'error', 'El pago no tiene pedidos asignados');
+        RETURN jsonb_build_object('success', false, 'error', 'El pago no tiene pedidos ni contenedores asignados');
     END IF;
 
     -- ============================================
-    -- PHASE 1: FORMAT + DUPLICATES PRE-VALIDATION
+    -- FASE 1: VALIDACIÓN DE MONTOS Y FORMATO
     -- ============================================
 
     FOR v_alloc IN SELECT value FROM jsonb_array_elements(v_payment.allocations)
     LOOP
-        -- Validate UUID format
+        -- VÍA CONTENEDORES: Si order_id es NULL, sumar monto y continuar
+        IF v_alloc->>'order_id' IS NULL OR TRIM(v_alloc->>'order_id') = '' THEN
+            BEGIN
+                v_alloc_amount := (v_alloc->>'amount')::NUMERIC;
+            EXCEPTION WHEN OTHERS THEN
+                RETURN jsonb_build_object('success', false, 'error',
+                    FORMAT('Monto inválido en asignación de contenedor: "%s"', COALESCE(v_alloc->>'amount', 'NULL')));
+            END;
+
+            IF v_alloc_amount IS NULL OR v_alloc_amount <= 0 THEN
+                RETURN jsonb_build_object('success', false, 'error',
+                    FORMAT('Monto de contenedor inválido ($%s)', v_alloc_amount));
+            END IF;
+
+            v_total_allocated := v_total_allocated + v_alloc_amount;
+            CONTINUE;
+        END IF;
+
+        -- VÍA PEDIDOS ORDINARIOS (100% INTACTA)
         BEGIN
             v_alloc_order_id := (v_alloc->>'order_id')::UUID;
         EXCEPTION WHEN OTHERS THEN
@@ -73,12 +98,11 @@ BEGIN
                     COALESCE(v_alloc->>'order_id', 'NULL')));
         END;
 
-        -- Validate NUMERIC format
         BEGIN
             v_alloc_amount := (v_alloc->>'amount')::NUMERIC;
         EXCEPTION WHEN OTHERS THEN
             RETURN jsonb_build_object('success', false, 'error',
-                FORMAT('Monto inválido: "%s" en asignación para pedido %s. Se esperaba un valor numérico.',
+                FORMAT('Monto inválido: "%s" en asignación para pedido %s.',
                     COALESCE(v_alloc->>'amount', 'NULL'), v_alloc_order_id));
         END;
 
@@ -88,18 +112,16 @@ BEGIN
                     v_alloc_amount, v_alloc_order_id));
         END IF;
 
-        -- Check duplicate order_id
         IF v_alloc_order_id = ANY(v_seen_order_ids) THEN
             RETURN jsonb_build_object('success', false, 'error',
-                FORMAT('El pedido %s aparece más de una vez en las asignaciones. Consolida los montos en una sola asignación.',
-                    v_alloc_order_id));
+                FORMAT('El pedido %s aparece más de una vez en las asignaciones.', v_alloc_order_id));
         END IF;
         v_seen_order_ids := array_append(v_seen_order_ids, v_alloc_order_id);
 
         v_total_allocated := v_total_allocated + v_alloc_amount;
     END LOOP;
 
-    -- Verify total allocated matches payment amount
+    -- Verificar coincidencia total de montos
     IF v_total_allocated <> v_payment.amount THEN
         RETURN jsonb_build_object('success', false, 'error',
             FORMAT('La suma de asignaciones ($%s) no coincide con el monto del pago ($%s)',
@@ -108,18 +130,22 @@ BEGIN
     END IF;
 
     -- ============================================
-    -- PHASE 2: BUSINESS VALIDATION
-    -- Deterministic order (by order_id) to prevent deadlocks
+    -- FASE 2: VALIDACIÓN DE NEGOCIO EN TABLA ORDERS
     -- ============================================
 
     FOR v_alloc IN
         SELECT value FROM jsonb_array_elements(v_payment.allocations)
         ORDER BY value->>'order_id'
     LOOP
+        -- VÍA CONTENEDORES: Omitir consulta en la tabla 'orders'
+        IF v_alloc->>'order_id' IS NULL OR TRIM(v_alloc->>'order_id') = '' THEN
+            CONTINUE;
+        END IF;
+
+        -- VÍA PEDIDOS ORDINARIOS (100% INTACTA)
         v_alloc_order_id := (v_alloc->>'order_id')::UUID;
         v_alloc_amount := (v_alloc->>'amount')::NUMERIC;
 
-        -- Lock order row (deterministic order prevents deadlocks)
         SELECT * INTO v_order FROM orders
         WHERE id = v_alloc_order_id
         FOR UPDATE;
@@ -129,13 +155,11 @@ BEGIN
                 FORMAT('Pedido %s no existe', v_alloc_order_id));
         END IF;
 
-        -- Verify order belongs to the same distributor
         IF v_order.distributor_id IS DISTINCT FROM v_payment.distributor_id THEN
             RETURN jsonb_build_object('success', false, 'error',
                 FORMAT('El pedido %s no pertenece al distribuidor que registró el pago', v_alloc_order_id));
         END IF;
 
-        -- Check remaining balance
         SELECT COALESCE(SUM(amount), 0) INTO v_already_paid
         FROM order_payments WHERE order_id = v_alloc_order_id;
 
@@ -151,11 +175,10 @@ BEGIN
     END LOOP;
 
     -- ============================================
-    -- PHASE 3: EXECUTION (all validations passed)
-    -- Same deterministic order
+    -- FASE 3: EJECUCIÓN (APROBACIÓN DE PAGO)
     -- ============================================
 
-    -- Mark payment as approved
+    -- 1. Marcar el pago como aprobado
     UPDATE distributor_payments SET
         status = 'approved',
         reviewed_by = v_reviewer_id,
@@ -164,11 +187,17 @@ BEGIN
                       THEN TRIM(p_received_by) ELSE received_by END
     WHERE id = p_payment_id;
 
-    -- Apply allocations to orders
+    -- 2. Aplicar asignaciones a pedidos ordinarios (si existen)
     FOR v_alloc IN
         SELECT value FROM jsonb_array_elements(v_payment.allocations)
         ORDER BY value->>'order_id'
     LOOP
+        -- VÍA CONTENEDORES: Omitir inserción en order_payments
+        IF v_alloc->>'order_id' IS NULL OR TRIM(v_alloc->>'order_id') = '' THEN
+            CONTINUE;
+        END IF;
+
+        -- VÍA PEDIDOS ORDINARIOS (100% INTACTA)
         v_alloc_order_id := (v_alloc->>'order_id')::UUID;
         v_alloc_amount := (v_alloc->>'amount')::NUMERIC;
 
@@ -182,7 +211,7 @@ BEGIN
         PERFORM update_order_payment_status(v_alloc_order_id);
     END LOOP;
 
-    -- Insert cash movement if payment is cash
+    -- 3. Movimiento de caja en efectivo (si aplica)
     IF v_payment.payment_method = 'efectivo' THEN
         SELECT full_name INTO v_dist_name
         FROM profiles WHERE id = v_payment.distributor_id;

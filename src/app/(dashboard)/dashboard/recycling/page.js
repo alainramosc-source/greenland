@@ -30,6 +30,14 @@ export default function RecyclingPage() {
   const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
   const [submittingPurchase, setSubmittingPurchase] = useState(false);
 
+  // Buyer PIN modal state
+  const [activeBuyer, setActiveBuyer] = useState(null);
+  const [showBuyerPinModal, setShowBuyerPinModal] = useState(false);
+  const [buyerPinInput, setBuyerPinInput] = useState('');
+  const [buyerModalError, setBuyerModalError] = useState('');
+  const [verifyingBuyer, setVerifyingBuyer] = useState(false);
+  const [rememberBuyer, setRememberBuyer] = useState(false);
+
   // Sale modal
   const [saleModal, setSaleModal] = useState(null);
   const [saleForm, setSaleForm] = useState({
@@ -212,10 +220,82 @@ export default function RecyclingPage() {
     if (!qty || qty <= 0) return showToast('Ingresa una cantidad válida', 'error');
     if (!price || price <= 0) return showToast('Ingresa un precio válido', 'error');
 
+    // If active buyer is already set (remember buyer enabled), proceed directly
+    if (activeBuyer) {
+      await executePurchase(activeBuyer);
+      return;
+    }
+
+    setBuyerPinInput('');
+    setBuyerModalError('');
+    setShowBuyerPinModal(true);
+  };
+
+  const verifyBuyerPin = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const cleanInput = buyerPinInput.trim();
+    if (!cleanInput) {
+      setBuyerModalError('Ingresa un PIN o escanea tu credencial.');
+      return;
+    }
+
+    setVerifyingBuyer(true);
+    setBuyerModalError('');
+
+    try {
+      const { data: matchedProfiles, error } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .or(`authorization_pin.eq.${cleanInput},employee_barcode.eq.${cleanInput}`);
+
+      if (error || !matchedProfiles || matchedProfiles.length === 0) {
+        setBuyerModalError('PIN o Código de Barras no reconocido. Asigna un PIN al usuario desde el módulo de Usuarios.');
+        setVerifyingBuyer(false);
+        return;
+      }
+
+      const foundBuyer = {
+        id: matchedProfiles[0].id,
+        name: matchedProfiles[0].full_name || 'Comprador'
+      };
+
+      if (rememberBuyer) {
+        setActiveBuyer(foundBuyer);
+      } else {
+        setActiveBuyer(null);
+      }
+
+      setShowBuyerPinModal(false);
+      setBuyerPinInput('');
+      setVerifyingBuyer(false);
+
+      await executePurchase(foundBuyer);
+    } catch (err) {
+      setBuyerModalError('Error de verificación: ' + (err.message || err));
+      setVerifyingBuyer(false);
+    }
+  };
+
+  const handleKeypadPress = (val) => {
+    if (val === 'C') {
+      setBuyerPinInput('');
+    } else if (val === 'DEL') {
+      setBuyerPinInput(prev => prev.slice(0, -1));
+    } else {
+      if (buyerPinInput.length < 10) {
+        setBuyerPinInput(prev => prev + val);
+      }
+    }
+  };
+
+  const executePurchase = async (buyerObj) => {
     setSubmittingPurchase(true);
     try {
-      const userId = (await supabase.auth.getUser()).data.user?.id;
+      const userId = buyerObj?.id || (await supabase.auth.getUser()).data.user?.id;
+      const buyerName = buyerObj?.name || 'Comprador';
       const materialName = materialTypes.find(m => m.id === purchaseForm.material_type_id)?.name || '';
+      const qty = parseFloat(purchaseForm.quantity_kg);
+      const price = parseFloat(purchaseForm.price_per_kg);
       const total = qty * price;
       const supplierName = (purchaseForm.supplier_name || 'Público en General').trim();
 
@@ -263,7 +343,7 @@ export default function RecyclingPage() {
         type: 'exit',
         amount: total,
         concept: `Compra tungsteno: ${qty} kg de ${materialName}`,
-        responsible: supplierName,
+        responsible: buyerName,
         reference_id: newPurchase.id,
         reference_type: 'recycling_purchase',
         movement_date: new Date().toLocaleDateString('en-CA'),
@@ -276,12 +356,13 @@ export default function RecyclingPage() {
       // Reset form
       setPurchaseForm({ material_type_id: '', supplier_name: 'Público en General', quantity_kg: '', price_per_kg: '', notes: '' });
       setSupplierSearch('Público en General');
-      showToast(`Compra ${purchaseNumber} registrada exitosamente — $${fmt(total)}`);
+      showToast(`Compra ${purchaseNumber} registrada por ${buyerName} — $${fmt(total)}`);
       fetchData();
     } catch (err) {
       showToast('Error al registrar: ' + err.message, 'error');
+    } finally {
+      setSubmittingPurchase(false);
     }
-    setSubmittingPurchase(false);
   };
 
   // ========== SALE LOGIC ==========
@@ -440,9 +521,19 @@ export default function RecyclingPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Form */}
           <div className="lg:col-span-2 bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-6">
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 mb-6">
-              <ShoppingCart className="w-5 h-5 text-[#6a9a04]" /> Registrar Compra de Material
-            </h2>
+            <div className="flex items-center justify-between gap-2 mb-6">
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-[#6a9a04]" /> Registrar Compra de Material
+              </h2>
+              {activeBuyer && (
+                <div className="bg-[#6a9a04]/10 border border-[#6a9a04]/30 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-[#6a9a04]">
+                  <Users size={14} /> <span>Comprador: <span className="text-slate-900">{activeBuyer.name}</span></span>
+                  <button onClick={() => setActiveBuyer(null)} className="text-slate-500 hover:text-slate-700 underline bg-transparent border-none cursor-pointer font-normal text-[11px] ml-1">
+                    Cambiar
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="space-y-5">
               {/* Material Type */}
               <div>
@@ -1205,6 +1296,103 @@ export default function RecyclingPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Autorización de Comprador (PIN / Escáner) */}
+      {showBuyerPinModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-[#6a9a04]/10 flex items-center justify-center text-[#6a9a04]">
+                  <Users size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Identificación de Comprador</h3>
+                  <p className="text-xs text-slate-400">Escanea tu credencial o ingresa tu PIN</p>
+                </div>
+              </div>
+              <button onClick={() => { setShowBuyerPinModal(false); setBuyerPinInput(''); }} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 border-none cursor-pointer transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={verifyBuyerPin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">PIN / Código de Barras</label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    autoFocus
+                    value={buyerPinInput}
+                    onChange={(e) => {
+                      setBuyerPinInput(e.target.value);
+                      if (buyerModalError) setBuyerModalError('');
+                    }}
+                    placeholder="Escanea credencial o digita PIN..."
+                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#6a9a04] outline-none text-center font-mono text-lg tracking-widest bg-slate-50 focus:bg-white transition-all"
+                  />
+                </div>
+              </div>
+
+              {buyerModalError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs font-medium flex items-center gap-2">
+                  <X size={14} className="shrink-0" /> {buyerModalError}
+                </div>
+              )}
+
+              {/* Numeric Keypad */}
+              <div className="grid grid-cols-3 gap-2 py-1">
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'DEL'].map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => handleKeypadPress(key)}
+                    className={`py-3 rounded-xl font-bold text-base transition-all cursor-pointer border-none ${
+                      key === 'C'
+                        ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                        : key === 'DEL'
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 active:scale-95'
+                    }`}
+                  >
+                    {key}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="rememberBuyer"
+                  checked={rememberBuyer}
+                  onChange={(e) => setRememberBuyer(e.target.checked)}
+                  className="w-4 h-4 accent-[#6a9a04] rounded cursor-pointer"
+                />
+                <label htmlFor="rememberBuyer" className="text-xs text-slate-600 font-medium cursor-pointer">
+                  Recordar comprador durante esta sesión
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowBuyerPinModal(false); setBuyerPinInput(''); }}
+                  className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm bg-white hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={verifyingBuyer || !buyerPinInput.trim()}
+                  className="flex-1 py-3 rounded-xl bg-[#6a9a04] text-white font-bold text-sm border-none hover:bg-[#5a8503] cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 shadow-md"
+                >
+                  {verifyingBuyer ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Autorizar Compra
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
