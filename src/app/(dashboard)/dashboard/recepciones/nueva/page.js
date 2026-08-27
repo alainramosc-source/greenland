@@ -52,6 +52,7 @@ export default function NuevaRecepcionPage() {
   });
 
   const [items, setItems] = useState([]); // [{product_id, quantity, unit_origin_cost, unit_pro_price}]
+  const [isFinalReception, setIsFinalReception] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [receptionId, setReceptionId] = useState(editId);
@@ -612,9 +613,13 @@ export default function NuevaRecepcionPage() {
         .eq('id', item.product_id);
     }
 
-    // 3. If PO exists, mark as partially_received and resolve transits for received products
+    // 3. If PO exists, mark status and resolve transits for received products
     if (form.purchase_order_id) {
-      await supabase.from('purchase_orders').update({ status: 'partially_received' }).eq('id', form.purchase_order_id);
+      if (isFinalReception) {
+        await supabase.from('purchase_orders').update({ status: 'received' }).eq('id', form.purchase_order_id);
+      } else {
+        await supabase.from('purchase_orders').update({ status: 'partially_received' }).eq('id', form.purchase_order_id);
+      }
       
       // Resolve transits: reduce quantity for each received product specifically for THIS purchase order
       const supplierName = suppliers.find(s => s.id === form.supplier_id)?.short_name || '';
@@ -660,6 +665,11 @@ export default function NuevaRecepcionPage() {
             remaining = 0;
           }
         }
+      }
+
+      // If marked as final reception, delete any remaining unconsumed transits for this PO
+      if (isFinalReception) {
+        await supabase.from('transit_shipments').delete().eq('purchase_order_id', form.purchase_order_id);
       }
     }
 
@@ -782,6 +792,21 @@ export default function NuevaRecepcionPage() {
                 </option>
               ))}
             </select>
+            {form.purchase_order_id && (
+              <div className="mt-2.5 flex items-center gap-2 bg-amber-50/60 border border-amber-200/80 rounded-xl px-3 py-2">
+                <input
+                  type="checkbox"
+                  id="isFinalReception"
+                  checked={isFinalReception}
+                  onChange={e => setIsFinalReception(e.target.checked)}
+                  disabled={isCompleted}
+                  className="w-4 h-4 accent-[#6a9a04] rounded cursor-pointer"
+                />
+                <label htmlFor="isFinalReception" className="text-xs text-amber-900 font-bold cursor-pointer select-none">
+                  Esta es la última recepción / Cerrar Orden de Compra (PO)
+                </label>
+              </div>
+            )}
           </div>
           {/* Warehouse */}
           <div>

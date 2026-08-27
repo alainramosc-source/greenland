@@ -120,8 +120,14 @@ export default function HistorialPedidosPage() {
             .update({ status: newStatus, updated_at: new Date().toISOString() })
             .eq('id', orderId);
         if (error) { showToast('Error: ' + error.message, 'error'); return; }
+
+        // Clean up any remaining transit shipments tied to this PO when completed or cancelled
+        if (newStatus === 'received' || newStatus === 'cancelled') {
+            await supabase.from('transit_shipments').delete().eq('purchase_order_id', orderId);
+        }
+
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
-        showToast(`Orden actualizada a: ${STATUS_CONFIG[newStatus].label}`);
+        showToast(`Orden actualizada a: ${STATUS_CONFIG[newStatus]?.label || newStatus}${newStatus === 'received' ? ' (Tránsitos limpiados)' : ''}`);
     };
 
     // Delete cancelled order completely
