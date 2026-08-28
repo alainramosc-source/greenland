@@ -155,6 +155,23 @@ export default function NuevaRecepcionPage() {
         .eq('id', editId)
         .single();
       if (reception) {
+        if (reception.purchase_order_id) {
+          const exists = posList.some(p => p.id === reception.purchase_order_id);
+          if (!exists) {
+            const { data: singlePo } = await supabase
+              .from('purchase_orders')
+              .select('id, po_number, status, supplier_id')
+              .eq('id', reception.purchase_order_id)
+              .single();
+            if (singlePo) {
+              const sName = (suppliersRes.data || []).find(s => s.id === singlePo.supplier_id)?.short_name || 'Sin proveedor';
+              singlePo.supplier_name = sName;
+              posList.push(singlePo);
+              setPurchaseOrders([...posList]);
+            }
+          }
+        }
+
         setForm({
           supplier_id: reception.supplier_id || '',
           purchase_order_id: reception.purchase_order_id || '',
