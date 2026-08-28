@@ -26,6 +26,27 @@ export default function NuevaRecepcionPage() {
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [userId, setUserId] = useState(null);
+  const [userEmail, setUserEmail] = useState('');
+  const [userName, setUserName] = useState('');
+
+  const cleanOperationNumber = (rawOp) => {
+    if (!rawOp) return '';
+    let val = rawOp.trim();
+    if (/^op/i.test(val)) {
+      val = val.replace(/^(op\s*)+/i, 'Op');
+      return val;
+    }
+    return `Op${val}`;
+  };
+
+  const isUserAuthorizedToEdit = (email, name) => {
+    const e = (email || '').toLowerCase().trim();
+    const n = (name || '').toLowerCase().trim();
+    return e === 'alain.ramosc@gmail.com' ||
+           e === 'alain.ramos@greenland-products.com.mx' ||
+           e.includes('alain.ramos') ||
+           n.includes('alain ramos');
+  };
 
   // Form state
   const [form, setForm] = useState({
@@ -82,9 +103,11 @@ export default function NuevaRecepcionPage() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push('/login'); return; }
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('role, full_name, email').eq('id', user.id).single();
     if (profile?.role !== 'admin') { router.push('/dashboard'); return; }
     setUserId(user.id);
+    setUserEmail(user.email || profile?.email || '');
+    setUserName(profile?.full_name || '');
 
     const [productsRes, warehousesRes, distributorsRes, suppliersRes] = await Promise.all([
       supabase.from('products').select('id, name, sku, price').eq('is_active', true).order('sku'),
@@ -420,12 +443,151 @@ export default function NuevaRecepcionPage() {
     ? items.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unit_pro_price) || 0), 0)
     : 0;
 
+  // Save changes on an ALREADY COMPLETED reception (Alain Ramos only)
+  const handleSaveCompleted = async () => {
+    setSaving(true);
+    const formattedOp = cleanOperationNumber(form.operation_number);
+
+    const payload = {
+      container_label: form.container_label || null,
+      pedimento_number: form.pedimento_number || null,
+      operation_number: formattedOp || null,
+      customs_broker_ref: form.customs_broker_ref || null,
+      reception_date: form.reception_date,
+      freight_maritime: Number(form.freight_maritime) || 0,
+      freight_national: Number(form.freight_national) || 0,
+      import_taxes: Number(form.import_taxes) || 0,
+      port_handling: Number(form.port_handling) || 0,
+      customs_broker: Number(form.customs_broker) || 0,
+      other_costs: Number(form.other_costs) || 0,
+      other_costs_description: form.other_costs_description || null,
+      exchange_rate_goods: Number(form.exchange_rate_goods) || 1,
+      exchange_rate_freight: Number(form.exchange_rate_freight) || 1,
+      total_origin_cost: totalOriginCostMXN,
+      total_additional_costs: totalAdditionalCosts,
+      total_landed_cost: totalLandedCost,
+      notes: form.notes || null,
+    };
+
+    // 1. Update container_receptions table
+    const { error: recErr } = await supabase
+      .from('container_receptions')
+      .update(payload)
+      .eq('id', editId);
+
+    if (recErr) {
+      alert('Error al actualizar la recepción: ' + recErr.message);
+      setSaving(false);
+      return;
+    }
+
+    // 2. Update unit_landed_cost for items
+    for (const item of items) {
+      const landedCost = getLandedPerUnit(item);
+      await supabase
+        .from('container_reception_items')
+        .update({ unit_landed_cost: landedCost })
+        .eq('reception_id', editId)
+        .eq('product_id', item.product_id);
+    }
+
+    // 3. Recalculate avg_cost for products
+    for (const item of items) {
+      if (!item.product_id) continue;
+      const { data: recItems } = await supabase
+        .from('container_reception_items')
+        .select('quantity, unit_landed_cost, reception:container_receptions!inner(status)')
+        .eq('product_id', item.product_id)
+        .eq('reception.status', 'completed');
+
+      if (recItems && recItems.length > 0) {
+        const totalQty = recItems.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+        const totalVal = recItems.reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unit_landed_cost) || 0), 0);
+        if (totalQty > 0) {
+          const newAvg = Math.round((totalVal / totalQty) * 100) / 100;
+          await supabase.from('products').update({ avg_cost: newAvg }).eq('id', item.product_id);
+        }
+      }
+    }
+
+    // 4. Sync transport service order in service_orders
+    try {
+      const freightAmount = Number(form.freight_national) || 0;
+      const refParts = [];
+      if (form.container_label) refParts.push(`Contenedor: ${form.container_label}`);
+      if (form.pedimento_number) refParts.push(`Pedimento: ${form.pedimento_number}`);
+      if (form.customs_broker_ref) refParts.push(`Ref. Aduanal: ${form.customs_broker_ref}`);
+      if (formattedOp) refParts.push(`Operación: ${formattedOp}`);
+
+      const cleanDesc = `Flete contenedor ${form.container_label || ''} — ${formattedOp || ''}`.replace(/\s+/g, ' ').trim();
+      const refString = refParts.join(' | ');
+
+      // Find service order by reception_id
+      let { data: existingSO } = await supabase
+        .from('service_orders')
+        .select('id')
+        .eq('reception_id', editId)
+        .maybeSingle();
+
+      // Fallback: check by description matching formattedOp or pedimento
+      if (!existingSO && formattedOp) {
+        const { data: matchedSO } = await supabase
+          .from('service_orders')
+          .select('id')
+          .ilike('description', `%${formattedOp}%`)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (matchedSO && matchedSO.length > 0) {
+          existingSO = matchedSO[0];
+        }
+      }
+
+      if (existingSO) {
+        await supabase.from('service_orders').update({
+          reception_id: editId,
+          description: cleanDesc,
+          reference_info: refString,
+          agreed_amount: freightAmount,
+          scheduled_date: form.reception_date,
+        }).eq('id', existingSO.id);
+      } else {
+        const { data: fleteSuppliers } = await supabase
+          .from('suppliers')
+          .select('id')
+          .contains('service_types', ['flete'])
+          .eq('is_active', true)
+          .limit(1);
+
+        if (fleteSuppliers && fleteSuppliers.length > 0) {
+          await supabase.from('service_orders').insert({
+            supplier_id: fleteSuppliers[0].id,
+            service_type: 'flete',
+            description: cleanDesc,
+            location: suppliers.find(s => s.id === form.supplier_id)?.short_name || 'Puerto',
+            reference_info: refString,
+            agreed_amount: freightAmount,
+            status: 'completada',
+            scheduled_date: form.reception_date,
+            reception_id: editId,
+          });
+        }
+      }
+    } catch (soErr) {
+      console.error('Error syncing service order:', soErr);
+    }
+
+    setSaving(false);
+    alert('✅ Recepción actualizada exitosamente. Costos ponderados y orden de flete sincronizados.');
+    router.push('/dashboard/recepciones');
+  };
+
   // Save draft
   const handleSave = async () => {
     if (!form.warehouse_id) { alert('Selecciona una bodega'); return; }
     if (items.length === 0) { alert('Agrega al menos un producto'); return; }
 
     setSaving(true);
+    const formattedOp = cleanOperationNumber(form.operation_number);
     const payload = {
       supplier_id: form.supplier_id || null,
       purchase_order_id: form.purchase_order_id || null,
@@ -434,7 +596,7 @@ export default function NuevaRecepcionPage() {
       reception_date: form.reception_date,
       container_label: form.container_label || null,
       pedimento_number: form.pedimento_number || null,
-      operation_number: form.operation_number || null,
+      operation_number: formattedOp || null,
       customs_broker_ref: form.customs_broker_ref || null,
       freight_maritime: Number(form.freight_maritime) || 0,
       freight_national: Number(form.freight_national) || 0,
@@ -725,6 +887,8 @@ export default function NuevaRecepcionPage() {
   );
 
   const isCompleted = form.status === 'completed';
+  const isAuthorized = isUserAuthorizedToEdit(userEmail, userName);
+  const isEditable = !isCompleted || isAuthorized;
 
   return (
     <div className="relative z-10 max-w-5xl mx-auto">
@@ -733,7 +897,7 @@ export default function NuevaRecepcionPage() {
         <Link href="/dashboard/recepciones" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors mb-4 text-sm font-medium no-underline">
           <ArrowLeft size={16} /> Volver a recepciones
         </Link>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-black tracking-tight text-slate-900 m-0">
               {isCompleted ? '📦 Recepción Completada' : editId ? 'Editar Recepción' : 'Nueva Recepción'}
@@ -748,6 +912,14 @@ export default function NuevaRecepcionPage() {
             </span>
           )}
         </div>
+        {isCompleted && isAuthorized && (
+          <div className="mt-4 p-4 bg-amber-50/80 border border-amber-200 rounded-2xl text-amber-900 text-xs font-medium flex items-center gap-3">
+            <AlertTriangle size={18} className="text-amber-600 shrink-0" />
+            <span>
+              <strong>Modo de Edición (Alain Ramos):</strong> Puedes modificar la etiqueta de contenedor, pedimento, nº de operación, ref. aduanal, fecha, costos adicionales y tipos de cambio. Los productos, cantidades y precios PRO permanecen protegidos.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Section 1: General Data */}
@@ -848,7 +1020,7 @@ export default function NuevaRecepcionPage() {
               type="date"
               value={form.reception_date}
               onChange={e => setForm(f => ({ ...f, reception_date: e.target.value }))}
-              disabled={isCompleted}
+              disabled={isCompleted && !isAuthorized}
               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm disabled:opacity-60"
             />
           </div>
@@ -860,7 +1032,7 @@ export default function NuevaRecepcionPage() {
               value={form.container_label}
               onChange={e => setForm(f => ({ ...f, container_label: e.target.value }))}
               placeholder="Ej: Container 1 - Freeman QRO"
-              disabled={isCompleted}
+              disabled={isCompleted && !isAuthorized}
               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm placeholder:text-slate-400 disabled:opacity-60"
             />
           </div>
@@ -872,7 +1044,7 @@ export default function NuevaRecepcionPage() {
               value={form.pedimento_number}
               onChange={e => setForm(f => ({ ...f, pedimento_number: e.target.value }))}
               placeholder="Ej: 26 51 3412 6001234"
-              disabled={isCompleted}
+              disabled={isCompleted && !isAuthorized}
               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm placeholder:text-slate-400 font-mono disabled:opacity-60"
             />
           </div>
@@ -884,7 +1056,7 @@ export default function NuevaRecepcionPage() {
               value={form.operation_number}
               onChange={e => setForm(f => ({ ...f, operation_number: e.target.value }))}
               placeholder="Ej: Op19"
-              disabled={isCompleted}
+              disabled={isCompleted && !isAuthorized}
               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm placeholder:text-slate-400 font-bold disabled:opacity-60"
             />
           </div>
@@ -896,7 +1068,7 @@ export default function NuevaRecepcionPage() {
               value={form.customs_broker_ref}
               onChange={e => setForm(f => ({ ...f, customs_broker_ref: e.target.value }))}
               placeholder="Referencia del agente aduanal"
-              disabled={isCompleted}
+              disabled={isCompleted && !isAuthorized}
               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm placeholder:text-slate-400 disabled:opacity-60"
             />
           </div>
@@ -1119,7 +1291,7 @@ export default function NuevaRecepcionPage() {
                   type="number" min="0" step="0.01"
                   value={form[key] || ''}
                   onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                  disabled={isCompleted}
+                  disabled={isCompleted && !isAuthorized}
                   className="w-full pl-7 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm text-right font-bold disabled:opacity-60"
                 />
               </div>
@@ -1133,7 +1305,7 @@ export default function NuevaRecepcionPage() {
               type="text"
               value={form.other_costs_description || ''}
               onChange={e => setForm(f => ({ ...f, other_costs_description: e.target.value }))}
-              disabled={isCompleted}
+              disabled={isCompleted && !isAuthorized}
               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm disabled:opacity-60"
             />
           </div>
@@ -1147,7 +1319,7 @@ export default function NuevaRecepcionPage() {
               value={form.exchange_rate_goods || ''}
               onChange={e => setForm(f => ({ ...f, exchange_rate_goods: e.target.value }))}
               placeholder="Ej: 17.50"
-              disabled={isCompleted}
+              disabled={isCompleted && !isAuthorized}
               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm font-mono disabled:opacity-60"
             />
           </div>
@@ -1158,7 +1330,7 @@ export default function NuevaRecepcionPage() {
               value={form.exchange_rate_freight || ''}
               onChange={e => setForm(f => ({ ...f, exchange_rate_freight: e.target.value }))}
               placeholder="Ej: 17.80"
-              disabled={isCompleted}
+              disabled={isCompleted && !isAuthorized}
               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm font-mono disabled:opacity-60"
             />
           </div>
@@ -1258,7 +1430,7 @@ export default function NuevaRecepcionPage() {
           <textarea
             value={form.notes || ''}
             onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-            disabled={isCompleted}
+            disabled={isCompleted && !isAuthorized}
             rows={2}
             className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm resize-none disabled:opacity-60"
             placeholder="Observaciones adicionales..."
@@ -1391,7 +1563,7 @@ export default function NuevaRecepcionPage() {
                     >
                       <Eye size={14} />
                     </button>
-                    {!isCompleted && (
+                    {(!isCompleted || isAuthorized) && (
                       <button
                         onClick={async () => {
                           if (!confirm('¿Eliminar este documento?')) return;
@@ -1414,7 +1586,7 @@ export default function NuevaRecepcionPage() {
       </div>
 
       {/* Actions */}
-      {!isCompleted && (
+      {!isCompleted ? (
         <div className="flex items-center justify-between gap-4 mb-8">
           <Link
             href="/dashboard/recepciones"
@@ -1441,7 +1613,24 @@ export default function NuevaRecepcionPage() {
             </button>
           </div>
         </div>
-      )}
+      ) : isAuthorized ? (
+        <div className="flex items-center justify-between gap-4 mb-8">
+          <Link
+            href="/dashboard/recepciones"
+            className="px-5 py-3 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 transition-all shadow-sm no-underline text-sm"
+          >
+            Volver a Recepciones
+          </Link>
+          <button
+            onClick={handleSaveCompleted}
+            disabled={saving}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white bg-[#6a9a04] hover:bg-[#6a9a04]/90 shadow-lg shadow-[#6a9a04]/20 cursor-pointer transition-all border-none disabled:opacity-50"
+          >
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {saving ? 'Guardando...' : 'Guardar Cambios en Recepción'}
+          </button>
+        </div>
+      ) : null}
 
       {/* Scan Feedback Toast */}
       {scanFeedback && (

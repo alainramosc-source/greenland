@@ -372,7 +372,9 @@ export default function SupplierDetailPage() {
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-black text-slate-900">{o.description || `Flete #${o.order_number || ''}`}</span>
+                          <span className="text-sm font-black text-slate-900">
+                            {(o.description || `Flete #${o.order_number || ''}`).replace(/Op\s+Op/gi, 'Op')}
+                          </span>
                           <span className="text-xs font-bold px-2 py-0.5 rounded-full capitalize" style={{ color: sc.color, background: sc.bg }}>{sc.label}</span>
                           {docCount > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">{docCount} docs</span>}
                           {invStatus === 'pendiente' && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">Factura pendiente</span>}
