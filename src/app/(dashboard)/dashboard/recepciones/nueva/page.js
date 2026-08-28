@@ -530,11 +530,15 @@ export default function NuevaRecepcionPage() {
     // 4. Sync transport service order in service_orders
     try {
       const freightAmount = Number(form.freight_national) || 0;
+      const rawWhName = warehouses.find(w => w.id === form.warehouse_id)?.name || '';
+      const destLocation = rawWhName ? (rawWhName.toLowerCase().includes('bodega') ? rawWhName : `Bodega ${rawWhName}`) : (suppliers.find(s => s.id === form.supplier_id)?.short_name || 'Puerto');
+
       const refParts = [];
       if (form.container_label) refParts.push(`Contenedor: ${form.container_label}`);
       if (form.pedimento_number) refParts.push(`Pedimento: ${form.pedimento_number}`);
       if (form.customs_broker_ref) refParts.push(`Ref. Aduanal: ${form.customs_broker_ref}`);
       if (formattedOp) refParts.push(`Operación: ${formattedOp}`);
+      if (destLocation) refParts.push(`Destino: ${destLocation}`);
 
       const cleanDesc = `Flete contenedor ${form.container_label || ''} — ${formattedOp || ''}`.replace(/\s+/g, ' ').trim();
       const refString = refParts.join(' | ');
@@ -563,6 +567,7 @@ export default function NuevaRecepcionPage() {
         await supabase.from('service_orders').update({
           reception_id: editId,
           description: cleanDesc,
+          location: destLocation,
           reference_info: refString,
           agreed_amount: freightAmount,
           scheduled_date: form.reception_date,
@@ -580,7 +585,7 @@ export default function NuevaRecepcionPage() {
             supplier_id: fleteSuppliers[0].id,
             service_type: 'flete',
             description: cleanDesc,
-            location: suppliers.find(s => s.id === form.supplier_id)?.short_name || 'Puerto',
+            location: destLocation,
             reference_info: refString,
             agreed_amount: freightAmount,
             status: 'completada',
@@ -863,17 +868,22 @@ export default function NuevaRecepcionPage() {
 
       if (fleteSuppliers && fleteSuppliers.length > 0) {
         const freightAmount = Number(form.freight_national) || 0;
+        const formattedOp = cleanOperationNumber(form.operation_number);
+        const rawWhName = warehouses.find(w => w.id === form.warehouse_id)?.name || '';
+        const destLocation = rawWhName ? (rawWhName.toLowerCase().includes('bodega') ? rawWhName : `Bodega ${rawWhName}`) : (suppliers.find(s => s.id === form.supplier_id)?.short_name || 'Puerto');
+
         const refParts = [];
         if (form.container_label) refParts.push(`Contenedor: ${form.container_label}`);
         if (form.pedimento_number) refParts.push(`Pedimento: ${form.pedimento_number}`);
         if (form.customs_broker_ref) refParts.push(`Ref. Aduanal: ${form.customs_broker_ref}`);
-        if (form.operation_number) refParts.push(`Operación: ${form.operation_number}`);
+        if (formattedOp) refParts.push(`Operación: ${formattedOp}`);
+        if (destLocation) refParts.push(`Destino: ${destLocation}`);
 
         await supabase.from('service_orders').insert({
           supplier_id: fleteSuppliers[0].id,
           service_type: 'flete',
-          description: `Flete contenedor ${form.container_label || ''} — Op ${form.operation_number || ''}`.trim(),
-          location: suppliers.find(s => s.id === form.supplier_id)?.short_name || 'Puerto',
+          description: `Flete contenedor ${form.container_label || ''} — ${formattedOp || ''}`.replace(/\s+/g, ' ').trim(),
+          location: destLocation,
           reference_info: refParts.join(' | '),
           agreed_amount: freightAmount,
           status: 'completada',
