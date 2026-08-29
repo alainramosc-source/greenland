@@ -1369,9 +1369,7 @@ export default function AdminPagosPage() {
 
             {/* ===== ARQUEO MODAL ===== */}
             {showAuditModal && (() => {
-              const allEntriesTotal = cashMovements.filter(m => m.type === 'entry').reduce((s, m) => s + Number(m.amount), 0);
-              const allExitsTotal = cashMovements.filter(m => m.type === 'exit' && m.approval_status === 'approved').reduce((s, m) => s + Number(m.amount), 0);
-              const expectedBalance = allEntriesTotal - allExitsTotal;
+              const expectedBalance = globalBalance;
               const countedVal = parseFloat(auditForm.counted) || 0;
               const diff = countedVal - expectedBalance;
               const absDiff = Math.abs(diff);
@@ -1413,7 +1411,9 @@ export default function AdminPagosPage() {
                       <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Saldo Esperado en Caja (Sistema)</p>
                         <p className="text-3xl font-black text-slate-900">${expectedBalance.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
-                        <p className="text-[10px] text-slate-400 mt-1">Histórico total: entradas - salidas aprobadas</p>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          {latestAppliedAudit ? 'Saldo actual en sistema (anclado al último arqueo aplicado + movimientos posteriores)' : 'Histórico total: entradas - salidas aprobadas'}
+                        </p>
                       </div>
 
                       {/* Counted input */}
