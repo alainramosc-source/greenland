@@ -929,8 +929,9 @@ export default function AdminPagosPage() {
 
         const activeCash = latestAppliedAudit
           ? cashMovements.filter(m => {
+              if (m.concept && m.concept.includes('Ajuste por arqueo de caja')) return false;
               const mTime = new Date(m.created_at || m.movement_date).getTime();
-              return mTime >= auditCutoffTime || m.movement_date > latestAppliedAudit.audit_date;
+              return mTime > auditCutoffTime;
             })
           : cashMovements;
 
