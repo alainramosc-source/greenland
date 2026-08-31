@@ -810,6 +810,33 @@ export default function VentaMostradorPage() {
 
       if (updateErr) throw updateErr;
 
+      // 3.5. Register explicitly in audit_log for /dashboard/auditoria view
+      try {
+        const whName = selectedSaleToReturn.warehouse?.name || 'Bodega Vito Alessio';
+        for (const item of (selectedSaleToReturn.items || [])) {
+          let pid = item.product_id || item.id;
+          if (!pid && item.sku) {
+            const found = products.find(p => p.sku && p.sku.toLowerCase().trim() === item.sku.toLowerCase().trim());
+            if (found) pid = found.id;
+          }
+          await supabase.from('audit_log').insert({
+            user_id: userId,
+            action: 'stock_increase',
+            entity_type: 'counter_sale_return',
+            entity_id: pid || selectedSaleToReturn.id,
+            details: {
+              sku: item.sku || '',
+              warehouse: whName,
+              change: item.quantity,
+              reason: `ENTRADA_DEVOLUCION — Venta Mostrador #${selectedSaleToReturn.sale_number} — Motivo: ${reason}`,
+              approved_by: approverName || userName,
+            }
+          });
+        }
+      } catch (auditErr) {
+        console.error('Error logging to audit_log:', auditErr);
+      }
+
       // 4. Refresh history & stock
       await fetchHistorial();
       const { data: wsData } = await supabase.from('warehouse_stock').select('*');
