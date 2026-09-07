@@ -9,7 +9,9 @@ export default function PaymentCard({
   onOpenLightbox,
   actionLoading,
   userSubRole,
-  orderMap = {}
+  orderMap = {},
+  cashReceivedBy = {},
+  setCashReceivedBy
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -149,6 +151,15 @@ export default function PaymentCard({
 
             {p.status === 'pending' && userSubRole !== 'lectura' && (
               <>
+                {(p.payment_method?.toLowerCase() === 'efectivo' || p.payment_method?.toLowerCase() === 'cash') && (
+                  <input
+                    type="text"
+                    placeholder="Recibido por *"
+                    value={cashReceivedBy[p.id] || ''}
+                    onChange={(e) => setCashReceivedBy && setCashReceivedBy(prev => ({ ...prev, [p.id]: e.target.value }))}
+                    className="px-3 py-1.5 rounded-xl border border-amber-300 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#6a9a04]/30 bg-amber-50/80 placeholder:text-slate-400 w-36"
+                  />
+                )}
                 <button
                   onClick={() => onApprove(p.id)}
                   disabled={actionLoading === p.id}
