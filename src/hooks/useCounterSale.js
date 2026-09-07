@@ -905,19 +905,37 @@ export function useCounterSale() {
     style.id = 'receipt-print-style';
     style.innerHTML = `
       @media print {
+        @page {
+          size: 80mm auto;
+          margin: 0mm;
+        }
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #fff !important;
+          color: #000 !important;
+          width: 80mm !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
         body > *:not(#receipt-print-clone) { display: none !important; }
         #receipt-print-clone {
           display: block !important;
-          position: absolute !important;
-          left: 0 !important;
-          top: 0 !important;
-          width: 80mm !important;
+          position: relative !important;
+          width: 100% !important;
           margin: 0 !important;
-          padding: 10px !important;
+          padding: 4px !important;
           background: #fff !important;
-          color: #000 !important;
-          font-family: monospace !important;
-          font-size: 12px !important;
+          border: none !important;
+          box-shadow: none !important;
+          border-radius: 0 !important;
+          overflow: visible !important;
+          height: auto !important;
+          max-height: none !important;
+        }
+        #receipt-print-clone * {
+          overflow: visible !important;
+          max-height: none !important;
         }
       }
     `;
