@@ -3,7 +3,7 @@ import { useState } from 'react';
 import {
   Wallet, ArrowDownCircle, ArrowUpCircle, DollarSign, Calendar, RefreshCw,
   Plus, Minus, FileSpreadsheet, Download, Search, CheckCircle2, AlertTriangle,
-  Edit, Edit3, Check, X, UserCheck, PenTool, Loader2, ClipboardCheck, Scale, AlertCircle, ShieldCheck
+  Edit, Edit3, Trash2, Check, X, UserCheck, PenTool, Loader2, ClipboardCheck, Scale, AlertCircle, ShieldCheck
 } from 'lucide-react';
 import { formatDateOnly } from '@/utils/formatters';
 
@@ -17,7 +17,7 @@ export default function CashMovementsTab({
   dailySearchTerm, setDailySearchTerm,
   showEntryModal, setShowEntryModal, entryForm, setEntryForm, entrySubmitting, onRegisterEntry,
   showExitModal, setShowExitModal, exitForm, setExitForm, exitSubmitting, onRegisterExit,
-  editModal, setEditModal, editForm, setEditForm, editSubmitting, onEditMovement,
+  editModal, setEditModal, editForm, setEditForm, editSubmitting, onEditMovement, onDeleteMovement,
   showAuditModal, setShowAuditModal, auditForm, setAuditForm, auditSubmitting, onPerformAudit,
   cashAudits = [],
   onSignExit,
@@ -373,6 +373,13 @@ export default function CashMovementsTab({
                           >
                             <Edit3 size={14} className="text-slate-500 hover:text-blue-600" />
                           </button>
+                          <button
+                            onClick={() => onDeleteMovement(m.id)}
+                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-red-100 flex items-center justify-center border-none cursor-pointer transition-colors"
+                            title="Eliminar movimiento"
+                          >
+                            <Trash2 size={14} className="text-slate-500 hover:text-red-600" />
+                          </button>
 
                           <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
                             sigCount === 0 ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-blue-100 text-blue-700 border border-blue-200'
@@ -577,6 +584,16 @@ export default function CashMovementsTab({
                 Cancelar
               </button>
               <button
+                type="button"
+                onClick={() => onDeleteMovement(editModal.id)}
+                disabled={editSubmitting}
+                className="py-2.5 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs flex items-center justify-center gap-1.5 border border-rose-200 transition-colors"
+                title="Eliminar este movimiento"
+              >
+                <Trash2 size={14} />
+                <span>Eliminar</span>
+              </button>
+              <button
                 onClick={onEditMovement}
                 disabled={editSubmitting}
                 className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-50"
@@ -589,76 +606,172 @@ export default function CashMovementsTab({
         </div>
       )}
 
-      {/* Entry Modal */}
+      {/* Cash Entry Modal */}
       {showEntryModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <h3 className="text-lg font-bold text-slate-900">Registrar Entrada de Efectivo</h3>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowEntryModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <ArrowDownCircle size={20} className="text-emerald-500" /> Registrar Entrada de Caja
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">Registra ingreso de efectivo externo a la caja.</p>
             <div className="space-y-3 text-xs">
               <div>
-                <label className="font-bold text-slate-700">Monto ($):</label>
-                <input
-                  type="number"
-                  value={entryForm.amount}
-                  onChange={(e) => setEntryForm({ ...entryForm, amount: e.target.value })}
-                  placeholder="0.00"
-                  className="w-full p-2.5 rounded-xl border border-slate-200 mt-1 focus:ring-2 focus:ring-[#6a9a04]"
-                />
+                <label className="block font-bold text-slate-700 mb-1">Monto *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={entryForm.amount}
+                    onChange={e => setEntryForm(f => ({ ...f, amount: e.target.value }))}
+                    className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 outline-none text-base font-bold"
+                    placeholder="0.00"
+                  />
+                </div>
               </div>
               <div>
-                <label className="font-bold text-slate-700">Concepto:</label>
+                <label className="block font-bold text-slate-700 mb-1">Concepto *</label>
                 <input
                   type="text"
                   value={entryForm.concept}
-                  onChange={(e) => setEntryForm({ ...entryForm, concept: e.target.value })}
-                  placeholder="Ej. Inyección de caja inicial"
-                  className="w-full p-2.5 rounded-xl border border-slate-200 mt-1 focus:ring-2 focus:ring-[#6a9a04]"
+                  onChange={e => setEntryForm(f => ({ ...f, concept: e.target.value }))}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:border-emerald-400 outline-none"
+                  placeholder="Ej: Reposición de caja, transferencia interna..."
                 />
               </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setShowEntryModal(false)} className="px-4 py-2 rounded-xl text-slate-600 font-semibold text-xs">Cancelar</button>
-              <button onClick={onRegisterEntry} disabled={entrySubmitting} className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs">Guardar Entrada</button>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">¿Quién trajo el efectivo? *</label>
+                <input
+                  type="text"
+                  value={entryForm.responsible}
+                  onChange={e => setEntryForm(f => ({ ...f, responsible: e.target.value }))}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:border-emerald-400 outline-none"
+                  placeholder="Nombre de quien trajo el efectivo"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Fecha</label>
+                <input
+                  type="date"
+                  value={entryForm.movement_date}
+                  onChange={e => setEntryForm(f => ({ ...f, movement_date: e.target.value }))}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:border-emerald-400 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Notas (opcional)</label>
+                <input
+                  type="text"
+                  value={entryForm.notes}
+                  onChange={e => setEntryForm(f => ({ ...f, notes: e.target.value }))}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:border-emerald-400 outline-none"
+                  placeholder="Detalles adicionales..."
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setShowEntryModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={onRegisterEntry}
+                  disabled={entrySubmitting}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {entrySubmitting ? <Loader2 size={14} className="animate-spin" /> : <ArrowDownCircle size={14} />}
+                  <span>Registrar Entrada</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Exit Modal */}
+      {/* Cash Exit Modal */}
       {showExitModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <h3 className="text-lg font-bold text-slate-900">Registrar Salida de Efectivo</h3>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowExitModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <ArrowUpCircle size={20} className="text-red-500" /> Registrar Salida de Caja
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">Registra retiros de efectivo de la caja.</p>
             <div className="space-y-3 text-xs">
               <div>
-                <label className="font-bold text-slate-700">Monto ($):</label>
-                <input
-                  type="number"
-                  value={exitForm.amount}
-                  onChange={(e) => setExitForm({ ...exitForm, amount: e.target.value })}
-                  placeholder="0.00"
-                  className="w-full p-2.5 rounded-xl border border-slate-200 mt-1 focus:ring-2 focus:ring-rose-500"
-                />
+                <label className="block font-bold text-slate-700 mb-1">Monto *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={exitForm.amount}
+                    onChange={e => setExitForm(f => ({ ...f, amount: e.target.value }))}
+                    className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-red-400 focus:ring-2 focus:ring-red-400/20 outline-none text-base font-bold"
+                    placeholder="0.00"
+                  />
+                </div>
               </div>
               <div>
-                <label className="font-bold text-slate-700">Concepto / Destino:</label>
+                <label className="block font-bold text-slate-700 mb-1">Concepto *</label>
                 <input
                   type="text"
                   value={exitForm.concept}
-                  onChange={(e) => setExitForm({ ...exitForm, concept: e.target.value })}
-                  placeholder="Ej. Depósito bancario, gasto operativo"
-                  className="w-full p-2.5 rounded-xl border border-slate-200 mt-1 focus:ring-2 focus:ring-rose-500"
+                  onChange={e => setExitForm(f => ({ ...f, concept: e.target.value }))}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:border-red-400 outline-none"
+                  placeholder="Ej: Compra tungsteno, nómina, gastos..."
                 />
               </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setShowExitModal(false)} className="px-4 py-2 rounded-xl text-slate-600 font-semibold text-xs">Cancelar</button>
-              <button onClick={onRegisterExit} disabled={exitSubmitting} className="px-4 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs">Guardar Salida</button>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">¿Quién retiró el efectivo? *</label>
+                <input
+                  type="text"
+                  value={exitForm.responsible}
+                  onChange={e => setExitForm(f => ({ ...f, responsible: e.target.value }))}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:border-red-400 outline-none"
+                  placeholder="Nombre de quien se lo llevó"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Fecha</label>
+                <input
+                  type="date"
+                  value={exitForm.movement_date}
+                  onChange={e => setExitForm(f => ({ ...f, movement_date: e.target.value }))}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:border-red-400 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Notas (opcional)</label>
+                <input
+                  type="text"
+                  value={exitForm.notes}
+                  onChange={e => setExitForm(f => ({ ...f, notes: e.target.value }))}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:border-red-400 outline-none"
+                  placeholder="Detalles adicionales..."
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setShowExitModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={onRegisterExit}
+                  disabled={exitSubmitting}
+                  className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {exitSubmitting ? <Loader2 size={14} className="animate-spin" /> : <ArrowUpCircle size={14} />}
+                  <span>Registrar Salida</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
-    
+
       {/* Audit Modal (Arqueo de Caja) */}
       {showAuditModal && (() => {
         const expectedBalance = globalBalance;

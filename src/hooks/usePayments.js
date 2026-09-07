@@ -647,6 +647,21 @@ export function usePayments() {
   };
 
   
+  
+  const handleDeleteMovement = async (movementId) => {
+    if (!movementId) return;
+    if (!confirm('¿Seguro que deseas eliminar este movimiento de caja?')) return;
+    setActionLoading(movementId);
+    const { error } = await supabase.from('cash_movements').delete().eq('id', movementId);
+    if (error) {
+      alert('Error al eliminar el movimiento: ' + error.message);
+    } else {
+      setEditModal(null);
+      await fetchData();
+    }
+    setActionLoading(null);
+  };
+
   const handleApplyAudit = async (audit) => {
     if (!audit || audit.applied) return;
     const diff = Number(audit.counted_balance) - Number(audit.expected_balance);
@@ -682,6 +697,6 @@ export function usePayments() {
     cajaDateFrom, setCajaDateFrom, cajaDateTo, setCajaDateTo, cajaSubTab, setCajaSubTab, dailySearchTerm, setDailySearchTerm,
     orderMap, setOrderMap, currentUserId, setCurrentUserId, currentUserName, setCurrentUserName,
     fetchData, handleApprovePayment: handleApprove, handleRejectPayment: handleReject, handleRegisterEntry, handleRegisterExit,
-    handleSignExit, handleEditMovement, handlePerformAudit, parseBankCSV, parsePDFStatement, exportPaymentsXLSX, handleViewReceipt
+    handleSignExit, handleEditMovement, handleDeleteMovement, handlePerformAudit, parseBankCSV, parsePDFStatement, exportPaymentsXLSX, handleViewReceipt
   };
 }

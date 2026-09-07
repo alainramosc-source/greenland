@@ -26,7 +26,7 @@ export default function AdminPagosPage() {
     dailySearchTerm, setDailySearchTerm,
     showEntryModal, setShowEntryModal, entryForm, setEntryForm, entrySubmitting, handleRegisterEntry,
     showExitModal, setShowExitModal, exitForm, setExitForm, exitSubmitting, handleRegisterExit,
-    editModal, setEditModal, editForm, setEditForm, editSubmitting, handleEditMovement,
+    editModal, setEditModal, editForm, setEditForm, editSubmitting, handleEditMovement, handleDeleteMovement,
     showAuditModal, setShowAuditModal, auditForm, setAuditForm, auditSubmitting, handlePerformAudit,
     cashAudits = [],
     handleSignExit,
@@ -203,6 +203,7 @@ export default function AdminPagosPage() {
           setEditForm={setEditForm}
           editSubmitting={editSubmitting}
           onEditMovement={handleEditMovement}
+          onDeleteMovement={handleDeleteMovement}
           showAuditModal={showAuditModal}
           setShowAuditModal={setShowAuditModal}
           auditForm={auditForm}
