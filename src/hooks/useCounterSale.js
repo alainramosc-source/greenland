@@ -897,55 +897,53 @@ export function useCounterSale() {
     const receipt = document.getElementById('receipt-print-area');
     if (!receipt) return;
 
+    // Clone receipt and append directly to body
     const clone = receipt.cloneNode(true);
     clone.id = 'receipt-print-clone';
+    clone.removeAttribute('ref');
     document.body.appendChild(clone);
 
+    // Calculate exact page height in mm based on clone scrollHeight at 0.65 zoom
+    const heightMm = Math.ceil((clone.scrollHeight * 0.65) / 3.78) + 12;
+
+    // Inject dynamic print styles matching original exact algorithm
+    const oldStyle = document.getElementById('dynamic-print-style');
+    if (oldStyle) oldStyle.remove();
     const style = document.createElement('style');
-    style.id = 'receipt-print-style';
-    style.innerHTML = `
+    style.id = 'dynamic-print-style';
+    style.textContent = `
+      @page { size: 80mm ${heightMm}mm; margin: 0; }
       @media print {
-        @page {
-          size: 80mm auto;
-          margin: 0mm;
-        }
-        html, body {
-          margin: 0 !important;
-          padding: 0 !important;
-          background: #fff !important;
-          color: #000 !important;
-          width: 80mm !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
         body > *:not(#receipt-print-clone) { display: none !important; }
         #receipt-print-clone {
           display: block !important;
-          position: relative !important;
           width: 100% !important;
+          max-width: 100% !important;
+          zoom: 0.65 !important;
           margin: 0 !important;
-          padding: 4px !important;
-          background: #fff !important;
-          border: none !important;
+          padding: 4mm 2mm 2mm 2mm !important;
+          background: white !important;
           box-shadow: none !important;
+          border: none !important;
           border-radius: 0 !important;
-          overflow: visible !important;
-          height: auto !important;
-          max-height: none !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
         #receipt-print-clone * {
-          overflow: visible !important;
-          max-height: none !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          visibility: visible !important;
         }
+        .no-print { display: none !important; }
       }
     `;
     document.head.appendChild(style);
-    window.print();
 
     setTimeout(() => {
-      document.body.removeChild(clone);
-      document.head.removeChild(style);
-    }, 1000);
+      window.print();
+      if (document.body.contains(clone)) document.body.removeChild(clone);
+      if (document.head.contains(style)) document.head.removeChild(style);
+    }, 100);
   };
 
   return {
