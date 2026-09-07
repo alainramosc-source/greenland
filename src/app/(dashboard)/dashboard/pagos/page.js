@@ -18,7 +18,7 @@ export default function AdminPagosPage() {
     rejectReason, setRejectReason,
     balances = [], showBalances, setShowBalances,
     activeTab, setActiveTab,
-    userSubRole, currentUserId, parsedMovements = [], matchResults = [],
+    userSubRole, currentUserId, cashReceivedBy, setCashReceivedBy, parsedMovements = [], matchResults = [],
     cashMovements = [],
     cajaDateFrom, setCajaDateFrom,
     cajaDateTo, setCajaDateTo,
@@ -165,6 +165,8 @@ export default function AdminPagosPage() {
                   userSubRole={userSubRole}
           currentUserId={currentUserId}
                   orderMap={orderMap}
+                  cashReceivedBy={cashReceivedBy}
+                  setCashReceivedBy={setCashReceivedBy}
                 />
               ))}
             </div>
