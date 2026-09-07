@@ -1,6 +1,6 @@
 'use client';
-import React from 'react';
-import { Search, Camera, Package, Plus, CheckCircle2, AlertTriangle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Search, Camera, Package, Plus, CheckCircle2, Star } from 'lucide-react';
 
 export default function ProductSearchAndGrid({
   searchTerm,
@@ -16,8 +16,19 @@ export default function ProductSearchAndGrid({
   scanFeedback,
   products = [],
   selectedWarehouse,
-  getAvailableStock
+  getAvailableStock,
+  pinnedProductIds = [],
+  togglePinProduct
 }) {
+  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'favorites'
+
+  const displayedProducts = products.filter(p => {
+    if (filterMode === 'favorites') {
+      return pinnedProductIds.includes(p.id);
+    }
+    return true;
+  });
+
   return (
     <div className="space-y-4">
       {/* Search Input Bar & Scanner Trigger */}
@@ -101,55 +112,108 @@ export default function ProductSearchAndGrid({
         )}
       </div>
 
-      {/* Quick Catalog Touch Grid (Top-selling products) */}
+      {/* Quick Catalog Touch Grid (Configurable Favorites & All Products) */}
       <div className="bg-white/60 backdrop-blur-md rounded-2xl border border-slate-200/80 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-            <Package size={14} className="text-[#6a9a04]" /> Catálogo Rápido de Productos
-          </h3>
-          <span className="text-[11px] text-slate-400 font-semibold">{products.length} productos</span>
+        {/* Header Tabs */}
+        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap border-b border-slate-200/60 pb-2.5">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFilterMode('all')}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                filterMode === 'all'
+                  ? 'bg-[#6a9a04] text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Todos los productos ({products.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterMode('favorites')}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                filterMode === 'favorites'
+                  ? 'bg-amber-500 text-white shadow-sm'
+                  : 'bg-amber-50 text-amber-700 border border-amber-200/60 hover:bg-amber-100'
+              }`}
+            >
+              <Star size={13} className={filterMode === 'favorites' ? 'fill-white' : 'fill-amber-500 text-amber-500'} />
+              <span>⭐ Favoritos ({pinnedProductIds.length})</span>
+            </button>
+          </div>
+
+          <span className="text-[11px] text-slate-400 font-semibold">
+            {displayedProducts.length} mostrados • Haz clic en la estrella para fijar
+          </span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-60 overflow-y-auto pr-1">
-          {products.slice(0, 16).map(p => {
-            const stock = getAvailableStock(p.id, selectedWarehouse);
-            const isOut = stock <= 0;
-            return (
-              <div
-                key={p.id}
-                onClick={() => { if (!isOut) addProductToSale(p); }}
-                className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-2 group ${
-                  isOut
-                    ? 'bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed'
-                    : 'bg-white border-slate-200/80 hover:border-[#6a9a04] hover:shadow-md hover:-translate-y-0.5'
-                }`}
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-1 mb-1">
-                    <span className="text-[10px] font-mono text-slate-400 truncate max-w-[80px]">{p.sku}</span>
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full ${
-                      isOut ? 'bg-red-100 text-red-700' : 'bg-emerald-50 text-emerald-700'
-                    }`}>
-                      {stock} disp.
+        {/* Product Cards Grid */}
+        {displayedProducts.length === 0 ? (
+          <div className="py-8 text-center text-slate-400 text-xs font-medium">
+            {filterMode === 'favorites'
+              ? 'No tienes productos fijados en favoritos aún. Haz clic en el icono de la estrella ⭐ en cualquier producto para agregarlo a la selección rápida.'
+              : 'No hay productos disponibles.'}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-72 overflow-y-auto pr-1">
+            {displayedProducts.map(p => {
+              const stock = getAvailableStock(p.id, selectedWarehouse);
+              const isOut = stock <= 0;
+              const isPinned = pinnedProductIds.includes(p.id);
+
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => { if (!isOut) addProductToSale(p); }}
+                  className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-2 group relative ${
+                    isOut
+                      ? 'bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed'
+                      : isPinned
+                      ? 'bg-amber-50/40 border-amber-300 hover:border-amber-500 hover:shadow-md'
+                      : 'bg-white border-slate-200/80 hover:border-[#6a9a04] hover:shadow-md hover:-translate-y-0.5'
+                  }`}
+                >
+                  {/* Pin / Favorite Star Toggle */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      togglePinProduct(p.id);
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded-full text-slate-300 hover:text-amber-500 transition-colors z-10"
+                    title={isPinned ? 'Quitar de favoritos' : 'Fijar en selección rápida'}
+                  >
+                    <Star size={14} className={isPinned ? 'fill-amber-400 text-amber-500' : ''} />
+                  </button>
+
+                  <div>
+                    <div className="flex items-start justify-between gap-1 mb-1 pr-5">
+                      <span className="text-[10px] font-mono text-slate-400 truncate max-w-[70px]">{p.sku}</span>
+                      <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full ${
+                        isOut ? 'bg-red-100 text-red-700' : 'bg-emerald-50 text-emerald-700'
+                      }`}>
+                        {stock} disp.
+                      </span>
+                    </div>
+                    <h4 className="text-xs font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-[#6a9a04] transition-colors">
+                      {p.name}
+                    </h4>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                    <span className="text-xs font-black text-slate-900">
+                      ${Number(p.price || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                     </span>
-                  </div>
-                  <h4 className="text-xs font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-[#6a9a04] transition-colors">
-                    {p.name}
-                  </h4>
-                </div>
-
-                <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-                  <span className="text-xs font-black text-slate-900">
-                    ${Number(p.price || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                  </span>
-                  <div className="w-6 h-6 rounded-lg bg-[#6a9a04]/10 group-hover:bg-[#6a9a04] group-hover:text-white text-[#6a9a04] flex items-center justify-center transition-colors">
-                    <Plus size={14} />
+                    <div className="w-6 h-6 rounded-lg bg-[#6a9a04]/10 group-hover:bg-[#6a9a04] group-hover:text-white text-[#6a9a04] flex items-center justify-center transition-colors">
+                      <Plus size={14} />
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

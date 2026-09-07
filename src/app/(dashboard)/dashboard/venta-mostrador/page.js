@@ -59,6 +59,8 @@ export default function VentaMostradorPage() {
               products={pos.products}
               selectedWarehouse={pos.selectedWarehouse}
               getAvailableStock={pos.getAvailableStock}
+              pinnedProductIds={pos.pinnedProductIds}
+              togglePinProduct={pos.togglePinProduct}
             />
 
             <CartSection
@@ -106,6 +108,7 @@ export default function VentaMostradorPage() {
           fetchHistorial={pos.fetchHistorial}
           handleOpenReturnModal={pos.handleOpenReturnModal}
           handleLoadReturnedItemsToCart={pos.handleLoadReturnedItemsToCart}
+          handlePrintReceiptForSale={pos.handlePrintReceiptForSale}
           shortName={pos.shortName}
         />
       )}

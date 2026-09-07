@@ -20,6 +20,27 @@ export function useCounterSale() {
   const [products, setProducts] = useState([]);
   const [warehouseStock, setWarehouseStock] = useState({});
 
+  // Pinned / Favorite Products for Quick Catalog
+  const [pinnedProductIds, setPinnedProductIds] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pos_pinned_product_ids');
+        return saved ? JSON.parse(saved) : [];
+      } catch (_) { return []; }
+    }
+    return [];
+  });
+
+  const togglePinProduct = (productId) => {
+    setPinnedProductIds(prev => {
+      const updated = prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId];
+      try { localStorage.setItem('pos_pinned_product_ids', JSON.stringify(updated)); } catch (_) {}
+      return updated;
+    });
+  };
+
   // Active Tab: 'nueva' | 'historial' | 'estadisticas'
   const [activeTab, setActiveTab] = useState('nueva');
 
@@ -56,7 +77,7 @@ export function useCounterSale() {
   const [returnSuccessData, setReturnSuccessData] = useState(null);
 
   // Seller PIN identification state
-  const [activeSeller, setActiveSeller] = useState(null); // { id, name }
+  const [activeSeller, setActiveSeller] = useState(null);
   const [showSellerPinModal, setShowSellerPinModal] = useState(false);
   const [sellerPinInput, setSellerPinInput] = useState('');
   const [sellerModalError, setSellerModalError] = useState('');
@@ -213,7 +234,6 @@ export function useCounterSale() {
     }
   }, [searchTerm, products, addProductToSale]);
 
-  // Close search dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
@@ -224,7 +244,7 @@ export function useCounterSale() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ──────────── BARCODE SCANNER (CAMERA) ────────────
+  // ──────────── BARCODE SCANNER ────────────
   const stopScanner = useCallback(async () => {
     if (scannerStoppingRef.current) return;
     scannerStoppingRef.current = true;
@@ -483,7 +503,7 @@ export function useCounterSale() {
         .or(`authorization_pin.eq.${cleanInput},employee_barcode.eq.${cleanInput}`);
 
       if (error || !matchedProfiles || matchedProfiles.length === 0) {
-        setSellerModalError('PIN o Código de Barras no reconocido. Asigna un PIN al usuario desde el módulo de Usuarios.');
+        setSellerModalError('PIN o Código de Barras no reconocido.');
         setVerifyingSeller(false);
         return;
       }
@@ -632,6 +652,32 @@ export function useCounterSale() {
     }
 
     setSubmitting(false);
+  };
+
+  // ──────────── RE-PRINT TICKET FOR HISTORICAL SALE ────────────
+  const handlePrintReceiptForSale = (sale) => {
+    if (!sale) return;
+    const warehouseName = sale.warehouse?.name || warehouses.find(w => w.id === sale.warehouse_id)?.name || 'Bodega Vito Alessio';
+    const sellerName = sale.seller?.full_name || 'Admin';
+    const itemsJson = sale.items || [];
+    const subtotal = Number(sale.total || sale.subtotal || 0);
+    const receivedNum = Number(sale.amount_received || subtotal);
+
+    setReceiptData({
+      sale_number: sale.sale_number,
+      created_at: sale.created_at,
+      customer_name: sale.customer_name || 'Público General',
+      payment_method: sale.payment_method,
+      items: itemsJson,
+      total: subtotal,
+      amount_received: receivedNum,
+      change: Math.max(Math.round((receivedNum - subtotal) * 100) / 100, 0),
+      sold_by_name: sellerName,
+      warehouse_name: warehouseName,
+      notes: sale.notes || '',
+      items_count: itemsJson.reduce((s, i) => s + (i.quantity || 1), 0),
+    });
+    setShowReceipt(true);
   };
 
   // ──────────── SALES HISTORY ────────────
@@ -808,7 +854,6 @@ export function useCounterSale() {
     }
   };
 
-  // LOAD RETURNED ITEMS TO CART ("Botón Mágico")
   const handleLoadReturnedItemsToCart = async (sale) => {
     if (!sale || !sale.items) return;
 
@@ -848,7 +893,6 @@ export function useCounterSale() {
     setScanFeedback('🛒 Productos cargados al carrito para corregir');
   };
 
-  // PRINT RECEIPT
   const handlePrint = () => {
     const receipt = document.getElementById('receipt-print-area');
     if (!receipt) return;
@@ -889,13 +933,14 @@ export function useCounterSale() {
   return {
     supabase, loading, userId, userName, actualRole, subRole,
     warehouses, products, warehouseStock, getAvailableStock,
+    pinnedProductIds, togglePinProduct,
     activeTab, setActiveTab,
     selectedWarehouse, setSelectedWarehouse,
     searchTerm, setSearchTerm, searchResults, showSearchDropdown, setShowSearchDropdown,
     saleItems, setSaleItems, addProductToSale, updateItemQuantity, updateItemPrice, removeItem, resetSale,
     customerName, setCustomerName, paymentMethod, setPaymentMethod, amountReceived, setAmountReceived, notes, setNotes,
     submitting, saleTotal, handleSubmitSale,
-    showReceipt, setShowReceipt, receiptData, handlePrint,
+    showReceipt, setShowReceipt, receiptData, handlePrint, handlePrintReceiptForSale,
     salesHistory, historialLoading, historialSearch, setHistorialSearch, expandedSale, setExpandedSale, fetchHistorial,
     hasMoreHistory, loadingMore,
     showReturnModal, setShowReturnModal, selectedSaleToReturn, returnReason, setReturnReason, signerAuthInput, setSignerAuthInput,

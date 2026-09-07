@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import {
-  Search, Receipt, Calendar, User, Warehouse, ChevronDown, ChevronUp, RotateCcw, Loader2, CheckCircle2, XCircle
+  Search, Receipt, Calendar, User, Warehouse, ChevronDown, ChevronUp, RotateCcw, Loader2, CheckCircle2, XCircle, Printer
 } from 'lucide-react';
 import { formatDateOnly } from '@/utils/formatters';
 
@@ -17,6 +17,7 @@ export default function SalesHistoryTab({
   fetchHistorial,
   handleOpenReturnModal,
   handleLoadReturnedItemsToCart,
+  handlePrintReceiptForSale,
   shortName
 }) {
   const filteredHistory = salesHistory.filter(s => {
@@ -118,7 +119,7 @@ export default function SalesHistoryTab({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 justify-between sm:justify-end shrink-0">
+                  <div className="flex items-center gap-3 justify-between sm:justify-end shrink-0">
                     <div className="text-right">
                       <p className={`text-base font-black ${isCancelled ? 'text-red-600 line-through' : 'text-[#6a9a04]'}`}>
                         ${Number(sale.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
@@ -127,6 +128,19 @@ export default function SalesHistoryTab({
                         {(sale.items || []).reduce((s, i) => s + (i.quantity || 1), 0)} items
                       </p>
                     </div>
+
+                    {/* Quick Reprint Ticket Button directly on row */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePrintReceiptForSale(sale);
+                      }}
+                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-900 text-slate-600 hover:text-white transition-all cursor-pointer"
+                      title="Reimprimir ticket de esta venta"
+                    >
+                      <Printer size={16} />
+                    </button>
 
                     <div className="text-slate-400">
                       {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -170,11 +184,20 @@ export default function SalesHistoryTab({
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 pt-1 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handlePrintReceiptForSale(sale)}
+                        className="py-2 px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                      >
+                        <Printer size={14} />
+                        <span>🖨️ Reimprimir Ticket</span>
+                      </button>
+
                       {!isCancelled && (
                         <button
                           type="button"
                           onClick={() => handleOpenReturnModal(sale)}
-                          className="py-2 px-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs flex items-center gap-1.5 border border-red-200 transition-colors cursor-pointer"
+                          className="py-2 px-3.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs flex items-center gap-1.5 border border-red-200 transition-colors cursor-pointer"
                         >
                           <RotateCcw size={14} />
                           <span>Procesar Devolución</span>
@@ -184,7 +207,7 @@ export default function SalesHistoryTab({
                       <button
                         type="button"
                         onClick={() => handleLoadReturnedItemsToCart(sale)}
-                        className="py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs flex items-center gap-1.5 border border-emerald-200 transition-colors cursor-pointer"
+                        className="py-2 px-3.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs flex items-center gap-1.5 border border-emerald-200 transition-colors cursor-pointer"
                         title="Cargar estos mismos productos al carrito de venta"
                       >
                         <Receipt size={14} />
