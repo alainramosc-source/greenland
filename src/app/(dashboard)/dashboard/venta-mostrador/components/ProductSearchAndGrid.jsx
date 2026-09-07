@@ -113,9 +113,19 @@ export default function ProductSearchAndGrid({
       </div>
 
       {/* Quick Catalog Touch Grid (Configurable Favorites & All Products) */}
-      <div className="bg-white/60 backdrop-blur-md rounded-2xl border border-slate-200/80 p-4">
-        {/* Header Tabs */}
-        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap border-b border-slate-200/60 pb-2.5">
+      <div className="bg-white/60 backdrop-blur-md rounded-2xl border border-slate-200/80 p-4 space-y-3">
+        {/* Section Title Header */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            <Package size={16} className="text-[#6a9a04]" /> Catálogo Rápido de Productos
+          </h3>
+          <span className="text-[11px] text-slate-400 font-semibold">
+            Haz clic en ⭐ para fijar tus favoritos
+          </span>
+        </div>
+
+        {/* Filter Tabs Header */}
+        <div className="flex items-center justify-between gap-2 flex-wrap border-b border-slate-200/60 pb-2.5">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -139,24 +149,24 @@ export default function ProductSearchAndGrid({
               }`}
             >
               <Star size={13} className={filterMode === 'favorites' ? 'fill-white' : 'fill-amber-500 text-amber-500'} />
-              <span>⭐ Favoritos ({pinnedProductIds.length})</span>
+              <span>Favoritos ({pinnedProductIds.length})</span>
             </button>
           </div>
 
-          <span className="text-[11px] text-slate-400 font-semibold">
-            {displayedProducts.length} mostrados • Haz clic en la estrella para fijar
+          <span className="text-[11px] text-slate-500 font-bold">
+            {displayedProducts.length} mostrados
           </span>
         </div>
 
-        {/* Product Cards Grid */}
+        {/* Product Cards Grid (Set exact 2-row max-height: 224px) */}
         {displayedProducts.length === 0 ? (
           <div className="py-8 text-center text-slate-400 text-xs font-medium">
             {filterMode === 'favorites'
-              ? 'No tienes productos fijados en favoritos aún. Haz clic en el icono de la estrella ⭐ en cualquier producto para agregarlo a la selección rápida.'
+              ? 'No tienes productos fijados en favoritos aún. Haz clic en la estrella ⭐ en cualquier producto para agregarlo a la selección rápida.'
               : 'No hay productos disponibles.'}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-72 overflow-y-auto pr-1">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-[224px] overflow-y-auto pr-1">
             {displayedProducts.map(p => {
               const stock = getAvailableStock(p.id, selectedWarehouse);
               const isOut = stock <= 0;
