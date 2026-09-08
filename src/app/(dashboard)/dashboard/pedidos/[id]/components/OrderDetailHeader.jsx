@@ -8,14 +8,13 @@ export default function OrderDetailHeader({
   order,
   isAdmin,
   payments,
-  printLoadingSheet,
+  openLoadingSheetPrompt,
   handleReorder
 }) {
   if (!order) return null;
 
   const sc = OP_STATUS[order.status] || OP_STATUS.pending;
   const ps = PAY_STATUS[order.payment_status] || PAY_STATUS.unpaid;
-  const totalPaid = payments.reduce((acc, p) => acc + Number(p.amount), 0);
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
@@ -72,11 +71,11 @@ export default function OrderDetailHeader({
         {/* Reprint Loading Sheet — Admin, when in_fulfillment or beyond */}
         {isAdmin && ['in_fulfillment', 'shipped', 'closed'].includes(order.status) && (
           <button
-            onClick={() => printLoadingSheet()}
+            onClick={() => openLoadingSheetPrompt()}
             className="px-4 py-2.5 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/60 font-extrabold text-xs flex items-center gap-2 border border-purple-200 dark:border-purple-800 transition-all cursor-pointer active:scale-95"
           >
             <Printer className="w-4 h-4" />
-            <span>Reimprimir Hoja de Carga</span>
+            <span>Hoja de Carga</span>
           </button>
         )}
       </div>

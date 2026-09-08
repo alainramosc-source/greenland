@@ -34,6 +34,10 @@ export default function OrderItemsCard({
     return sum + (w * qty);
   }, 0);
 
+  const canEditQty = (item) => isAdmin && (order.status === 'pending' || (isSuperAdmin && !['cancelled', 'rejected'].includes(order.status)));
+  const canEditPrice = (item) => isSuperAdmin && !['cancelled', 'rejected'].includes(order.status);
+  const canDeleteItem = (item) => isAdmin && (order.status === 'pending' || (isSuperAdmin && !['cancelled', 'rejected'].includes(order.status)));
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 space-y-5 shadow-sm">
       <div className="flex items-center justify-between">
@@ -42,7 +46,7 @@ export default function OrderItemsCard({
             <Package className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-black text-slate-900 dark:text-white">Artículos del Pedido</h2>
+            <h2 className="text-base font-black text-slate-900 dark:text-white">Productos en el Pedido</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
               {order.order_items.length} modelos distintos en este pedido
             </p>
@@ -111,11 +115,12 @@ export default function OrderItemsCard({
           <thead>
             <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-wider text-[10px]">
               <th className="py-3 px-4">Producto</th>
-              {isAdmin && <th className="py-3 px-4">Bodega de Salida</th>}
+              <th className="py-3 px-4 text-right">Precio</th>
               <th className="py-3 px-4 text-center">Cantidad</th>
-              <th className="py-3 px-4 text-right">P. Unitario</th>
+              {isAdmin && <th className="py-3 px-4">Bodega</th>}
               <th className="py-3 px-4 text-right">Subtotal</th>
-              {isAdmin && order.status === 'pending' && <th className="py-3 px-4 text-center">Acciones</th>}
+              <th className="py-3 px-4 text-right">Peso</th>
+              {isAdmin && <th className="py-3 px-4 text-center">Acciones</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -123,6 +128,7 @@ export default function OrderItemsCard({
               const currentQty = editingItems[item.id] ?? item.quantity;
               const currentPrice = editingPrices[item.id] ?? item.unit_price;
               const subtotal = currentQty * currentPrice;
+              const weight = (PRODUCT_WEIGHTS[item.products?.sku] || 0) * currentQty;
               const isQtyLoading = actionLoading === `qty-${item.id}`;
               const isPriceLoading = actionLoading === `price-${item.id}`;
               const isDelLoading = actionLoading === `del-${item.id}`;
@@ -143,12 +149,87 @@ export default function OrderItemsCard({
                         <p className="font-extrabold text-slate-900 dark:text-white leading-snug">{item.products?.name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="font-mono text-[10px] font-bold text-slate-400 uppercase">SKU: {item.products?.sku}</span>
-                          {PRODUCT_WEIGHTS[item.products?.sku] > 0 && (
-                            <span className="text-[10px] font-semibold text-slate-400">· {PRODUCT_WEIGHTS[item.products?.sku]} kg/ud</span>
-                          )}
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                            Stock: {item.products?.stock_quantity ?? 0} | Reservado: {item.products?.reserved_quantity ?? 0}
+                          </span>
                         </div>
                       </div>
                     </div>
+                  </td>
+
+                  {/* Price Column (Editable for Super Admin) */}
+                  <td className="py-3.5 px-4 text-right">
+                    {canEditPrice(item) ? (
+                      <div className="relative inline-block">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-amber-600 font-bold text-xs">$</span>
+                        <input
+                          type="text"
+                          value={editingPrices[item.id] !== undefined ? editingPrices[item.id] : Number(item.unit_price).toFixed(2)}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^0-9.]/g, '');
+                            setEditingPrices(prev => ({ ...prev, [item.id]: raw }));
+                          }}
+                          onBlur={() => {
+                            const raw = editingPrices[item.id];
+                            if (raw !== undefined) {
+                              const newPrice = parseFloat(raw);
+                              handleUpdatePrice(item.id, newPrice);
+                            }
+                          }}
+                          className="w-24 text-right text-xs font-black pl-5 pr-2 py-1 border-2 border-amber-400/60 focus:border-amber-500 rounded-xl bg-amber-50/40 dark:bg-amber-950/20 text-slate-900 dark:text-white focus:outline-none transition-all shadow-sm"
+                        />
+                      </div>
+                    ) : (
+                      <span className="font-bold text-slate-800 dark:text-slate-200">${Number(item.unit_price).toFixed(2)}</span>
+                    )}
+                  </td>
+
+                  {/* Quantity Column */}
+                  <td className="py-3.5 px-4 text-center">
+                    {canEditQty(item) ? (
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => {
+                            const newQty = Math.max(0, currentQty - 1);
+                            setEditingItems(prev => ({ ...prev, [item.id]: newQty }));
+                            handleUpdateQuantity(item.id, newQty);
+                          }}
+                          disabled={isQtyLoading}
+                          className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="text"
+                          value={editingItems[item.id] !== undefined ? editingItems[item.id] : item.quantity}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                            setEditingItems(prev => ({ ...prev, [item.id]: raw }));
+                          }}
+                          onBlur={() => {
+                            const raw = editingItems[item.id];
+                            if (raw !== undefined) {
+                              const newQty = parseInt(raw) || item.quantity;
+                              handleUpdateQuantity(item.id, newQty);
+                            }
+                          }}
+                          className="w-12 text-center text-xs font-extrabold py-1 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                        />
+                        <button
+                          onClick={() => {
+                            const newQty = currentQty + 1;
+                            setEditingItems(prev => ({ ...prev, [item.id]: newQty }));
+                            handleUpdateQuantity(item.id, newQty);
+                          }}
+                          disabled={isQtyLoading}
+                          className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="font-extrabold text-sm text-slate-900 dark:text-white">{item.quantity}</span>
+                    )}
                   </td>
 
                   {/* Warehouse Selector (Admin Only) */}
@@ -185,94 +266,29 @@ export default function OrderItemsCard({
                     </td>
                   )}
 
-                  {/* Quantity Column */}
-                  <td className="py-3.5 px-4 text-center">
-                    {isAdmin && order.status === 'pending' ? (
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => {
-                            const newQty = Math.max(0, currentQty - 1);
-                            setEditingItems(prev => ({ ...prev, [item.id]: newQty }));
-                            handleUpdateQuantity(item.id, newQty);
-                          }}
-                          disabled={isQtyLoading}
-                          className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 transition-colors disabled:opacity-50"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <input
-                          type="text"
-                          value={currentQty}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/[^0-9]/g, '');
-                            setEditingItems(prev => ({ ...prev, [item.id]: raw }));
-                          }}
-                          onBlur={() => {
-                            const raw = editingItems[item.id];
-                            if (raw !== undefined) {
-                              const newQty = parseInt(raw) || item.quantity;
-                              handleUpdateQuantity(item.id, newQty);
-                            }
-                          }}
-                          className="w-12 text-center text-xs font-extrabold py-1 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                        />
-                        <button
-                          onClick={() => {
-                            const newQty = currentQty + 1;
-                            setEditingItems(prev => ({ ...prev, [item.id]: newQty }));
-                            handleUpdateQuantity(item.id, newQty);
-                          }}
-                          disabled={isQtyLoading}
-                          className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 transition-colors disabled:opacity-50"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="font-extrabold text-sm text-slate-900 dark:text-white">{item.quantity}</span>
-                    )}
-                  </td>
-
-                  {/* Unit Price Column */}
-                  <td className="py-3.5 px-4 text-right">
-                    {isSuperAdmin && order.status === 'pending' ? (
-                      <input
-                        type="text"
-                        value={currentPrice}
-                        onChange={(e) => {
-                          const raw = e.target.value.replace(/[^0-9.]/g, '');
-                          setEditingPrices(prev => ({ ...prev, [item.id]: raw }));
-                        }}
-                        onBlur={() => {
-                          const raw = editingPrices[item.id];
-                          if (raw !== undefined) {
-                            const newPrice = parseFloat(raw);
-                            handleUpdatePrice(item.id, newPrice);
-                          }
-                        }}
-                        className="w-20 text-right text-xs font-black py-1 px-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                      />
-                    ) : (
-                      <span className="font-bold text-slate-700 dark:text-slate-300">${Number(item.unit_price).toFixed(2)}</span>
-                    )}
-                  </td>
-
                   {/* Subtotal Column */}
-                  <td className="py-3.5 px-4 text-right font-black text-slate-900 dark:text-white">
+                  <td className="py-3.5 px-4 text-right font-black text-emerald-600 dark:text-emerald-400">
                     ${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                   </td>
 
+                  {/* Weight Column */}
+                  <td className="py-3.5 px-4 text-right font-semibold text-slate-500">
+                    {weight > 0 ? `${weight.toFixed(1)} kg` : '—'}
+                  </td>
+
                   {/* Admin Actions Column */}
-                  {isAdmin && order.status === 'pending' && (
+                  {isAdmin && (
                     <td className="py-3.5 px-4 text-center">
-                      <button
-                        onClick={() => handleDeleteItem(item.id)}
-                        disabled={isDelLoading}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
-                        title="Eliminar producto del pedido"
-                      >
-                        {isDelLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                      </button>
+                      {canDeleteItem(item) && (
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          disabled={isDelLoading}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
+                          title="Eliminar producto del pedido"
+                        >
+                          {isDelLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        </button>
+                      )}
                     </td>
                   )}
                 </tr>
@@ -290,14 +306,15 @@ export default function OrderItemsCard({
             <strong className="text-slate-900 dark:text-white font-black text-sm">{totalPieces} pcs</strong>
           </div>
           <div>
-            <span>Peso Total Estimado: </span>
-            <strong className="text-slate-900 dark:text-white font-black text-sm">{totalWeight.toFixed(1)} kg</strong>
+            <span>Peso Total: </span>
+            <strong className="text-amber-600 dark:text-amber-400 font-black text-sm">{totalWeight.toFixed(1)} kg</strong>
+            <span className="text-[10px] text-slate-400 font-normal"> ({(totalWeight / 1000).toFixed(2)} ton)</span>
           </div>
         </div>
 
         <div className="text-right">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Total del Pedido</span>
-          <span className="text-xl font-black text-slate-900 dark:text-white">
+          <span className="text-xl font-black text-[#6a9a04] dark:text-[#7db505]">
             ${Number(order.total_amount || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
           </span>
         </div>

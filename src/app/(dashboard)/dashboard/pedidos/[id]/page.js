@@ -27,7 +27,7 @@ export default function OrderDetailsPage() {
     showPaymentModal, setShowPaymentModal, paymentForm, setPaymentForm,
     showCancelModal, setShowCancelModal, cancelReason, setCancelReason,
     showIncidentModal, setShowIncidentModal, incidentForm, setIncidentForm,
-    showTransportModal, setShowTransportModal, transportData, setTransportData,
+    showTransportModal, setShowTransportModal, transportData, setTransportData, pendingPrintWindow, setPendingPrintWindow,
     showFulfillmentScan, setShowFulfillmentScan, fulfilledQty, setFulfilledQty, scanFeedback, setScanFeedback,
     showFulfillScanner, setShowFulfillScanner,
     fulfillSearchTerm, setFulfillSearchTerm, fulfillSearchRef,
@@ -44,6 +44,7 @@ export default function OrderDetailsPage() {
     handleFulfillSearchKeyDown,
     handleFulfillSearchChange,
     handleConfirmOrder,
+    openLoadingSheetPrompt,
     printLoadingSheet,
     handleUpdateStatus,
     handleCancelOrder,
@@ -89,7 +90,7 @@ export default function OrderDetailsPage() {
         order={order}
         isAdmin={isAdmin}
         payments={payments}
-        printLoadingSheet={printLoadingSheet}
+        openLoadingSheetPrompt={openLoadingSheetPrompt}
         handleReorder={handleReorder}
       />
 
@@ -164,10 +165,9 @@ export default function OrderDetailsPage() {
             handleUpdateStatus={handleUpdateStatus}
             setShowRejectModal={setShowRejectModal}
             setShowCancelModal={setShowCancelModal}
-            setShowTransportModal={setShowTransportModal}
+            openLoadingSheetPrompt={openLoadingSheetPrompt}
             initFulfillmentScan={initFulfillmentScan}
             setShowFulfillmentScan={setShowFulfillmentScan}
-            printLoadingSheet={printLoadingSheet}
           />
         </div>
       </div>
@@ -215,6 +215,7 @@ export default function OrderDetailsPage() {
         setShowTransportModal={setShowTransportModal}
         transportData={transportData}
         setTransportData={setTransportData}
+        pendingPrintWindow={pendingPrintWindow}
         printLoadingSheet={printLoadingSheet}
       />
 

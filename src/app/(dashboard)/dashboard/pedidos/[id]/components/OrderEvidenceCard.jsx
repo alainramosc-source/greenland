@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { Camera, Image as ImageIcon, Trash2, X, Upload, Loader2 } from 'lucide-react';
+import { Camera, Image as ImageIcon, Trash2, X, Upload, Loader2, ZoomIn } from 'lucide-react';
 
 export default function OrderEvidenceCard({
   order,
@@ -15,7 +15,6 @@ export default function OrderEvidenceCard({
 }) {
   if (!order) return null;
 
-  // Evidence section visible when in_fulfillment, shipped, closed
   const isVisible = ['in_fulfillment', 'shipped', 'closed'].includes(order.status);
   if (!isVisible && evidence.length === 0) return null;
 
@@ -57,7 +56,7 @@ export default function OrderEvidenceCard({
                 : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
             }`}
           >
-            Fletera ({evidence.filter(e => e.evidence_type === 'flete').length})
+            Guía / Remisión ({evidence.filter(e => e.evidence_type === 'flete').length})
           </button>
           <button
             onClick={() => setEvidenceTab('llegada')}
@@ -126,21 +125,27 @@ export default function OrderEvidenceCard({
           {filteredEvidence.map((ev) => (
             <div
               key={ev.id}
-              className="group relative aspect-square rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 shadow-sm"
+              onClick={() => setLightboxImg(ev.file_url)}
+              className="group relative aspect-square rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 shadow-sm cursor-pointer"
             >
               <img
                 src={ev.file_url}
                 alt={ev.file_name || 'Evidencia'}
-                onClick={() => setLightboxImg(ev.file_url)}
-                className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
               
               {/* Overlay controls */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-2.5 flex flex-col justify-between">
-                <div className="text-right">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-2.5 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="w-7 h-7 rounded-xl bg-black/50 text-white flex items-center justify-center backdrop-blur-sm">
+                    <ZoomIn className="w-4 h-4" />
+                  </span>
                   {order.status === 'in_fulfillment' && (
                     <button
-                      onClick={() => handleDeleteEvidence(ev)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteEvidence(ev);
+                      }}
                       className="w-7 h-7 rounded-xl bg-red-600/90 text-white flex items-center justify-center hover:bg-red-700 transition-colors shadow-md"
                       title="Eliminar evidencia"
                     >
@@ -167,7 +172,7 @@ export default function OrderEvidenceCard({
           <div className="relative max-w-4xl w-full max-h-[90vh] flex items-center justify-center">
             <button
               onClick={() => setLightboxImg(null)}
-              className="absolute -top-12 right-0 w-10 h-10 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center transition-colors"
+              className="absolute -top-12 right-0 w-10 h-10 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
             >
               <X className="w-6 h-6" />
             </button>

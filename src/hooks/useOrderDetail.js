@@ -20,7 +20,6 @@ export const PAY_STATUS = {
   paid: { label: 'Pagado', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.12)' },
 };
 
-// Product weights in kg per unit (from manufacturer specs)
 export const PRODUCT_WEIGHTS = {
   GL01: 12.35, GL02: 8.45, GL03: 4.3, GL04: 11.1, GL05: 9.7,
   GL06: 18.25, GL07: 19.7, GL08: 16.15, GL09: 10.65, GL10: 14.5,
@@ -90,7 +89,7 @@ export function useOrderDetail() {
 
   const validateQuantity = (val) => {
     const num = parseInt(val, 10);
-    return (!isNaN(num) && num > 0) ? num : null;
+    return (!isNaN(num) && num >= 0) ? num : null;
   };
 
   const validatePrice = (val) => {
@@ -174,11 +173,9 @@ export function useOrderDetail() {
       }
       setOrder(data);
 
-      // Fetch warehouses
       const { data: whData } = await supabase.from('warehouses').select('*').eq('is_active', true).order('name');
       if (whData) setWarehouses(whData);
 
-      // Fetch warehouse stock for products in this order
       if (data.order_items?.length) {
         const productIds = data.order_items.map(i => i.product_id);
         const { data: wsData } = await supabase
@@ -196,7 +193,6 @@ export function useOrderDetail() {
       }
     }
 
-    // Fetch payments
     const { data: paymentsData } = await supabase
       .from('order_payments')
       .select('*')
@@ -205,7 +201,6 @@ export function useOrderDetail() {
 
     if (paymentsData) setPayments(paymentsData);
 
-    // Fetch evidence with signed URLs
     const { data: evidenceData } = await supabase
       .from('order_evidence')
       .select('*')
@@ -238,7 +233,6 @@ export function useOrderDetail() {
     fetchOrderDetails();
   }, [id]);
 
-  // Search available products for admin adding items
   useEffect(() => {
     if (!productSearch.trim()) {
       setAvailableProducts([]);
@@ -462,16 +456,44 @@ export function useOrderDetail() {
     setActionLoading(null);
   };
 
-  const printLoadingSheet = (customTransport) => {
-    const transport = customTransport || {};
-    const win = pendingPrintWindow || window.open('', '_blank');
+  // Open transport modal BEFORE printing loading sheet (matching original main)
+  const openLoadingSheetPrompt = () => {
+    const pw = window.open('', '_blank');
+    if (pw) {
+      setTransportData({ placas: '', operador: '', sello: '' });
+      setPendingPrintWindow(pw);
+      setShowTransportModal(true);
+    } else {
+      alert('El navegador bloqueó la ventana emergente. Permite las ventanas emergentes e intenta de nuevo.');
+    }
+  };
+
+  const printLoadingSheet = (explicitWindow, customTransport) => {
+    const win = explicitWindow || pendingPrintWindow || window.open('', '_blank');
     if (!win) { alert('No se pudo abrir la ventana de impresión.'); return; }
     setPendingPrintWindow(null);
 
+    const transport = customTransport || transportData || {};
     const today = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
     const distributor = order.profiles || {};
-    const addr = order.shipping_address || {};
-    const addrText = `${addr.label ? addr.label + ' — ' : ''}${addr.street || ''}, ${addr.city || ''}, ${addr.state || ''} C.P. ${addr.zip_code || ''}`;
+    const addr = order.shipping_address;
+
+    // Address formatting: match exact main rule (fallback to "Recoger en sitio")
+    let addrText = 'Recoger en sitio';
+    if (addr && typeof addr === 'object' && (addr.street || addr.city || addr.state || addr.zip_code)) {
+      const parts = [];
+      if (addr.label) parts.push(addr.label);
+      if (addr.street) parts.push(addr.street);
+      if (addr.city) parts.push(addr.city);
+      if (addr.state) parts.push(addr.state);
+      if (addr.zip_code) parts.push(`C.P. ${addr.zip_code}`);
+      addrText = parts.join(', ');
+    } else if (typeof addr === 'string' && addr.trim()) {
+      addrText = addr;
+    } else if (order.notes && order.notes.toLowerCase().includes('recoger')) {
+      addrText = 'Recoger en sitio';
+    }
+
     const totalPieces = order.order_items.reduce((sum, item) => sum + item.quantity, 0);
 
     const itemsHtml = order.order_items.map((item, idx) => {
@@ -480,66 +502,64 @@ export function useOrderDetail() {
       const totalW = (weight * item.quantity).toFixed(1);
       return `
         <tr>
-          <td style="text-align:center;">${idx + 1}</td>
-          <td><strong style="font-family:monospace;font-size:13px;">${item.products?.sku || '—'}</strong></td>
-          <td><strong>${item.products?.name || '—'}</strong></td>
-          <td style="text-align:center;font-size:15px;font-weight:900;">${item.quantity}</td>
-          <td style="text-align:right;">${totalW} kg</td>
-          <td><span style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">${whName}</span></td>
-          <td style="text-align:center;"><div style="width:18px;height:18px;border:2px solid #cbd5e1;border-radius:3px;margin:auto;"></div></td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:600;">${idx + 1}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#64748b;font-family:monospace;">${item.products?.sku || '—'}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;">${item.products?.name || 'Producto'}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:700;font-size:18px;">${item.quantity}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:12px;color:#475569;">${weight > 0 ? totalW + ' kg' : '—'}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#64748b;">${whName}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">☐</td>
         </tr>
       `;
     }).join('');
 
-    const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://greenland-products.com.mx';
     const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <title>Hoja de Carga — Pedido #${order.order_number}</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1e293b; padding: 24px; font-size: 12px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #65a30d; padding-bottom: 16px; margin-bottom: 20px; }
-    .company { display: flex; align-items: center; gap: 12px; }
-    .company img { height: 48px; object-fit: contain; }
-    .company small { display: block; color: #64748b; font-size: 11px; margin-top: 2px; }
-    .meta { text-align: right; }
-    .order-num { font-size: 22px; font-weight: 900; color: #1e293b; letter-spacing: -0.5px; }
-    .date { font-size: 11px; color: #64748b; margin-top: 4px; }
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
-    .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; }
-    .info-box h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; font-weight: 700; margin-bottom: 6px; }
-    .info-box p { font-size: 12px; color: #334155; line-height: 1.4; }
-    .info-box p.big { font-size: 13px; font-weight: 700; color: #0f172a; }
-    .transport-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-    .transport-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; }
-    .transport-box h4 { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #166534; font-weight: 700; margin-bottom: 4px; }
-    .transport-box p { font-size: 13px; font-weight: 800; color: #14532d; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-    th { background: #0f172a; color: #fff; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; padding: 8px 12px; text-align: left; }
-    td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
-    tr:nth-child(even) { background: #f8fafc; }
-    .totals { display: flex; justify-content: space-around; background: #f1f5f9; border-radius: 8px; padding: 14px; margin-bottom: 20px; border: 1px solid #e2e8f0; }
-    .totals div { text-align:center; }
-    .totals .label { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#64748b; font-weight:700; }
-    .totals .value { font-size:22px; font-weight:900; color:#1e293b; }
-    .notes { background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:14px; margin-bottom:20px; }
-    .notes h4 { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:#92400e; font-weight:700; margin-bottom:6px; }
-    .notes p { font-size:12px; color:#78350f; white-space:pre-wrap; }
-    .signatures { display:grid; grid-template-columns:1fr 1fr 1fr; gap:24px; margin-top:40px; }
-    .sig-box { text-align:center; padding-top:50px; border-top:1px solid #94a3b8; }
-    .sig-box .name { font-size:11px; font-weight:700; color:#1e293b; }
-    .sig-box .role { font-size:10px; color:#64748b; }
+    @page { size: letter; margin: 15mm; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: 13px; line-height: 1.5; }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #6a9a04; padding-bottom:16px; margin-bottom:20px; }
+    .company { display:flex; align-items:center; gap:12px; }
+    .company img { height:50px; width:auto; }
+    .company small { display:block; font-size:11px; color:#64748b; font-weight:600; letter-spacing:1px; text-transform:uppercase; margin-top:4px; }
+    .meta { text-align:right; }
+    .meta .order-num { font-size:22px; font-weight:900; color:#1e293b; }
+    .meta .date { font-size:12px; color:#64748b; margin-top:4px; }
+    .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+    .info-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; }
+    .info-box h4 { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:#94a3b8; font-weight:700; margin-bottom:6px; }
+    .info-box p { font-size:13px; color:#1e293b; font-weight:500; }
+    .info-box .big { font-size:15px; font-weight:700; }
+    .transport-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:20px; }
+    .transport-box { background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:14px; }
+    .transport-box h4 { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:#0284c7; font-weight:700; margin-bottom:6px; }
+    .transport-box p { font-size:14px; color:#0c4a6e; font-weight:700; min-height:20px; }
+    table { width:100%; border-collapse:collapse; margin-bottom:16px; }
+    thead th { background:#f1f5f9; padding:10px 12px; text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#64748b; font-weight:700; border-bottom:2px solid #cbd5e1; }
+    .totals { display:flex; justify-content:space-around; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:20px; text-align:center; }
+    .totals div .label { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#94a3b8; font-weight:700; }
+    .totals div .val { font-size:20px; font-weight:900; color:#1e293b; }
+    .notes { background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px 14px; margin-bottom:20px; }
+    .notes h4 { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#92400e; font-weight:700; margin-bottom:4px; }
+    .notes p { font-size:12px; color:#78350f; }
+    .signatures { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; margin-top:40px; }
+    .sig-box { text-align:center; border-top:1px solid #94a3b8; padding-top:8px; }
+    .sig-box .title { font-size:11px; font-weight:700; color:#475569; }
     .footer { margin-top:30px; text-align:center; font-size:10px; color:#94a3b8; border-top:1px solid #e2e8f0; padding-top:10px; }
     @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   </style>
 </head>
 <body>
   <div class="header">
-    <div>
-      <div class="company">
-        <img src="${appUrl}/logo-new.jpg" alt="GreenLand Products" />
+    <div class="company">
+      <img src="${appUrl}/logo-new.jpg" alt="GreenLand" />
+      <div>
+        <strong>GREENLAND PRODUCTS S.A. DE C.V.</strong>
         <small>Hoja de Carga / Orden de Surtido</small>
       </div>
     </div>
@@ -552,13 +572,13 @@ export function useOrderDetail() {
 
   <div class="info-grid">
     <div class="info-box">
-      <h4>Distribuidor</h4>
+      <h4>DISTRIBUIDOR</h4>
       <p class="big">${distributor.full_name || '—'}</p>
       <p>${distributor.email || ''}</p>
       <p>${distributor.phone || ''} ${distributor.city ? '· ' + distributor.city : ''}</p>
     </div>
     <div class="info-box">
-      <h4>Dirección de Envío</h4>
+      <h4>DIRECCIÓN DE ENVÍO</h4>
       <p class="big">${addrText}</p>
     </div>
   </div>
@@ -566,15 +586,15 @@ export function useOrderDetail() {
   ${(transport.placas || transport.operador || transport.sello) ? `
   <div class="transport-grid">
     <div class="transport-box">
-      <h4>🚛 Placas</h4>
+      <h4>PLACAS</h4>
       <p>${transport.placas || '—'}</p>
     </div>
     <div class="transport-box">
-      <h4>👤 Nombre del Operador</h4>
+      <h4>OPERADOR / CHOFER</h4>
       <p>${transport.operador || '—'}</p>
     </div>
     <div class="transport-box">
-      <h4>🔒 Número de Sello</h4>
+      <h4>NÚMERO DE SELLO</h4>
       <p>${transport.sello || '—'}</p>
     </div>
   </div>` : ''}
@@ -582,13 +602,13 @@ export function useOrderDetail() {
   <table>
     <thead>
       <tr>
-        <th style="width:40px;text-align:center;">#</th>
-        <th style="width:100px;">SKU</th>
-        <th>Producto / Modelo</th>
-        <th style="width:80px;text-align:center;">Cantidad</th>
-        <th style="width:80px;text-align:right;">Peso</th>
-        <th style="width:120px;">Bodega</th>
-        <th style="width:60px;text-align:center;">✓</th>
+        <th style="width:30px;text-align:center;">#</th>
+        <th style="width:90px;">SKU</th>
+        <th>PRODUCTO / MODELO</th>
+        <th style="width:70px;text-align:center;">CANTIDAD</th>
+        <th style="width:80px;text-align:right;">PESO</th>
+        <th style="width:130px;">BODEGA</th>
+        <th style="width:40px;text-align:center;">✓</th>
       </tr>
     </thead>
     <tbody>
@@ -599,36 +619,33 @@ export function useOrderDetail() {
   <div class="totals">
     <div>
       <div class="label">Total Piezas</div>
-      <div class="value">${totalPieces}</div>
+      <div class="val">${totalPieces}</div>
     </div>
     <div>
       <div class="label">Total Modelos</div>
-      <div class="value">${order.order_items.length}</div>
+      <div class="val">${order.order_items.length}</div>
     </div>
     <div>
       <div class="label">Peso Total</div>
-      <div class="value">${order.order_items.reduce((s,i) => s + (PRODUCT_WEIGHTS[i.products?.sku]||0) * i.quantity, 0).toFixed(1)} kg</div>
+      <div class="val">${order.order_items.reduce((s,i) => s + (PRODUCT_WEIGHTS[i.products?.sku]||0) * i.quantity, 0).toFixed(1)} kg</div>
     </div>
   </div>
 
   ${order.notes ? `
   <div class="notes">
-    <h4>📝 Instrucciones / Comentarios</h4>
+    <h4>📌 INSTRUCCIONES / COMENTARIOS</h4>
     <p>${order.notes}</p>
   </div>` : ''}
 
   <div class="signatures">
     <div class="sig-box">
-      <div class="name">___________________</div>
-      <div class="role">Coordinador de Almacén</div>
+      <div class="title">Coordinador de Almacén</div>
     </div>
     <div class="sig-box">
-      <div class="name">___________________</div>
-      <div class="role">Armador / Cargador</div>
+      <div class="title">Armador / Cargador</div>
     </div>
     <div class="sig-box">
-      <div class="name">___________________</div>
-      <div class="role">Entrega / Transporte</div>
+      <div class="title">Entrega / Transporte</div>
     </div>
   </div>
 
@@ -945,7 +962,7 @@ export function useOrderDetail() {
     showPaymentModal, setShowPaymentModal, paymentForm, setPaymentForm,
     showCancelModal, setShowCancelModal, cancelReason, setCancelReason,
     showIncidentModal, setShowIncidentModal, incidentForm, setIncidentForm,
-    showTransportModal, setShowTransportModal, transportData, setTransportData,
+    showTransportModal, setShowTransportModal, transportData, setTransportData, pendingPrintWindow, setPendingPrintWindow,
     showFulfillmentScan, setShowFulfillmentScan, fulfilledQty, setFulfilledQty, scanFeedback, setScanFeedback,
     showFulfillScanner, setShowFulfillScanner,
     fulfillSearchTerm, setFulfillSearchTerm, fulfillSearchRef,
@@ -963,6 +980,7 @@ export function useOrderDetail() {
     handleFulfillSearchKeyDown,
     handleFulfillSearchChange,
     handleConfirmOrder,
+    openLoadingSheetPrompt,
     printLoadingSheet,
     handleUpdateStatus,
     handleCancelOrder,

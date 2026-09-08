@@ -7,12 +7,18 @@ export default function TransportDataModal({
   setShowTransportModal,
   transportData,
   setTransportData,
+  pendingPrintWindow,
   printLoadingSheet
 }) {
   if (!showTransportModal) return null;
 
-  const handlePrint = () => {
-    printLoadingSheet(transportData);
+  const handlePrintWithData = () => {
+    printLoadingSheet(pendingPrintWindow, transportData);
+    setShowTransportModal(false);
+  };
+
+  const handleSkip = () => {
+    printLoadingSheet(pendingPrintWindow, {});
     setShowTransportModal(false);
   };
 
@@ -25,12 +31,15 @@ export default function TransportDataModal({
               <Truck className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-extrabold text-slate-900 text-base">Datos de Transporte y Carga</h3>
-              <p className="text-[10px] text-slate-500 font-semibold">Opcional — aparecen en la hoja de carga</p>
+              <h3 className="font-extrabold text-slate-900 text-base">🚚 Datos de Transporte</h3>
+              <p className="text-[10px] text-slate-500 font-semibold">Opcional — solo para envíos por camión. Deja en blanco para paquetería.</p>
             </div>
           </div>
           <button
-            onClick={() => setShowTransportModal(false)}
+            onClick={() => {
+              if (pendingPrintWindow) pendingPrintWindow.close();
+              setShowTransportModal(false);
+            }}
             className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
           >
             <X className="w-5 h-5" />
@@ -40,11 +49,11 @@ export default function TransportDataModal({
         <div className="space-y-3">
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Placas del Vehículo / Tráiler
+              PLACAS
             </label>
             <input
               type="text"
-              placeholder="Ej: 12-ABC-34"
+              placeholder="Ej: ABC-123-A"
               value={transportData.placas}
               onChange={(e) => setTransportData({ ...transportData, placas: e.target.value })}
               className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-800 uppercase placeholder:text-slate-400"
@@ -53,11 +62,11 @@ export default function TransportDataModal({
 
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Nombre del Operador / Chofer
+              NOMBRE DEL OPERADOR
             </label>
             <input
               type="text"
-              placeholder="Ej: Juan Pérez Morales"
+              placeholder="Nombre completo del chofer"
               value={transportData.operador}
               onChange={(e) => setTransportData({ ...transportData, operador: e.target.value })}
               className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-800 placeholder:text-slate-400"
@@ -66,11 +75,11 @@ export default function TransportDataModal({
 
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Número de Sello / Candado
+              NÚMERO DE SELLO
             </label>
             <input
               type="text"
-              placeholder="Ej: SEL-987654"
+              placeholder="Ej: SELLO-0001"
               value={transportData.sello}
               onChange={(e) => setTransportData({ ...transportData, sello: e.target.value })}
               className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-800 uppercase placeholder:text-slate-400"
@@ -80,18 +89,17 @@ export default function TransportDataModal({
 
         <div className="flex items-center justify-end gap-2.5 pt-2">
           <button
-            onClick={handlePrint}
-            className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors flex items-center gap-1.5"
+            onClick={handleSkip}
+            className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors cursor-pointer"
           >
-            <Printer className="w-4 h-4 text-slate-500" />
-            <span>Imprimir Hoja de Carga</span>
+            Saltar (Paquetería)
           </button>
           <button
-            onClick={() => setShowTransportModal(false)}
+            onClick={handlePrintWithData}
             className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-blue-500/20 flex items-center gap-2 transition-all cursor-pointer"
           >
-            <span>Continuar</span>
-            <ArrowRight className="w-4 h-4" />
+            <Printer className="w-4 h-4" />
+            <span>Imprimir con datos</span>
           </button>
         </div>
       </div>
