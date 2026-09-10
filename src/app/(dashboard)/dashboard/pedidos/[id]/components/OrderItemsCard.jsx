@@ -114,13 +114,13 @@ export default function OrderItemsCard({
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-wider text-[10px]">
-              <th className="py-3 px-4">Producto</th>
-              <th className="py-3 px-4 text-right">Precio</th>
-              <th className="py-3 px-4 text-center">Cantidad</th>
-              {isAdmin && <th className="py-3 px-4">Bodega</th>}
-              <th className="py-3 px-4 text-right">Subtotal</th>
-              <th className="py-3 px-4 text-right">Peso</th>
-              {isAdmin && <th className="py-3 px-4 text-center">Acciones</th>}
+              <th className="py-3 px-4 whitespace-nowrap">Producto</th>
+              <th className="py-3 px-4 text-right whitespace-nowrap">Precio</th>
+              <th className="py-3 px-4 text-center whitespace-nowrap">Cantidad</th>
+              {isAdmin && <th className="py-3 px-4 whitespace-nowrap">Bodega</th>}
+              <th className="py-3 px-4 text-right whitespace-nowrap">Subtotal</th>
+              <th className="py-3 px-4 text-right whitespace-nowrap">Peso</th>
+              {isAdmin && <th className="py-3 px-4 text-center whitespace-nowrap">Acciones</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -146,10 +146,10 @@ export default function OrderItemsCard({
                         </div>
                       )}
                       <div>
-                        <p className="font-extrabold text-slate-900 dark:text-white leading-snug">{item.products?.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="font-mono text-[10px] font-bold text-slate-400 uppercase">SKU: {item.products?.sku}</span>
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                        <p className="font-extrabold text-slate-900 dark:text-white leading-snug whitespace-nowrap">{item.products?.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap sm:flex-nowrap">
+                          <span className="font-mono text-[10px] font-bold text-slate-400 uppercase whitespace-nowrap">SKU: {item.products?.sku}</span>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 whitespace-nowrap shrink-0">
                             Stock: {item.products?.stock_quantity ?? 0} | Reservado: {item.products?.reserved_quantity ?? 0}
                           </span>
                         </div>
@@ -158,7 +158,7 @@ export default function OrderItemsCard({
                   </td>
 
                   {/* Price Column (Editable for Super Admin) */}
-                  <td className="py-3.5 px-4 text-right">
+                  <td className="py-3.5 px-4 text-right whitespace-nowrap">
                     {canEditPrice(item) ? (
                       <div className="relative inline-block">
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-amber-600 font-bold text-xs">$</span>
@@ -185,7 +185,7 @@ export default function OrderItemsCard({
                   </td>
 
                   {/* Quantity Column */}
-                  <td className="py-3.5 px-4 text-center">
+                  <td className="py-3.5 px-4 text-center whitespace-nowrap">
                     {canEditQty(item) ? (
                       <div className="flex items-center justify-center gap-1">
                         <button
@@ -234,7 +234,7 @@ export default function OrderItemsCard({
 
                   {/* Warehouse Selector (Admin Only) */}
                   {isAdmin && (
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4 whitespace-nowrap">
                       {order.status === 'pending' || order.status === 'confirmed' ? (
                         <div className="space-y-1">
                           <select
@@ -258,8 +258,8 @@ export default function OrderItemsCard({
                           )}
                         </div>
                       ) : (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                          <Warehouse className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                          <Warehouse className="w-3.5 h-3.5 mr-1 text-slate-400 shrink-0" />
                           {warehouses.find(w => w.id === item.warehouse_id)?.name || 'Sin asignar'}
                         </span>
                       )}
@@ -267,18 +267,18 @@ export default function OrderItemsCard({
                   )}
 
                   {/* Subtotal Column */}
-                  <td className="py-3.5 px-4 text-right font-black text-emerald-600 dark:text-emerald-400">
+                  <td className="py-3.5 px-4 text-right font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
                     ${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                   </td>
 
                   {/* Weight Column */}
-                  <td className="py-3.5 px-4 text-right font-semibold text-slate-500">
+                  <td className="py-3.5 px-4 text-right font-semibold text-slate-500 whitespace-nowrap">
                     {weight > 0 ? `${weight.toFixed(1)} kg` : '—'}
                   </td>
 
                   {/* Admin Actions Column */}
                   {isAdmin && (
-                    <td className="py-3.5 px-4 text-center">
+                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
                       {canDeleteItem(item) && (
                         <button
                           onClick={() => handleDeleteItem(item.id)}
