@@ -215,6 +215,7 @@ export default function AdminPagosPage() {
           cashAudits={cashAudits}
           onSignExit={handleSignExit}
           userSubRole={userSubRole}
+          currentUserId={currentUserId}
           onExportExcel={exportPaymentsXLSX}
           actionLoading={actionLoading}
           onApplyAudit={handleApplyAudit}

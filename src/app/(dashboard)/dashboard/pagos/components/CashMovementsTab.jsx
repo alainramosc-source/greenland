@@ -84,7 +84,6 @@ export default function CashMovementsTab({
     if (userSubRole === 'lectura') return false;
     if (m.approved_by_1 && m.approved_by_2) return false;
     if (currentUserId && (m.approved_by_1 === currentUserId || m.approved_by_2 === currentUserId)) return false;
-    if (!currentUserId && (m.approved_by_1 || m.approved_by_2)) return false;
     return true;
   };
 
