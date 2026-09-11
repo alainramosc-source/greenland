@@ -12,8 +12,10 @@ export default function OrderPaymentsCard({
 
   const totalPaid = payments.reduce((acc, p) => acc + Number(p.amount), 0);
   const totalAmount = Number(order.total_amount || 0);
-  const balance = totalAmount - totalPaid;
-  const isFullyPaid = totalPaid >= totalAmount && totalAmount > 0;
+  const rawBalance = totalAmount - totalPaid;
+  // Tolerance of up to $1.00 MXN for centavo discrepancies
+  const isFullyPaid = (rawBalance <= 1.00) && totalAmount > 0;
+  const balance = isFullyPaid ? 0 : rawBalance;
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 space-y-5 shadow-sm">

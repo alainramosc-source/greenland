@@ -13,8 +13,11 @@ export default function OrderDetailHeader({
 }) {
   if (!order) return null;
 
+  const totalPaid = payments ? payments.reduce((acc, p) => acc + Number(p.amount), 0) : 0;
+  const totalAmount = Number(order.total_amount || 0);
+  const isPaidByTolerance = (totalAmount - totalPaid) <= 1.00 && totalAmount > 0;
   const sc = OP_STATUS[order.status] || OP_STATUS.pending;
-  const ps = PAY_STATUS[order.payment_status] || PAY_STATUS.unpaid;
+  const ps = isPaidByTolerance ? PAY_STATUS.paid : (PAY_STATUS[order.payment_status] || PAY_STATUS.unpaid);
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
