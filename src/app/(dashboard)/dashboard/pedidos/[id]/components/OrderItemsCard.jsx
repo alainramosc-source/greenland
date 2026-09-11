@@ -117,7 +117,7 @@ export default function OrderItemsCard({
               <th className="py-3 px-4 whitespace-nowrap">Producto</th>
               <th className="py-3 px-4 text-right whitespace-nowrap">Precio</th>
               <th className="py-3 px-4 text-center whitespace-nowrap">Cantidad</th>
-              {isAdmin && <th className="py-3 px-4 whitespace-nowrap">Bodega</th>}
+              <th className="py-3 px-4 whitespace-nowrap min-w-[210px]">Bodega</th>
               <th className="py-3 px-4 text-right whitespace-nowrap">Subtotal</th>
               <th className="py-3 px-4 text-right whitespace-nowrap">Peso</th>
               {isAdmin && <th className="py-3 px-4 text-center whitespace-nowrap">Acciones</th>}
@@ -234,13 +234,13 @@ export default function OrderItemsCard({
 
                   {/* Warehouse Selector (Admin Only) */}
                   {isAdmin && (
-                    <td className="py-3.5 px-4 whitespace-nowrap">
+                    <td className="py-3.5 px-4 whitespace-nowrap min-w-[210px]">
                       {order.status === 'pending' || order.status === 'confirmed' ? (
                         <div className="space-y-1">
                           <select
                             value={item.warehouse_id || ''}
                             onChange={(e) => handleAssignWarehouse(item.id, e.target.value)}
-                            className="w-full text-xs font-bold px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                            className="w-full min-w-[190px] text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-sm"
                           >
                             <option value="">Seleccionar bodega...</option>
                             {warehouses.map(wh => {
