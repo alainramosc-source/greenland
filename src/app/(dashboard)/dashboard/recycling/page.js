@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Recycle, Package, DollarSign, TrendingUp, Settings, Plus, Edit3, Trash2,
   ShoppingCart, Send, Filter, Calendar, Loader2, Check, X, BarChart3,
-  Search, ChevronDown, Save, ToggleLeft, ToggleRight, Phone, FileText, Users, Weight, Download
+  Search, ChevronDown, Save, ToggleLeft, ToggleRight, Phone, FileText, Users, Weight, Download, Scale
 } from 'lucide-react';
 
 const fmt = (n) => Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -45,6 +45,13 @@ export default function RecyclingPage() {
     quantity_kg: '', price_per_kg: '', buyer_name: '', notes: ''
   });
   const [submittingSale, setSubmittingSale] = useState(false);
+
+  // Stock Adjustment modal
+  const [adjustModal, setAdjustModal] = useState(null);
+  const [adjustForm, setAdjustForm] = useState({
+    type: 'add', amount_kg: '', exact_kg: '', reason: ''
+  });
+  const [submittingAdjustment, setSubmittingAdjustment] = useState(false);
 
   // History filters
   const [historyFilter, setHistoryFilter] = useState({ type: 'all', material: 'all', dateFrom: '', dateTo: '' });
@@ -435,7 +442,74 @@ export default function RecyclingPage() {
     setSubmittingSale(false);
   };
 
-  // ========== CONFIG LOGIC ==========
+  // ========== STOCK ADJUSTMENT LOGIC ==========
+
+  const openAdjustmentModal = (material) => {
+    const stockKg = material.purchased_kg - material.sold_kg;
+    setAdjustModal({ ...material, stock_kg: stockKg });
+    setAdjustForm({ type: 'add', amount_kg: '', exact_kg: stockKg.toFixed(3), reason: '' });
+  };
+
+  const handleSubmitAdjustment = async () => {
+    if (!adjustModal) return;
+    let qty = 0;
+    let isAdd = true;
+
+    if (adjustForm.type === 'set_exact') {
+      const exactVal = parseFloat(adjustForm.exact_kg);
+      if (isNaN(exactVal) || exactVal < 0) return showToast('Ingresa un stock exacto válido', 'error');
+      const diff = exactVal - adjustModal.stock_kg;
+      if (Math.abs(diff) < 0.0001) return showToast('El nuevo stock es idéntico al actual', 'error');
+      qty = Math.abs(diff);
+      isAdd = diff > 0;
+    } else {
+      qty = parseFloat(adjustForm.amount_kg);
+      if (!qty || qty <= 0) return showToast('Ingresa una cantidad de kilos válida', 'error');
+      isAdd = adjustForm.type === 'add';
+    }
+
+    if (!adjustForm.reason.trim()) return showToast('Ingresa el motivo o razón del ajuste', 'error');
+
+    setSubmittingAdjustment(true);
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      const reasonText = adjustForm.reason.trim();
+      const actionLabel = isAdd ? `Ajuste (+) ${fmtKg(qty)} kg` : `Ajuste (-) ${fmtKg(qty)} kg`;
+
+      if (isAdd) {
+        // Positive adjustment: insert into purchases with price = 0
+        const { error } = await supabase.from('recycling_purchases').insert({
+          material_type_id: adjustModal.id,
+          quantity_kg: qty,
+          price_per_kg: 0,
+          total_amount: 0,
+          supplier_name: 'Ajuste de Inventario',
+          notes: `[AJUSTE INVENTARIO +] ${reasonText}`,
+          purchased_by: userId
+        });
+        if (error) throw error;
+      } else {
+        // Negative adjustment: insert into sales with price = 0
+        const { error } = await supabase.from('recycling_sales').insert({
+          material_type_id: adjustModal.id,
+          quantity_kg: qty,
+          price_per_kg: 0,
+          total_amount: 0,
+          buyer_name: 'Ajuste de Inventario',
+          notes: `[AJUSTE INVENTARIO -] ${reasonText}`,
+          sold_by: userId
+        });
+        if (error) throw error;
+      }
+
+      setAdjustModal(null);
+      showToast(`Ajuste de inventario guardado — ${actionLabel}`);
+      fetchData();
+    } catch (err) {
+      showToast('Error al guardar ajuste: ' + err.message, 'error');
+    }
+    setSubmittingAdjustment(false);
+  };
 
   const handleAddMaterial = async () => {
     if (!newMaterial.name.trim()) return showToast('Ingresa el nombre del material', 'error');
@@ -795,10 +869,17 @@ export default function RecyclingPage() {
                           <td className="px-5 py-3 text-right text-slate-600">${fmt(m.buy_price_per_kg)}</td>
                           <td className="px-5 py-3 text-right font-bold text-emerald-600">${fmt(value)}</td>
                           <td className="px-5 py-3 text-center">
-                            <button onClick={() => openSaleModal(m)} disabled={stockKg <= 0}
-                              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#6a9a04] hover:bg-[#5a8503] text-white text-xs font-bold border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm">
-                              <Send size={12} /> Registrar Venta
-                            </button>
+                            <div className="flex items-center justify-center gap-2">
+                              <button onClick={() => openSaleModal(m)} disabled={stockKg <= 0}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#6a9a04] hover:bg-[#5a8503] text-white text-xs font-bold border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm">
+                                <Send size={12} /> Registrar Venta
+                              </button>
+                              <button onClick={() => openAdjustmentModal(m)}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 text-slate-700 text-xs font-bold border border-slate-200 cursor-pointer transition-all shadow-sm"
+                                title="Ajustar inventario / kilos de este material">
+                                <Scale size={12} className="text-indigo-600" /> Ajustar Stock
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -936,38 +1017,53 @@ export default function RecyclingPage() {
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {historyItems.map(item => (
-                  <div key={item.id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.type === 'compra' ? 'bg-emerald-50' : 'bg-blue-50'}`}>
-                      {item.type === 'compra'
-                        ? <ShoppingCart size={18} className="text-emerald-500" />
-                        : <Send size={18} className="text-blue-500" />}
+                {historyItems.map(item => {
+                  const isAdj = item.who === 'Ajuste de Inventario';
+                  return (
+                    <div key={item.id} className={`px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 ${isAdj ? 'bg-indigo-50/20' : ''}`}>
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        isAdj ? 'bg-indigo-100 text-indigo-600' : item.type === 'compra' ? 'bg-emerald-50 text-emerald-500' : 'bg-blue-50 text-blue-500'
+                      }`}>
+                        {isAdj ? <Scale size={18} /> : item.type === 'compra' ? <ShoppingCart size={18} /> : <Send size={18} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
+                          {isAdj ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+                              ⚖️ AJUSTE
+                            </span>
+                          ) : (
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.type === 'compra' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                              {item.type === 'compra' ? 'COMPRA' : 'VENTA'}
+                            </span>
+                          )}
+                          <span className="font-mono text-xs text-[#6a9a04]">{item.number}</span>
+                          <span className="text-slate-600">{item.material}</span>
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {new Date(item.date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          <span className="mx-1">·</span>
+                          {item.who}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold text-slate-900">{fmtKg(item.quantity_kg)} kg</p>
+                        <p className="text-xs text-slate-400">{isAdj ? 'Ajuste de Stock' : `$${fmt(item.price_per_kg)}/kg`}</p>
+                      </div>
+                      <div className="text-right shrink-0 min-w-[100px]">
+                        {isAdj ? (
+                          <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
+                            {item.type === 'compra' ? `+${fmtKg(item.quantity_kg)} kg` : `-${fmtKg(item.quantity_kg)} kg`}
+                          </span>
+                        ) : (
+                          <p className={`text-sm font-black ${item.type === 'compra' ? 'text-red-600' : 'text-emerald-600'}`}>
+                            {item.type === 'compra' ? '-' : '+'}${fmt(item.total_amount)}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.type === 'compra' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
-                          {item.type === 'compra' ? 'COMPRA' : 'VENTA'}
-                        </span>
-                        <span className="font-mono text-xs text-[#6a9a04]">{item.number}</span>
-                        <span className="text-slate-600">{item.material}</span>
-                      </p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {new Date(item.date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        <span className="mx-1">·</span>
-                        {item.who}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-bold text-slate-900">{fmtKg(item.quantity_kg)} kg</p>
-                      <p className="text-xs text-slate-400">${fmt(item.price_per_kg)}/kg</p>
-                    </div>
-                    <div className="text-right shrink-0 min-w-[100px]">
-                      <p className={`text-sm font-black ${item.type === 'compra' ? 'text-red-600' : 'text-emerald-600'}`}>
-                        {item.type === 'compra' ? '-' : '+'}${fmt(item.total_amount)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1321,6 +1417,158 @@ export default function RecyclingPage() {
                   {submittingSale ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Registrar Venta
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =============== STOCK ADJUSTMENT MODAL =============== */}
+      {adjustModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setAdjustModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Scale size={20} className="text-indigo-600" /> Ajustar Stock — <span className="text-[#6a9a04]">{adjustModal.name}</span>
+              </h3>
+              <button onClick={() => setAdjustModal(null)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 border-none bg-transparent cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Stock Actual Registrado</span>
+                <span className="text-lg font-black text-slate-900">{fmtKg(adjustModal.stock_kg)} kg</span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Precio Compra/KG</span>
+                <span className="text-sm font-bold text-slate-700">${fmt(adjustModal.buy_price_per_kg)}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">Tipo de Ajuste *</label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setAdjustForm(f => ({ ...f, type: 'add', amount_kg: '' }))}
+                    className={`py-2 px-2 rounded-xl font-bold text-[11px] border transition-all cursor-pointer text-center ${
+                      adjustForm.type === 'add' ? 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    ➕ Sumar Kilos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdjustForm(f => ({ ...f, type: 'subtract', amount_kg: '' }))}
+                    className={`py-2 px-2 rounded-xl font-bold text-[11px] border transition-all cursor-pointer text-center ${
+                      adjustForm.type === 'subtract' ? 'bg-rose-50 border-rose-300 text-rose-700 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    ➖ Restar Kilos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdjustForm(f => ({ ...f, type: 'set_exact', exact_kg: adjustModal.stock_kg.toFixed(3) }))}
+                    className={`py-2 px-2 rounded-xl font-bold text-[11px] border transition-all cursor-pointer text-center ${
+                      adjustForm.type === 'set_exact' ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    🎯 Stock Exacto
+                  </button>
+                </div>
+              </div>
+
+              {adjustForm.type === 'set_exact' ? (
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Nuevo Stock Total Exacto (KG) *</label>
+                  <div className="relative">
+                    <Weight size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      value={adjustForm.exact_kg}
+                      onChange={e => setAdjustForm(f => ({ ...f, exact_kg: e.target.value }))}
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm font-black text-slate-900 outline-none focus:border-indigo-500"
+                      placeholder="0.000"
+                    />
+                  </div>
+                  {(() => {
+                    const exactVal = parseFloat(adjustForm.exact_kg) || 0;
+                    const diff = exactVal - adjustModal.stock_kg;
+                    if (adjustForm.exact_kg !== '' && !isNaN(exactVal)) {
+                      return (
+                        <p className={`text-[11px] font-bold mt-1.5 ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          Diferencia calculada: {diff >= 0 ? `+${fmtKg(diff)}` : fmtKg(diff)} kg
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              ) : (
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Kilos a {adjustForm.type === 'add' ? 'Ingresar (+)' : 'Descontar (-)'} *
+                  </label>
+                  <div className="relative">
+                    <Weight size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0.001"
+                      value={adjustForm.amount_kg}
+                      onChange={e => setAdjustForm(f => ({ ...f, amount_kg: e.target.value }))}
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm font-black text-slate-900 outline-none focus:border-indigo-500"
+                      placeholder="0.000"
+                    />
+                  </div>
+                  {(() => {
+                    const amt = parseFloat(adjustForm.amount_kg) || 0;
+                    if (amt > 0) {
+                      const newStock = adjustForm.type === 'add' ? adjustModal.stock_kg + amt : adjustModal.stock_kg - amt;
+                      return (
+                        <p className="text-[11px] font-bold mt-1.5 text-slate-500">
+                          Nuevo Stock estimado: <strong className="text-slate-900">{fmtKg(Math.max(0, newStock))} kg</strong>
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              )}
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Motivo / Razón del Ajuste *</label>
+                <input
+                  type="text"
+                  value={adjustForm.reason}
+                  onChange={e => setAdjustForm(f => ({ ...f, reason: e.target.value }))}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 outline-none focus:border-indigo-500"
+                  placeholder="Ej: Diferencia por báscula de cliente, cerámico, merma..."
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setAdjustModal(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 border-none cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitAdjustment}
+                disabled={submittingAdjustment}
+                className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 border-none cursor-pointer shadow-md shadow-indigo-500/20"
+              >
+                {submittingAdjustment ? <Loader2 size={14} className="animate-spin" /> : <Scale size={14} />}
+                <span>Guardar Ajuste</span>
+              </button>
             </div>
           </div>
         </div>
