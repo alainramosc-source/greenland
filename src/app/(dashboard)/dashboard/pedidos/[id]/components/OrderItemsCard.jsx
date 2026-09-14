@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { Package, Plus, Minus, Trash2, Warehouse, Search, Loader2 } from 'lucide-react';
+import { Package, Plus, Minus, Trash2, Warehouse, Search, Loader2, GitFork } from 'lucide-react';
 import { PRODUCT_WEIGHTS } from '@/hooks/useOrderDetail';
 
 export default function OrderItemsCard({
@@ -16,6 +16,7 @@ export default function OrderItemsCard({
   handleAssignWarehouse,
   handleUpdateQuantity,
   handleDeleteItem,
+  handleSplitItem,
   handleUpdatePrice,
   showAddProduct,
   setShowAddProduct,
@@ -279,16 +280,28 @@ export default function OrderItemsCard({
                   {/* Admin Actions Column */}
                   {isAdmin && (
                     <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                      {canDeleteItem(item) && (
-                        <button
-                          onClick={() => handleDeleteItem(item.id)}
-                          disabled={isDelLoading}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
-                          title="Eliminar producto del pedido"
-                        >
-                          {isDelLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                        </button>
-                      )}
+                      <div className="flex items-center justify-center gap-1">
+                        {canEditQty(item) && (
+                          <button
+                            onClick={() => handleSplitItem(item)}
+                            disabled={actionLoading === `split-${item.id}`}
+                            className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-colors cursor-pointer"
+                            title="Dividir este producto en otra bodega (crear 2ª línea)"
+                          >
+                            {actionLoading === `split-${item.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <GitFork className="w-4 h-4" />}
+                          </button>
+                        )}
+                        {canDeleteItem(item) && (
+                          <button
+                            onClick={() => handleDeleteItem(item.id)}
+                            disabled={isDelLoading}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
+                            title="Eliminar producto del pedido"
+                          >
+                            {isDelLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>

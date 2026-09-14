@@ -50,6 +50,7 @@ export default function OrderDetailsPage() {
     handleCancelOrder,
     handleReject,
     handleDeleteItem,
+    handleSplitItem,
     handleUpdateQuantity,
     handleUpdatePrice,
     handleRegisterPayment,
@@ -112,6 +113,7 @@ export default function OrderDetailsPage() {
             handleAssignWarehouse={handleAssignWarehouse}
             handleUpdateQuantity={handleUpdateQuantity}
             handleDeleteItem={handleDeleteItem}
+            handleSplitItem={handleSplitItem}
             handleUpdatePrice={handleUpdatePrice}
             showAddProduct={showAddProduct}
             setShowAddProduct={setShowAddProduct}
