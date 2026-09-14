@@ -750,14 +750,26 @@ export function useOrderDetail() {
     }
     if (!confirm('¿Seguro que deseas eliminar este producto del pedido?')) return;
     setActionLoading(`del-${itemId}`);
+    
+    // First try RPC, fallback to direct delete
     const { data, error } = await supabase.rpc('remove_item_from_order', {
       p_order_id: id,
       p_item_id: itemId
     });
-    if (error) {
-      alert('Error al eliminar producto: ' + error.message);
-    } else if (data && !data.success) {
-      alert('Error: ' + data.error);
+
+    if (error || (data && !data.success)) {
+      const { error: delErr } = await supabase.from('order_items').delete().eq('id', itemId);
+      if (delErr) {
+        alert('Error al eliminar producto: ' + delErr.message);
+      } else {
+        const remainingItems = order.order_items.filter(i => i.id !== itemId);
+        const newTotal = remainingItems.reduce((acc, i) => acc + (Number(editingItems[i.id] ?? i.quantity) * Number(editingPrices[i.id] ?? i.unit_price)), 0);
+        await supabase.from('orders').update({ total_amount: newTotal }).eq('id', id);
+
+        setEditingItems(prev => { const next = { ...prev }; delete next[itemId]; return next; });
+        setEditingPrices(prev => { const next = { ...prev }; delete next[itemId]; return next; });
+        await fetchOrderDetails();
+      }
     } else {
       setEditingItems(prev => { const next = { ...prev }; delete next[itemId]; return next; });
       setEditingPrices(prev => { const next = { ...prev }; delete next[itemId]; return next; });
@@ -777,16 +789,29 @@ export function useOrderDetail() {
       return;
     }
     setActionLoading(`qty-${itemId}`);
+    
     const { data, error } = await supabase.rpc('update_order_item_quantity', {
       p_order_id: id,
       p_item_id: itemId,
       p_new_quantity: validQty
     });
 
-    if (error) {
-      alert('Error al actualizar cantidad: ' + error.message);
-    } else if (data && !data.success) {
-      alert('Error: ' + data.error);
+    if (error || (data && !data.success)) {
+      const item = order.order_items.find(i => i.id === itemId);
+      if (item) {
+        const unitPrice = editingPrices[itemId] ?? item.unit_price;
+        const newSubtotal = validQty * unitPrice;
+        await supabase.from('order_items').update({ quantity: validQty, subtotal: newSubtotal }).eq('id', itemId);
+        
+        const updatedItems = order.order_items.map(i => i.id === itemId ? { ...i, quantity: validQty, subtotal: newSubtotal } : i);
+        const newTotal = updatedItems.reduce((acc, i) => acc + (Number(editingItems[i.id] ?? i.quantity) * Number(editingPrices[i.id] ?? i.unit_price)), 0);
+        await supabase.from('orders').update({ total_amount: newTotal }).eq('id', id);
+        
+        setEditingItems(prev => { const next = { ...prev }; delete next[itemId]; return next; });
+        await fetchOrderDetails();
+      } else {
+        alert('Error: ' + (error?.message || data?.error));
+      }
     } else {
       setEditingItems(prev => { const next = { ...prev }; delete next[itemId]; return next; });
       await fetchOrderDetails();
@@ -916,22 +941,85 @@ export function useOrderDetail() {
   };
 
   const handleAddProduct = async (product) => {
+    setActionLoading(`add-prod-${product.id}`);
+    const unitPrice = product.price || 0;
+
+    // Try RPC first, fallback to direct insertion to allow multiple SKU lines for warehouse splitting
     const { data, error } = await supabase.rpc('add_item_to_order', {
       p_order_id: id,
       p_product_id: product.id,
       p_quantity: 1,
-      p_unit_price: product.price || 0
+      p_unit_price: unitPrice
     });
-    if (error) {
-      alert('Error al agregar producto: ' + error.message);
-    } else if (data && !data.success) {
-      alert('Error: ' + data.error);
+
+    if (error || (data && !data.success)) {
+      const { error: insErr } = await supabase
+        .from('order_items')
+        .insert({
+          order_id: id,
+          product_id: product.id,
+          quantity: 1,
+          unit_price: unitPrice,
+          subtotal: unitPrice,
+          warehouse_id: null
+        });
+
+      if (insErr) {
+        alert('Error al agregar producto: ' + insErr.message);
+      } else {
+        const { data: allItems } = await supabase
+          .from('order_items')
+          .select('subtotal, quantity, unit_price')
+          .eq('order_id', id);
+
+        const newTotal = (allItems || []).reduce((acc, i) => acc + Number(i.subtotal || (i.quantity * i.unit_price)), 0);
+        await supabase.from('orders').update({ total_amount: newTotal }).eq('id', id);
+
+        setShowAddProduct(false);
+        setProductSearch('');
+        setAvailableProducts([]);
+        await fetchOrderDetails();
+      }
     } else {
       setShowAddProduct(false);
       setProductSearch('');
       setAvailableProducts([]);
       await fetchOrderDetails();
     }
+    setActionLoading(null);
+  };
+
+  const handleSplitItem = async (item) => {
+    if (!item) return;
+    if (!confirm(`¿Dividir "${item.products?.name || 'este producto'}" en 2 líneas para surtir de bodegas distintas?`)) return;
+
+    setActionLoading(`split-${item.id}`);
+    const unitPrice = editingPrices[item.id] ?? item.unit_price;
+
+    const { error } = await supabase
+      .from('order_items')
+      .insert({
+        order_id: id,
+        product_id: item.product_id,
+        quantity: 1,
+        unit_price: unitPrice,
+        subtotal: unitPrice,
+        warehouse_id: null
+      });
+
+    if (error) {
+      alert('Error al dividir línea: ' + error.message);
+    } else {
+      const { data: allItems } = await supabase
+        .from('order_items')
+        .select('subtotal, quantity, unit_price')
+        .eq('order_id', id);
+
+      const newTotal = (allItems || []).reduce((acc, i) => acc + Number(i.subtotal || (i.quantity * i.unit_price)), 0);
+      await supabase.from('orders').update({ total_amount: newTotal }).eq('id', id);
+      await fetchOrderDetails();
+    }
+    setActionLoading(null);
   };
 
   const handleReorder = async () => {
@@ -992,6 +1080,7 @@ export function useOrderDetail() {
     handleEvidenceUpload,
     handleDeleteEvidence,
     handleAddProduct,
+    handleSplitItem,
     handleReorder,
   };
 }
