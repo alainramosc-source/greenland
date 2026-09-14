@@ -1,4 +1,4 @@
--- RPC function to add an item to an order or increment its quantity if needed
+-- RPC function to add an item to an order
 CREATE OR REPLACE FUNCTION add_item_to_order(
   p_order_id UUID,
   p_product_id UUID,
@@ -19,13 +19,14 @@ BEGIN
     v_unit_price := p_unit_price;
   END IF;
 
-  INSERT INTO order_items (order_id, product_id, quantity, unit_price, subtotal)
-  VALUES (p_order_id, p_product_id, p_quantity, v_unit_price, p_quantity * v_unit_price);
+  -- Only insert quantity & unit_price (subtotal is generated column)
+  INSERT INTO order_items (order_id, product_id, quantity, unit_price)
+  VALUES (p_order_id, p_product_id, p_quantity, v_unit_price);
 
   -- Recalculate order total
   UPDATE orders
   SET total_amount = (
-    SELECT COALESCE(SUM(subtotal), 0) FROM order_items WHERE order_id = p_order_id
+    SELECT COALESCE(SUM(quantity * unit_price), 0) FROM order_items WHERE order_id = p_order_id
   )
   WHERE id = p_order_id;
 
@@ -48,7 +49,7 @@ BEGIN
   -- Recalculate order total
   UPDATE orders
   SET total_amount = (
-    SELECT COALESCE(SUM(subtotal), 0) FROM order_items WHERE order_id = p_order_id
+    SELECT COALESCE(SUM(quantity * unit_price), 0) FROM order_items WHERE order_id = p_order_id
   )
   WHERE id = p_order_id;
 

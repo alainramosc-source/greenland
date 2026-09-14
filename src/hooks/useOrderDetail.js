@@ -801,9 +801,9 @@ export function useOrderDetail() {
       if (item) {
         const unitPrice = editingPrices[itemId] ?? item.unit_price;
         const newSubtotal = validQty * unitPrice;
-        await supabase.from('order_items').update({ quantity: validQty, subtotal: newSubtotal }).eq('id', itemId);
+        await supabase.from('order_items').update({ quantity: validQty }).eq('id', itemId);
         
-        const updatedItems = order.order_items.map(i => i.id === itemId ? { ...i, quantity: validQty, subtotal: newSubtotal } : i);
+        const updatedItems = order.order_items.map(i => i.id === itemId ? { ...i, quantity: validQty } : i);
         const newTotal = updatedItems.reduce((acc, i) => acc + (Number(editingItems[i.id] ?? i.quantity) * Number(editingPrices[i.id] ?? i.unit_price)), 0);
         await supabase.from('orders').update({ total_amount: newTotal }).eq('id', id);
         
@@ -829,13 +829,13 @@ export function useOrderDetail() {
     setActionLoading(`price-${itemId}`);
 
     const updatedItems = order.order_items.map(i =>
-      i.id === itemId ? { ...i, unit_price: validP, subtotal: validP * i.quantity } : i
+      i.id === itemId ? { ...i, unit_price: validP } : i
     );
-    const newTotal = updatedItems.reduce((acc, i) => acc + i.subtotal, 0);
+    const newTotal = updatedItems.reduce((acc, i) => acc + (i.quantity * i.unit_price), 0);
 
     const { error: itemError } = await supabase
       .from('order_items')
-      .update({ unit_price: validP, subtotal: validP * (editingItems[itemId] ?? updatedItems.find(i=>i.id===itemId).quantity) })
+      .update({ unit_price: validP })
       .eq('id', itemId);
 
     if (itemError) {
@@ -960,7 +960,6 @@ export function useOrderDetail() {
           product_id: product.id,
           quantity: 1,
           unit_price: unitPrice,
-          subtotal: unitPrice,
           warehouse_id: null
         });
 
@@ -969,10 +968,10 @@ export function useOrderDetail() {
       } else {
         const { data: allItems } = await supabase
           .from('order_items')
-          .select('subtotal, quantity, unit_price')
+          .select('quantity, unit_price')
           .eq('order_id', id);
 
-        const newTotal = (allItems || []).reduce((acc, i) => acc + Number(i.subtotal || (i.quantity * i.unit_price)), 0);
+        const newTotal = (allItems || []).reduce((acc, i) => acc + (Number(i.quantity) * Number(i.unit_price)), 0);
         await supabase.from('orders').update({ total_amount: newTotal }).eq('id', id);
 
         setShowAddProduct(false);
@@ -1003,7 +1002,6 @@ export function useOrderDetail() {
         product_id: item.product_id,
         quantity: 1,
         unit_price: unitPrice,
-        subtotal: unitPrice,
         warehouse_id: null
       });
 
@@ -1012,10 +1010,10 @@ export function useOrderDetail() {
     } else {
       const { data: allItems } = await supabase
         .from('order_items')
-        .select('subtotal, quantity, unit_price')
+        .select('quantity, unit_price')
         .eq('order_id', id);
 
-      const newTotal = (allItems || []).reduce((acc, i) => acc + Number(i.subtotal || (i.quantity * i.unit_price)), 0);
+      const newTotal = (allItems || []).reduce((acc, i) => acc + (Number(i.quantity) * Number(i.unit_price)), 0);
       await supabase.from('orders').update({ total_amount: newTotal }).eq('id', id);
       await fetchOrderDetails();
     }
