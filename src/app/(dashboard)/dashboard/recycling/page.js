@@ -477,8 +477,22 @@ export default function RecyclingPage() {
       const actionLabel = isAdd ? `Ajuste (+) ${fmtKg(qty)} kg` : `Ajuste (-) ${fmtKg(qty)} kg`;
 
       if (isAdd) {
+        // Generate purchase number for positive adjustment
+        const { data: lastPurchase } = await supabase
+          .from('recycling_purchases')
+          .select('purchase_number')
+          .order('created_at', { ascending: false })
+          .limit(1);
+        let nextNum = 1;
+        if (lastPurchase && lastPurchase.length > 0) {
+          const match = lastPurchase[0].purchase_number?.match(/GR-(\d+)/);
+          if (match) nextNum = parseInt(match[1]) + 1;
+        }
+        const purchaseNumber = `GR-${String(nextNum).padStart(5, '0')}`;
+
         // Positive adjustment: insert into purchases with price = 0
         const { error } = await supabase.from('recycling_purchases').insert({
+          purchase_number: purchaseNumber,
           material_type_id: adjustModal.id,
           quantity_kg: qty,
           price_per_kg: 0,
@@ -489,8 +503,22 @@ export default function RecyclingPage() {
         });
         if (error) throw error;
       } else {
+        // Generate sale number for negative adjustment
+        const { data: lastSale } = await supabase
+          .from('recycling_sales')
+          .select('sale_number')
+          .order('created_at', { ascending: false })
+          .limit(1);
+        let nextNum = 1;
+        if (lastSale && lastSale.length > 0) {
+          const match = lastSale[0].sale_number?.match(/GRS-(\d+)/);
+          if (match) nextNum = parseInt(match[1]) + 1;
+        }
+        const saleNumber = `GRS-${String(nextNum).padStart(5, '0')}`;
+
         // Negative adjustment: insert into sales with price = 0
         const { error } = await supabase.from('recycling_sales').insert({
+          sale_number: saleNumber,
           material_type_id: adjustModal.id,
           quantity_kg: qty,
           price_per_kg: 0,
@@ -581,7 +609,7 @@ export default function RecyclingPage() {
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-6 right-6 z-[100] px-5 py-3 rounded-xl shadow-2xl text-sm font-bold text-white flex items-center gap-2 animate-[slideIn_0.3s_ease] ${toast.type === 'error' ? 'bg-red-500' : 'bg-[#6a9a04]'}`}
+        <div className={`fixed top-24 right-6 z-[9999] px-5 py-3 rounded-xl shadow-2xl text-sm font-bold text-white flex items-center gap-2 animate-[slideIn_0.3s_ease] ${toast.type === 'error' ? 'bg-red-500' : 'bg-[#6a9a04]'}`}
           style={{ animation: 'slideIn 0.3s ease' }}>
           {toast.type === 'error' ? <X size={16} /> : <Check size={16} />}
           {toast.message}
