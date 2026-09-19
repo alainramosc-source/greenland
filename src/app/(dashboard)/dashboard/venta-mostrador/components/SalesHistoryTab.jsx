@@ -1,7 +1,6 @@
-'use client';
-import React from 'react';
+import * as XLSX from 'xlsx';
 import {
-  Search, Receipt, Calendar, User, Warehouse, ChevronDown, ChevronUp, RotateCcw, Loader2, CheckCircle2, XCircle, Printer
+  Search, Receipt, Calendar, User, Warehouse, ChevronDown, ChevronUp, RotateCcw, Loader2, CheckCircle2, XCircle, Printer, Download
 } from 'lucide-react';
 import { formatDateOnly } from '@/utils/formatters';
 
@@ -31,11 +30,99 @@ export default function SalesHistoryTab({
     );
   });
 
+  const handleExportSalesExcel = () => {
+    try {
+      const itemRows = [];
+      const summaryRows = [];
+
+      filteredHistory.forEach(sale => {
+        const saleDate = sale.created_at ? new Date(sale.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '';
+        const saleTime = sale.created_at ? new Date(sale.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '';
+        const customer = sale.customer_name || 'Público General';
+        const sellerName = sale.seller?.full_name || 'Admin';
+        const warehouseName = sale.warehouse?.name || 'Sucursal';
+        const payMethod = sale.payment_method || 'efectivo';
+        const statusLabel = sale.status === 'cancelled' ? 'CANCELADA / DEVOLUCIÓN' : 'COMPLETADA';
+
+        const rawItems = typeof sale.items === 'string' ? JSON.parse(sale.items) : (sale.items || []);
+        let totalQty = 0;
+
+        if (rawItems.length > 0) {
+          rawItems.forEach(item => {
+            const qty = Number(item.quantity || 1);
+            const price = Number(item.unit_price || 0);
+            const subtotal = Number(item.subtotal || (qty * price));
+            totalQty += qty;
+
+            itemRows.push({
+              'Folio': sale.sale_number,
+              'Fecha': saleDate,
+              'Hora': saleTime,
+              'Cliente': customer,
+              'Vendedor': sellerName,
+              'Sucursal / Bodega': warehouseName,
+              'Forma de Pago': payMethod,
+              'SKU': item.sku || 'N/A',
+              'Producto': item.name || item.sku || 'N/A',
+              'Cantidad': qty,
+              'Precio Unitario ($)': price,
+              'Subtotal Linea ($)': subtotal,
+              'Estatus': statusLabel
+            });
+          });
+        } else {
+          itemRows.push({
+            'Folio': sale.sale_number,
+            'Fecha': saleDate,
+            'Hora': saleTime,
+            'Cliente': customer,
+            'Vendedor': sellerName,
+            'Sucursal / Bodega': warehouseName,
+            'Forma de Pago': payMethod,
+            'SKU': 'Sin items',
+            'Producto': '-',
+            'Cantidad': 0,
+            'Precio Unitario ($)': 0,
+            'Subtotal Linea ($)': 0,
+            'Estatus': statusLabel
+          });
+        }
+
+        summaryRows.push({
+          'Folio': sale.sale_number,
+          'Fecha': saleDate,
+          'Hora': saleTime,
+          'Cliente': customer,
+          'Vendedor': sellerName,
+          'Sucursal / Bodega': warehouseName,
+          'Forma de Pago': payMethod,
+          'Total Piezas': totalQty,
+          'Total Venta ($)': Number(sale.total || 0),
+          'Estatus': statusLabel,
+          'Notas': sale.notes || ''
+        });
+      });
+
+      const wb = XLSX.utils.book_new();
+      const wsItems = XLSX.utils.json_to_sheet(itemRows);
+      const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+
+      XLSX.utils.book_append_sheet(wb, wsItems, 'Detalle de Productos');
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen de Ventas');
+
+      const fileName = `reporte_ventas_mostrador_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+    } catch (err) {
+      console.error('Error al exportar ventas:', err);
+      alert('Error al generar el reporte de Excel: ' + err.message);
+    }
+  };
+
   return (
     <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-4">
       {/* Search Header */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Receipt size={18} className="text-[#6a9a04]" />
           <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">
             Historial de Ventas Mostrador
@@ -45,15 +132,26 @@ export default function SalesHistoryTab({
           </span>
         </div>
 
-        <div className="relative max-w-xs w-full">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Buscar por folio, cliente, vendedor..."
-            value={historialSearch}
-            onChange={(e) => setHistorialSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 rounded-xl text-xs border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#6a9a04]"
-          />
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative max-w-xs w-full">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Buscar por folio, cliente, vendedor..."
+              value={historialSearch}
+              onChange={(e) => setHistorialSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 rounded-xl text-xs border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#6a9a04]"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleExportSalesExcel}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-[#6a9a04] hover:text-white transition-all cursor-pointer shrink-0 border border-slate-200 shadow-sm"
+            title="Exportar ventas mostrador a Excel con productos y cantidades"
+          >
+            <Download size={14} className="text-[#6a9a04] hover:text-white transition-colors" />
+            <span>Exportar Excel</span>
+          </button>
         </div>
       </div>
 

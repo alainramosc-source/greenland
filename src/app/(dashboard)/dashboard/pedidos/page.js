@@ -83,7 +83,20 @@ export default function PedidosPage() {
 
       setIsAdmin(isAdmin);
 
-      let query = supabase.from('orders').select('*, profiles:distributor_id(full_name, email, city)').order('created_at', { ascending: false });
+      let query = supabase.from('orders').select(`
+        *,
+        profiles:distributor_id(full_name, email, city),
+        order_items (
+          quantity,
+          unit_price,
+          total_price,
+          products (
+            sku,
+            name,
+            description
+          )
+        )
+      `).order('created_at', { ascending: false });
       if (!isAdmin) {
         query = query.eq('distributor_id', targetUserId);
       }
@@ -411,29 +424,92 @@ export default function PedidosPage() {
               >
                 <Plus className="w-5 h-5 mr-2" /> Crear Pedido
               </Link>
-              {isAdmin && (
-                <>
-                <button
-                  onClick={() => {
-                    const rows = filteredOrders.map(o => ({
-                      'No. Pedido': o.order_number,
-                      'Fecha': new Date(o.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' }),
-                      'Distribuidor': o.profiles?.full_name || '',
-                      'Ciudad': o.profiles?.city || '',
-                      'Total': Number(o.total_amount || 0),
-                      'Estado': OP_STATUS[o.status]?.label || o.status,
-                      'Pago': PAY_STATUS[o.payment_status]?.label || o.payment_status || '',
-                    }));
-                    const ws = XLSX.utils.json_to_sheet(rows);
+              <button
+                onClick={() => {
+                  try {
+                    const itemRows = [];
+                    const summaryRows = [];
+
+                    filteredOrders.forEach(o => {
+                      const orderDate = o.created_at ? new Date(o.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '';
+                      const distName = o.profiles?.full_name || 'N/A';
+                      const city = o.profiles?.city || '';
+                      const statusLabel = OP_STATUS[o.status]?.label || o.status;
+                      const payLabel = PAY_STATUS[o.payment_status]?.label || o.payment_status || 'Por Cobrar';
+
+                      const items = o.order_items || [];
+                      let totalQtyInOrder = 0;
+
+                      if (items.length > 0) {
+                        items.forEach(item => {
+                          const sku = item.products?.sku || item.sku || 'N/A';
+                          const name = item.products?.name || item.product_name || 'N/A';
+                          const qty = Number(item.quantity || 0);
+                          const price = Number(item.unit_price || 0);
+                          const subtotal = Number(item.total_price || (qty * price));
+                          totalQtyInOrder += qty;
+
+                          itemRows.push({
+                            'No. Pedido': o.order_number,
+                            'Fecha': orderDate,
+                            'Distribuidor': distName,
+                            'Ciudad': city,
+                            'SKU': sku,
+                            'Producto': name,
+                            'Cantidad': qty,
+                            'Precio Unitario ($)': price,
+                            'Subtotal Linea ($)': subtotal,
+                            'Estatus Pedido': statusLabel,
+                            'Estatus Pago': payLabel,
+                          });
+                        });
+                      } else {
+                        itemRows.push({
+                          'No. Pedido': o.order_number,
+                          'Fecha': orderDate,
+                          'Distribuidor': distName,
+                          'Ciudad': city,
+                          'SKU': 'Sin items',
+                          'Producto': '-',
+                          'Cantidad': 0,
+                          'Precio Unitario ($)': 0,
+                          'Subtotal Linea ($)': 0,
+                          'Estatus Pedido': statusLabel,
+                          'Estatus Pago': payLabel,
+                        });
+                      }
+
+                      summaryRows.push({
+                        'No. Pedido': o.order_number,
+                        'Fecha': orderDate,
+                        'Distribuidor': distName,
+                        'Ciudad': city,
+                        'Total Piezas': totalQtyInOrder,
+                        'Monto Total ($)': Number(o.total_amount || 0),
+                        'Estatus Pedido': statusLabel,
+                        'Estatus Pago': payLabel,
+                      });
+                    });
+
                     const wb = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
-                    XLSX.writeFile(wb, `pedidos_${new Date().toISOString().split('T')[0]}.xlsx`);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 bg-white/50 border border-white/80 hover:bg-white cursor-pointer transition-all backdrop-blur-md shadow-sm"
-                  title="Exportar pedidos a Excel"
-                >
-                  <Download className="w-4 h-4" /> Exportar
-                </button>
+                    const wsItems = XLSX.utils.json_to_sheet(itemRows);
+                    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+
+                    XLSX.utils.book_append_sheet(wb, wsItems, 'Detalle de Productos');
+                    XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen de Pedidos');
+
+                    XLSX.writeFile(wb, `reporte_pedidos_${new Date().toISOString().split('T')[0]}.xlsx`);
+                  } catch (err) {
+                    console.error('Error al exportar pedidos:', err);
+                    alert('Error al generar el reporte de Excel: ' + err.message);
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 bg-white/50 border border-white/80 hover:bg-white cursor-pointer transition-all backdrop-blur-md shadow-sm"
+                title="Exportar reporte de pedidos a Excel (con detalle de productos)"
+              >
+                <Download className="w-4 h-4 text-[#6a9a04]" /> Exportar Excel
+              </button>
+              {isAdmin && (
                 <button
                   onClick={handlePrintOrders}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 bg-white/50 border border-white/80 hover:bg-white cursor-pointer transition-all backdrop-blur-md shadow-sm"
@@ -441,7 +517,6 @@ export default function PedidosPage() {
                 >
                   <Printer className="w-4 h-4" /> Imprimir
                 </button>
-                </>
               )}
             </div>
           </div>
