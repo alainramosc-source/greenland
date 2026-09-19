@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck, Eye, EyeOff, ArrowLeft, MessageSquare, Truck, FileBox, FolderOpen, Globe, Factory, Box, Container, ShoppingBag, Tag, FileSpreadsheet, Recycle, Wallet } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, BarChart3, Grid, Shield, ShieldCheck, MapPin, DollarSign, CreditCard, ScrollText, ClipboardCheck, Eye, EyeOff, ArrowLeft, MessageSquare, Truck, FileBox, FolderOpen, Globe, Factory, Box, Container, ShoppingBag, Tag, FileSpreadsheet, Recycle, Wallet, TrendingUp } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) => {
@@ -86,6 +86,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
     { name: 'Pedidos de Zona', href: '/dashboard/pedidos-zona', icon: Globe },
     { name: 'Inventarios', href: '/dashboard/inventarios', icon: Package },
     { name: 'Cobertura', href: '/dashboard/cobertura', icon: ShieldCheck },
+    { name: 'Planeación de Demanda', href: '/dashboard/planeacion-demanda', icon: TrendingUp },
   ] : [];
 
   const navItems = userRole === 'admin'
@@ -107,6 +108,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
     { name: 'Venta en Mostrador', href: '/dashboard/venta-mostrador', icon: ShoppingBag, roles: ['super_admin', 'warehouse_admin'] },
     { name: 'Etiquetas', href: '/dashboard/etiquetas', icon: Tag, roles: ['super_admin', 'warehouse_admin'] },
     { name: 'Cobertura', href: '/dashboard/cobertura', icon: ShieldCheck, roles: ['super_admin'] },
+    { name: 'Planeación de Demanda', href: '/dashboard/planeacion-demanda', icon: TrendingUp, roles: ['super_admin'] },
     { name: 'Compras', href: '/dashboard/cobertura/historial', icon: FileSpreadsheet, roles: ['super_admin'] },
     { name: 'Recycling', href: '/dashboard/recycling', icon: Recycle, roles: ['super_admin', 'warehouse_admin'] },
     { name: 'Recepciones', href: '/dashboard/recepciones', icon: Container, roles: ['super_admin'] },

@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     ShieldCheck, MapPin, Package, Upload, Edit3, X, Save,
-    RefreshCw, AlertTriangle, CheckCircle, TrendingDown, Warehouse, FileSpreadsheet, History,
+    RefreshCw, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Warehouse, FileSpreadsheet, History,
     Clock, Truck, Calendar, ArrowRight, Plus, Trash2, Ship, Loader2, ChevronRight, Eye, ArrowLeft
 } from 'lucide-react';
 
@@ -39,6 +39,8 @@ function CoberturaPage() {
     // Smart coverage state
     const [transitPanel, setTransitPanel] = useState(null); // product_id of open panel
     const [transitForm, setTransitForm] = useState({ quantity: '', estimated_arrival: '', origin: '' });
+    const [editingTransitId, setEditingTransitId] = useState(null);
+    const [editingTransitForm, setEditingTransitForm] = useState({ quantity: '', estimated_arrival: '', origin: '' });
     const [showTransitCsvModal, setShowTransitCsvModal] = useState(false);
     const [transitCsvText, setTransitCsvText] = useState('');
     const [transitCsvImporting, setTransitCsvImporting] = useState(false);
@@ -607,6 +609,44 @@ function CoberturaPage() {
         else { await fetchTransits(selectedWarehouse); showToast('Embarque marcado como llegado'); }
     };
 
+    const startEditTransit = (t) => {
+        setEditingTransitId(t.id);
+        const dateStr = t.estimated_arrival ? t.estimated_arrival.toString().split('T')[0] : '';
+        setEditingTransitForm({
+            quantity: t.quantity || '',
+            estimated_arrival: dateStr,
+            origin: t.origin || ''
+        });
+    };
+
+    const cancelEditTransit = () => {
+        setEditingTransitId(null);
+        setEditingTransitForm({ quantity: '', estimated_arrival: '', origin: '' });
+    };
+
+    const saveEditTransit = async (transitId) => {
+        if (!editingTransitForm.estimated_arrival || !editingTransitForm.quantity) {
+            showToast('Cantidad y fecha de llegada son obligatorios', 'error');
+            return;
+        }
+        const { error } = await supabase
+            .from('transit_shipments')
+            .update({
+                quantity: parseInt(editingTransitForm.quantity) || 0,
+                estimated_arrival: editingTransitForm.estimated_arrival,
+                origin: editingTransitForm.origin || null,
+            })
+            .eq('id', transitId);
+
+        if (error) {
+            showToast('Error: ' + error.message, 'error');
+        } else {
+            await fetchTransits(selectedWarehouse);
+            setEditingTransitId(null);
+            showToast('Embarque actualizado con éxito');
+        }
+    };
+
     // Bulk CSV transit import (file-based)
     const transitFileRef = useRef(null);
     const handleTransitCsvImport = async (e) => {
@@ -731,6 +771,10 @@ function CoberturaPage() {
                         <button onClick={() => router.push('/dashboard/cobertura/historial')}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 font-bold text-sm hover:bg-blue-100 cursor-pointer transition-all shadow-sm">
                             <History size={16} /> Historial PO
+                        </button>
+                        <button onClick={() => router.push('/dashboard/planeacion-demanda')}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 font-bold text-sm hover:bg-emerald-100 cursor-pointer transition-all shadow-sm">
+                            <TrendingUp size={16} /> Planeación Demanda
                         </button>
                         <button onClick={() => router.push('/dashboard/cobertura/nuevo-pedido')}
                             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#6a9a04] text-white font-bold text-sm hover:bg-[#6a9a04]/90 cursor-pointer transition-all shadow-lg shadow-[#6a9a04]/20 border-none">
@@ -1034,34 +1078,81 @@ function CoberturaPage() {
                                         const todayNoon = new Date(); todayNoon.setHours(12, 0, 0, 0);
                                         const daysUntil = Math.ceil((arrDate - todayNoon) / (1000 * 60 * 60 * 24));
                                         const weeksUntil = Math.ceil(daysUntil / 7);
+                                        const isEditing = editingTransitId === t.id;
+
                                         return (
-                                            <div key={t.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100 hover:border-orange-200 transition-all">
-                                                <div className="flex items-start justify-between mb-2">
-                                                    <div>
-                                                        <span className="text-lg font-black text-slate-900">{t.quantity.toLocaleString()}</span>
-                                                        <span className="text-xs text-slate-400 ml-1">uds</span>
+                                            <div key={t.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100 hover:border-orange-200 transition-all space-y-2">
+                                                {isEditing ? (
+                                                    <div className="space-y-3">
+                                                        <div className="text-xs font-black text-slate-700 uppercase tracking-wider">Editar Embarque / Fecha de Llegada</div>
+                                                        <div className="grid grid-cols-3 gap-2">
+                                                            <div>
+                                                                <label className="text-[9px] font-bold text-slate-400 uppercase">Cantidad</label>
+                                                                <input type="number" value={editingTransitForm.quantity}
+                                                                    onChange={e => setEditingTransitForm(f => ({ ...f, quantity: e.target.value }))}
+                                                                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white font-bold" />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[9px] font-bold text-slate-400 uppercase">Fecha llegada</label>
+                                                                <input type="date" value={editingTransitForm.estimated_arrival}
+                                                                    onChange={e => setEditingTransitForm(f => ({ ...f, estimated_arrival: e.target.value }))}
+                                                                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white font-bold" />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[9px] font-bold text-slate-400 uppercase">Origen</label>
+                                                                <select value={editingTransitForm.origin}
+                                                                    onChange={e => setEditingTransitForm(f => ({ ...f, origin: e.target.value }))}
+                                                                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white font-bold">
+                                                                    <option value="">—</option>
+                                                                    {manufacturers.map(m => <option key={m.id} value={m.short_name}>{m.short_name}</option>)}
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex justify-end gap-2 pt-1">
+                                                            <button onClick={cancelEditTransit}
+                                                                className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-bold cursor-pointer">
+                                                                Cancelar
+                                                            </button>
+                                                            <button onClick={() => saveEditTransit(t.id)}
+                                                                className="px-3 py-1.5 rounded-lg bg-orange-500 text-white hover:bg-orange-600 text-xs font-black cursor-pointer border-none shadow-sm flex items-center gap-1">
+                                                                <Save size={12} /> Guardar
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex gap-1">
-                                                        <button onClick={() => markTransitArrived(t.id)} title="Marcar como llegado"
-                                                            className="p-1.5 rounded-lg border border-green-200 text-green-600 hover:bg-green-50 cursor-pointer bg-transparent transition-all text-xs">
-                                                            <CheckCircle size={14} />
-                                                        </button>
-                                                        <button onClick={() => deleteTransit(t.id)} title="Eliminar"
-                                                            className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 cursor-pointer bg-transparent transition-all text-xs">
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-3 text-xs">
-                                                    <span className="flex items-center gap-1 text-slate-600">
-                                                        <Calendar size={12} />
-                                                        {arrDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                                    </span>
-                                                    <span className={`font-bold ${daysUntil <= 0 ? 'text-green-600' : daysUntil <= 14 ? 'text-orange-600' : 'text-slate-500'}`}>
-                                                        {daysUntil <= 0 ? '🟢 Llegando' : `${weeksUntil} sem (${daysUntil}d)`}
-                                                    </span>
-                                                </div>
-                                                {t.origin && <span className="inline-block mt-2 text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{t.origin}</span>}
+                                                ) : (
+                                                    <>
+                                                        <div className="flex items-start justify-between mb-1">
+                                                            <div>
+                                                                <span className="text-lg font-black text-slate-900">{t.quantity.toLocaleString()}</span>
+                                                                <span className="text-xs text-slate-400 ml-1">uds</span>
+                                                            </div>
+                                                            <div className="flex gap-1">
+                                                                <button onClick={() => startEditTransit(t)} title="Editar fecha de llegada / tránsito"
+                                                                    className="p-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 cursor-pointer bg-transparent transition-all text-xs">
+                                                                    <Edit3 size={14} />
+                                                                </button>
+                                                                <button onClick={() => markTransitArrived(t.id)} title="Marcar como llegado"
+                                                                    className="p-1.5 rounded-lg border border-green-200 text-green-600 hover:bg-green-50 cursor-pointer bg-transparent transition-all text-xs">
+                                                                    <CheckCircle size={14} />
+                                                                </button>
+                                                                <button onClick={() => deleteTransit(t.id)} title="Eliminar"
+                                                                    className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 cursor-pointer bg-transparent transition-all text-xs">
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-3 text-xs">
+                                                            <span className="flex items-center gap-1 text-slate-600 font-medium">
+                                                                <Calendar size={12} />
+                                                                {arrDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                            </span>
+                                                            <span className={`font-bold ${daysUntil <= 0 ? 'text-green-600' : daysUntil <= 14 ? 'text-orange-600' : 'text-slate-500'}`}>
+                                                                {daysUntil <= 0 ? '🟢 Llegando' : `${weeksUntil} sem (${daysUntil}d)`}
+                                                            </span>
+                                                        </div>
+                                                        {t.origin && <span className="inline-block mt-1 text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{t.origin}</span>}
+                                                    </>
+                                                )}
                                             </div>
                                         );
                                     })}
