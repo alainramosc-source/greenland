@@ -127,6 +127,7 @@ export default function OrderDetailsPage() {
           {/* Evidence Photos Section */}
           <OrderEvidenceCard
             order={order}
+            isAdmin={isAdmin}
             evidence={evidence}
             evidenceTab={evidenceTab}
             setEvidenceTab={setEvidenceTab}

@@ -4,7 +4,8 @@ import { Camera, Image as ImageIcon, Trash2, X, Upload, Loader2, ZoomIn } from '
 
 export default function OrderEvidenceCard({
   order,
-  evidence,
+  isAdmin,
+  evidence = [],
   evidenceTab,
   setEvidenceTab,
   uploading,
@@ -15,11 +16,21 @@ export default function OrderEvidenceCard({
 }) {
   if (!order) return null;
 
-  const isVisible = ['in_fulfillment', 'shipped', 'closed'].includes(order.status);
-  if (!isVisible && evidence.length === 0) return null;
+  const isGuiaTab = evidenceTab === 'guia' || evidenceTab === 'flete';
 
-  const filteredEvidence = evidence.filter(e => e.evidence_type === evidenceTab);
+  const filteredEvidence = evidence.filter(e => {
+    if (isGuiaTab) {
+      return e.evidence_type === 'guia' || e.evidence_type === 'flete';
+    }
+    return e.evidence_type === evidenceTab;
+  });
+
   const embarqueCount = evidence.filter(e => e.evidence_type === 'embarque').length;
+  const guiaCount = evidence.filter(e => e.evidence_type === 'guia' || e.evidence_type === 'flete').length;
+  const llegadaCount = evidence.filter(e => e.evidence_type === 'llegada').length;
+
+  const canUpload = !['cancelled', 'rejected'].includes(order.status);
+  const canDelete = isAdmin && !['cancelled', 'rejected'].includes(order.status);
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 space-y-5 shadow-sm">
@@ -39,6 +50,7 @@ export default function OrderEvidenceCard({
         {/* Tabs */}
         <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700">
           <button
+            type="button"
             onClick={() => setEvidenceTab('embarque')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               evidenceTab === 'embarque'
@@ -49,16 +61,18 @@ export default function OrderEvidenceCard({
             Embarque ({embarqueCount})
           </button>
           <button
-            onClick={() => setEvidenceTab('flete')}
+            type="button"
+            onClick={() => setEvidenceTab('guia')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              evidenceTab === 'flete'
+              isGuiaTab
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
             }`}
           >
-            Guía / Remisión ({evidence.filter(e => e.evidence_type === 'flete').length})
+            Guía / Remisión ({guiaCount})
           </button>
           <button
+            type="button"
             onClick={() => setEvidenceTab('llegada')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               evidenceTab === 'llegada'
@@ -66,20 +80,21 @@ export default function OrderEvidenceCard({
                 : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
             }`}
           >
-            Llegada ({evidence.filter(e => e.evidence_type === 'llegada').length})
+            Llegada ({llegadaCount})
           </button>
         </div>
       </div>
 
-      {/* Upload buttons (when order is in_fulfillment, shipped, or active) */}
-      {order.status === 'in_fulfillment' && (
+      {/* Upload buttons */}
+      {canUpload && (
         <div className="flex items-center gap-3">
           <label className="flex-1 cursor-pointer">
             <input
               type="file"
               accept="image/*"
               capture="environment"
-              onChange={(e) => handleEvidenceUpload(e.target.files, evidenceTab)}
+              disabled={uploading}
+              onChange={(e) => handleEvidenceUpload(e.target.files, isGuiaTab ? 'guia' : evidenceTab)}
               className="hidden"
             />
             <div className="py-3 px-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-extrabold text-xs flex items-center justify-center gap-2 transition-all shadow-sm">
@@ -93,7 +108,8 @@ export default function OrderEvidenceCard({
               type="file"
               accept="image/*"
               multiple
-              onChange={(e) => handleEvidenceUpload(e.target.files, evidenceTab)}
+              disabled={uploading}
+              onChange={(e) => handleEvidenceUpload(e.target.files, isGuiaTab ? 'guia' : evidenceTab)}
               className="hidden"
             />
             <div className="py-3 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-extrabold text-xs flex items-center justify-center gap-2 transition-all border border-slate-200 dark:border-slate-700 shadow-sm">
@@ -117,7 +133,11 @@ export default function OrderEvidenceCard({
           <ImageIcon className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
           <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Sin fotos cargadas en esta sección</p>
           <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-            Sube al menos 2 fotos de embarque para autorizar el envío
+            {isGuiaTab
+              ? 'Sube la guía de embarque, remisión o comprobante de paquetería'
+              : evidenceTab === 'llegada'
+              ? 'Sube comprobantes o evidencias de entrega al cliente'
+              : 'Sube las fotos de embalaje / embarque del pedido'}
           </p>
         </div>
       ) : (
@@ -140,8 +160,9 @@ export default function OrderEvidenceCard({
                   <span className="w-7 h-7 rounded-xl bg-black/50 text-white flex items-center justify-center backdrop-blur-sm">
                     <ZoomIn className="w-4 h-4" />
                   </span>
-                  {order.status === 'in_fulfillment' && (
+                  {canDelete && (
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteEvidence(ev);
@@ -171,6 +192,7 @@ export default function OrderEvidenceCard({
         >
           <div className="relative max-w-4xl w-full max-h-[90vh] flex items-center justify-center">
             <button
+              type="button"
               onClick={() => setLightboxImg(null)}
               className="absolute -top-12 right-0 w-10 h-10 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
             >
