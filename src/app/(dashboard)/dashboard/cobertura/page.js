@@ -59,8 +59,9 @@ function CoberturaPage() {
     };
     const LEAD_TIME_WEEKS = getLeadTimeWeeks();
 
-    // Dynamic: weeks remaining until end of 2026
-    const NUM_WEEKS = Math.ceil((new Date('2026-12-31') - new Date()) / (7 * 24 * 60 * 60 * 1000));
+    // Dynamic horizon: configurable rolling vision (default 26 weeks ~ 6 months into 2027)
+    const [horizonWeeks, setHorizonWeeks] = useState(26);
+    const NUM_WEEKS = horizonWeeks;
     const ORDER_CYCLE_WEEKS = 4; // Pedido nuevo cada 4 semanas (mensual)
     const REORDER_TARGET_WEEKS = LEAD_TIME_WEEKS + ORDER_CYCLE_WEEKS;
     const SAFETY_STOCK_WEEKS = 0; // Desactivado por ahora — se activará por SKU después
@@ -345,7 +346,7 @@ function CoberturaPage() {
                 nextArrival: productTransits[0]?.estimated_arrival || null
             };
         });
-    }, [products, coverageData, transitShipments, simulationData, LEAD_TIME_WEEKS]);
+    }, [products, coverageData, transitShipments, simulationData, LEAD_TIME_WEEKS, NUM_WEEKS]);
 
     // KPIs
     const kpis = useMemo(() => {
@@ -358,7 +359,7 @@ function CoberturaPage() {
             ? withDemand.reduce((sum, r) => sum + Math.min(r.coverageWeeks, NUM_WEEKS), 0) / withDemand.length : 0;
         const needReorder = withDemand.filter(r => r.reorderStatus === 'order_now' || r.reorderStatus === 'late').length;
         return { green, yellow, red, noDemand, avgCoverage, total: heatmapData.length, needReorder };
-    }, [heatmapData]);
+    }, [heatmapData, NUM_WEEKS]);
 
     // Products that need urgent reorder
     const reorderAlerts = useMemo(() => {
@@ -393,8 +394,13 @@ function CoberturaPage() {
             return <span className="text-slate-400 text-[10px]">—</span>;
         }
 
+        const nowYear = new Date().getFullYear();
         const dateStr = row.stockoutDate
-            ? row.stockoutDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+            ? row.stockoutDate.toLocaleDateString('es-MX', {
+                day: 'numeric',
+                month: 'short',
+                year: row.stockoutDate.getFullYear() !== nowYear ? 'numeric' : undefined
+            })
             : '';
 
         return (
@@ -411,19 +417,6 @@ function CoberturaPage() {
         );
     };
 
-    // Week labels
-    const weekLabels = useMemo(() => {
-        const now = new Date();
-        const labels = [];
-        for (let i = 0; i < NUM_WEEKS; i++) {
-            const weekDate = new Date(now);
-            weekDate.setDate(now.getDate() + (i * 7));
-            const weekNum = getWeekNumber(weekDate);
-            labels.push(`WK${weekNum.toString().padStart(2, '0')}`);
-        }
-        return labels;
-    }, []);
-
     function getWeekNumber(d) {
         const date = new Date(d);
         date.setHours(0, 0, 0, 0);
@@ -431,6 +424,57 @@ function CoberturaPage() {
         const week1 = new Date(date.getFullYear(), 0, 4);
         return 1 + Math.round(((date - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
     }
+
+    // Week labels & rich metadata (supports cross-year 2026 -> 2027 vision)
+    const weekMetadata = useMemo(() => {
+        const now = new Date();
+        const metadata = [];
+        const currentYear = now.getFullYear();
+        let lastYear = null;
+
+        for (let i = 0; i < NUM_WEEKS; i++) {
+            const weekDate = new Date(now);
+            weekDate.setDate(now.getDate() + (i * 7));
+
+            // Thursday of the week determines the ISO year
+            const target = new Date(weekDate);
+            target.setHours(0, 0, 0, 0);
+            target.setDate(target.getDate() + 3 - (target.getDay() + 6) % 7);
+            const weekNum = getWeekNumber(weekDate);
+            const year = target.getFullYear();
+
+            // Detect year transition (e.g. 2026 -> 2027)
+            const isYearTransition = lastYear !== null && year !== lastYear;
+            lastYear = year;
+
+            // Date range calculation (Monday to Sunday)
+            const monday = new Date(weekDate);
+            monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7);
+            const sunday = new Date(monday);
+            sunday.setDate(sunday.getDate() + 6);
+
+            const yearSuffix = year !== currentYear ? `'${String(year).slice(-2)}` : '';
+            const label = `WK${weekNum.toString().padStart(2, '0')}${yearSuffix ? ' ' + yearSuffix : ''}`;
+
+            // Chinese New Year 2027 (~Feb 2027, weeks 5-7)
+            const isCNY = (year === 2027 && (weekNum >= 5 && weekNum <= 7));
+
+            const dateRangeStr = `${monday.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${sunday.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: year !== currentYear ? 'numeric' : undefined })}`;
+
+            metadata.push({
+                index: i,
+                weekNum,
+                year,
+                label,
+                isYearTransition,
+                isCNY,
+                dateRangeStr,
+            });
+        }
+        return metadata;
+    }, [NUM_WEEKS]);
+
+    const weekLabels = useMemo(() => weekMetadata.map(w => w.label), [weekMetadata]);
 
     // Edit handlers
     const startEdit = (row) => {
@@ -754,6 +798,30 @@ function CoberturaPage() {
                                 );
                             })}
                         </div>
+                        {/* Horizon vision selector */}
+                        <div className="flex items-center bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden text-xs font-bold">
+                            <span className="px-2.5 py-2.5 text-slate-400 text-[11px] font-bold border-r border-slate-100 flex items-center gap-1 bg-slate-50/50">
+                                <Calendar size={13} className="text-slate-400" /> Visión:
+                            </span>
+                            {[
+                                { weeks: 20, label: '20 sem' },
+                                { weeks: 26, label: '26 sem (6m)' },
+                                { weeks: 32, label: '32 sem' },
+                                { weeks: 52, label: '52 sem (1 año)' }
+                            ].map(opt => (
+                                <button
+                                    key={opt.weeks}
+                                    onClick={() => setHorizonWeeks(opt.weeks)}
+                                    className={`px-3 py-2.5 text-xs font-bold border-none cursor-pointer transition-all ${
+                                        horizonWeeks === opt.weeks
+                                            ? 'bg-[#6a9a04] text-white shadow-xs'
+                                            : 'bg-transparent text-slate-500 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
                         <button onClick={() => transitFileRef.current?.click()} disabled={transitCsvImporting}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-orange-200 bg-orange-50 text-orange-700 font-bold text-sm hover:bg-orange-100 cursor-pointer transition-all shadow-sm disabled:opacity-50">
                             <Ship size={16} /> {transitCsvImporting ? 'Importando...' : 'Importar Tránsitos'}
@@ -874,12 +942,24 @@ function CoberturaPage() {
                                     <th className="px-3 py-3 text-center text-[10px] font-black uppercase tracking-wider text-slate-500 min-w-[70px]">Dem/Sem</th>
                                     <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-wider text-orange-500 min-w-[65px] bg-orange-50/50">Reorden</th>
                                     <th className="px-3 py-3 text-center text-[10px] font-black uppercase tracking-wider text-slate-500 min-w-[55px]">Editar</th>
-                                    {weekLabels.map((label, i) => (
-                                        <th key={i} className={`px-1.5 py-3 text-center text-[10px] font-black uppercase tracking-wider min-w-[52px] ${i === LEAD_TIME_WEEKS - 1 ? 'text-orange-500 border-r-2 border-orange-300' : 'text-slate-400'}`}>
-                                            {label}
-                                            {i === LEAD_TIME_WEEKS - 1 && <div className="text-[7px] text-orange-400 font-bold">🚢 LLEGA</div>}
-                                        </th>
-                                    ))}
+                                    {weekMetadata.map((w, i) => {
+                                        const isLeadTimeCutoff = i === LEAD_TIME_WEEKS - 1;
+                                        return (
+                                            <th key={i} className={`px-1.5 py-3 text-center text-[10px] font-black uppercase tracking-wider min-w-[56px] relative ${
+                                                w.isYearTransition ? 'border-l-2 border-indigo-500 bg-indigo-50/70 text-indigo-700' : ''
+                                            } ${isLeadTimeCutoff ? 'text-orange-500 border-r-2 border-orange-300' : w.year > new Date().getFullYear() ? 'text-indigo-600' : 'text-slate-400'}`}
+                                            title={`${w.label} (${w.dateRangeStr})`}>
+                                                {w.isYearTransition && (
+                                                    <div className="absolute -top-1 left-0 bg-indigo-600 text-white text-[7px] font-bold px-1 rounded-r shadow-xs">
+                                                        {w.year} ↗
+                                                    </div>
+                                                )}
+                                                <div>{w.label}</div>
+                                                {isLeadTimeCutoff && <div className="text-[7px] text-orange-500 font-bold">🚢 LLEGA</div>}
+                                                {w.isCNY && <div className="text-[7px] text-red-500 font-bold" title="Año Nuevo Chino 2027 (Fábricas cerradas)">🏮 CNY</div>}
+                                            </th>
+                                        );
+                                    })}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -951,12 +1031,20 @@ function CoberturaPage() {
                                                     </button>
                                                 )}
                                             </td>
-                                            {row.weeks.map((remaining, i) => (
-                                                <td key={i} className={`px-1 py-2 text-center text-[11px] tabular-nums font-bold transition-colors ${getCellColor(remaining, row.weeklyDemand)} ${i === LEAD_TIME_WEEKS - 1 ? 'border-r-2 border-orange-300' : ''}`}
-                                                    title={`${weekLabels[i]}: ${remaining.toLocaleString()} unidades`}>
-                                                    {row.weeklyDemand > 0 ? remaining.toLocaleString() : '—'}
-                                                </td>
-                                            ))}
+                                            {row.weeks.map((remaining, i) => {
+                                                const w = weekMetadata[i];
+                                                const isLeadTimeCutoff = i === LEAD_TIME_WEEKS - 1;
+                                                return (
+                                                    <td key={i} className={`px-1 py-2 text-center text-[11px] tabular-nums font-bold transition-colors ${
+                                                        getCellColor(remaining, row.weeklyDemand)
+                                                    } ${w?.isYearTransition ? 'border-l-2 border-indigo-400' : ''} ${
+                                                        isLeadTimeCutoff ? 'border-r-2 border-orange-300' : ''
+                                                    }`}
+                                                    title={`${w?.label || `WK${i+1}`} (${w?.dateRangeStr}): ${remaining.toLocaleString()} unidades`}>
+                                                        {row.weeklyDemand > 0 ? remaining.toLocaleString() : '—'}
+                                                    </td>
+                                                );
+                                            })}
                                         </tr>
                                     );
                                 })}
@@ -1029,6 +1117,13 @@ function CoberturaPage() {
                     <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-orange-200 inline-block" /> Bajo</span>
                     <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-200 inline-block" /> Sin stock</span>
                     <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-200 inline-block" /> Sin demanda</span>
+                    <span className="text-slate-300">|</span>
+                    <span className="flex items-center gap-1.5 text-indigo-600 font-bold">
+                        <span className="w-1.5 h-3 bg-indigo-500 rounded-full inline-block" /> Inicio 2027
+                    </span>
+                    <span className="flex items-center gap-1.5 text-red-600 font-bold" title="Cierre de fábricas en China por Año Nuevo Chino">
+                        <span>🏮 CNY</span> Año Nuevo Chino (Feb 2027)
+                    </span>
                     <span className="text-slate-300">|</span>
                     <span className="flex items-center gap-1.5 text-orange-500 font-bold">
                         <span className="w-3 h-3 rounded border-2 border-orange-300 inline-block" />
