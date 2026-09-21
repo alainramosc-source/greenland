@@ -21,6 +21,14 @@ export default function RecyclingPage() {
   const [suppliers, setSuppliers] = useState([]);
   const [purchases, setPurchases] = useState([]);
   const [sales, setSales] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+
+  // Edit movement modal state
+  const [editingMovementModal, setEditingMovementModal] = useState(null);
+  const [editMovementForm, setEditMovementForm] = useState({
+    material_type_id: '', quantity_kg: '', price_per_kg: '', who: '', notes: ''
+  });
+  const [submittingEditMovement, setSubmittingEditMovement] = useState(false);
 
   // Purchase form
   const [purchaseForm, setPurchaseForm] = useState({
@@ -73,22 +81,32 @@ export default function RecyclingPage() {
   // Fetch all data
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [matRes, supRes, purRes, salRes] = await Promise.all([
+    const [matRes, supRes, purRes, salRes, profRes] = await Promise.all([
       supabase.from('recycling_material_types').select('*').order('name'),
       supabase.from('recycling_suppliers').select('*').order('name'),
       supabase.from('recycling_purchases').select('*, recycling_material_types(name)').order('created_at', { ascending: false }),
       supabase.from('recycling_sales').select('*, recycling_material_types(name)').order('created_at', { ascending: false }),
+      supabase.from('profiles').select('id, full_name'),
     ]);
     if (matRes.data) setMaterialTypes(matRes.data);
     if (supRes.data) setSuppliers(supRes.data);
     if (purRes.data) setPurchases(purRes.data);
     if (salRes.data) setSales(salRes.data);
+    if (profRes.data) setProfiles(profRes.data);
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchData(); }, []);
 
   // ========== COMPUTED VALUES ==========
+
+  const profilesMap = useMemo(() => {
+    const map = {};
+    (profiles || []).forEach(p => {
+      if (p.id) map[p.id] = p.full_name || '—';
+    });
+    return map;
+  }, [profiles]);
 
   const activeMaterials = useMemo(() => materialTypes.filter(m => m.is_active), [materialTypes]);
 
@@ -154,14 +172,16 @@ export default function RecyclingPage() {
       items.push({
         id: p.id, type: 'compra', date: p.created_at, material: p.recycling_material_types?.name || '—',
         material_type_id: p.material_type_id, quantity_kg: p.quantity_kg, price_per_kg: p.price_per_kg,
-        total_amount: p.total_amount, who: p.supplier_name || '—', number: p.purchase_number
+        total_amount: p.total_amount, who: p.supplier_name || '—', captured_by: profilesMap[p.purchased_by] || '—',
+        number: p.purchase_number, notes: p.notes, raw: p
       });
     });
     sales.forEach(s => {
       items.push({
         id: s.id, type: 'venta', date: s.created_at, material: s.recycling_material_types?.name || '—',
         material_type_id: s.material_type_id, quantity_kg: s.quantity_kg, price_per_kg: s.price_per_kg,
-        total_amount: s.total_amount, who: s.buyer_name || '—', number: s.sale_number
+        total_amount: s.total_amount, who: s.buyer_name || '—', captured_by: profilesMap[s.sold_by] || '—',
+        number: s.sale_number, notes: s.notes, raw: s
       });
     });
     // Apply filters
@@ -171,12 +191,12 @@ export default function RecyclingPage() {
     if (historyFilter.dateFrom) filtered = filtered.filter(i => i.date >= historyFilter.dateFrom);
     if (historyFilter.dateTo) filtered = filtered.filter(i => i.date <= historyFilter.dateTo + 'T23:59:59');
     return filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [purchases, sales, historyFilter]);
+  }, [purchases, sales, historyFilter, profilesMap]);
 
   // Export history to Excel/CSV
   const exportHistoryExcel = () => {
     if (historyItems.length === 0) { alert('No hay movimientos para exportar.'); return; }
-    const headers = ['Fecha', 'Hora', 'Tipo', 'Folio', 'Material', 'Proveedor/Comprador', 'Kilos', 'Precio/Kg', 'Total'];
+    const headers = ['Fecha', 'Hora', 'Tipo', 'Folio', 'Material', 'Proveedor/Comprador', 'Capturado Por', 'Kilos', 'Precio/Kg', 'Total'];
     const rows = historyItems.map(item => {
       const d = new Date(item.date);
       return [
@@ -186,6 +206,7 @@ export default function RecyclingPage() {
         item.number || '—',
         `"${item.material}"`,
         `"${item.who}"`,
+        `"${item.captured_by || '—'}"`,
         Number(item.quantity_kg || 0).toFixed(3),
         Number(item.price_per_kg || 0).toFixed(2),
         Number(item.total_amount || 0).toFixed(2),
@@ -194,7 +215,7 @@ export default function RecyclingPage() {
     const totalKg = historyItems.reduce((s, i) => s + Number(i.quantity_kg || 0), 0);
     const totalAmt = historyItems.reduce((s, i) => s + (i.type === 'compra' ? -1 : 1) * Number(i.total_amount || 0), 0);
     rows.push('');
-    rows.push(`,,,,,,${totalKg.toFixed(3)},,${totalAmt.toFixed(2)}`);
+    rows.push(`,,,,,,,${totalKg.toFixed(3)},,${totalAmt.toFixed(2)}`);
     const BOM = '\uFEFF';
     const blob = new Blob([BOM + [headers.join(','), ...rows].join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -203,6 +224,105 @@ export default function RecyclingPage() {
     a.download = `reciclaje-historial_${new Date().toLocaleDateString('en-CA')}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // ========== EDIT & DELETE MOVEMENT LOGIC ==========
+
+  const openEditMovementModal = (item) => {
+    setEditingMovementModal(item);
+    setEditMovementForm({
+      material_type_id: item.material_type_id || '',
+      quantity_kg: String(item.quantity_kg || ''),
+      price_per_kg: String(item.price_per_kg || ''),
+      who: item.who || '',
+      notes: item.notes || ''
+    });
+  };
+
+  const handleSaveMovementEdit = async () => {
+    if (!editingMovementModal) return;
+    const qty = parseFloat(editMovementForm.quantity_kg);
+    const price = parseFloat(editMovementForm.price_per_kg);
+    if (isNaN(qty) || qty <= 0) return showToast('Ingresa una cantidad de kilos válida', 'error');
+    if (isNaN(price) || price < 0) return showToast('Ingresa un precio válido', 'error');
+    if (!editMovementForm.material_type_id) return showToast('Selecciona un material', 'error');
+
+    setSubmittingEditMovement(true);
+    try {
+      const item = editingMovementModal;
+      const isCompra = item.type === 'compra';
+      const total = qty * price;
+      const materialName = materialTypes.find(m => m.id === editMovementForm.material_type_id)?.name || '';
+      const whoText = editMovementForm.who.trim() || (isCompra ? 'Público en General' : 'Comprador');
+
+      // Update purchase or sale record
+      const tableName = isCompra ? 'recycling_purchases' : 'recycling_sales';
+      const payload = {
+        material_type_id: editMovementForm.material_type_id,
+        quantity_kg: qty,
+        price_per_kg: price,
+        total_amount: total,
+        notes: editMovementForm.notes.trim() || null,
+        ...(isCompra ? { supplier_name: whoText } : { buyer_name: whoText })
+      };
+
+      const { error: updateErr } = await supabase.from(tableName).update(payload).eq('id', item.id);
+      if (updateErr) throw updateErr;
+
+      // Update matching cash_movement
+      const refType = isCompra ? 'recycling_purchase' : 'recycling_sale';
+      const { data: existingCash } = await supabase.from('cash_movements')
+        .select('id')
+        .eq('reference_id', item.id)
+        .eq('reference_type', refType);
+
+      if (existingCash && existingCash.length > 0) {
+        await supabase.from('cash_movements').update({
+          amount: total,
+          concept: isCompra
+            ? `Compra tungsteno: ${qty} kg de ${materialName}`
+            : `Venta reciclaje: ${qty} kg de ${materialName}`,
+          responsible: whoText,
+        }).eq('id', existingCash[0].id);
+      }
+
+      setEditingMovementModal(null);
+      showToast(`Movimiento ${item.number} actualizado — Stock y Caja recalculados`);
+      fetchData();
+    } catch (err) {
+      showToast('Error al actualizar movimiento: ' + err.message, 'error');
+    } finally {
+      setSubmittingEditMovement(false);
+    }
+  };
+
+  const handleDeleteMovement = async (item) => {
+    if (!confirm(`¿Eliminar definitivamente el movimiento ${item.number}? Esta acción actualizará la caja y el stock.`)) return;
+
+    try {
+      const isCompra = item.type === 'compra';
+      const refType = isCompra ? 'recycling_purchase' : 'recycling_sale';
+      const tableName = isCompra ? 'recycling_purchases' : 'recycling_sales';
+
+      // Delete cash movement
+      await supabase.from('cash_movements')
+        .delete()
+        .eq('reference_id', item.id)
+        .eq('reference_type', refType);
+
+      // Delete purchase/sale
+      const { error } = await supabase.from(tableName).delete().eq('id', item.id);
+      if (error) throw error;
+
+      if (editingMovementModal && editingMovementModal.id === item.id) {
+        setEditingMovementModal(null);
+      }
+
+      showToast(`Movimiento ${item.number} eliminado`);
+      fetchData();
+    } catch (err) {
+      showToast('Error al eliminar: ' + err.message, 'error');
+    }
   };
 
   // ========== PURCHASE LOGIC ==========
@@ -1068,10 +1188,18 @@ export default function RecyclingPage() {
                           <span className="font-mono text-xs text-[#6a9a04]">{item.number}</span>
                           <span className="text-slate-600">{item.material}</span>
                         </p>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          {new Date(item.date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          <span className="mx-1">·</span>
-                          {item.who}
+                        <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <span>{new Date(item.date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                          <span>·</span>
+                          <span className="font-medium text-slate-600">{item.who}</span>
+                          {item.captured_by && item.captured_by !== '—' && (
+                            <>
+                              <span>·</span>
+                              <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold text-[11px] inline-flex items-center gap-1">
+                                👤 Capturó: <strong className="text-slate-800">{item.captured_by}</strong>
+                              </span>
+                            </>
+                          )}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
@@ -1089,6 +1217,20 @@ export default function RecyclingPage() {
                           </p>
                         )}
                       </div>
+                      {!isAdj && (
+                        <div className="flex items-center gap-1 shrink-0 border-l border-slate-100 pl-2">
+                          <button onClick={() => openEditMovementModal(item)}
+                            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 border-none cursor-pointer transition-colors shadow-xs"
+                            title="Editar este movimiento">
+                            <Edit3 size={15} />
+                          </button>
+                          <button onClick={() => handleDeleteMovement(item)}
+                            className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border-none cursor-pointer transition-colors shadow-xs"
+                            title="Eliminar este movimiento">
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1695,6 +1837,129 @@ export default function RecyclingPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* =============== MODAL: EDITAR MOVIMIENTO DE RECICLAJE =============== */}
+      {editingMovementModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-[fadeIn_0.2s_ease]">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-lg w-full overflow-hidden animate-[scaleUp_0.2s_ease]">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-[#6a9a04]" />
+                <div>
+                  <h3 className="font-bold text-base m-0 text-white">Editar Movimiento</h3>
+                  <p className="text-xs text-slate-300 m-0 font-mono">{editingMovementModal.number} · {editingMovementModal.type === 'compra' ? 'Compra' : 'Venta'}</p>
+                </div>
+              </div>
+              <button onClick={() => setEditingMovementModal(null)} className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white border-none bg-transparent cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Tipo de Material</label>
+                <select
+                  value={editMovementForm.material_type_id}
+                  onChange={e => setEditMovementForm(f => ({ ...f, material_type_id: e.target.value }))}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#6a9a04] bg-white cursor-pointer"
+                >
+                  {materialTypes.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
+                  {editingMovementModal.type === 'compra' ? 'Proveedor' : 'Comprador'}
+                </label>
+                <input
+                  type="text"
+                  value={editMovementForm.who}
+                  onChange={e => setEditMovementForm(f => ({ ...f, who: e.target.value }))}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#6a9a04]"
+                  placeholder={editingMovementModal.type === 'compra' ? 'Público en General' : 'Nombre del comprador'}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Cantidad KG</label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={editMovementForm.quantity_kg}
+                    onChange={e => setEditMovementForm(f => ({ ...f, quantity_kg: e.target.value }))}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#6a9a04]"
+                    placeholder="0.000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Precio por KG ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editMovementForm.price_per_kg}
+                    onChange={e => setEditMovementForm(f => ({ ...f, price_per_kg: e.target.value }))}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#6a9a04]"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              {/* Calculated preview */}
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500">Nuevo Total Calculado:</span>
+                <span className="text-xl font-black text-[#6a9a04]">
+                  ${fmt((parseFloat(editMovementForm.quantity_kg) || 0) * (parseFloat(editMovementForm.price_per_kg) || 0))}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Notas / Motivo de edición</label>
+                <textarea
+                  value={editMovementForm.notes}
+                  onChange={e => setEditMovementForm(f => ({ ...f, notes: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#6a9a04] resize-none"
+                  rows={2}
+                  placeholder="Escribe el motivo del cambio..."
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => handleDeleteMovement(editingMovementModal)}
+                className="px-4 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold border border-red-200 cursor-pointer flex items-center gap-1.5 transition-colors"
+              >
+                <Trash2 size={14} /> Eliminar
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingMovementModal(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold cursor-pointer transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveMovementEdit}
+                  disabled={submittingEditMovement}
+                  className="px-5 py-2.5 rounded-xl bg-[#6a9a04] hover:bg-[#5a8503] text-white text-xs font-bold border-none cursor-pointer flex items-center gap-1.5 transition-all shadow-md disabled:opacity-50"
+                >
+                  {submittingEditMovement ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  Guardar Cambios
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
