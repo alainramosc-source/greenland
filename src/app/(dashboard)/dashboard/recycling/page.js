@@ -547,6 +547,201 @@ export default function RecyclingPage() {
       const { data: lastSale } = await supabase
         .from('recycling_sales')
         .select('sale_number')
+    setSupplierSearch(name);
+    setPurchaseForm(f => ({ ...f, supplier_name: name }));
+    setShowSupplierDropdown(false);
+  };
+
+  const handleSubmitPurchase = async () => {
+    if (!purchaseForm.material_type_id) return showToast('Selecciona un tipo de material', 'error');
+    const qty = parseFloat(purchaseForm.quantity_kg);
+    const price = parseFloat(purchaseForm.price_per_kg);
+    if (!qty || qty <= 0) return showToast('Ingresa una cantidad válida', 'error');
+    if (!price || price <= 0) return showToast('Ingresa un precio válido', 'error');
+
+    // If active buyer is already set (remember buyer enabled), proceed directly
+    if (activeBuyer) {
+      await executePurchase(activeBuyer);
+      return;
+    }
+
+    setPendingPurchaseAction(true);
+    setBuyerPinInput('');
+    setBuyerModalError('');
+    setShowBuyerPinModal(true);
+  };
+
+  const verifyBuyerPin = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const cleanInput = buyerPinInput.trim();
+    if (!cleanInput) {
+      setBuyerModalError('Ingresa un PIN o escanea tu credencial.');
+      return;
+    }
+
+    setVerifyingBuyer(true);
+    setBuyerModalError('');
+
+    try {
+      const { data: matchedProfiles, error } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .or(`authorization_pin.eq.${cleanInput},employee_barcode.eq.${cleanInput}`);
+
+      if (error || !matchedProfiles || matchedProfiles.length === 0) {
+        setBuyerModalError('PIN o Código de Barras no reconocido. Asigna un PIN al usuario desde el módulo de Usuarios.');
+        setVerifyingBuyer(false);
+        return;
+      }
+
+      const foundBuyer = {
+        id: matchedProfiles[0].id,
+        name: matchedProfiles[0].full_name || 'Comprador'
+      };
+
+      if (rememberBuyer) {
+        setActiveBuyer(foundBuyer);
+      } else {
+        setActiveBuyer(null);
+      }
+
+      setShowBuyerPinModal(false);
+      setBuyerPinInput('');
+      setVerifyingBuyer(false);
+
+      if (pendingPurchaseAction) {
+        setPendingPurchaseAction(false);
+        await executePurchase(foundBuyer);
+      } else {
+        showToast(`Comprador identificado: ${foundBuyer.name}`);
+      }
+    } catch (err) {
+      setBuyerModalError('Error de verificación: ' + (err.message || err));
+      setVerifyingBuyer(false);
+    }
+  };
+
+  const handleKeypadPress = (val) => {
+    if (val === 'C') {
+      setBuyerPinInput('');
+    } else if (val === 'DEL') {
+      setBuyerPinInput(prev => prev.slice(0, -1));
+    } else {
+      if (buyerPinInput.length < 10) {
+        setBuyerPinInput(prev => prev + val);
+      }
+    }
+  };
+
+  const executePurchase = async (buyerObj) => {
+    setSubmittingPurchase(true);
+    try {
+      const userId = buyerObj?.id || (await supabase.auth.getUser()).data.user?.id;
+      const buyerName = buyerObj?.name || 'Comprador';
+      const materialName = materialTypes.find(m => m.id === purchaseForm.material_type_id)?.name || '';
+      const qty = parseFloat(purchaseForm.quantity_kg);
+      const price = parseFloat(purchaseForm.price_per_kg);
+      const total = qty * price;
+      const supplierName = (purchaseForm.supplier_name || 'Público en General').trim();
+
+      // Generate purchase number
+      const { data: lastPurchase } = await supabase
+        .from('recycling_purchases')
+        .select('purchase_number')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      let nextNum = 1;
+      if (lastPurchase && lastPurchase.length > 0) {
+        const match = lastPurchase[0].purchase_number?.match(/GR-(\d+)/);
+        if (match) nextNum = parseInt(match[1]) + 1;
+      }
+      const purchaseNumber = `GR-${String(nextNum).padStart(5, '0')}`;
+
+      // Find or link supplier
+      let supplierId = null;
+      const existingSupplier = suppliers.find(s => s.name.toLowerCase() === supplierName.toLowerCase());
+      if (existingSupplier) {
+        supplierId = existingSupplier.id;
+      }
+
+      // Insert purchase
+      const { data: newPurchase, error: purchaseError } = await supabase
+        .from('recycling_purchases')
+        .insert({
+          purchase_number: purchaseNumber,
+          material_type_id: purchaseForm.material_type_id,
+          supplier_id: supplierId,
+          supplier_name: supplierName,
+          quantity_kg: qty,
+          price_per_kg: price,
+          total_amount: total,
+          notes: purchaseForm.notes.trim() || null,
+          purchased_by: userId,
+        })
+        .select()
+        .single();
+
+      if (purchaseError) throw purchaseError;
+
+      // Insert cash movement
+      const { error: cashError } = await supabase.from('cash_movements').insert({
+        type: 'exit',
+        amount: total,
+        concept: `Compra tungsteno: ${qty} kg de ${materialName}`,
+        responsible: buyerName,
+        reference_id: newPurchase.id,
+        reference_type: 'recycling_purchase',
+        movement_date: new Date().toLocaleDateString('en-CA'),
+        created_by: userId,
+        approval_status: 'approved',
+      });
+
+      if (cashError) console.error('Cash movement error:', cashError);
+
+      // Reset form
+      setPurchaseForm({ material_type_id: '', supplier_name: 'Público en General', quantity_kg: '', price_per_kg: '', notes: '' });
+      setSupplierSearch('Público en General');
+      showToast(`Compra ${purchaseNumber} registrada por ${buyerName} — $${fmt(total)}`);
+      
+      // If rememberBuyer is false, clear activeBuyer so next purchase asks for PIN again
+      if (!rememberBuyer) {
+        setActiveBuyer(null);
+      }
+
+      fetchData();
+    } catch (err) {
+      showToast('Error al registrar: ' + err.message, 'error');
+    } finally {
+      setSubmittingPurchase(false);
+    }
+  };
+
+  // ========== SALE LOGIC ==========
+
+  const openSaleModal = (material) => {
+    const stockKg = material.purchased_kg - material.sold_kg;
+    setSaleModal({ ...material, stock_kg: stockKg });
+    setSaleForm({ quantity_kg: '', price_per_kg: '', buyer_name: '', notes: '' });
+  };
+
+  const handleSubmitSale = async () => {
+    if (!saleModal) return;
+    const qty = parseFloat(saleForm.quantity_kg);
+    const price = parseFloat(saleForm.price_per_kg);
+    if (!qty || qty <= 0) return showToast('Ingresa una cantidad válida', 'error');
+    if (qty > saleModal.stock_kg) return showToast(`Solo hay ${fmt(saleModal.stock_kg)} kg disponibles`, 'error');
+    if (!price || price <= 0) return showToast('Ingresa un precio válido', 'error');
+    if (!saleForm.buyer_name.trim()) return showToast('Ingresa el nombre del comprador', 'error');
+
+    setSubmittingSale(true);
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      const total = qty * price;
+
+      // Generate sale number
+      const { data: lastSale } = await supabase
+        .from('recycling_sales')
+        .select('sale_number')
         .order('created_at', { ascending: false })
         .limit(1);
       let nextNum = 1;
@@ -556,7 +751,7 @@ export default function RecyclingPage() {
       }
       const saleNumber = `GRS-${String(nextNum).padStart(5, '0')}`;
 
-      const { error } = await supabase.from('recycling_sales').insert({
+      const { data: newSale, error } = await supabase.from('recycling_sales').insert({
         sale_number: saleNumber,
         material_type_id: saleModal.id,
         quantity_kg: qty,
@@ -565,17 +760,35 @@ export default function RecyclingPage() {
         buyer_name: saleForm.buyer_name.trim(),
         notes: saleForm.notes.trim() || null,
         sold_by: userId,
-      });
+      }).select().single();
 
       if (error) throw error;
+
+      // Insert cash movement for Sale (Entry/Ingreso a Caja Chica)
+      if (newSale) {
+        const { error: cashError } = await supabase.from('cash_movements').insert({
+          type: 'entry',
+          amount: total,
+          concept: `Venta reciclaje: ${qty} kg de ${saleModal.name}`,
+          responsible: saleForm.buyer_name.trim(),
+          reference_id: newSale.id,
+          reference_type: 'recycling_sale',
+          movement_date: new Date().toLocaleDateString('en-CA'),
+          created_by: userId,
+          approval_status: 'approved',
+        });
+
+        if (cashError) console.error('Cash movement error for sale:', cashError);
+      }
 
       setSaleModal(null);
       showToast(`Venta ${saleNumber} registrada — $${fmt(total)}`);
       fetchData();
     } catch (err) {
       showToast('Error al registrar venta: ' + err.message, 'error');
+    } finally {
+      setSubmittingSale(false);
     }
-    setSubmittingSale(false);
   };
 
   // ========== STOCK ADJUSTMENT LOGIC ==========
@@ -667,12 +880,13 @@ export default function RecyclingPage() {
       }
 
       setAdjustModal(null);
-      showToast(`Ajuste de inventario guardado — ${actionLabel}`);
+      showToast(`Stock ajustado correctamente (${actionLabel})`);
       fetchData();
     } catch (err) {
-      showToast('Error al guardar ajuste: ' + err.message, 'error');
+      showToast('Error al ajustar stock: ' + err.message, 'error');
+    } finally {
+      setSubmittingAdjustment(false);
     }
-    setSubmittingAdjustment(false);
   };
 
   const handleAddMaterial = async () => {
@@ -1121,6 +1335,40 @@ export default function RecyclingPage() {
       {/* =============== TAB: HISTORIAL =============== */}
       {activeTab === 'historial' && (
         <div className="space-y-5">
+          {/* Quick Type Pills */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setHistoryFilter(f => ({ ...f, type: 'all' }))}
+              className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                historyFilter.type === 'all'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              Todos ({purchases.length + sales.length})
+            </button>
+            <button
+              onClick={() => setHistoryFilter(f => ({ ...f, type: 'compra' }))}
+              className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                historyFilter.type === 'compra'
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                  : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'
+              }`}
+            >
+              <ShoppingCart size={14} /> Compras ({purchases.length})
+            </button>
+            <button
+              onClick={() => setHistoryFilter(f => ({ ...f, type: 'venta' }))}
+              className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                historyFilter.type === 'venta'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                  : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'
+              }`}
+            >
+              <Send size={14} /> Ventas ({sales.length})
+            </button>
+          </div>
+
           {/* Filters */}
           <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
             <div className="flex flex-wrap items-end gap-4">
