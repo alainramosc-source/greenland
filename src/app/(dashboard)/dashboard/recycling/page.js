@@ -555,201 +555,6 @@ export default function RecyclingPage() {
       const { data: lastSale } = await supabase
         .from('recycling_sales')
         .select('sale_number')
-    setSupplierSearch(name);
-    setPurchaseForm(f => ({ ...f, supplier_name: name }));
-    setShowSupplierDropdown(false);
-  };
-
-  const handleSubmitPurchase = async () => {
-    if (!purchaseForm.material_type_id) return showToast('Selecciona un tipo de material', 'error');
-    const qty = parseFloat(purchaseForm.quantity_kg);
-    const price = parseFloat(purchaseForm.price_per_kg);
-    if (!qty || qty <= 0) return showToast('Ingresa una cantidad válida', 'error');
-    if (!price || price <= 0) return showToast('Ingresa un precio válido', 'error');
-
-    // If active buyer is already set (remember buyer enabled), proceed directly
-    if (activeBuyer) {
-      await executePurchase(activeBuyer);
-      return;
-    }
-
-    setPendingPurchaseAction(true);
-    setBuyerPinInput('');
-    setBuyerModalError('');
-    setShowBuyerPinModal(true);
-  };
-
-  const verifyBuyerPin = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    const cleanInput = buyerPinInput.trim();
-    if (!cleanInput) {
-      setBuyerModalError('Ingresa un PIN o escanea tu credencial.');
-      return;
-    }
-
-    setVerifyingBuyer(true);
-    setBuyerModalError('');
-
-    try {
-      const { data: matchedProfiles, error } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .or(`authorization_pin.eq.${cleanInput},employee_barcode.eq.${cleanInput}`);
-
-      if (error || !matchedProfiles || matchedProfiles.length === 0) {
-        setBuyerModalError('PIN o Código de Barras no reconocido. Asigna un PIN al usuario desde el módulo de Usuarios.');
-        setVerifyingBuyer(false);
-        return;
-      }
-
-      const foundBuyer = {
-        id: matchedProfiles[0].id,
-        name: matchedProfiles[0].full_name || 'Comprador'
-      };
-
-      if (rememberBuyer) {
-        setActiveBuyer(foundBuyer);
-      } else {
-        setActiveBuyer(null);
-      }
-
-      setShowBuyerPinModal(false);
-      setBuyerPinInput('');
-      setVerifyingBuyer(false);
-
-      if (pendingPurchaseAction) {
-        setPendingPurchaseAction(false);
-        await executePurchase(foundBuyer);
-      } else {
-        showToast(`Comprador identificado: ${foundBuyer.name}`);
-      }
-    } catch (err) {
-      setBuyerModalError('Error de verificación: ' + (err.message || err));
-      setVerifyingBuyer(false);
-    }
-  };
-
-  const handleKeypadPress = (val) => {
-    if (val === 'C') {
-      setBuyerPinInput('');
-    } else if (val === 'DEL') {
-      setBuyerPinInput(prev => prev.slice(0, -1));
-    } else {
-      if (buyerPinInput.length < 10) {
-        setBuyerPinInput(prev => prev + val);
-      }
-    }
-  };
-
-  const executePurchase = async (buyerObj) => {
-    setSubmittingPurchase(true);
-    try {
-      const userId = buyerObj?.id || (await supabase.auth.getUser()).data.user?.id;
-      const buyerName = buyerObj?.name || 'Comprador';
-      const materialName = materialTypes.find(m => m.id === purchaseForm.material_type_id)?.name || '';
-      const qty = parseFloat(purchaseForm.quantity_kg);
-      const price = parseFloat(purchaseForm.price_per_kg);
-      const total = qty * price;
-      const supplierName = (purchaseForm.supplier_name || 'Público en General').trim();
-
-      // Generate purchase number
-      const { data: lastPurchase } = await supabase
-        .from('recycling_purchases')
-        .select('purchase_number')
-        .order('created_at', { ascending: false })
-        .limit(1);
-      let nextNum = 1;
-      if (lastPurchase && lastPurchase.length > 0) {
-        const match = lastPurchase[0].purchase_number?.match(/GR-(\d+)/);
-        if (match) nextNum = parseInt(match[1]) + 1;
-      }
-      const purchaseNumber = `GR-${String(nextNum).padStart(5, '0')}`;
-
-      // Find or link supplier
-      let supplierId = null;
-      const existingSupplier = suppliers.find(s => s.name.toLowerCase() === supplierName.toLowerCase());
-      if (existingSupplier) {
-        supplierId = existingSupplier.id;
-      }
-
-      // Insert purchase
-      const { data: newPurchase, error: purchaseError } = await supabase
-        .from('recycling_purchases')
-        .insert({
-          purchase_number: purchaseNumber,
-          material_type_id: purchaseForm.material_type_id,
-          supplier_id: supplierId,
-          supplier_name: supplierName,
-          quantity_kg: qty,
-          price_per_kg: price,
-          total_amount: total,
-          notes: purchaseForm.notes.trim() || null,
-          purchased_by: userId,
-        })
-        .select()
-        .single();
-
-      if (purchaseError) throw purchaseError;
-
-      // Insert cash movement
-      const { error: cashError } = await supabase.from('cash_movements').insert({
-        type: 'exit',
-        amount: total,
-        concept: `Compra tungsteno: ${qty} kg de ${materialName}`,
-        responsible: buyerName,
-        reference_id: newPurchase.id,
-        reference_type: 'recycling_purchase',
-        movement_date: new Date().toLocaleDateString('en-CA'),
-        created_by: userId,
-        approval_status: 'approved',
-      });
-
-      if (cashError) console.error('Cash movement error:', cashError);
-
-      // Reset form
-      setPurchaseForm({ material_type_id: '', supplier_name: 'Público en General', quantity_kg: '', price_per_kg: '', notes: '' });
-      setSupplierSearch('Público en General');
-      showToast(`Compra ${purchaseNumber} registrada por ${buyerName} — $${fmt(total)}`);
-      
-      // If rememberBuyer is false, clear activeBuyer so next purchase asks for PIN again
-      if (!rememberBuyer) {
-        setActiveBuyer(null);
-      }
-
-      fetchData();
-    } catch (err) {
-      showToast('Error al registrar: ' + err.message, 'error');
-    } finally {
-      setSubmittingPurchase(false);
-    }
-  };
-
-  // ========== SALE LOGIC ==========
-
-  const openSaleModal = (material) => {
-    const stockKg = material.purchased_kg - material.sold_kg;
-    setSaleModal({ ...material, stock_kg: stockKg });
-    setSaleForm({ quantity_kg: '', price_per_kg: '', buyer_name: '', notes: '' });
-  };
-
-  const handleSubmitSale = async () => {
-    if (!saleModal) return;
-    const qty = parseFloat(saleForm.quantity_kg);
-    const price = parseFloat(saleForm.price_per_kg);
-    if (!qty || qty <= 0) return showToast('Ingresa una cantidad válida', 'error');
-    if (qty > saleModal.stock_kg) return showToast(`Solo hay ${fmt(saleModal.stock_kg)} kg disponibles`, 'error');
-    if (!price || price <= 0) return showToast('Ingresa un precio válido', 'error');
-    if (!saleForm.buyer_name.trim()) return showToast('Ingresa el nombre del comprador', 'error');
-
-    setSubmittingSale(true);
-    try {
-      const userId = (await supabase.auth.getUser()).data.user?.id;
-      const total = qty * price;
-
-      // Generate sale number
-      const { data: lastSale } = await supabase
-        .from('recycling_sales')
-        .select('sale_number')
         .order('created_at', { ascending: false })
         .limit(1);
       let nextNum = 1;
@@ -773,7 +578,7 @@ export default function RecyclingPage() {
       if (error) throw error;
 
       setSaleModal(null);
-      showToast(`Venta ${saleNumber} registrada — $${fmt(total)}`);
+      showToast(`Venta ${saleNumber} registrada — ${fmt(total)}`);
       fetchData();
     } catch (err) {
       showToast('Error al registrar venta: ' + err.message, 'error');
@@ -1049,6 +854,40 @@ export default function RecyclingPage() {
   const handleUpdateSupplier = async (id, updates) => {
     const { error } = await supabase.from('recycling_suppliers').update(updates).eq('id', id);
     if (error) return showToast('Error: ' + error.message, 'error');
+    setEditingSupplier(null);
+    showToast('Proveedor actualizado');
+    fetchData();
+  };
+
+  const handleToggleSupplier = async (id, currentActive) => {
+    await handleUpdateSupplier(id, { is_active: !currentActive });
+  };
+
+  // ========== RENDER ==========
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <Loader2 size={32} className="animate-spin text-[#6a9a04]" />
+    </div>
+  );
+
+  const TABS = [
+    { key: 'compra', label: 'Nueva Compra', icon: ShoppingCart },
+    { key: 'venta', label: 'Nueva Venta', icon: Send },
+    { key: 'inventario', label: 'Inventario', icon: Package },
+    { key: 'historial', label: 'Historial', icon: FileText },
+    { key: 'config', label: 'Configuración', icon: Settings },
+  ];
+
+  return (
+    <div className="space-y-6 max-w-6xl mx-auto">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-24 right-6 z-[9999] px-5 py-3 rounded-xl shadow-2xl text-sm font-bold text-white flex items-center gap-2 animate-[slideIn_0.3s_ease] ${toast.type === 'error' ? 'bg-red-500' : 'bg-[#6a9a04]'}`}
+          style={{ animation: 'slideIn 0.3s ease' }}>
+          {toast.type === 'error' ? <X size={16} /> : <Check size={16} />}
+          {toast.message}
+        </div>
       )}
 
       {/* Header */}

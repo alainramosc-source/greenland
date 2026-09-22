@@ -2,7 +2,13 @@ import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let _resend;
+function getResend() {
+  if (!_resend) {
+    _resend = new Resend(process.env.RESEND_API_KEY || 're_dummy');
+  }
+  return _resend;
+}
 
 function buildSupplierWelcomeEmail({ companyName, contactName, portalUrl, email, tempPassword }) {
   return `
@@ -98,7 +104,7 @@ export async function POST(request) {
       portalUrl,
     });
 
-    const { error: emailError } = await resend.emails.send({
+    const { error: emailError } = await getResend().emails.send({
       from: 'Greenland Products <portal@greenland-products.com.mx>',
       to: supplier.email,
       subject: `🚛 Bienvenido al Portal de Proveedores — ${supplier.company_name}`,
