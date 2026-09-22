@@ -261,7 +261,27 @@ export default function DeliverySheetPage({ params }) {
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <p className="text-[9px] text-slate-400 mt-1 font-mono">Coordenadas: {order.lat}, {order.lng}</p>
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200">
+                  <p className="text-[10px] text-slate-500 font-mono font-bold">📍 Coordenadas: {order.lat}, {order.lng}</p>
+                  <div className="flex gap-2">
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${order.lat},${order.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1 text-[10px] font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors no-underline flex items-center gap-1"
+                    >
+                      🗺️ Abrir en Google Maps
+                    </a>
+                    <a
+                      href={`https://waze.com/ul?ll=${order.lat},${order.lng}&navigate=yes`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1 text-[10px] font-bold text-white bg-cyan-600 rounded-lg hover:bg-cyan-700 transition-colors no-underline flex items-center gap-1"
+                    >
+                      🚗 Abrir en Waze
+                    </a>
+                  </div>
+                </div>
               </div>
             )}
           </div>

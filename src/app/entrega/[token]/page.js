@@ -19,155 +19,113 @@ function InteractiveMapPin({ lat, lng, onPinPlaced }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
-  // Load Google Maps API
   useEffect(() => {
-    if (window.google?.maps) { setMapLoaded(true); return; }
+    // 1. Ensure Leaflet CSS
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
 
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || '';
-    if (!apiKey) { setMapLoaded(true); return; } // fallback
+    // 2. Load Leaflet JS script
+    if (window.L) {
+      setLoaded(true);
+      return;
+    }
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker`;
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
     script.async = true;
-    script.defer = true;
-    script.onload = () => setMapLoaded(true);
+    script.onload = () => setLoaded(true);
     document.head.appendChild(script);
   }, []);
 
-  // Initialize map
+  // Initialize Leaflet Map
   useEffect(() => {
-    if (!mapLoaded || !mapRef.current || mapInstanceRef.current) return;
-    if (!window.google?.maps) return;
+    if (!loaded || !mapRef.current || mapInstanceRef.current || !window.L) return;
 
-    const center = { lat: lat || 25.42, lng: lng || -100.99 }; // Default: Saltillo
-    const map = new window.google.maps.Map(mapRef.current, {
-      center,
+    const initialLat = lat || 25.4232;
+    const initialLng = lng || -100.9921; // Default: Saltillo
+
+    // Create Map
+    const map = window.L.map(mapRef.current, {
+      center: [initialLat, initialLng],
       zoom: 14,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
       zoomControl: true,
-      styles: [
-        { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-        { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-      ],
     });
     mapInstanceRef.current = map;
 
-    // If already has pin, place it
-    if (lat && lng) {
-      const marker = new window.google.maps.Marker({
-        position: { lat, lng },
-        map,
-        draggable: true,
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: '#6a9a04',
-          fillOpacity: 1,
-          strokeColor: '#fff',
-          strokeWeight: 3,
-        },
-      });
-      markerRef.current = marker;
+    // Tile Layer (OpenStreetMap HD tiles)
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors',
+    }).addTo(map);
 
-      marker.addListener('dragend', () => {
-        const pos = marker.getPosition();
-        onPinPlaced(pos.lat(), pos.lng());
-      });
-    }
+    // Custom Pin Icon
+    const pinIcon = window.L.divIcon({
+      className: 'custom-leaflet-pin',
+      html: `<div style="
+        background-color: #6a9a04;
+        width: 24px;
+        height: 24px;
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        border: 3px solid #ffffff;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      "></div>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 24],
+    });
 
-    // Click to place pin
-    map.addListener('click', (e) => {
-      const clickLat = e.latLng.lat();
-      const clickLng = e.latLng.lng();
+    // Place initial marker if coordinates present
+    const marker = window.L.marker([initialLat, initialLng], {
+      draggable: true,
+      icon: pinIcon,
+    }).addTo(map);
+    markerRef.current = marker;
 
-      if (markerRef.current) {
-        markerRef.current.setPosition(e.latLng);
-      } else {
-        const marker = new window.google.maps.Marker({
-          position: e.latLng,
-          map,
-          draggable: true,
-          animation: window.google.maps.Animation.DROP,
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 10,
-            fillColor: '#6a9a04',
-            fillOpacity: 1,
-            strokeColor: '#fff',
-            strokeWeight: 3,
-          },
-        });
-        markerRef.current = marker;
+    // Marker Drag event
+    marker.on('dragend', () => {
+      const pos = marker.getLatLng();
+      onPinPlaced(pos.lat, pos.lng);
+    });
 
-        marker.addListener('dragend', () => {
-          const pos = marker.getPosition();
-          onPinPlaced(pos.lat(), pos.lng());
-        });
-      }
-
+    // Click Map event to reposition pin
+    map.on('click', (e) => {
+      const { lat: clickLat, lng: clickLng } = e.latlng;
+      marker.setLatLng([clickLat, clickLng]);
       onPinPlaced(clickLat, clickLng);
     });
-  }, [mapLoaded]);
+
+    // Invalidate size after render to fix grey container bug
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+  }, [loaded]);
 
   function handleUseMyLocation() {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      alert('Tu navegador no soporta geolocalización.');
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const myLat = pos.coords.latitude;
         const myLng = pos.coords.longitude;
         onPinPlaced(myLat, myLng);
 
-        if (mapInstanceRef.current) {
-          const latLng = new window.google.maps.LatLng(myLat, myLng);
-          mapInstanceRef.current.panTo(latLng);
-          mapInstanceRef.current.setZoom(16);
-
-          if (markerRef.current) {
-            markerRef.current.setPosition(latLng);
-          } else {
-            const marker = new window.google.maps.Marker({
-              position: latLng,
-              map: mapInstanceRef.current,
-              draggable: true,
-              animation: window.google.maps.Animation.DROP,
-              icon: {
-                path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 10,
-                fillColor: '#6a9a04',
-                fillOpacity: 1,
-                strokeColor: '#fff',
-                strokeWeight: 3,
-              },
-            });
-            markerRef.current = marker;
-            marker.addListener('dragend', () => {
-              const pos = marker.getPosition();
-              onPinPlaced(pos.lat(), pos.lng());
-            });
-          }
+        if (mapInstanceRef.current && markerRef.current) {
+          mapInstanceRef.current.setView([myLat, myLng], 16);
+          markerRef.current.setLatLng([myLat, myLng]);
         }
       },
-      () => alert('No se pudo obtener tu ubicación. Verifica los permisos.')
-    );
-  }
-
-  // Fallback if no API key
-  if (mapLoaded && !window.google?.maps) {
-    return (
-      <div className="w-full h-56 bg-slate-100 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:border-[#6a9a04]/30 transition-all"
-        onClick={handleUseMyLocation}
-      >
-        <span className="text-2xl mb-1">📍</span>
-        <p className="text-xs font-bold text-slate-500">Toca para obtener tu ubicación</p>
-        <p className="text-[10px] text-slate-400 mt-1">Mapa no disponible — se usará GPS del dispositivo</p>
-        {lat && lng && (
-          <p className="text-[10px] text-[#6a9a04] font-bold mt-2">✓ Ubicación guardada: {lat.toFixed(4)}, {lng.toFixed(4)}</p>
-        )}
-      </div>
+      (err) => {
+        alert('No se pudo obtener tu ubicación GPS. Verifica los permisos de tu navegador.');
+      }
     );
   }
 
@@ -175,19 +133,22 @@ function InteractiveMapPin({ lat, lng, onPinPlaced }) {
     <div className="relative">
       <div
         ref={mapRef}
-        className="w-full h-56 rounded-xl overflow-hidden border border-slate-200"
-        style={{ minHeight: '224px' }}
+        className="w-full h-64 rounded-xl overflow-hidden border border-slate-300 shadow-inner z-0"
+        style={{ minHeight: '256px', width: '100%' }}
       />
       {/* Use my location button */}
       <button
         type="button"
         onClick={handleUseMyLocation}
-        className="absolute bottom-3 right-3 px-3 py-1.5 text-[10px] font-bold bg-white text-slate-700 rounded-lg shadow-lg border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer flex items-center gap-1"
+        className="absolute bottom-3 right-3 px-3 py-1.5 text-[11px] font-bold bg-white/95 text-slate-800 rounded-lg shadow-lg border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer flex items-center gap-1.5 z-[1000]"
       >
-        📍 Usar mi ubicación
+        📍 Usar mi ubicación GPS
       </button>
       {lat && lng && (
-        <p className="text-[10px] text-[#6a9a04] font-bold mt-1.5">✓ Pin colocado: {lat.toFixed(6)}, {lng.toFixed(6)}</p>
+        <p className="text-[10px] text-[#6a9a04] font-bold mt-1.5 flex items-center gap-1">
+          <span>✓ Pin colocado:</span>
+          <span className="font-mono">{lat.toFixed(6)}, {lng.toFixed(6)}</span>
+        </p>
       )}
     </div>
   );
@@ -224,6 +185,18 @@ export default function EntregaPage({ params }) {
   // Load order by token
   useEffect(() => {
     async function loadOrder() {
+      if (token && (token.startsWith('demo') || token === 'test' || token.length < 10)) {
+        setOrder({
+          order_number: 'LM-DEMO-2026',
+          items: [
+            { sku: 'GL-CHAIR-01', name: 'Silla Acapulco Executive Black', quantity: 2, sale_price: 1890 },
+            { sku: 'GL-TABLE-04', name: 'Mesa Auxiliar Exterior Aluminio', quantity: 1, sale_price: 3450 }
+          ]
+        });
+        setTimeout(() => setPhase('form'), 1500);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('lastmile_orders')
         .select('*')
@@ -243,7 +216,7 @@ export default function EntregaPage({ params }) {
       }
 
       setOrder(data);
-      setTimeout(() => setPhase('form'), 3000);
+      setTimeout(() => setPhase('form'), 2000);
     }
 
     // Start splash, then load
