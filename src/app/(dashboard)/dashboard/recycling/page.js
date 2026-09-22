@@ -751,7 +751,7 @@ export default function RecyclingPage() {
       }
       const saleNumber = `GRS-${String(nextNum).padStart(5, '0')}`;
 
-      const { data: newSale, error } = await supabase.from('recycling_sales').insert({
+      const { error } = await supabase.from('recycling_sales').insert({
         sale_number: saleNumber,
         material_type_id: saleModal.id,
         quantity_kg: qty,
@@ -760,26 +760,9 @@ export default function RecyclingPage() {
         buyer_name: saleForm.buyer_name.trim(),
         notes: saleForm.notes.trim() || null,
         sold_by: userId,
-      }).select().single();
+      });
 
       if (error) throw error;
-
-      // Insert cash movement for Sale (Entry/Ingreso a Caja Chica)
-      if (newSale) {
-        const { error: cashError } = await supabase.from('cash_movements').insert({
-          type: 'entry',
-          amount: total,
-          concept: `Venta reciclaje: ${qty} kg de ${saleModal.name}`,
-          responsible: saleForm.buyer_name.trim(),
-          reference_id: newSale.id,
-          reference_type: 'recycling_sale',
-          movement_date: new Date().toLocaleDateString('en-CA'),
-          created_by: userId,
-          approval_status: 'approved',
-        });
-
-        if (cashError) console.error('Cash movement error for sale:', cashError);
-      }
 
       setSaleModal(null);
       showToast(`Venta ${saleNumber} registrada — $${fmt(total)}`);
