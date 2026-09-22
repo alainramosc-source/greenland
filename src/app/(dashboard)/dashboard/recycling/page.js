@@ -1403,10 +1403,6 @@ export default function RecyclingPage() {
                           <td className="px-5 py-3 text-right font-bold text-emerald-600">${fmt(value)}</td>
                           <td className="px-5 py-3 text-center">
                             <div className="flex items-center justify-center gap-2">
-                              <button onClick={() => openSaleModal(m)} disabled={stockKg <= 0}
-                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#6a9a04] hover:bg-[#5a8503] text-white text-xs font-bold border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm">
-                                <Send size={12} /> Registrar Venta
-                              </button>
                               <button onClick={() => openAdjustmentModal(m)}
                                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 text-slate-700 text-xs font-bold border border-slate-200 cursor-pointer transition-all shadow-sm"
                                 title="Ajustar inventario / kilos de este material">
