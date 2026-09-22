@@ -54,6 +54,14 @@ export default function RecyclingPage() {
   });
   const [submittingSale, setSubmittingSale] = useState(false);
 
+  // Multi-Material Sale Form State
+  const [multiSaleBuyer, setMultiSaleBuyer] = useState('');
+  const [multiSaleNotes, setMultiSaleNotes] = useState('');
+  const [multiSaleRows, setMultiSaleRows] = useState([
+    { id: 1, material_type_id: '', condition: '', quantity_kg: '', price_per_kg: '' }
+  ]);
+  const [submittingMultiSale, setSubmittingMultiSale] = useState(false);
+
   // Stock Adjustment modal
   const [adjustModal, setAdjustModal] = useState(null);
   const [adjustForm, setAdjustForm] = useState({
@@ -774,6 +782,133 @@ export default function RecyclingPage() {
     }
   };
 
+  // ========== MULTI-MATERIAL SALE LOGIC ==========
+
+  const handleAddSaleRow = () => {
+    setMultiSaleRows(prev => [
+      ...prev,
+      { id: Date.now() + Math.random(), material_type_id: '', condition: '', quantity_kg: '', price_per_kg: '' }
+    ]);
+  };
+
+  const handleRemoveSaleRow = (id) => {
+    if (multiSaleRows.length <= 1) return showToast('La venta debe incluir al menos 1 renglón', 'error');
+    setMultiSaleRows(prev => prev.filter(r => r.id !== id));
+  };
+
+  const handleSaleRowChange = (id, field, value) => {
+    setMultiSaleRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+  };
+
+  const multiSaleSummary = useMemo(() => {
+    let totalKg = 0;
+    let totalRevenue = 0;
+    let totalCogs = 0;
+    const requestedKgByMaterial = {};
+
+    multiSaleRows.forEach(row => {
+      const kg = parseFloat(row.quantity_kg) || 0;
+      const price = parseFloat(row.price_per_kg) || 0;
+      const matId = row.material_type_id;
+
+      totalKg += kg;
+      totalRevenue += kg * price;
+
+      if (matId) {
+        requestedKgByMaterial[matId] = (requestedKgByMaterial[matId] || 0) + kg;
+
+        const matStock = stockByMaterial[matId];
+        if (matStock && matStock.purchased_kg > 0) {
+          const avgCost = matStock.total_invested / matStock.purchased_kg;
+          totalCogs += avgCost * kg;
+        }
+      }
+    });
+
+    const grossProfit = totalRevenue - totalCogs;
+    return { totalKg, totalRevenue, totalCogs, grossProfit, requestedKgByMaterial };
+  }, [multiSaleRows, stockByMaterial]);
+
+  const handleSubmitMultiSale = async () => {
+    const buyerName = multiSaleBuyer.trim();
+    if (!buyerName) return showToast('Ingresa el nombre del comprador / empresa', 'error');
+
+    if (multiSaleRows.length === 0) return showToast('Agrega al menos un material a la venta', 'error');
+
+    // Validate rows
+    for (let i = 0; i < multiSaleRows.length; i++) {
+      const row = multiSaleRows[i];
+      if (!row.material_type_id) return showToast(`Selecciona el material en el renglón #${i + 1}`, 'error');
+      const kg = parseFloat(row.quantity_kg);
+      const price = parseFloat(row.price_per_kg);
+      if (isNaN(kg) || kg <= 0) return showToast(`Ingresa una cantidad válida de kilos en el renglón #${i + 1}`, 'error');
+      if (isNaN(price) || price < 0) return showToast(`Ingresa un precio por kg válido en el renglón #${i + 1}`, 'error');
+    }
+
+    // Validate available stock per material
+    for (const [matId, totalReqKg] of Object.entries(multiSaleSummary.requestedKgByMaterial)) {
+      const matStock = stockByMaterial[matId];
+      const availKg = matStock ? (matStock.purchased_kg - matStock.sold_kg) : 0;
+      if (totalReqKg > availKg) {
+        const matName = matStock?.name || 'Material';
+        return showToast(`Stock insuficiente para "${matName}". Disponibles: ${fmtKg(availKg)} kg, Solicitados en ticket: ${fmtKg(totalReqKg)} kg`, 'error');
+      }
+    }
+
+    setSubmittingMultiSale(true);
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+
+      // Generate single ticket folio GRS-XXXXX
+      const { data: lastSale } = await supabase
+        .from('recycling_sales')
+        .select('sale_number')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      let nextNum = 1;
+      if (lastSale && lastSale.length > 0) {
+        const match = lastSale[0].sale_number?.match(/GRS-(\d+)/);
+        if (match) nextNum = parseInt(match[1]) + 1;
+      }
+      const saleNumber = `GRS-${String(nextNum).padStart(5, '0')}`;
+
+      // Insert all rows
+      const inserts = multiSaleRows.map(row => {
+        const kg = parseFloat(row.quantity_kg);
+        const price = parseFloat(row.price_per_kg);
+        const cond = row.condition.trim();
+        const rowNotes = cond ? (multiSaleNotes.trim() ? `[${cond}] ${multiSaleNotes.trim()}` : cond) : (multiSaleNotes.trim() || null);
+
+        return {
+          sale_number: saleNumber,
+          material_type_id: row.material_type_id,
+          quantity_kg: kg,
+          price_per_kg: price,
+          total_amount: kg * price,
+          buyer_name: buyerName,
+          notes: rowNotes,
+          sold_by: userId,
+        };
+      });
+
+      const { error } = await supabase.from('recycling_sales').insert(inserts);
+      if (error) throw error;
+
+      // Reset form
+      setMultiSaleBuyer('');
+      setMultiSaleNotes('');
+      setMultiSaleRows([{ id: Date.now(), material_type_id: '', condition: '', quantity_kg: '', price_per_kg: '' }]);
+
+      showToast(`Venta ${saleNumber} registrada con ${inserts.length} renglón(es) — Total $${fmt(multiSaleSummary.totalRevenue)}`);
+      fetchData();
+      setActiveTab('historial');
+    } catch (err) {
+      showToast('Error al registrar venta: ' + err.message, 'error');
+    } finally {
+      setSubmittingMultiSale(false);
+    }
+  };
+
   // ========== STOCK ADJUSTMENT LOGIC ==========
 
   const openAdjustmentModal = (material) => {
@@ -914,39 +1049,6 @@ export default function RecyclingPage() {
   const handleUpdateSupplier = async (id, updates) => {
     const { error } = await supabase.from('recycling_suppliers').update(updates).eq('id', id);
     if (error) return showToast('Error: ' + error.message, 'error');
-    setEditingSupplier(null);
-    showToast('Proveedor actualizado');
-    fetchData();
-  };
-
-  const handleToggleSupplier = async (id, currentActive) => {
-    await handleUpdateSupplier(id, { is_active: !currentActive });
-  };
-
-  // ========== RENDER ==========
-
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <Loader2 size={32} className="animate-spin text-[#6a9a04]" />
-    </div>
-  );
-
-  const TABS = [
-    { key: 'compra', label: 'Nueva Compra', icon: ShoppingCart },
-    { key: 'inventario', label: 'Inventario', icon: Package },
-    { key: 'historial', label: 'Historial', icon: FileText },
-    { key: 'config', label: 'Configuración', icon: Settings },
-  ];
-
-  return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Toast */}
-      {toast && (
-        <div className={`fixed top-24 right-6 z-[9999] px-5 py-3 rounded-xl shadow-2xl text-sm font-bold text-white flex items-center gap-2 animate-[slideIn_0.3s_ease] ${toast.type === 'error' ? 'bg-red-500' : 'bg-[#6a9a04]'}`}
-          style={{ animation: 'slideIn 0.3s ease' }}>
-          {toast.type === 'error' ? <X size={16} /> : <Check size={16} />}
-          {toast.message}
-        </div>
       )}
 
       {/* Header */}
@@ -1145,6 +1247,237 @@ export default function RecyclingPage() {
                   </div>
                 );
               })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =============== TAB: NUEVA VENTA (MULTI-MATERIAL) =============== */}
+      {activeTab === 'venta' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Form */}
+          <div className="lg:col-span-2 bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-6 space-y-6">
+            <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-4">
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Send className="w-5 h-5 text-blue-600" /> Registrar Venta Multi-Material / Multi-Renglón
+              </h2>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                Ticket Consolidado
+              </span>
+            </div>
+
+            {/* Buyer & Ticket Notes */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Comprador / Empresa *</label>
+                <div className="relative">
+                  <Users size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={multiSaleBuyer}
+                    onChange={e => setMultiSaleBuyer(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-blue-500 bg-white"
+                    placeholder="Nombre del comprador o empresa..."
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Notas del Ticket (opcional)</label>
+                <input
+                  type="text"
+                  value={multiSaleNotes}
+                  onChange={e => setMultiSaleNotes(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-blue-500 bg-white"
+                  placeholder="Ej. Factura #12, Chofer Don Pedro..."
+                />
+              </div>
+            </div>
+
+            {/* Material Lines Table */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-bold text-slate-900">Desglose de Materiales y Calidades *</label>
+                <button
+                  type="button"
+                  onClick={handleAddSaleRow}
+                  className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold border-none cursor-pointer flex items-center gap-1 transition-all"
+                >
+                  <Plus size={14} /> Agregar Renglón
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {multiSaleRows.map((row, index) => {
+                  const matStock = stockByMaterial[row.material_type_id];
+                  const availKg = matStock ? (matStock.purchased_kg - matStock.sold_kg) : 0;
+                  const rowSubtotal = (parseFloat(row.quantity_kg) || 0) * (parseFloat(row.price_per_kg) || 0);
+
+                  return (
+                    <div key={row.id} className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-3 relative group">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-500 border-b border-slate-200/60 pb-2">
+                        <span>Renglón #{index + 1}</span>
+                        {multiSaleRows.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSaleRow(row.id)}
+                            className="text-red-500 hover:text-red-700 bg-transparent border-none cursor-pointer flex items-center gap-1 text-xs"
+                          >
+                            <Trash2 size={13} /> Quitar
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {/* Material Selector */}
+                        <div className="lg:col-span-2">
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">Material Base *</label>
+                          <select
+                            value={row.material_type_id}
+                            onChange={e => handleSaleRowChange(row.id, 'material_type_id', e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium outline-none focus:border-blue-500 bg-white cursor-pointer"
+                          >
+                            <option value="">Selecciona material...</option>
+                            {activeMaterials.map(m => {
+                              const stock = stockByMaterial[m.id];
+                              const kgs = stock ? (stock.purchased_kg - stock.sold_kg) : 0;
+                              return (
+                                <option key={m.id} value={m.id}>
+                                  {m.name} — (Stock: {fmtKg(kgs)} kg)
+                                </option>
+                              );
+                            })}
+                          </select>
+                          {row.material_type_id && (
+                            <p className="text-[10px] text-slate-400 mt-1">
+                              Stock disponible: <strong className="text-slate-700">{fmtKg(availKg)} kg</strong>
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Condition / Re-classification free text */}
+                        <div className="lg:col-span-2">
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">Detalle / Condición (opcional)</label>
+                          <input
+                            type="text"
+                            value={row.condition}
+                            onChange={e => handleSaleRowChange(row.id, 'condition', e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-blue-500 bg-white"
+                            placeholder="Ej. Limpio, Sucio, Residuos, Granalla..."
+                          />
+                        </div>
+
+                        {/* Quantity KG */}
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">Cantidad KG *</label>
+                          <input
+                            type="number"
+                            step="0.001"
+                            min="0"
+                            value={row.quantity_kg}
+                            onChange={e => handleSaleRowChange(row.id, 'quantity_kg', e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-blue-500 bg-white font-mono"
+                            placeholder="0.000"
+                          />
+                        </div>
+
+                        {/* Price per KG */}
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">Precio / KG ($) *</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={row.price_per_kg}
+                            onChange={e => handleSaleRowChange(row.id, 'price_per_kg', e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-blue-500 bg-white font-mono"
+                            placeholder="0.00"
+                          />
+                        </div>
+
+                        {/* Subtotal Preview */}
+                        <div className="lg:col-span-2 flex items-center justify-end">
+                          <div className="text-right">
+                            <span className="text-[10px] font-bold text-slate-400 block uppercase">Subtotal Renglón</span>
+                            <span className="text-base font-black text-blue-600">${fmt(rowSubtotal)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAddSaleRow}
+                className="w-full py-2.5 border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-xl text-slate-500 hover:text-blue-600 text-xs font-bold bg-transparent cursor-pointer transition-all mt-3 flex items-center justify-center gap-1.5"
+              >
+                <Plus size={15} /> Agregar Otro Material / Calidad a esta Venta
+              </button>
+            </div>
+
+            {/* Submit */}
+            <button
+              onClick={handleSubmitMultiSale}
+              disabled={submittingMultiSale}
+              className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm border-none cursor-pointer shadow-lg shadow-blue-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {submittingMultiSale ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+              Registrar Venta Multi-Material ({multiSaleRows.length} Renglón{multiSaleRows.length > 1 ? 'es' : ''})
+            </button>
+          </div>
+
+          {/* Right Ticket Summary Sidebar */}
+          <div className="space-y-4">
+            <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-6 space-y-4">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">
+                Resumen del Ticket de Venta
+              </h3>
+
+              <div className="space-y-3">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">Comprador</span>
+                  <span className="font-bold text-slate-900">{multiSaleBuyer.trim() || '—'}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">Total Renglones</span>
+                  <span className="font-bold text-slate-900">{multiSaleRows.length}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">Total Kilos Salientes</span>
+                  <span className="font-bold text-slate-900">{fmtKg(multiSaleSummary.totalKg)} kg</span>
+                </div>
+
+                <div className="border-t border-slate-200/80 pt-3">
+                  <div className="flex justify-between text-xs text-slate-500 mb-1">
+                    <span>Costo Est. Adquisición (COGS)</span>
+                    <span className="font-mono">${fmt(multiSaleSummary.totalCogs)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-slate-500 mb-2">
+                    <span>Utilidad Bruta Estimada</span>
+                    <span className={`font-mono font-bold ${multiSaleSummary.grossProfit >= 0 ? 'text-[#6a9a04]' : 'text-red-600'}`}>
+                      ${fmt(multiSaleSummary.grossProfit)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-200 pt-3 mt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-500">TOTAL A COBRAR</span>
+                    <span className="text-3xl font-black text-blue-600">${fmt(multiSaleSummary.totalRevenue)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Helper Tip */}
+            <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 text-xs text-blue-900 space-y-1">
+              <p className="font-bold flex items-center gap-1.5 text-blue-700">
+                💡 Re-clasificación de Materiales
+              </p>
+              <p className="text-[11px] text-blue-800/80 leading-relaxed">
+                Puedes agregar el mismo material base varias veces si el cliente te pagó distintas calidades (ej. 300 kg Inserto Limpio a $1000/kg y 150 kg Inserto Sucio a $950/kg). El stock se descontará del inventario general de Inserto y la utilidad calculará el costo promedio.
+              </p>
             </div>
           </div>
         </div>
