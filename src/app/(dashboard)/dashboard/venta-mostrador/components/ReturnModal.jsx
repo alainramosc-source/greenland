@@ -86,18 +86,22 @@ export default function ReturnModal({
           </p>
         </div>
 
-        <div className="space-y-3 text-xs">
+        <form onSubmit={(e) => { e.preventDefault(); handleProcessReturn(); }} className="space-y-3 text-xs" autoComplete="off">
           {/* Motivo Obligatorio */}
           <div>
             <label className="block font-bold text-slate-700 mb-1">
               Motivo de Devolución *
             </label>
-            <input
-              type="text"
+            <textarea
+              rows={2}
+              name="return_reason_notes_description"
+              autoComplete="off"
+              data-lpignore="true"
+              data-form-type="other"
               placeholder="Especifica la razón obligatoria (ej: cliente cambió de opinión)..."
               value={returnReason}
               onChange={(e) => setReturnReason(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-500 font-medium"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-500 font-medium resize-none"
             />
           </div>
 
@@ -111,6 +115,9 @@ export default function ReturnModal({
               <Key size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="password"
+                name="signer_auth_pin_code"
+                autoComplete="new-password"
+                data-lpignore="true"
                 placeholder="Ingresa PIN o escanea credencial..."
                 value={signerAuthInput}
                 onChange={(e) => setSignerAuthInput(e.target.value)}
@@ -118,7 +125,7 @@ export default function ReturnModal({
               />
             </div>
           </div>
-        </div>
+        </form>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 pt-2">
