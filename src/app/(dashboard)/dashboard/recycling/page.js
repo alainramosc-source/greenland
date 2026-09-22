@@ -78,21 +78,35 @@ export default function RecyclingPage() {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
+  // User role state
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
+
+  const isAdmin = useMemo(() => {
+    if (!currentUserProfile) return true; // Default fallback to allow admin if loaded
+    return currentUserProfile.role === 'admin' || currentUserProfile.sub_role === 'super_admin';
+  }, [currentUserProfile]);
+
   // Fetch all data
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [matRes, supRes, purRes, salRes, profRes] = await Promise.all([
+    const [matRes, supRes, purRes, salRes, profRes, userRes] = await Promise.all([
       supabase.from('recycling_material_types').select('*').order('name'),
       supabase.from('recycling_suppliers').select('*').order('name'),
       supabase.from('recycling_purchases').select('*, recycling_material_types(name)').order('created_at', { ascending: false }),
       supabase.from('recycling_sales').select('*, recycling_material_types(name)').order('created_at', { ascending: false }),
       supabase.from('profiles').select('id, full_name'),
+      supabase.auth.getUser()
     ]);
     if (matRes.data) setMaterialTypes(matRes.data);
     if (supRes.data) setSuppliers(supRes.data);
     if (purRes.data) setPurchases(purRes.data);
     if (salRes.data) setSales(salRes.data);
     if (profRes.data) setProfiles(profRes.data);
+
+    if (userRes?.data?.user) {
+      const { data: myProfile } = await supabase.from('profiles').select('id, role, sub_role, full_name').eq('id', userRes.data.user.id).single();
+      if (myProfile) setCurrentUserProfile(myProfile);
+    }
     setLoading(false);
   }, []);
 
@@ -240,6 +254,7 @@ export default function RecyclingPage() {
   };
 
   const handleSaveMovementEdit = async () => {
+    if (!isAdmin) return showToast('Solo Administradores pueden editar o eliminar movimientos', 'error');
     if (!editingMovementModal) return;
     const qty = parseFloat(editMovementForm.quantity_kg);
     const price = parseFloat(editMovementForm.price_per_kg);
@@ -297,6 +312,7 @@ export default function RecyclingPage() {
   };
 
   const handleDeleteMovement = async (item) => {
+    if (!isAdmin) return showToast('Solo Administradores pueden editar o eliminar movimientos', 'error');
     if (!confirm(`¿Eliminar definitivamente el movimiento ${item.number}? Esta acción actualizará la caja y el stock.`)) return;
 
     try {
