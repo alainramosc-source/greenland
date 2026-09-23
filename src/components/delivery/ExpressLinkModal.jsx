@@ -9,6 +9,7 @@ export default function ExpressLinkModal({ isOpen, onClose, onLinkCreated }) {
   const [searchResults, setSearchResults] = useState([]);
   const [cart, setCart] = useState([]);
   const [deliveryType, setDeliveryType] = useState('delivery');
+  const [shippingFee, setShippingFee] = useState('0');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
@@ -21,6 +22,7 @@ export default function ExpressLinkModal({ isOpen, onClose, onLinkCreated }) {
       setSearchTerm('');
       setSearchResults([]);
       setCart([]);
+      setShippingFee('0');
       setResult(null);
       setCopied(false);
       return;
@@ -88,6 +90,17 @@ export default function ExpressLinkModal({ isOpen, onClose, onLinkCreated }) {
         quantity: parseInt(item.quantity),
         sale_price: parseFloat(item.sale_price),
       }));
+
+      const feeNum = deliveryType === 'delivery' ? (parseFloat(shippingFee) || 0) : 0;
+      if (feeNum > 0) {
+        items.push({
+          product_id: null,
+          sku: 'FLETE-ENVIO',
+          name: 'Servicio de Envío a Domicilio',
+          quantity: 1,
+          sale_price: feeNum,
+        });
+      }
 
       let resData = null;
       try {
@@ -232,7 +245,7 @@ export default function ExpressLinkModal({ isOpen, onClose, onLinkCreated }) {
                 </div>
               )}
 
-              {/* Delivery options */}
+              {/* Delivery options & Shipping Fee */}
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-400 mb-1">Tipo de Entrega</label>
@@ -259,6 +272,28 @@ export default function ExpressLinkModal({ isOpen, onClose, onLinkCreated }) {
                 </div>
               </div>
 
+              {/* Costo de Envío / Flete */}
+              {deliveryType === 'delivery' && (
+                <div>
+                  <label className="block text-[11px] font-bold text-amber-400 mb-1 flex items-center justify-between">
+                    <span>🚚 Costo de Envío / Flete ($)</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Desglosado al cliente</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="10"
+                      value={shippingFee}
+                      onChange={(e) => setShippingFee(e.target.value)}
+                      placeholder="0.00 (Envío gratis o costo del flete)"
+                      className="w-full pl-7 pr-3 py-2 bg-slate-800 border border-amber-500/40 rounded-xl text-xs font-bold text-white outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Notes */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-400 mb-1">Notas internas (opcional)</label>
@@ -274,8 +309,13 @@ export default function ExpressLinkModal({ isOpen, onClose, onLinkCreated }) {
               {/* Total display & Action */}
               <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Monto Total</p>
-                  <p className="text-lg font-black text-[#8cc618]">${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+                  <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold">
+                    <span>Productos: ${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                    {deliveryType === 'delivery' && (parseFloat(shippingFee) || 0) > 0 && (
+                      <span className="text-amber-400">+ Flete: ${parseFloat(shippingFee).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                    )}
+                  </div>
+                  <p className="text-lg font-black text-[#8cc618]">${(subtotal + (deliveryType === 'delivery' ? (parseFloat(shippingFee) || 0) : 0)).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
                 </div>
                 <button
                   onClick={handleConfirm}

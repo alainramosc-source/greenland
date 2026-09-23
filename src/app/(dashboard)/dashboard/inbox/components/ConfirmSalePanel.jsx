@@ -7,6 +7,7 @@ export default function ConfirmSalePanel({ conversation, supabase, onClose, onSa
   const [searchResults, setSearchResults] = useState([]);
   const [cart, setCart] = useState([]);
   const [deliveryType, setDeliveryType] = useState('delivery');
+  const [shippingFee, setShippingFee] = useState('0');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
@@ -77,6 +78,17 @@ export default function ConfirmSalePanel({ conversation, supabase, onClose, onSa
         quantity: parseInt(item.quantity),
         sale_price: parseFloat(item.sale_price),
       }));
+
+      const feeNum = deliveryType === 'delivery' ? (parseFloat(shippingFee) || 0) : 0;
+      if (feeNum > 0) {
+        items.push({
+          product_id: null,
+          sku: 'FLETE-ENVIO',
+          name: 'Servicio de Envío a Domicilio',
+          quantity: 1,
+          sale_price: feeNum,
+        });
+      }
 
       const { data, error } = await supabase.rpc('create_retail_sale', {
         p_conversation_id: conversation?.id?.startsWith('demo') ? null : conversation?.id || null,
@@ -256,18 +268,39 @@ export default function ConfirmSalePanel({ conversation, supabase, onClose, onSa
           </div>
         )}
 
-        {/* Delivery type */}
+        {/* Delivery type & Shipping Fee */}
         {cart.length > 0 && (
-          <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-                🚚 Venta con Envío a Domicilio
-              </p>
-              <p className="text-[10px] text-emerald-600 mt-0.5">Se generará un link de entrega para el cliente</p>
+          <div className="space-y-3">
+            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-3 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                  🚚 Venta con Envío a Domicilio
+                </p>
+                <p className="text-[10px] text-emerald-600 mt-0.5">Se generará un link de entrega para el cliente</p>
+              </div>
+              <span className="text-xs font-mono font-bold text-emerald-700 bg-white/80 border border-emerald-300 px-2 py-0.5 rounded-md">
+                Link activo
+              </span>
             </div>
-            <span className="text-xs font-mono font-bold text-emerald-700 bg-white/80 border border-emerald-300 px-2 py-0.5 rounded-md">
-              Link activo
-            </span>
+
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-wider text-amber-700 mb-1 flex items-center justify-between">
+                <span>🚚 Costo de Envío / Flete ($)</span>
+                <span className="text-[10px] text-slate-400 font-normal">Desglosado al cliente</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="10"
+                  value={shippingFee}
+                  onChange={(e) => setShippingFee(e.target.value)}
+                  placeholder="0.00 (Flete de envío)"
+                  className="w-full pl-7 pr-3 py-1.5 text-xs bg-white border border-amber-300 rounded-xl outline-none focus:ring-2 focus:ring-amber-400/20 font-bold text-slate-800"
+                />
+              </div>
+            </div>
           </div>
         )}
 
@@ -306,8 +339,14 @@ export default function ConfirmSalePanel({ conversation, supabase, onClose, onSa
       {cart.length > 0 && (
         <div className="p-4 border-t border-slate-200/50 bg-white/80 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500">Total</span>
-            <span className="text-lg font-black text-slate-900">${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400">
+                Productos: ${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                {(parseFloat(shippingFee) || 0) > 0 && <span className="text-amber-600 font-bold ml-1">+ Flete: ${parseFloat(shippingFee).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>}
+              </p>
+              <span className="text-xs font-bold text-slate-500">Monto Total</span>
+            </div>
+            <span className="text-lg font-black text-slate-900">${(subtotal + (parseFloat(shippingFee) || 0)).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
           </div>
 
           {!isValid && (
