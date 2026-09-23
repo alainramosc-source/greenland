@@ -309,11 +309,14 @@ export default function PedidosPage() {
               }`}
             >
               <Store className="w-4 h-4" /> Venta a Público
-              {retailOrders.length > 0 && (
-                <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
-                  activeTab === 'retail' ? 'bg-white/20 text-white' : 'bg-[#6a9a04]/10 text-[#6a9a04]'
-                }`}>{retailOrders.length}</span>
-              )}
+              {(() => {
+                const count = retailOrders.filter(o => o.delivery_type !== 'delivery').length;
+                return count > 0 ? (
+                  <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                    activeTab === 'retail' ? 'bg-white/20 text-white' : 'bg-[#6a9a04]/10 text-[#6a9a04]'
+                  }`}>{count}</span>
+                ) : null;
+              })()}
             </button>
             <button
               onClick={() => setActiveTab('envios')}
@@ -324,11 +327,14 @@ export default function PedidosPage() {
               }`}
             >
               <Truck className="w-4 h-4" /> Envíos a Domicilio
-              {retailOrders.length > 0 && (
-                <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
-                  activeTab === 'envios' ? 'bg-white/20 text-white' : 'bg-[#6a9a04]/10 text-[#6a9a04]'
-                }`}>{retailOrders.length}</span>
-              )}
+              {(() => {
+                const count = retailOrders.filter(o => o.delivery_type === 'delivery').length;
+                return count > 0 ? (
+                  <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                    activeTab === 'envios' ? 'bg-white/20 text-white' : 'bg-[#6a9a04]/10 text-[#6a9a04]'
+                  }`}>{count}</span>
+                ) : null;
+              })()}
             </button>
           </div>
         )}
@@ -579,10 +585,11 @@ export default function PedidosPage() {
         )}
       {/* ========== RETAIL SALES TAB ========== */}
       {isAdmin && activeTab === 'retail' && (() => {
+        const publicOrders = retailOrders.filter(o => o.delivery_type !== 'delivery');
         const now = new Date();
         const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const thisWeek = new Date(Date.now() - 7 * 86400000).toISOString();
-        const retailActive = retailOrders.filter(o => o.status !== 'cancelled');
+        const retailActive = publicOrders.filter(o => o.status !== 'cancelled');
         const totalRetail = retailActive.reduce((s, o) => s + Number(o.total || 0), 0);
         const todaySales = retailActive.filter(o => {
           if (!o.created_at) return false;
@@ -593,7 +600,7 @@ export default function PedidosPage() {
         const todayTotal = todaySales.reduce((s, o) => s + Number(o.total || 0), 0);
         const unpaidTotal = retailActive.filter(o => o.payment_status !== 'paid').reduce((s, o) => s + Number(o.total || 0), 0);
 
-        const filteredRetail = retailOrders.filter(o => {
+        const filteredRetail = publicOrders.filter(o => {
           const s = searchTerm?.toLowerCase() || '';
           if (!s) return true;
           return (o.order_number || '').toLowerCase().includes(s) || (o.notes || '').toLowerCase().includes(s);
@@ -842,13 +849,14 @@ export default function PedidosPage() {
 
       {/* ========== ENVÍOS A DOMICILIO TAB ========== */}
       {isAdmin && activeTab === 'envios' && (() => {
-        const enviosActive = retailOrders.filter(o => o.status !== 'cancelled');
+        const deliveryOrders = retailOrders.filter(o => o.delivery_type === 'delivery');
+        const enviosActive = deliveryOrders.filter(o => o.status !== 'cancelled');
         const inTransitCount = enviosActive.filter(o => o.status === 'in_transit').length;
         const deliveredCount = enviosActive.filter(o => o.status === 'delivered').length;
         const returnedCount = enviosActive.filter(o => o.status === 'returned' || o.status === 'partially_returned').length;
         const pendingCount = enviosActive.filter(o => o.status === 'pending' || o.status === 'confirmed').length;
 
-        const filteredEnvios = retailOrders.filter(o => {
+        const filteredEnvios = deliveryOrders.filter(o => {
           const s = searchTerm?.toLowerCase() || '';
           if (!s) return true;
           return (o.order_number || '').toLowerCase().includes(s) ||
