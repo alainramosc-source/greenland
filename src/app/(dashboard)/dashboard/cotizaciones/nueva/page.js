@@ -825,7 +825,16 @@ function QuotationFormInner() {
                       src={`/productos/${p.sku}-P1.jpg`}
                       alt=""
                       className="w-full h-full object-cover"
-                      onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span class="text-slate-400 text-xs">—</span>'; }}
+                      onError={(e) => {
+                        if (e.target.src.endsWith('.jpg')) {
+                          e.target.src = e.target.src.replace(/\.jpg$/, '.png');
+                        } else {
+                          e.target.style.display = 'none';
+                          if (e.target.parentElement) {
+                            e.target.parentElement.innerHTML = '<span class="text-slate-400 text-xs">—</span>';
+                          }
+                        }
+                      }}
                     />
                   </div>
                   <div>
@@ -871,8 +880,16 @@ function QuotationFormInner() {
                           alt={item.name}
                           className="w-full h-full object-cover"
                           onError={(e) => {
-                            e.target.style.display = 'none';
-                            e.target.nextSibling && (e.target.nextSibling.style.display = 'flex');
+                            if (e.target.src.endsWith('.jpg')) {
+                              e.target.src = e.target.src.replace(/\.jpg$/, '.png');
+                            } else if (e.target.src.endsWith('.png')) {
+                              e.target.src = e.target.src.replace(/\.png$/, '.jpg');
+                            } else {
+                              e.target.style.display = 'none';
+                              if (e.target.nextSibling) {
+                                e.target.nextSibling.style.display = 'flex';
+                              }
+                            }
                           }}
                         />
                         <div className="w-full h-full items-center justify-center hidden">

@@ -38,7 +38,17 @@ PAGE.cw = PAGE.width - PAGE.ml - PAGE.mr;
 // ---------------------------------------------------------------------------
 const loadImage = async (path, trim = false) => {
   try {
-    const resp = await fetch(path);
+    let resp = await fetch(path);
+    if (!resp.ok) {
+      // Fallback: if .jpg failed try .png, or vice versa
+      let altPath = null;
+      if (path.endsWith('.jpg')) altPath = path.replace(/\.jpg$/, '.png');
+      else if (path.endsWith('.jpeg')) altPath = path.replace(/\.jpeg$/, '.png');
+      else if (path.endsWith('.png')) altPath = path.replace(/\.png$/, '.jpg');
+      if (altPath) {
+        resp = await fetch(altPath);
+      }
+    }
     if (!resp.ok) return null;
     const blob = await resp.blob();
     const dataUrl = await new Promise(r => {
@@ -52,7 +62,8 @@ const loadImage = async (path, trim = false) => {
       i.onerror = rej;
       i.src = dataUrl;
     });
-    if (!trim) return { data: dataUrl, w: img.naturalWidth, h: img.naturalHeight };
+    const format = dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+    if (!trim) return { data: dataUrl, w: img.naturalWidth, h: img.naturalHeight, format };
     // Auto-trim whitespace
     const c = document.createElement('canvas');
     c.width = img.naturalWidth; c.height = img.naturalHeight;
@@ -75,7 +86,7 @@ const loadImage = async (path, trim = false) => {
     const cc = document.createElement('canvas');
     cc.width = cw; cc.height = ch;
     cc.getContext('2d').drawImage(c, left, top, cw, ch, 0, 0, cw, ch);
-    return { data: cc.toDataURL('image/png'), w: cw, h: ch };
+    return { data: cc.toDataURL('image/png'), w: cw, h: ch, format: 'PNG' };
   } catch { return null; }
 };
 
@@ -267,11 +278,26 @@ export default async function generateQuotationPDF(quotationData) {
   // Preload product images
   const prodImgs = {};
   await Promise.all(items.map(async (it) => {
-    if (it.image_url) {
-      const d = await loadImage(it.image_url);
-      if (d) prodImgs[it.image_url] = d.data;
+    const imgPath = it.image_url || (it.sku ? `/productos/${it.sku}-P1.jpg` : null);
+    if (imgPath) {
+      const d = await loadImage(imgPath);
+      if (d) {
+        if (it.image_url) prodImgs[it.image_url] = d;
+        if (it.sku) {
+          prodImgs[`/productos/${it.sku}-P1.jpg`] = d;
+          prodImgs[`/productos/${it.sku}-P1.png`] = d;
+        }
+      }
     }
   }));
+
+  const getImgData = (it) => {
+    if (it.image_url && prodImgs[it.image_url]) return prodImgs[it.image_url];
+    if (it.sku) {
+      return prodImgs[`/productos/${it.sku}-P1.jpg`] || prodImgs[`/productos/${it.sku}-P1.png`];
+    }
+    return null;
+  };
 
   const pr = brand.primaryRGB;
   const rx = PAGE.width - PAGE.mr;
@@ -356,7 +382,7 @@ export default async function generateQuotationPDF(quotationData) {
   // =========================================================================
   // PRODUCTS TABLE
   // =========================================================================
-  const hasImg = items.some(i => i.image_url && prodImgs[i.image_url]);
+  const hasImg = items.some(i => !!getImgData(i));
   const tblX = PAGE.ml;
   const tblW = PAGE.cw;
 
@@ -424,7 +450,8 @@ export default async function generateQuotationPDF(quotationData) {
       txtH = nl.length * 3.8 + eh + 8;
     }
     const imgSz = 17;
-    const itemHasImg = hasImg && item.image_url && prodImgs[item.image_url];
+    const imgObj = getImgData(item);
+    const itemHasImg = hasImg && imgObj;
     const rowH = Math.max(txtH, itemHasImg ? imgSz + 5 : 10);
 
     y = checkSpace(doc, y, rowH + 1, brand, logoData, quotation);
@@ -450,7 +477,7 @@ export default async function generateQuotationPDF(quotationData) {
       try {
         const ix = tblX + colDefs[1].x + (colDefs[1].w - imgSz) / 2;
         const iy = y + (rowH - imgSz) / 2;
-        doc.addImage(prodImgs[item.image_url], 'JPEG', ix, iy, imgSz, imgSz);
+        doc.addImage(imgObj.data, imgObj.format || 'PNG', ix, iy, imgSz, imgSz);
       } catch {}
     }
 
