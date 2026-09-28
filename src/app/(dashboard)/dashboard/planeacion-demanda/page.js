@@ -339,13 +339,17 @@ function PlaneacionDemandaPage() {
             let totalUpdated = 0;
 
             for (const item of itemsToSync) {
-                for (const whId of targetWarehouseIds) {
+                for (let i = 0; i < targetWarehouseIds.length; i++) {
+                    const whId = targetWarehouseIds[i];
+                    // For combined warehouses (like Saltillo), assign full demand to primary bodega (index 0) and 0 to secondary bodegas to avoid double-counting
+                    const demandValue = (selectedWarehouse.isCombined && i > 0) ? 0 : item.finalWeeklyDemand;
+
                     const { error } = await supabase
                         .from('coverage_inventory')
                         .upsert({
                             warehouse_id: whId,
                             product_id: item.product.id,
-                            weekly_demand: item.finalWeeklyDemand,
+                            weekly_demand: demandValue,
                             updated_at: new Date().toISOString()
                         }, { onConflict: 'warehouse_id,product_id' });
 
