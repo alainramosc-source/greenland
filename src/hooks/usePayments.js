@@ -63,12 +63,18 @@ export function usePayments() {
   // Generate signed URL for receipt viewing
   const handleViewReceipt = async (receiptUrl) => {
     if (!receiptUrl) return;
-    // Extract just the storage path from full URLs or use as-is for plain paths
     let storagePath = receiptUrl;
     const match = receiptUrl.match(/payment-receipts\/([^?]+)/);
     if (match) {
       storagePath = decodeURIComponent(match[1]);
     }
+
+    // If it's already a full HTTP URL and not from payment-receipts path, use directly
+    if (receiptUrl.startsWith('http') && !match) {
+      setLightboxImg(receiptUrl);
+      return;
+    }
+
     // Try signed URL first (for private buckets)
     const { data, error } = await supabase.storage.from('payment-receipts').createSignedUrl(storagePath, 3600);
     if (data?.signedUrl) {
@@ -79,7 +85,7 @@ export function usePayments() {
       if (pubData?.publicUrl) {
         setLightboxImg(pubData.publicUrl);
       } else {
-        alert('No se pudo cargar el comprobante. El archivo puede no existir en el almacenamiento.');
+        setLightboxImg(receiptUrl);
       }
     }
   };
