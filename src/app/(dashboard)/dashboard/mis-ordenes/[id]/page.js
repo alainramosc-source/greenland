@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { 
   ArrowLeft, FileText, Upload, Download, Check, X, Send, 
   MessageSquare, DollarSign, Truck, Package, Clock, 
-  AlertTriangle, Eye, Loader2, File, CheckCircle 
+  AlertTriangle, Eye, Loader2, File, CheckCircle, Trash2
 } from 'lucide-react';
 import { formatDateOnly } from '@/utils/formatters';
 
@@ -140,10 +140,14 @@ export default function SupplierOrderDetailPage() {
         const updateField = category === 'factura_pdf' ? 'pdf_url' : 'xml_url';
         
         if (invoice) {
-          // update existing
+          // update existing and reset validation_status if it was rejected
           const { data: updatedInv } = await supabase
             .from('service_order_invoices')
-            .update({ [updateField]: storagePath })
+            .update({ 
+              [updateField]: storagePath,
+              validation_status: 'pendiente',
+              rejection_reason: null
+            })
             .eq('id', invoice.id)
             .select()
             .single();
@@ -170,6 +174,32 @@ export default function SupplierOrderDetailPage() {
       alert('Error al subir archivo: ' + (err?.message || err?.statusCode || JSON.stringify(err)));
     } finally {
       setUploadingDoc(null);
+    }
+  };
+
+  const handleDeleteDoc = async (doc) => {
+    if (!confirm(`¿Estás seguro de eliminar el documento "${doc.file_name}"?`)) return;
+    try {
+      if (doc.file_url) {
+        await supabase.storage.from('supplier-documents').remove([doc.file_url]);
+      }
+      await supabase.from('service_order_evidence').delete().eq('id', doc.id);
+      setEvidence(prev => prev.filter(e => e.id !== doc.id));
+      if (invoice && (doc.document_category === 'factura_pdf' || doc.document_category === 'factura_xml')) {
+        const updateField = doc.document_category === 'factura_pdf' ? 'pdf_url' : 'xml_url';
+        if (invoice[updateField] === doc.file_url) {
+          const { data: updatedInv } = await supabase
+            .from('service_order_invoices')
+            .update({ [updateField]: null })
+            .eq('id', invoice.id)
+            .select()
+            .single();
+          if (updatedInv) setInvoice(updatedInv);
+        }
+      }
+    } catch (err) {
+      console.error('Error al eliminar:', err);
+      alert('Error al eliminar archivo: ' + (err?.message || err));
     }
   };
 
@@ -435,63 +465,62 @@ export default function SupplierOrderDetailPage() {
 
             <div className="space-y-4">
               {DOC_CATEGORIES.map(category => {
-                const uploadedDoc = evidence.find(e => e.document_category === category.id);
+                const categoryDocs = evidence.filter(e => e.document_category === category.id);
+                const hasDocs = categoryDocs.length > 0;
                 const isUploading = uploadingDoc === category.id;
 
                 return (
-                  <div key={category.id} className={`bg-white border border-slate-100 shadow-sm rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-l-4 ${category.border}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${uploadedDoc ? 'bg-green-50 text-green-600' : 'bg-slate-50 text-slate-400'}`}>
-                        {uploadedDoc ? <CheckCircle size={20} /> : <File size={20} />}
+                  <div key={category.id} className={`bg-white border border-slate-100 shadow-sm rounded-xl p-4 space-y-3 border-l-4 ${category.border}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${hasDocs ? 'bg-green-50 text-green-600' : 'bg-slate-50 text-slate-400'}`}>
+                          {hasDocs ? <CheckCircle size={20} /> : <File size={20} />}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-800 text-sm">{category.name}</h4>
+                          <div className="text-xs text-slate-400 mt-0.5">
+                            {hasDocs ? `${categoryDocs.length} archivo(s) cargado(s)` : 'Pendiente de subir'}
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-sm">{category.name}</h4>
-                        {uploadedDoc ? (
-                          <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">{uploadedDoc.file_name}</div>
-                        ) : (
-                          <div className="text-xs text-slate-400 mt-0.5">Pendiente de subir</div>
-                        )}
-                      </div>
+
+                      <label className="flex items-center justify-center gap-2 px-3.5 py-1.5 bg-[#6a9a04] hover:bg-[#5a8203] text-white text-xs font-bold rounded-lg cursor-pointer transition-colors shrink-0 shadow-xs">
+                        {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                        {hasDocs ? 'Subir otro' : 'Subir Archivo'}
+                        <input
+                          type="file"
+                          accept={category.accept}
+                          className="hidden"
+                          onChange={(e) => handleFileUpload(e, category.id)}
+                          disabled={isUploading}
+                        />
+                      </label>
                     </div>
 
-                    <div className="flex items-center gap-2 sm:ml-auto">
-                      {uploadedDoc ? (
-                        <>
-                          <span className="hidden sm:inline-block text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-md">Subido</span>
-                          <button
-                            onClick={() => downloadFile(uploadedDoc.file_url, uploadedDoc.file_name)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold rounded-lg transition-colors"
-                          >
-                            <Eye size={14} /> Ver
-                          </button>
-                          
-                          {/* Enable re-uploading just in case */}
-                          <label className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded-lg cursor-pointer transition-colors">
-                            {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                            <span className="hidden sm:inline">Actualizar</span>
-                            <input
-                              type="file"
-                              accept={category.accept}
-                              className="hidden"
-                              onChange={(e) => handleFileUpload(e, category.id)}
-                              disabled={isUploading}
-                            />
-                          </label>
-                        </>
-                      ) : (
-                        <label className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 bg-[#6a9a04] hover:bg-[#5a8203] text-white text-sm font-bold rounded-xl cursor-pointer transition-colors shadow-sm">
-                          {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                          Subir Archivo
-                          <input
-                            type="file"
-                            accept={category.accept}
-                            className="hidden"
-                            onChange={(e) => handleFileUpload(e, category.id)}
-                            disabled={isUploading}
-                          />
-                        </label>
-                      )}
-                    </div>
+                    {hasDocs && (
+                      <div className="pt-2 border-t border-slate-100 space-y-2">
+                        {categoryDocs.map(doc => (
+                          <div key={doc.id} className="flex items-center justify-between gap-3 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                            <span className="text-xs font-medium text-slate-700 truncate flex-1" title={doc.file_name}>{doc.file_name}</span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={() => downloadFile(doc.file_url, doc.file_name)}
+                                className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold rounded-md transition-colors cursor-pointer"
+                              >
+                                <Eye size={12} /> Ver
+                              </button>
+                              <button
+                                onClick={() => handleDeleteDoc(doc)}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                                title="Eliminar archivo"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
