@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, Building, Mail, Phone, MapPin, FileText, Loader2,
   CheckCircle, XCircle, Truck, DollarSign, Eye, Download, Check, X,
-  Upload, Clock, AlertTriangle, CreditCard, ExternalLink, Send
+  Upload, Clock, AlertTriangle, CreditCard, ExternalLink, Send, Trash2
 } from 'lucide-react';
 
 const fmt = (n) => Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -228,6 +228,30 @@ export default function SupplierDetailPage() {
     else alert('No se pudo generar URL del archivo.');
   };
 
+  const handleDeleteDocument = async (doc) => {
+    if (!confirm(`¿Estás seguro de eliminar el documento "${doc.file_name}"?`)) return;
+    try {
+      if (doc.file_url) {
+        await supabase.storage.from('supplier-documents').remove([doc.file_url]);
+      }
+      const { error } = await supabase.from('service_order_evidence').delete().eq('id', doc.id);
+      if (error) throw error;
+
+      if (doc.service_order_id && (doc.document_category === 'factura_pdf' || doc.document_category === 'factura_xml')) {
+        const updateField = doc.document_category === 'factura_pdf' ? 'pdf_url' : 'xml_url';
+        const inv = invoices.find(i => i.service_order_id === doc.service_order_id && i[updateField] === doc.file_url);
+        if (inv) {
+          await supabase.from('service_order_invoices').update({ [updateField]: null }).eq('id', inv.id);
+        }
+      }
+
+      setEvidence(prev => prev.filter(e => e.id !== doc.id));
+    } catch (err) {
+      console.error('Error al eliminar documento:', err);
+      alert('Error al eliminar documento: ' + (err.message || err));
+    }
+  };
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500 gap-4">
       <Loader2 className="w-10 h-10 animate-spin text-[#6a9a04]" />
@@ -411,10 +435,16 @@ export default function SupplierDetailPage() {
                                       <p className="text-xs font-bold text-slate-900">{DOC_LABELS[doc.document_category] || doc.document_category}</p>
                                       <p className="text-[10px] text-slate-500 truncate" title={doc.file_name}>{doc.file_name}</p>
                                     </div>
-                                    <button onClick={() => viewFile(doc.file_url)}
-                                      className="self-start px-3 py-1 rounded-md text-[10px] font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
-                                      Ver Documento
-                                    </button>
+                                    <div className="flex items-center justify-between gap-2 mt-auto">
+                                      <button onClick={() => viewFile(doc.file_url)}
+                                        className="px-3 py-1 rounded-md text-[10px] font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                                        Ver Documento
+                                      </button>
+                                      <button onClick={() => handleDeleteDocument(doc)}
+                                        className="p-1.5 rounded-md text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors cursor-pointer border border-transparent hover:border-red-200" title="Eliminar documento">
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </div>
                                   </div>
                                 );
                               })}
