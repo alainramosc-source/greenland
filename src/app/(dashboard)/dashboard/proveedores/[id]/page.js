@@ -504,24 +504,26 @@ export default function SupplierDetailPage() {
                                   </div>
 
                                   <div className="flex items-center gap-2">
-                                    {inv.validation_status === 'pendiente' && approvingInvoice !== inv.id && (
+                                    {inv.validation_status !== 'aprobada' && inv.payment_status !== 'paid' && approvingInvoice !== inv.id && (
                                       <>
                                         <button onClick={() => startApproveInvoice(inv, o)}
-                                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200">
+                                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 cursor-pointer">
                                           <Check size={14} /> Aprobar
                                         </button>
-                                        {rejectingInvoice === inv.id ? (
-                                          <div className="flex items-center gap-2">
-                                            <input type="text" value={rejectReason} onChange={e => setRejectReason(e.target.value)}
-                                              placeholder="Motivo..." className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg w-32 outline-none" autoFocus />
-                                            <button onClick={() => handleRejectInvoice(inv)} className="text-red-600 font-bold bg-red-50 p-1.5 rounded-lg border border-red-200"><Check size={14}/></button>
-                                            <button onClick={() => { setRejectingInvoice(null); setRejectReason(''); }} className="text-slate-500 font-bold bg-slate-50 p-1.5 rounded-lg border border-slate-200"><X size={14}/></button>
-                                          </div>
-                                        ) : (
-                                          <button onClick={() => setRejectingInvoice(inv.id)}
-                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 border border-red-200">
-                                            <X size={14} /> Rechazar
-                                          </button>
+                                        {inv.validation_status !== 'rechazada' && (
+                                          rejectingInvoice === inv.id ? (
+                                            <div className="flex items-center gap-2">
+                                              <input type="text" value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+                                                placeholder="Motivo..." className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg w-32 outline-none" autoFocus />
+                                              <button onClick={() => handleRejectInvoice(inv)} className="text-red-600 font-bold bg-red-50 p-1.5 rounded-lg border border-red-200 cursor-pointer"><Check size={14}/></button>
+                                              <button onClick={() => { setRejectingInvoice(null); setRejectReason(''); }} className="text-slate-500 font-bold bg-slate-50 p-1.5 rounded-lg border border-slate-200 cursor-pointer"><X size={14}/></button>
+                                            </div>
+                                          ) : (
+                                            <button onClick={() => setRejectingInvoice(inv.id)}
+                                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 cursor-pointer">
+                                              <X size={14} /> Rechazar
+                                            </button>
+                                          )
                                         )}
                                       </>
                                     )}
@@ -529,7 +531,7 @@ export default function SupplierDetailPage() {
                                     {inv.validation_status === 'aprobada' && inv.payment_status !== 'paid' && (
                                       <>
                                         <button onClick={() => handleMarkPaid(inv)}
-                                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200">
+                                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 cursor-pointer">
                                             <DollarSign size={14} /> Marcar Pagada
                                         </button>
                                         <label className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 cursor-pointer">
@@ -545,7 +547,7 @@ export default function SupplierDetailPage() {
                                   </div>
                                 </div>
 
-                                {inv.validation_status === 'pendiente' && approvingInvoice === inv.id && (
+                                {inv.validation_status !== 'aprobada' && approvingInvoice === inv.id && (
                                   <div className="w-full bg-emerald-50/60 p-4 rounded-xl border border-emerald-200 space-y-3 mt-1">
                                     <div className="flex justify-between items-center border-b border-emerald-200 pb-2">
                                       <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider">Aprobar Factura - Confirmar Monto y Justificación</span>
