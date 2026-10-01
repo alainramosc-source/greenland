@@ -6,7 +6,7 @@ import ReceiptLightbox from './components/ReceiptLightbox';
 import PaymentCard from './components/PaymentCard';
 import CashMovementsTab from './components/CashMovementsTab';
 import ReconciliationTab from './components/ReconciliationTab';
-import { Clock, Wallet, FileSpreadsheet, Search, Filter, CreditCard } from 'lucide-react';
+import { Clock, Wallet, FileSpreadsheet, Search, Filter, CreditCard, Download } from 'lucide-react';
 
 export default function AdminPagosPage() {
   const {
@@ -115,8 +115,8 @@ export default function AdminPagosPage() {
       {activeTab === 'pagos' && (
         <div className="space-y-4">
           {/* Toolbar */}
-          <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="relative w-full sm:w-72">
+          <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 flex-wrap">
+            <div className="relative w-full sm:w-64">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
@@ -127,9 +127,23 @@ export default function AdminPagosPage() {
               />
             </div>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
                 <Filter className="w-4 h-4" />
+                <span>Distribuidor:</span>
+              </div>
+              <select
+                value={filterDistributor}
+                onChange={(e) => setFilterDistributor(e.target.value)}
+                className="px-3 py-2 rounded-xl text-xs font-semibold border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#6a9a04] max-w-[200px] truncate"
+              >
+                <option value="all">Todos los clientes</option>
+                {safeBalances.map(b => (
+                  <option key={b.id} value={b.id}>{b.full_name || b.company_name} {b.client_number ? `(${b.client_number})` : ''}</option>
+                ))}
+              </select>
+
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
                 <span>Estado:</span>
               </div>
               <select
@@ -142,6 +156,16 @@ export default function AdminPagosPage() {
                 <option value="approved">Aprobados</option>
                 <option value="rejected">Rechazados</option>
               </select>
+
+              <button
+                onClick={() => exportPaymentsXLSX(filteredPayments)}
+                disabled={filteredPayments.length === 0}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Exportar los pagos filtrados a Excel"
+              >
+                <Download className="w-4 h-4" />
+                <span>Exportar Excel ({filteredPayments.length})</span>
+              </button>
             </div>
           </div>
 

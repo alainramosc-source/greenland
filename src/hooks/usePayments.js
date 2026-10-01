@@ -611,45 +611,51 @@ export function usePayments() {
   const parsePDFStatement = handleExcelUpload;
 
   
-  const exportPaymentsXLSX = () => {
+  const exportPaymentsXLSX = (customPayments = null) => {
+    const listToExport = Array.isArray(customPayments) ? customPayments : payments;
     const rows = [];
-    for (const p of payments) {
+    for (const p of listToExport) {
       const pType = p.payment_type || 'order';
       const typeLabel = pType === 'containers' ? 'Contenedores' : pType === 'mixed' ? 'Mixto' : 'Pedido';
+      const statusLabel = p.status === 'approved' ? 'Aprobado' : p.status === 'rejected' ? 'Rechazado' : 'Pendiente';
       const base = {
-        'Fecha': p.created_at ? new Date(p.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '',
-        'Distribuidor': p.profiles?.full_name || '',
+        'Fecha Pago': p.payment_date ? new Date(p.payment_date).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' }) : (p.created_at ? new Date(p.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''),
+        'Distribuidor': p.profiles?.full_name || p.distributor?.company_name || p.distributor_name || '',
         'No. Cliente': p.profiles?.client_number || '',
         'Monto Total Pago': Number(p.amount || 0),
         'Tipo': typeLabel,
-        'Metodo': p.payment_method || '',
-        'Referencia': p.reference_number || '',
-        'Status': p.status || '',
+        'Método': p.payment_method || '',
+        'Referencia': p.reference_number || p.reference || '',
+        'Estado': statusLabel,
         'Recibido Por': p.cash_received_by || '',
         'Notas': p.notes || '',
-        'Aprobado': p.reviewed_at ? new Date(p.reviewed_at).toLocaleDateString('es-MX') : '',
+        'Fecha Aprobación': p.reviewed_at ? new Date(p.reviewed_at).toLocaleDateString('es-MX') : '',
       };
       if (p.allocations && p.allocations.length > 0) {
         for (const alloc of p.allocations) {
           if (!alloc.order_id) {
-            rows.push({ ...base, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido': pType === 'containers' || pType === 'mixed' ? 'Contenedores' : 'Sin asignar' });
+            rows.push({ ...base, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido / Destino': pType === 'containers' || pType === 'mixed' ? 'Contenedores' : 'Sin asignar' });
           } else {
             const ord = orderMap[alloc.order_id];
             const orderNum = ord ? `ORD-${ord.order_number}` : (p.orders?.order_number ? `ORD-${p.orders.order_number}` : alloc.order_id || '');
-            rows.push({ ...base, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido': orderNum });
+            rows.push({ ...base, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido / Destino': orderNum });
           }
         }
         if (pType === 'mixed' && p.container_amount > 0 && !p.allocations.some(a => !a.order_id)) {
-          rows.push({ ...base, 'Monto Aplicado': Number(p.container_amount), 'Pedido': 'Contenedores' });
+          rows.push({ ...base, 'Monto Aplicado': Number(p.container_amount), 'Pedido / Destino': 'Contenedores' });
         }
       } else {
-        rows.push({ ...base, 'Monto Aplicado': Number(p.amount || 0), 'Pedido': pType === 'containers' ? 'Contenedores' : (p.orders?.order_number ? `ORD-${p.orders.order_number}` : '') });
+        rows.push({ ...base, 'Monto Aplicado': Number(p.amount || 0), 'Pedido / Destino': pType === 'containers' ? 'Contenedores' : (p.orders?.order_number ? `ORD-${p.orders.order_number}` : '') });
       }
+    }
+    if (rows.length === 0) {
+      alert('No hay pagos para exportar con los filtros seleccionados.');
+      return;
     }
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Pagos');
-    XLSX.writeFile(wb, `pagos_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(wb, `reporte_pagos_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   
