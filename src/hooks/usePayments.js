@@ -632,20 +632,31 @@ export function usePayments() {
         'Fecha Aprobación': p.reviewed_at ? new Date(p.reviewed_at).toLocaleDateString('es-MX') : '',
       };
       if (p.allocations && p.allocations.length > 0) {
+        let isFirstAlloc = true;
         for (const alloc of p.allocations) {
+          const rowBase = { ...base };
+          if (!isFirstAlloc) {
+            rowBase['Monto Total Pago'] = null; // Prevent duplicating total payment in Excel autosum
+          }
           if (!alloc.order_id) {
-            rows.push({ ...base, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido / Destino': pType === 'containers' || pType === 'mixed' ? 'Contenedores' : 'Sin asignar' });
+            rows.push({ ...rowBase, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido / Destino': pType === 'containers' || pType === 'mixed' ? 'Contenedores' : 'Sin asignar' });
           } else {
             const ord = orderMap[alloc.order_id];
-            const orderNum = ord ? `ORD-${ord.order_number}` : (p.orders?.order_number ? `ORD-${p.orders.order_number}` : alloc.order_id || '');
-            rows.push({ ...base, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido / Destino': orderNum });
+            let rawNum = ord ? ord.order_number : (p.orders?.order_number ? p.orders.order_number : alloc.order_id || '');
+            rawNum = String(rawNum).replace(/^(ORD-)+/gi, '');
+            const orderNum = rawNum ? `ORD-${rawNum}` : '';
+            rows.push({ ...rowBase, 'Monto Aplicado': Number(alloc.amount || 0), 'Pedido / Destino': orderNum });
           }
+          isFirstAlloc = false;
         }
         if (pType === 'mixed' && p.container_amount > 0 && !p.allocations.some(a => !a.order_id)) {
-          rows.push({ ...base, 'Monto Aplicado': Number(p.container_amount), 'Pedido / Destino': 'Contenedores' });
+          rows.push({ ...base, 'Monto Total Pago': null, 'Monto Aplicado': Number(p.container_amount), 'Pedido / Destino': 'Contenedores' });
         }
       } else {
-        rows.push({ ...base, 'Monto Aplicado': Number(p.amount || 0), 'Pedido / Destino': pType === 'containers' ? 'Contenedores' : (p.orders?.order_number ? `ORD-${p.orders.order_number}` : '') });
+        let rawNum = p.orders?.order_number || '';
+        rawNum = String(rawNum).replace(/^(ORD-)+/gi, '');
+        const orderNum = rawNum ? `ORD-${rawNum}` : '';
+        rows.push({ ...base, 'Monto Aplicado': Number(p.amount || 0), 'Pedido / Destino': pType === 'containers' ? 'Contenedores' : orderNum });
       }
     }
     if (rows.length === 0) {
