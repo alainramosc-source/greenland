@@ -31,6 +31,7 @@ export default function CotizacionesPage() {
   const [filterBrand, setFilterBrand] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -115,13 +116,64 @@ export default function CotizacionesPage() {
   };
 
   const handleDownloadPdf = async (q) => {
-    if (!q.pdf_url) {
-      alert('Esta cotización no tiene PDF generado. Edítala y genera el PDF.');
-      return;
-    }
-    const { data } = await supabase.storage.from('quotation-pdfs').createSignedUrl(q.pdf_url, 3600);
-    if (data?.signedUrl) {
-      window.open(data.signedUrl, '_blank');
+    setDownloadingId(q.id);
+    try {
+      if (q.pdf_url) {
+        if (q.pdf_url.startsWith('http://') || q.pdf_url.startsWith('https://')) {
+          window.open(q.pdf_url, '_blank');
+          setDownloadingId(null);
+          return;
+        }
+        const { data } = await supabase.storage.from('quotation-pdfs').createSignedUrl(q.pdf_url, 3600);
+        if (data?.signedUrl) {
+          window.open(data.signedUrl, '_blank');
+          setDownloadingId(null);
+          return;
+        }
+        const { data: pubData } = supabase.storage.from('quotation-pdfs').getPublicUrl(q.pdf_url);
+        if (pubData?.publicUrl) {
+          window.open(pubData.publicUrl, '_blank');
+          setDownloadingId(null);
+          return;
+        }
+      }
+
+      // Fallback: Generate PDF on the fly if pdf_url is missing or failed
+      const { data: items } = await supabase
+        .from('quotation_items')
+        .select('*')
+        .eq('quotation_id', q.id)
+        .order('sort_order');
+
+      const generateQuotationPDF = (await import('./pdf-generator')).default;
+      const doc = await generateQuotationPDF({ quotation: q, items: items || [] });
+
+      const folio = q.folio || 'cotizacion';
+      doc.save(`${folio}.pdf`);
+
+      // Cache PDF to storage in background if possible
+      try {
+        const pdfBlob = doc.output('blob');
+        const pdfPath = `${q.id}/${folio}.pdf`;
+        const { error: uploadErr } = await supabase.storage
+          .from('quotation-pdfs')
+          .upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true });
+
+        if (!uploadErr) {
+          const { data: urlData } = supabase.storage.from('quotation-pdfs').getPublicUrl(pdfPath);
+          if (urlData?.publicUrl) {
+            await supabase.from('quotations').update({ pdf_url: urlData.publicUrl }).eq('id', q.id);
+            setQuotations(prev => prev.map(item => item.id === q.id ? { ...item, pdf_url: urlData.publicUrl } : item));
+          }
+        }
+      } catch (uploadErr) {
+        console.warn('Could not cache generated PDF to storage:', uploadErr);
+      }
+    } catch (err) {
+      console.error('PDF Download Error:', err);
+      alert('Error al descargar el PDF: ' + err.message);
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -307,12 +359,14 @@ export default function CotizacionesPage() {
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {q.pdf_url && (
-                            <button onClick={() => handleDownloadPdf(q)} title="Descargar PDF"
-                              className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center border-none cursor-pointer transition-colors">
+                          <button onClick={() => handleDownloadPdf(q)} disabled={downloadingId === q.id} title="Descargar PDF"
+                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center border-none cursor-pointer transition-colors disabled:opacity-50">
+                            {downloadingId === q.id ? (
+                              <Loader2 size={14} className="animate-spin text-[#6a9a04]" />
+                            ) : (
                               <Download size={14} className="text-slate-500" />
-                            </button>
-                          )}
+                            )}
+                          </button>
                           <button onClick={() => router.push(`/dashboard/cotizaciones/nueva?edit=${q.id}`)} title="Editar"
                             className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center border-none cursor-pointer transition-colors">
                             <Pencil size={14} className="text-slate-500" />
