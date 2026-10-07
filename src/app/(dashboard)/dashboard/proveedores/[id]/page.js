@@ -376,8 +376,17 @@ export default function SupplierDetailPage() {
           {orders.length === 0 ? (
             <p className="text-sm text-slate-400 py-12 text-center">Sin órdenes de servicio</p>
           ) : (
-            <div className="divide-y divide-slate-100">
-              {orders.map(o => {
+            (() => {
+              const pendingOrders = orders.filter(o => {
+                const invs = invoices.filter(i => i.service_order_id === o.id);
+                return !(invs.length > 0 && invs[0].payment_status === 'paid');
+              });
+              const paidOrders = orders.filter(o => {
+                const invs = invoices.filter(i => i.service_order_id === o.id);
+                return invs.length > 0 && invs[0].payment_status === 'paid';
+              });
+
+              const renderOrderRow = (o) => {
                 const sc = STATUS_COLORS[o.status] || STATUS_COLORS.pendiente;
                 const orderInvoices = invoices.filter(i => i.service_order_id === o.id);
                 const orderDocs = evidence.filter(e => e.service_order_id === o.id);
@@ -387,12 +396,17 @@ export default function SupplierDetailPage() {
                 const payStatus = orderInvoices.length > 0 ? orderInvoices[0].payment_status : null;
                 const isExpanded = selectedOrder === o.id;
                 const inv = orderInvoices.length > 0 ? orderInvoices[0] : null;
+                const isPaid = payStatus === 'paid';
 
                 return (
                   <div key={o.id} className="flex flex-col">
                     <div 
                       onClick={() => setSelectedOrder(isExpanded ? null : o.id)}
-                      className="px-5 py-4 hover:bg-white/40 transition-colors cursor-pointer flex items-center justify-between flex-wrap gap-3"
+                      className={`px-5 py-4 transition-all cursor-pointer flex items-center justify-between flex-wrap gap-3 ${
+                        isPaid 
+                          ? 'bg-emerald-50/70 hover:bg-emerald-100/50 border-l-4 border-l-emerald-500' 
+                          : 'hover:bg-white/40 border-l-4 border-l-transparent'
+                      }`}
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -402,11 +416,15 @@ export default function SupplierDetailPage() {
                           <span className="text-xs font-bold px-2 py-0.5 rounded-full capitalize" style={{ color: sc.color, background: sc.bg }}>{sc.label}</span>
                           {docCount > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">{docCount} docs</span>}
                           {invStatus === 'pendiente' && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">Factura pendiente</span>}
-                          {invStatus === 'aprobada' && payStatus !== 'paid' && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">Factura aprobada</span>}
-                          {payStatus === 'paid' && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700">💰 Pagada</span>}
+                          {invStatus === 'aprobada' && payStatus !== 'paid' && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-semibold">Factura aprobada</span>}
+                          {payStatus === 'paid' && (
+                            <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-600 text-white shadow-xs flex items-center gap-1">
+                              <Check size={12} strokeWidth={3} /> Pagada
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-slate-400 mt-1">
-                          {o.scheduled_date && new Date(o.scheduled_date).toLocaleDateString('es-MX')} · {o.location || '—'} · ${fmt(o.agreed_amount)}
+                          {o.scheduled_date && new Date(o.scheduled_date).toLocaleDateString('es-MX')} · {o.location || '—'} · <span className={isPaid ? "text-emerald-800 font-bold" : "text-slate-700 font-semibold"}>${fmt(o.agreed_amount)}</span>
                         </p>
                         {o.reference_info && <p className="text-[11px] text-slate-400 mt-0.5 truncate">{o.reference_info}</p>}
                       </div>
@@ -528,22 +546,33 @@ export default function SupplierDetailPage() {
                                       </>
                                     )}
 
-                                    {inv.validation_status === 'aprobada' && inv.payment_status !== 'paid' && (
-                                      <>
-                                        <button onClick={() => handleMarkPaid(inv)}
-                                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 cursor-pointer">
-                                            <DollarSign size={14} /> Marcar Pagada
-                                        </button>
-                                        <label className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 cursor-pointer">
-                                          <Upload size={14} /> {payProofUploading === inv.id ? 'Subiendo...' : 'Comp. Pago'}
-                                          <input type="file" accept=".pdf,.jpg,.png" className="hidden" onChange={e => handlePayProofUpload(inv, e.target.files?.[0])} />
-                                        </label>
-                                      </>
-                                    )}
+                                    {inv.validation_status === 'aprobada' && (
+                                       <>
+                                         {inv.payment_proof_url && (
+                                           <button onClick={() => viewFile(inv.payment_proof_url)}
+                                             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 cursor-pointer transition-colors"
+                                             title="Ver comprobante de pago">
+                                             <Eye size={14} /> Ver Comp. Pago
+                                           </button>
+                                         )}
 
-                                    {inv.payment_status === 'paid' && (
-                                      <span className="px-3 py-1.5 rounded-lg text-xs font-bold bg-green-100 text-green-800 border border-green-200">Pagada</span>
-                                    )}
+                                         <label className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 cursor-pointer transition-colors">
+                                           <Upload size={14} /> {payProofUploading === inv.id ? 'Subiendo...' : inv.payment_proof_url ? 'Cambiar Comp.' : 'Subir Comp. Pago'}
+                                           <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={e => handlePayProofUpload(inv, e.target.files?.[0])} />
+                                         </label>
+
+                                         {inv.payment_status === 'paid' ? (
+                                           <span className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-100 text-green-800 border border-green-200">
+                                             <Check size={14} /> Pagada
+                                           </span>
+                                         ) : (
+                                           <button onClick={() => handleMarkPaid(inv)}
+                                             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 cursor-pointer transition-colors">
+                                             <DollarSign size={14} /> Marcar Pagada
+                                           </button>
+                                         )}
+                                       </>
+                                     )}
                                   </div>
                                 </div>
 
@@ -607,8 +636,43 @@ export default function SupplierDetailPage() {
                     )}
                   </div>
                 );
-              })}
-            </div>
+              };
+
+              return (
+                <div className="divide-y divide-slate-100">
+                  {pendingOrders.length > 0 && (
+                    <div>
+                      {paidOrders.length > 0 && (
+                        <div className="bg-slate-100/80 px-5 py-2.5 border-b border-slate-200 flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                            Órdenes Pendientes de Pago / En Proceso ({pendingOrders.length})
+                          </span>
+                        </div>
+                      )}
+                      <div className="divide-y divide-slate-100">
+                        {pendingOrders.map(renderOrderRow)}
+                      </div>
+                    </div>
+                  )}
+
+                  {paidOrders.length > 0 && (
+                    <div>
+                      <div className="bg-emerald-100/80 px-5 py-2.5 border-t border-b border-emerald-200 flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <CheckCircle size={15} className="text-emerald-600" /> Órdenes Pagadas ({paidOrders.length})
+                        </span>
+                        <span className="text-[11px] font-bold text-emerald-800 bg-emerald-200/80 px-2.5 py-0.5 rounded-full">
+                          Total Pagado: ${fmt(paidOrders.reduce((acc, o) => acc + (Number(o.agreed_amount) || 0), 0))}
+                        </span>
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        {paidOrders.map(renderOrderRow)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()
           )}
         </div>
       )}
@@ -639,14 +703,18 @@ export default function SupplierDetailPage() {
                 const isPaid = inv.payment_status === 'paid';
 
                 return (
-                  <div key={inv.id} className="px-5 py-4">
+                  <div key={inv.id} className={`px-5 py-4 transition-all ${isPaid ? 'bg-emerald-50/70 border-l-4 border-l-emerald-500 hover:bg-emerald-100/50' : 'border-l-4 border-l-transparent'}`}>
                     <div className="flex items-start justify-between flex-wrap gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-black text-slate-900">${fmt(inv.invoiced_amount)}</span>
                           {isPending && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">⏳ Pendiente de revisión</span>}
-                          {isApproved && !isPaid && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">✅ Aprobada — Pendiente de pago</span>}
-                          {isApproved && isPaid && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700">💰 Pagada</span>}
+                          {isApproved && !isPaid && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-semibold">✅ Aprobada — Pendiente de pago</span>}
+                          {isApproved && isPaid && (
+                            <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-600 text-white shadow-xs flex items-center gap-1">
+                              <Check size={12} strokeWidth={3} /> Pagada
+                            </span>
+                          )}
                           {isRejected && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600">❌ Rechazada</span>}
                         </div>
                         <p className="text-xs text-slate-400 mt-1">
@@ -701,16 +769,29 @@ export default function SupplierDetailPage() {
                             )}
                           </>
                         )}
-                        {isApproved && !isPaid && (
+                        {isApproved && (
                           <>
-                            <button onClick={() => handleMarkPaid(inv)}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 cursor-pointer transition-colors">
-                              <DollarSign size={14} /> Marcar Pagada
-                            </button>
+                            {inv.payment_proof_url && (
+                              <button onClick={() => viewFile(inv.payment_proof_url)}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 cursor-pointer transition-colors"
+                                title="Ver comprobante de pago">
+                                <Eye size={14} /> Ver Comp. Pago
+                              </button>
+                            )}
                             <label className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 cursor-pointer transition-colors">
-                              <Upload size={14} /> {payProofUploading === inv.id ? 'Subiendo...' : 'Comp. Pago'}
-                              <input type="file" accept=".pdf,.jpg,.png" className="hidden" onChange={e => handlePayProofUpload(inv, e.target.files?.[0])} />
+                              <Upload size={14} /> {payProofUploading === inv.id ? 'Subiendo...' : inv.payment_proof_url ? 'Cambiar Comp.' : 'Subir Comp. Pago'}
+                              <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={e => handlePayProofUpload(inv, e.target.files?.[0])} />
                             </label>
+                            {isPaid ? (
+                              <span className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-100 text-green-800 border border-green-200">
+                                <Check size={14} /> Pagada
+                              </span>
+                            ) : (
+                              <button onClick={() => handleMarkPaid(inv)}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 cursor-pointer transition-colors">
+                                <DollarSign size={14} /> Marcar Pagada
+                              </button>
+                            )}
                           </>
                         )}
                       </div>

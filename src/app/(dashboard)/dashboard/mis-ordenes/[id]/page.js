@@ -396,6 +396,17 @@ export default function SupplierOrderDetailPage() {
                   </span>
                 </div>
 
+                {invoice.payment_proof_url && (
+                  <div className="pt-3 border-t border-slate-100">
+                    <button
+                      onClick={() => downloadFile(invoice.payment_proof_url, 'comprobante_pago.pdf')}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      <Eye size={16} /> Ver Comprobante de Pago
+                    </button>
+                  </div>
+                )}
+
                 {invoice.validation_status === 'rechazada' && invoice.rejection_reason && (
                   <div className="mt-3 p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-100 flex gap-2">
                     <AlertTriangle size={14} className="shrink-0 mt-0.5" />
@@ -464,6 +475,25 @@ export default function SupplierOrderDetailPage() {
             </div>
 
             <div className="space-y-4">
+              {invoice?.payment_proof_url && (
+                <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-4 flex items-center justify-between gap-3 border-l-4 border-l-emerald-500">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
+                      <CheckCircle size={20} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-emerald-950 text-sm m-0">Comprobante de Pago (Greenland)</h4>
+                      <p className="text-xs text-emerald-700 m-0">Comprobante de depósito cargado por el administrador</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => downloadFile(invoice.payment_proof_url, 'Comprobante_Pago.pdf')}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-xs border-none shrink-0"
+                  >
+                    <Eye size={14} /> Ver Comprobante
+                  </button>
+                </div>
+              )}
               {DOC_CATEGORIES.map(category => {
                 const categoryDocs = evidence.filter(e => e.document_category === category.id);
                 const hasDocs = categoryDocs.length > 0;
