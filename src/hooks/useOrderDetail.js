@@ -29,6 +29,14 @@ export const PRODUCT_WEIGHTS = {
   GL26: 2.581, GL27: 0.58, GL28: 5.075, GL29: 2.03,
 };
 
+export const getItemWeight = (prod) => {
+  if (!prod) return 0;
+  if (prod.weight_kg !== undefined && prod.weight_kg !== null && Number(prod.weight_kg) > 0) {
+    return Number(prod.weight_kg);
+  }
+  return PRODUCT_WEIGHTS[prod.sku] || 0;
+};
+
 export function useOrderDetail() {
   const { id } = useParams();
   const router = useRouter();
@@ -153,7 +161,8 @@ export function useOrderDetail() {
             sku,
             image_url,
             stock_quantity,
-            reserved_quantity
+            reserved_quantity,
+            weight_kg
           )
         ),
         shipping_address:shipping_address_id(label, street, city, state, zip_code)
@@ -498,7 +507,7 @@ export function useOrderDetail() {
 
     const itemsHtml = order.order_items.map((item, idx) => {
       const whName = warehouses.find(w => w.id === item.warehouse_id)?.name || 'Sin asignar';
-      const weight = PRODUCT_WEIGHTS[item.products?.sku] || 0;
+      const weight = getItemWeight(item.products);
       const totalW = (weight * item.quantity).toFixed(1);
       return `
         <tr>
@@ -627,7 +636,7 @@ export function useOrderDetail() {
     </div>
     <div>
       <div class="label">Peso Total</div>
-      <div class="val">${order.order_items.reduce((s,i) => s + (PRODUCT_WEIGHTS[i.products?.sku]||0) * i.quantity, 0).toFixed(1)} kg</div>
+      <div class="val">${order.order_items.reduce((s,i) => s + getItemWeight(i.products) * i.quantity, 0).toFixed(1)} kg</div>
     </div>
   </div>
 

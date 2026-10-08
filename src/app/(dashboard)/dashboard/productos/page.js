@@ -19,7 +19,7 @@ export default function ProductCatalogPage() {
   const [toast, setToast] = useState(null);
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
   const [form, setForm] = useState({
-    sku: '', name: '', category: '', container_capacity: 0, is_active: true, description: '',
+    sku: '', name: '', category: '', container_capacity: 0, weight_kg: 0, is_active: true, description: '',
     manufacturer_id: '', supplier_sku: '', unit_price_usd: ''
   });
   // Manufacturer config modal
@@ -48,7 +48,7 @@ export default function ProductCatalogPage() {
   useEffect(() => { fetchAll(); }, []);
 
   const resetForm = () => setForm({
-    sku: '', name: '', category: '', container_capacity: 0, is_active: true, description: '',
+    sku: '', name: '', category: '', container_capacity: 0, weight_kg: 0, is_active: true, description: '',
     manufacturer_id: '', supplier_sku: '', unit_price_usd: ''
   });
 
@@ -61,6 +61,7 @@ export default function ProductCatalogPage() {
       name: prod.name || '',
       category: prod.category || '',
       container_capacity: prod.container_capacity || 0,
+      weight_kg: prod.weight_kg ?? 0,
       is_active: prod.is_active !== false,
       description: prod.description || '',
       manufacturer_id: mapping?.supplier_id || '',
@@ -82,6 +83,7 @@ export default function ProductCatalogPage() {
       name: form.name.trim(),
       category: form.category.trim() || null,
       container_capacity: parseInt(form.container_capacity) || 0,
+      weight_kg: parseFloat(form.weight_kg) || 0,
       is_active: form.is_active,
     };
 
@@ -256,6 +258,7 @@ export default function ProductCatalogPage() {
                 <th className="px-5 py-3.5 text-[10px] font-black text-slate-500 uppercase tracking-wider">Fabricante</th>
                 <th className="px-5 py-3.5 text-[10px] font-black text-slate-500 uppercase tracking-wider text-right">Precio FOB</th>
                 <th className="px-5 py-3.5 text-[10px] font-black text-slate-500 uppercase tracking-wider text-center">Cap. Contenedor</th>
+                <th className="px-5 py-3.5 text-[10px] font-black text-slate-500 uppercase tracking-wider text-center">Peso (kg)</th>
                 <th className="px-5 py-3.5 text-[10px] font-black text-slate-500 uppercase tracking-wider text-center">Estatus</th>
                 <th className="px-5 py-3.5 text-[10px] font-black text-slate-500 uppercase tracking-wider text-center w-20">Acción</th>
               </tr>
@@ -298,6 +301,11 @@ export default function ProductCatalogPage() {
                     <td className="px-5 py-3 text-center">
                       {prod.container_capacity > 0 ? (
                         <span className="text-sm font-bold text-slate-700">{prod.container_capacity.toLocaleString()}</span>
+                      ) : <span className="text-xs text-slate-300">—</span>}
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      {prod.weight_kg > 0 ? (
+                        <span className="text-sm font-bold text-slate-700">{Number(prod.weight_kg).toFixed(1)} kg</span>
                       ) : <span className="text-xs text-slate-300">—</span>}
                     </td>
                     <td className="px-5 py-3 text-center">
@@ -398,23 +406,32 @@ export default function ProductCatalogPage() {
                     className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/30 shadow-sm font-mono" />
                 </div>
               </div>
-              {form.manufacturer_id && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Precio FOB (USD)</label>
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Peso Unitario (kg)</label>
                   <div className="relative">
-                    <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input type="number" step="0.01" min="0" value={form.unit_price_usd}
-                      onChange={e => setForm(f => ({ ...f, unit_price_usd: e.target.value }))}
+                    <input type="number" step="0.01" min="0" value={form.weight_kg}
+                      onChange={e => setForm(f => ({ ...f, weight_kg: e.target.value }))}
                       placeholder="0.00"
-                      className="w-full pl-8 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/30 shadow-sm font-bold" />
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/30 shadow-sm font-bold" />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">kg</span>
                   </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Peso unitario para fletes y capacidad de carga</p>
                 </div>
-                <div className="flex items-end">
-                  <p className="text-[10px] text-slate-400 pb-2">Precio unitario para Órdenes de Compra</p>
-                </div>
+                {form.manufacturer_id ? (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Precio FOB (USD)</label>
+                    <div className="relative">
+                      <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input type="number" step="0.01" min="0" value={form.unit_price_usd}
+                        onChange={e => setForm(f => ({ ...f, unit_price_usd: e.target.value }))}
+                        placeholder="0.00"
+                        className="w-full pl-8 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/30 shadow-sm font-bold" />
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Precio unitario para Órdenes de Compra</p>
+                  </div>
+                ) : <div />}
               </div>
-              )}
 
               <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
                 <label className="flex items-center gap-2 cursor-pointer">

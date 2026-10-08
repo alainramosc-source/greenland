@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { Package, Plus, Minus, Trash2, Warehouse, Search, Loader2, GitFork } from 'lucide-react';
-import { PRODUCT_WEIGHTS } from '@/hooks/useOrderDetail';
+import { PRODUCT_WEIGHTS, getItemWeight } from '@/hooks/useOrderDetail';
 
 export default function OrderItemsCard({
   order,
@@ -30,7 +30,7 @@ export default function OrderItemsCard({
 
   const totalPieces = order.order_items.reduce((sum, item) => sum + (editingItems[item.id] ?? item.quantity), 0);
   const totalWeight = order.order_items.reduce((sum, item) => {
-    const w = PRODUCT_WEIGHTS[item.products?.sku] || 0;
+    const w = getItemWeight(item.products);
     const qty = editingItems[item.id] ?? item.quantity;
     return sum + (w * qty);
   }, 0);
@@ -129,7 +129,7 @@ export default function OrderItemsCard({
               const currentQty = editingItems[item.id] ?? item.quantity;
               const currentPrice = editingPrices[item.id] ?? item.unit_price;
               const subtotal = currentQty * currentPrice;
-              const weight = (PRODUCT_WEIGHTS[item.products?.sku] || 0) * currentQty;
+              const weight = getItemWeight(item.products) * currentQty;
               const isQtyLoading = actionLoading === `qty-${item.id}`;
               const isPriceLoading = actionLoading === `price-${item.id}`;
               const isDelLoading = actionLoading === `del-${item.id}`;

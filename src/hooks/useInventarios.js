@@ -181,10 +181,15 @@ export function useInventarios() {
           .select('*')
           .order('created_at', { ascending: false })
           .limit(200);
+
+        const { data: allProfiles } = await supabase.from('profiles').select('id, full_name, email');
+        const profMap = {};
+        (allProfiles || []).forEach(p => { profMap[p.id] = p; });
+
         logs = (logsData || []).map(l => ({
           ...l,
           product: (productsData || []).find(p => p.id === l.product_id) || null,
-          user: null
+          user: profMap[l.user_id || l.created_by] || null
         }));
       }
 

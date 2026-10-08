@@ -286,8 +286,10 @@ export default function NuevoPedidoPage() {
     }));
   };
 
+  const getItemWeight = (item) => (item?.weight_kg !== undefined && item?.weight_kg !== null && Number(item?.weight_kg) > 0) ? Number(item.weight_kg) : (PRODUCT_WEIGHTS[item?.sku] || 0);
+
   const cartTotal = cart.reduce((acc, item) => acc + ((Number(item.price) || 0) * item.quantity), 0);
-  const cartTotalWeight = cart.reduce((acc, item) => acc + (PRODUCT_WEIGHTS[item.sku] || 0) * (item.quantity || 0), 0);
+  const cartTotalWeight = cart.reduce((acc, item) => acc + getItemWeight(item) * (item.quantity || 0), 0);
   const cartTotalPieces = cart.reduce((acc, item) => acc + (item.quantity || 0), 0);
 
   // Submit Order
@@ -519,9 +521,9 @@ export default function NuevoPedidoPage() {
                     <div className="flex justify-between items-start">
                       <div>
                         <h4 className="font-bold text-sm text-slate-800 m-0 pr-4 leading-tight">{item.name}</h4>
-                        {PRODUCT_WEIGHTS[item.sku] > 0 && (
+                        {getItemWeight(item) > 0 && (
                           <span className="text-[11px] text-slate-400 font-medium">
-                            {(PRODUCT_WEIGHTS[item.sku] * item.quantity).toFixed(1)} kg
+                            {(getItemWeight(item) * item.quantity).toFixed(1)} kg
                           </span>
                         )}
                       </div>
