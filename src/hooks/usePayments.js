@@ -68,6 +68,7 @@ export function usePayments() {
   // Dual signature
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUserName, setCurrentUserName] = useState('');
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
   const SIGNERS = ['Alain Ramos', 'Didier Fernandez'];
 
   // Generate signed URL for receipt viewing
