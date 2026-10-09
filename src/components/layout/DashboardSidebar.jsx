@@ -123,7 +123,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
     { name: 'Auditoría', href: '/dashboard/auditoria', icon: ScrollText, roles: ['super_admin'] },
     { name: 'Fabricantes', href: '/dashboard/fabricantes', icon: Factory, roles: ['super_admin'] },
     { name: 'Productos', href: '/dashboard/productos', icon: Box, roles: ['super_admin'] },
-    { name: 'Proveedores', href: '/dashboard/proveedores', icon: Truck, roles: ['super_admin'] },
+    { name: 'Proveedores', href: '/dashboard/proveedores', icon: Truck, roles: ['super_admin', 'accountant'] },
   ];
 
   const adminItems = userRole === 'admin'
