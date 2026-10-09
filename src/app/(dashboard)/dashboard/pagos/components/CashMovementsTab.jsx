@@ -4,6 +4,7 @@ import {
   Wallet, ArrowDownCircle, ArrowUpCircle, DollarSign, Calendar, RefreshCw,
   Plus, Minus, FileSpreadsheet, Download, Search, CheckCircle2, AlertTriangle,
   Edit, Edit3, Trash2, Check, X, UserCheck, PenTool, Loader2, ClipboardCheck, Scale, AlertCircle, ShieldCheck
+} from 'lucide-react';
 import { formatDateOnly } from '@/utils/formatters';
 import { isAuthorizedSigner } from '@/hooks/usePayments';
 
