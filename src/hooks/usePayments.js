@@ -4,6 +4,16 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import * as XLSX from 'xlsx';
 
+export const isAuthorizedSigner = (name = '', email = '') => {
+  const n = (name || '').toLowerCase();
+  const e = (email || '').toLowerCase();
+
+  const isAlain = n.includes('alain') || e.includes('alain.ramos') || e.includes('alain.ramosc');
+  const isDidier = n.includes('didier') || e.includes('didier.fernandez') || e.includes('didier.fdz');
+
+  return isAlain || isDidier;
+};
+
 export function usePayments() {
 
   const supabase = createClient();
@@ -97,8 +107,10 @@ export function usePayments() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setCurrentUserId(user.id);
-        const { data: profile } = await supabase.from('profiles').select('full_name, sub_role').eq('id', user.id).single();
-        setCurrentUserName(profile?.full_name || '');
+        setCurrentUserEmail(user.email || '');
+        const { data: profile } = await supabase.from('profiles').select('full_name, email, sub_role').eq('id', user.id).single();
+        if (profile?.full_name) setCurrentUserName(profile.full_name);
+        if (profile?.email) setCurrentUserEmail(profile.email);
         if (profile?.sub_role) {
           setUserSubRole(profile.sub_role);
           if (profile.sub_role === 'warehouse_admin') {
@@ -316,17 +328,36 @@ export function usePayments() {
     fetchData();
   };
 
-  // Dual signature handler
+  // Dual signature handler (Strictly restricted to Alain Ramos and Didier Fernandez)
   const handleSignExit = async (movementId) => {
     setActionLoading(movementId);
     let userId = currentUserId;
-    if (!userId) {
+    let userName = currentUserName;
+    let userEmail = currentUserEmail;
+
+    if (!userId || !userEmail) {
       const { data: { user } } = await supabase.auth.getUser();
-      userId = user?.id;
+      if (user) {
+        userId = user.id;
+        userEmail = user.email || userEmail;
+        const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', user.id).single();
+        if (profile) {
+          userName = profile.full_name || userName;
+          userEmail = profile.email || userEmail;
+        }
+      }
     }
+
     if (!userId) {
       setActionLoading(null);
       alert('No se pudo verificar el usuario actual.');
+      return;
+    }
+
+    // Strict security check: ONLY Alain Ramos and Didier Fernández are authorized signers
+    if (!isAuthorizedSigner(userName, userEmail)) {
+      setActionLoading(null);
+      alert('🔒 Acceso Denegado: Únicamente Alain Ramos y Didier Fernández están autorizados como firmantes de salidas de caja.');
       return;
     }
 
@@ -336,31 +367,41 @@ export function usePayments() {
       .select('id, approved_by_1, approved_by_2')
       .eq('id', movementId)
       .single();
+
     if (fetchErr || !movement) { setActionLoading(null); return; }
+
+    if (movement.approved_by_1 === userId || movement.approved_by_2 === userId) {
+      setActionLoading(null);
+      alert('Ya has firmado esta salida de caja anteriormente.');
+      return;
+    }
+
     const updateData = {};
-    // Check if signer 1 slot is free or already taken by someone else
     if (!movement.approved_by_1) {
       updateData.approved_by_1 = userId;
       updateData.approved_at_1 = new Date().toISOString();
       updateData.approval_status = movement.approved_by_2 ? 'approved' : 'partially_signed';
-    } else if (!movement.approved_by_2 && movement.approved_by_1 !== userId) {
+    } else if (!movement.approved_by_2) {
       updateData.approved_by_2 = userId;
       updateData.approved_at_2 = new Date().toISOString();
       updateData.approval_status = 'approved';
     } else {
       setActionLoading(null);
-      return; // Already signed by this user
+      return; // Already has 2 signatures
     }
-    await supabase.from('cash_movements').update(updateData).eq('id', movementId);
+
+    const { error: updateErr } = await supabase.from('cash_movements').update(updateData).eq('id', movementId);
     setActionLoading(null);
-    await fetchData();
+    if (updateErr) {
+      alert('Error al firmar salida de caja: ' + updateErr.message);
+    } else {
+      await fetchData();
+    }
   };
 
   const canSign = (movement) => {
-    if (!currentUserName) return false;
-    const isSigner = SIGNERS.some(s => currentUserName.toLowerCase().includes(s.toLowerCase().split(' ')[0]));
-    if (!isSigner) return false;
-    // Check if this user already signed
+    if (!isAuthorizedSigner(currentUserName, currentUserEmail)) return false;
+    if (movement.approved_by_1 && movement.approved_by_2) return false;
     if (movement.approved_by_1 === currentUserId || movement.approved_by_2 === currentUserId) return false;
     return true;
   };
@@ -718,7 +759,7 @@ export function usePayments() {
     showEntryModal, setShowEntryModal, entryForm, setEntryForm, entrySubmitting, setEntrySubmitting,
     cashAudits, setCashAudits, showAuditModal, setShowAuditModal, auditForm, setAuditForm, auditSubmitting, setAuditSubmitting,
     cajaDateFrom, setCajaDateFrom, cajaDateTo, setCajaDateTo, cajaSubTab, setCajaSubTab, dailySearchTerm, setDailySearchTerm,
-    orderMap, setOrderMap, currentUserId, setCurrentUserId, currentUserName, setCurrentUserName,
+    orderMap, setOrderMap, currentUserId, setCurrentUserId, currentUserName, setCurrentUserName, currentUserEmail, setCurrentUserEmail,
     fetchData, handleApprovePayment: handleApprove, handleRejectPayment: handleReject, handleRegisterEntry, handleRegisterExit,
     handleSignExit, handleEditMovement, handleDeleteMovement, handlePerformAudit, parseBankCSV, parsePDFStatement, exportPaymentsXLSX, handleViewReceipt
   };

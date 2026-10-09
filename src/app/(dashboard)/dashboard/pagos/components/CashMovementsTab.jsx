@@ -4,8 +4,8 @@ import {
   Wallet, ArrowDownCircle, ArrowUpCircle, DollarSign, Calendar, RefreshCw,
   Plus, Minus, FileSpreadsheet, Download, Search, CheckCircle2, AlertTriangle,
   Edit, Edit3, Trash2, Check, X, UserCheck, PenTool, Loader2, ClipboardCheck, Scale, AlertCircle, ShieldCheck
-} from 'lucide-react';
 import { formatDateOnly } from '@/utils/formatters';
+import { isAuthorizedSigner } from '@/hooks/usePayments';
 
 export default function CashMovementsTab({
   cashMovements = [],
@@ -23,6 +23,8 @@ export default function CashMovementsTab({
   onSignExit,
   userSubRole,
   currentUserId,
+  currentUserName,
+  currentUserEmail,
   onExportExcel,
   actionLoading,
   onApplyAudit
@@ -82,6 +84,7 @@ export default function CashMovementsTab({
 
   const canSign = (m) => {
     if (userSubRole === 'lectura') return false;
+    if (!isAuthorizedSigner(currentUserName, currentUserEmail)) return false;
     if (m.approved_by_1 && m.approved_by_2) return false;
     if (currentUserId && (m.approved_by_1 === currentUserId || m.approved_by_2 === currentUserId)) return false;
     return true;

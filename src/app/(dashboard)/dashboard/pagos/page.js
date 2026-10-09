@@ -18,7 +18,7 @@ export default function AdminPagosPage() {
     rejectReason, setRejectReason,
     balances = [], showBalances, setShowBalances,
     activeTab, setActiveTab,
-    userSubRole, currentUserId, cashReceivedBy, setCashReceivedBy, parsedMovements = [], matchResults = [],
+    userSubRole, currentUserId, currentUserName, currentUserEmail, cashReceivedBy, setCashReceivedBy, parsedMovements = [], matchResults = [],
     cashMovements = [],
     cajaDateFrom, setCajaDateFrom,
     cajaDateTo, setCajaDateTo,
@@ -240,6 +240,8 @@ export default function AdminPagosPage() {
           onSignExit={handleSignExit}
           userSubRole={userSubRole}
           currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          currentUserEmail={currentUserEmail}
           onExportExcel={exportPaymentsXLSX}
           actionLoading={actionLoading}
           onApplyAudit={handleApplyAudit}
