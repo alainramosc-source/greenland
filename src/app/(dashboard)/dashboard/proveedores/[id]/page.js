@@ -694,8 +694,11 @@ export default function SupplierDetailPage() {
               <p className="font-medium">Sin facturas registradas</p>
             </div>
           ) : (
-            <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden divide-y divide-slate-100">
-              {invoices.map(inv => {
+            (() => {
+              const pendingInvoices = invoices.filter(i => i.payment_status !== 'paid');
+              const paidInvoices = invoices.filter(i => i.payment_status === 'paid');
+
+              const renderInvoiceRow = (inv) => {
                 const order = orders.find(o => o.id === inv.service_order_id);
                 const isPending = inv.validation_status === 'pendiente';
                 const isApproved = inv.validation_status === 'aprobada';
@@ -718,9 +721,12 @@ export default function SupplierDetailPage() {
                           {isRejected && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600">❌ Rechazada</span>}
                         </div>
                         <p className="text-xs text-slate-400 mt-1">
-                          {order?.description || 'Orden'} · {inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString('es-MX') : new Date(inv.created_at).toLocaleDateString('es-MX')}
+                          {(order?.description || 'Orden').replace(/Op\s+Op/gi, 'Op')} · {inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString('es-MX') : new Date(inv.created_at).toLocaleDateString('es-MX')}
                           {inv.paid_at && ` · Pagada ${new Date(inv.paid_at).toLocaleDateString('es-MX')}`}
                         </p>
+                        {order?.reference_info && (
+                          <p className="text-[11px] text-slate-400 mt-0.5 truncate">{order.reference_info}</p>
+                        )}
                         {isRejected && inv.rejection_reason && (
                           <p className="text-xs text-red-500 mt-1 bg-red-50 px-3 py-1.5 rounded-lg">Motivo: {inv.rejection_reason}</p>
                         )}
@@ -798,8 +804,43 @@ export default function SupplierDetailPage() {
                     </div>
                   </div>
                 );
-              })}
-            </div>
+              };
+
+              return (
+                <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden divide-y divide-slate-100">
+                  {pendingInvoices.length > 0 && (
+                    <div>
+                      {paidInvoices.length > 0 && (
+                        <div className="bg-slate-100/80 px-5 py-2.5 border-b border-slate-200 flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                            Facturas Pendientes / En Proceso ({pendingInvoices.length})
+                          </span>
+                        </div>
+                      )}
+                      <div className="divide-y divide-slate-100">
+                        {pendingInvoices.map(renderInvoiceRow)}
+                      </div>
+                    </div>
+                  )}
+
+                  {paidInvoices.length > 0 && (
+                    <div>
+                      <div className="bg-emerald-100/80 px-5 py-2.5 border-t border-b border-emerald-200 flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <CheckCircle size={15} className="text-emerald-600" /> Órdenes Pagadas ({paidInvoices.length})
+                        </span>
+                        <span className="text-[11px] font-bold text-emerald-800 bg-emerald-200/80 px-2.5 py-0.5 rounded-full">
+                          Total Pagado: ${fmt(paidInvoices.reduce((acc, i) => acc + (Number(i.invoiced_amount) || 0), 0))}
+                        </span>
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        {paidInvoices.map(renderInvoiceRow)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()
           )}
         </div>
       )}
