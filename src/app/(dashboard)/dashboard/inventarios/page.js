@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import {
-  Boxes, RefreshCw, FileSpreadsheet, Sliders, ArrowRightLeft, ClipboardCheck, History, Package, AlertTriangle, Layers, Download
+  Boxes, RefreshCw, FileSpreadsheet, Sliders, ArrowRightLeft, ClipboardCheck, History, Package, AlertTriangle, Layers, Download, ShoppingCart
 } from 'lucide-react';
 import useInventarios from '@/hooks/useInventarios';
 
@@ -13,6 +13,7 @@ import CsvImportModal from './components/CsvImportModal';
 import CountSessionsView from './components/CountSessionsView';
 import MovementLogsView from './components/MovementLogsView';
 import ProBulkSaleModal from './components/ProBulkSaleModal';
+import RetailSalesHistoryView from './components/RetailSalesHistoryView';
 
 export default function InventariosPage() {
   const {
@@ -47,7 +48,11 @@ export default function InventariosPage() {
     csvInvalidRows,
     handleBulkCsvImport,
     userRole,
-    isPro
+    isPro,
+    proWarehouseId,
+    retailSales,
+    salesSearch,
+    setSalesSearch
   } = useInventarios();
 
   const [activeTab, setActiveTab] = useState('matrix'); // 'matrix' | 'conteo' | 'historial'
@@ -182,6 +187,16 @@ export default function InventariosPage() {
           >
             <Sliders className="w-4 h-4" /> Ajuste Manual
           </button>
+
+          {isPro && (
+            <button
+              onClick={() => openModal('proSale', selectedSkus)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-emerald-600/20 active:scale-95"
+              title="Registrar Venta de Contenedores"
+            >
+              <ShoppingCart className="w-4 h-4" /> Venta al Público PRO
+            </button>
+          )}
         </div>
       </div>
 
@@ -240,6 +255,24 @@ export default function InventariosPage() {
         >
           <Boxes className="w-4 h-4" /> Matriz de Inventarios
         </button>
+
+        {(isPro || userRole === 'ADMIN') && (
+          <button
+            onClick={() => setActiveTab('ventas')}
+            className={`pb-3 inline-flex items-center gap-2 transition-all border-b-2 ${
+              activeTab === 'ventas'
+                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+            }`}
+          >
+            <ShoppingCart className="w-4 h-4" /> Ventas a Público
+            {retailSales?.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                {retailSales.length}
+              </span>
+            )}
+          </button>
+        )}
 
         <button
           onClick={() => setActiveTab('conteo')}
@@ -313,6 +346,17 @@ export default function InventariosPage() {
         />
       )}
 
+      {activeTab === 'ventas' && (
+        <RetailSalesHistoryView
+          sales={retailSales}
+          searchFilter={salesSearch}
+          setSearchFilter={setSalesSearch}
+          onNewSale={() => openModal('proSale', selectedSkus)}
+          isPro={isPro}
+          loading={loading}
+        />
+      )}
+
       {/* Dialog Modals */}
       <AdjustStockModal
         isOpen={modalState.adjust}
@@ -358,10 +402,12 @@ export default function InventariosPage() {
         onClose={closeModal}
         targetSkus={modalState.targetSkus}
         warehouses={warehouses}
-        stockData={stockData}
+        products={products}
+        matrix={matrix}
+        proWarehouseId={proWarehouseId}
         onSubmit={async (data) => {
-          await handleProRetailSale(data);
-          closeModal();
+          const ok = await handleProRetailSale(data);
+          if (ok) closeModal();
         }}
         loading={loading}
       />

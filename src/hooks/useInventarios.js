@@ -233,16 +233,27 @@ export function useInventarios() {
       logs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       setMovementLogs(logs);
 
-      // 9. Fetch retail sales for PRO users
+      // 9. Fetch retail sales for PRO users (from lastmile_orders)
       if (isPro) {
-        const { data: salesLogs } = await supabase
-          .from('inventory_logs')
-          .select('*, product:products(name, sku, price)')
-          .eq('user_id', user.id)
-          .lt('quantity_change', 0)
+        const { data: salesData, error: salesErr } = await supabase
+          .from('lastmile_orders')
+          .select('*')
+          .eq('distributor_id', user.id)
           .order('created_at', { ascending: false })
           .limit(500);
-        setRetailSales(salesLogs || []);
+        if (!salesErr && salesData) {
+          setRetailSales(salesData);
+        }
+      } else if (profile?.role === 'admin') {
+        const { data: salesData, error: salesErr } = await supabase
+          .from('lastmile_orders')
+          .select('*')
+          .eq('delivery_type', 'pickup')
+          .order('created_at', { ascending: false })
+          .limit(500);
+        if (!salesErr && salesData) {
+          setRetailSales(salesData);
+        }
       }
 
       setUserId(user.id);
@@ -901,28 +912,76 @@ export function useInventarios() {
     setLoading(false);
   }, [supabase, fetchData]);
 
-  // Action Handler: Pro Retail Sale
+  // Action Handler: Pro Retail Sale (via create_retail_sale RPC)
   const handleProRetailSaleWrapper = useCallback(async ({ warehouseId, items, clientName, notes }) => {
     setLoading(true);
-    for (const item of items) {
-      const prod = products.find(p => p.sku === item.sku);
-      if (!prod || item.qty <= 0) continue;
+    try {
+      const whId = warehouseId || proWarehouseId || warehouses[0]?.id;
+      if (!whId) {
+        alert('Error: No se encontró bodega asignada para registrar la venta.');
+        setLoading(false);
+        return false;
+      }
 
-      const { error } = await supabase.rpc('adjust_warehouse_stock', {
-        p_product_id: prod.id,
-        p_warehouse_id: warehouseId,
-        p_quantity_change: -item.qty,
-        p_reason: `Venta Mostrador PRO - Cliente: ${clientName || 'Gral'} - ${notes || ''}`
+      const formattedItems = (items || []).map(item => {
+        const prod = products.find(p => p.sku === item.sku || p.id === (item.productId || item.product_id));
+        return {
+          product_id: prod?.id || item.productId || item.product_id,
+          sku: item.sku || prod?.sku,
+          name: prod?.name || item.name || item.sku,
+          quantity: parseInt(item.qty || item.quantity || 0),
+          sale_price: Number(item.price !== undefined ? item.price : (item.sale_price !== undefined ? item.sale_price : (prod?.price || 0))),
+        };
+      }).filter(i => i.product_id && i.quantity > 0);
+
+      if (formattedItems.length === 0) {
+        alert('Ingresa al menos 1 producto con cantidad mayor a 0.');
+        setLoading(false);
+        return false;
+      }
+
+      const noteText = [
+        clientName ? `Cliente: ${clientName.trim()}` : '',
+        notes ? notes.trim() : ''
+      ].filter(Boolean).join(' — ') || 'Venta a público';
+
+      const { data, error } = await supabase.rpc('create_retail_sale', {
+        p_conversation_id: null,
+        p_warehouse_id: whId,
+        p_delivery_type: 'pickup',
+        p_items: formattedItems,
+        p_notes: noteText,
       });
 
       if (error) {
-        alert(`Error al registrar venta de ${item.sku}: ` + error.message);
-        break;
+        alert('Error al registrar venta: ' + error.message);
+        setLoading(false);
+        return false;
+      } else if (data && !data.success) {
+        alert(data.error || 'Error al registrar la venta.');
+        setLoading(false);
+        return false;
       }
+
+      // Auto-mark as paid in lastmile_orders
+      if (data?.order_id) {
+        await supabase.from('lastmile_orders').update({
+          payment_method: 'cash',
+          payment_status: 'paid',
+          customer_name: clientName ? clientName.trim() : null,
+        }).eq('id', data.order_id);
+      }
+
+      await fetchData();
+      return true;
+    } catch (err) {
+      console.error('Error in handleProRetailSaleWrapper:', err);
+      alert('Error inesperado: ' + err.message);
+      return false;
+    } finally {
+      setLoading(false);
     }
-    await fetchData();
-    setLoading(false);
-  }, [products, supabase, fetchData]);
+  }, [products, proWarehouseId, warehouses, supabase, fetchData]);
 
   // CSV Select Wrapper
   const handleCsvFileSelect = useCallback((file) => {
@@ -978,9 +1037,13 @@ export function useInventarios() {
     csvInvalidRows: csvErrors.map((err, idx) => ({ row: idx + 1, reason: err })),
     handleBulkCsvImport: handleApplyCsv,
 
-    // Sessions and Logs
+    // Sessions, Logs and Retail Sales
     countSessions,
     movementLogs,
+    retailSales,
+    setRetailSales,
+    salesSearch,
+    setSalesSearch,
 
     // Legacy helpers
     filteredProducts,
