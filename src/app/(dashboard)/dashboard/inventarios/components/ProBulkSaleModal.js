@@ -97,10 +97,11 @@ export default function ProBulkSaleModal({
     if (!isOpen || !selectedWarehouse) return;
     setItemsToSell(prev => prev.map(item => {
       const maxQty = getAvailableStock(item.sku, selectedWarehouse);
+      const currentQty = item.qty === '' ? '' : Math.min(Number(item.qty || 0), maxQty);
       return {
         ...item,
         maxQty,
-        qty: Math.min(item.qty, maxQty)
+        qty: currentQty
       };
     }));
   }, [selectedWarehouse, isOpen]);
@@ -157,11 +158,26 @@ export default function ProBulkSaleModal({
 
   // Quantity adjustments
   const handleQtyChange = (sku, val) => {
+    if (val === '') {
+      setItemsToSell(prev => prev.map(i => i.sku === sku ? { ...i, qty: '' } : i));
+      return;
+    }
     const num = parseInt(val, 10);
-    const cleanNum = isNaN(num) ? 0 : Math.max(0, num);
+    if (isNaN(num)) return;
     setItemsToSell(prev => prev.map(i => {
       if (i.sku === sku) {
-        return { ...i, qty: Math.min(cleanNum, i.maxQty) };
+        return { ...i, qty: Math.min(Math.max(0, num), i.maxQty) };
+      }
+      return i;
+    }));
+  };
+
+  const handleQtyBlur = (sku) => {
+    setItemsToSell(prev => prev.map(i => {
+      if (i.sku === sku) {
+        if (i.qty === '' || i.qty === undefined || isNaN(i.qty)) {
+          return { ...i, qty: 0 };
+        }
       }
       return i;
     }));
@@ -169,8 +185,11 @@ export default function ProBulkSaleModal({
 
   const handleIncrementQty = (sku) => {
     setItemsToSell(prev => prev.map(i => {
-      if (i.sku === sku && i.qty < i.maxQty) {
-        return { ...i, qty: i.qty + 1 };
+      if (i.sku === sku) {
+        const currentQty = Number(i.qty || 0);
+        if (currentQty < i.maxQty) {
+          return { ...i, qty: currentQty + 1 };
+        }
       }
       return i;
     }));
@@ -178,8 +197,11 @@ export default function ProBulkSaleModal({
 
   const handleDecrementQty = (sku) => {
     setItemsToSell(prev => prev.map(i => {
-      if (i.sku === sku && i.qty > 0) {
-        return { ...i, qty: i.qty - 1 };
+      if (i.sku === sku) {
+        const currentQty = Number(i.qty || 0);
+        if (currentQty > 0) {
+          return { ...i, qty: currentQty - 1 };
+        }
       }
       return i;
     }));
@@ -187,19 +209,34 @@ export default function ProBulkSaleModal({
 
   // Price adjustment
   const handlePriceChange = (sku, val) => {
+    if (val === '') {
+      setItemsToSell(prev => prev.map(i => i.sku === sku ? { ...i, price: '' } : i));
+      return;
+    }
     const num = parseFloat(val);
-    const cleanNum = isNaN(num) ? 0 : Math.max(0, num);
+    if (isNaN(num)) return;
     setItemsToSell(prev => prev.map(i => {
       if (i.sku === sku) {
-        return { ...i, price: cleanNum };
+        return { ...i, price: Math.max(0, num) };
+      }
+      return i;
+    }));
+  };
+
+  const handlePriceBlur = (sku) => {
+    setItemsToSell(prev => prev.map(i => {
+      if (i.sku === sku) {
+        if (i.price === '' || i.price === undefined || isNaN(i.price)) {
+          return { ...i, price: 0 };
+        }
       }
       return i;
     }));
   };
 
   // Total summary calculations
-  const totalQuantity = itemsToSell.reduce((sum, item) => sum + (item.qty || 0), 0);
-  const totalPrice = itemsToSell.reduce((sum, item) => sum + ((item.qty || 0) * (item.price || 0)), 0);
+  const totalQuantity = itemsToSell.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+  const totalPrice = itemsToSell.reduce((sum, item) => sum + (Number(item.qty || 0) * Number(item.price || 0)), 0);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -207,7 +244,7 @@ export default function ProBulkSaleModal({
       setErrorMsg('Selecciona una bodega para descontar stock.');
       return;
     }
-    const validItems = itemsToSell.filter(i => i.qty > 0);
+    const validItems = itemsToSell.filter(i => Number(i.qty || 0) > 0);
     if (validItems.length === 0) {
       setErrorMsg('Ingresa al menos 1 producto con cantidad mayor a 0.');
       return;
@@ -219,10 +256,10 @@ export default function ProBulkSaleModal({
         productId: item.productId || item.id,
         sku: item.sku,
         name: item.name,
-        quantity: item.qty,
-        qty: item.qty,
-        price: item.price,
-        sale_price: item.price
+        quantity: parseInt(item.qty, 10),
+        qty: parseInt(item.qty, 10),
+        price: Number(item.price || 0),
+        sale_price: Number(item.price || 0)
       })),
       clientName: clientName.trim(),
       notes: notes.trim(),
@@ -378,7 +415,9 @@ export default function ProBulkSaleModal({
             ) : (
               <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
                 {itemsToSell.map((item) => {
-                  const lineTotal = (item.qty || 0) * (item.price || 0);
+                  const currentQty = Number(item.qty || 0);
+                  const currentPrice = Number(item.price || 0);
+                  const lineTotal = currentQty * currentPrice;
                   const isOutOfStock = item.maxQty <= 0;
 
                   return (
@@ -414,12 +453,12 @@ export default function ProBulkSaleModal({
                           <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                             Cantidad
                           </label>
-                          <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-800">
+                          <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-800 focus-within:ring-2 focus-within:ring-emerald-500/30 focus-within:border-emerald-500">
                             <button
                               type="button"
                               onClick={() => handleDecrementQty(item.sku)}
-                              disabled={item.qty <= 0}
-                              className="px-2 py-1 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30"
+                              disabled={currentQty <= 0}
+                              className="px-2.5 py-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors text-xs font-bold"
                             >
                               -
                             </button>
@@ -429,13 +468,15 @@ export default function ProBulkSaleModal({
                               max={item.maxQty}
                               value={item.qty}
                               onChange={(e) => handleQtyChange(item.sku, e.target.value)}
-                              className="w-14 text-center py-1 text-xs font-black bg-transparent text-slate-900 dark:text-white outline-none"
+                              onBlur={() => handleQtyBlur(item.sku)}
+                              onFocus={(e) => e.target.select()}
+                              className="w-16 sm:w-20 text-center py-1.5 text-xs sm:text-sm font-black bg-transparent text-slate-900 dark:text-white outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                             <button
                               type="button"
                               onClick={() => handleIncrementQty(item.sku)}
-                              disabled={item.qty >= item.maxQty}
-                              className="px-2 py-1 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30"
+                              disabled={currentQty >= item.maxQty}
+                              className="px-2.5 py-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors text-xs font-bold"
                             >
                               +
                             </button>
@@ -454,7 +495,9 @@ export default function ProBulkSaleModal({
                               step="any"
                               value={item.price}
                               onChange={(e) => handlePriceChange(item.sku, e.target.value)}
-                              className="w-24 px-2 py-1 text-xs font-black text-right bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                              onBlur={() => handlePriceBlur(item.sku)}
+                              onFocus={(e) => e.target.select()}
+                              className="w-24 px-2.5 py-1.5 text-xs sm:text-sm font-black text-right bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                           </div>
                         </div>
