@@ -14,8 +14,8 @@ export default function StockAdjustmentModal({
   if (!adjustModal) return null;
 
   return (
-    <div className="fixed inset-[#0] z-[9999] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease]">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 flex flex-col">
+    <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-[fadeIn_0.2s_ease]">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 flex flex-col my-auto max-h-[92vh]">
         {/* Header */}
         <div className="px-6 py-5 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
