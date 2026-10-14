@@ -5,15 +5,15 @@ const fmt = (n) => Number(n || 0).toLocaleString('es-MX', { minimumFractionDigit
 const fmtKg = (n) => Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
 export default function MaterialSalesView({
-  activeMaterials,
-  stockByMaterial,
-  multiSaleBuyer,
+  activeMaterials = [],
+  stockByMaterial = {},
+  multiSaleBuyer = '',
   setMultiSaleBuyer,
-  multiSaleNotes,
+  multiSaleNotes = '',
   setMultiSaleNotes,
-  multiSaleRows,
-  submittingMultiSale,
-  multiSaleSummary,
+  multiSaleRows = [],
+  submittingMultiSale = false,
+  multiSaleSummary = { totalKg: 0, totalRevenue: 0, totalCogs: 0, grossProfit: 0 },
   handleAddSaleRow,
   handleRemoveSaleRow,
   handleSaleRowChange,
@@ -88,8 +88,8 @@ export default function MaterialSalesView({
 
           {/* Rows List */}
           <div className="space-y-3">
-            {multiSaleRows.map((row, index) => {
-              const matStock = stockByMaterial[row.material_type_id];
+            {(multiSaleRows || []).map((row, index) => {
+              const matStock = (stockByMaterial || {})[row.material_type_id];
               const availKg = matStock ? (matStock.purchased_kg - matStock.sold_kg) : 0;
               const rowSubtotal = (parseFloat(row.quantity_kg) || 0) * (parseFloat(row.price_per_kg) || 0);
               const isOverStock = (parseFloat(row.quantity_kg) || 0) > availKg;
@@ -126,8 +126,8 @@ export default function MaterialSalesView({
                         className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold outline-none focus:border-blue-500 bg-white cursor-pointer"
                       >
                         <option value="">Selecciona material...</option>
-                        {activeMaterials.map(m => {
-                          const stock = stockByMaterial[m.id];
+                        {(activeMaterials || []).map(m => {
+                          const stock = (stockByMaterial || {})[m.id];
                           const kgs = stock ? (stock.purchased_kg - stock.sold_kg) : 0;
                           return (
                             <option key={m.id} value={m.id}>

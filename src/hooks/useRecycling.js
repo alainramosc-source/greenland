@@ -843,6 +843,7 @@ export function useRecycling() {
     purchases,
     sales,
     stockArray,
+    stockByMaterial,
     totals,
 
     // Buyer PIN State
@@ -856,6 +857,8 @@ export function useRecycling() {
     verifyingBuyer,
     rememberBuyer,
     setRememberBuyer,
+    pendingPurchaseAction,
+    setPendingPurchaseAction,
     verifyBuyerPin,
     handleKeypadPress,
 
