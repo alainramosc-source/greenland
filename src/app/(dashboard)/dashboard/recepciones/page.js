@@ -39,7 +39,7 @@ export default function RecepcionesPage() {
   }
 
   return (
-    <div className="relative z-10 max-w-7xl mx-auto px-2 sm:px-4 py-2">
+    <div className="relative z-10 w-full max-w-[1720px] mx-auto px-4 sm:px-6 md:px-8 py-4 space-y-5">
       {/* Toast Notification */}
       {toast && (
         <div
