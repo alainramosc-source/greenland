@@ -413,7 +413,7 @@ export function useRecycling() {
     } else if (val === 'DEL') {
       setBuyerPinInput(prev => prev.slice(0, -1));
     } else {
-      if (buyerPinInput.length < 10) {
+      if (buyerPinInput.length < 24) {
         setBuyerPinInput(prev => prev + val);
       }
     }

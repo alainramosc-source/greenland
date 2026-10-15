@@ -1,5 +1,6 @@
 'use client';
-import { Users, X, Loader2, Check, Lock, Delete } from 'lucide-react';
+import { useState } from 'react';
+import { Users, X, Loader2, Check, Lock, Delete, Eye, EyeOff } from 'lucide-react';
 
 export default function BuyerPinModal({
   isOpen,
@@ -13,6 +14,8 @@ export default function BuyerPinModal({
   verifyBuyerPin,
   handleKeypadPress,
 }) {
+  const [showMask, setShowMask] = useState(true);
+
   if (!isOpen) return null;
 
   return (
@@ -26,7 +29,7 @@ export default function BuyerPinModal({
             </div>
             <div>
               <h3 className="font-black text-base leading-tight">Identificación de Comprador</h3>
-              <p className="text-xs text-slate-300">Ingresa tu PIN de 4 dígitos o escanea credencial</p>
+              <p className="text-xs text-slate-300">Escanea credencial o digita tu código de 8 dígitos / PIN</p>
             </div>
           </div>
           <button
@@ -38,21 +41,51 @@ export default function BuyerPinModal({
         </div>
 
         {/* Body */}
-        <form onSubmit={verifyBuyerPin} className="p-4 sm:p-6 space-y-4 sm:space-y-5 flex-1 flex flex-col justify-between overflow-y-auto">
+        <form
+          onSubmit={verifyBuyerPin}
+          autoComplete="off"
+          className="p-4 sm:p-6 space-y-4 sm:space-y-5 flex-1 flex flex-col justify-between overflow-y-auto"
+        >
           <div>
             {/* PIN Display */}
-            <div className="mb-4 text-center">
-              <input
-                type="password"
-                maxLength={10}
-                value={buyerPinInput}
-                onChange={e => setBuyerPinInput(e.target.value)}
-                autoFocus
-                placeholder="• • • •"
-                className="w-full text-center text-3xl font-black tracking-[0.4em] py-3.5 px-4 rounded-2xl border-2 border-slate-200 focus:border-emerald-500 outline-none bg-slate-50 transition-all font-mono text-slate-900"
-              />
+            <div className="mb-4">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 text-center">
+                PIN / CÓDIGO DE BARRAS
+              </label>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  name="buyer_operator_code"
+                  id="buyer_operator_code"
+                  autoComplete="one-time-code"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                  data-lpignore="true"
+                  data-form-type="other"
+                  maxLength={24}
+                  value={buyerPinInput}
+                  onChange={e => setBuyerPinInput(e.target.value)}
+                  autoFocus
+                  placeholder="Escanea credencial o digita código..."
+                  style={{ WebkitTextSecurity: showMask ? 'disc' : 'none' }}
+                  className="w-full text-center text-xl sm:text-2xl font-black py-3 px-10 rounded-2xl border-2 border-slate-200 focus:border-emerald-500 outline-none bg-slate-50 focus:bg-white transition-all font-mono text-slate-900 tracking-wider shadow-inner"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowMask(!showMask)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-600 rounded-xl border-none bg-transparent cursor-pointer transition-colors"
+                  title={showMask ? 'Mostrar código' : 'Ocultar código'}
+                >
+                  {showMask ? <Eye size={18} /> : <EyeOff size={18} />}
+                </button>
+              </div>
+
               {buyerModalError && (
-                <p className="text-xs font-bold text-red-500 mt-2 bg-red-50 p-2.5 rounded-xl border border-red-100 animate-[shake_0.3s_ease]">
+                <p className="text-xs font-bold text-red-500 mt-2 bg-red-50 p-2.5 rounded-xl border border-red-100 text-center animate-[shake_0.3s_ease]">
                   {buyerModalError}
                 </p>
               )}
