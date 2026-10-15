@@ -4,6 +4,18 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import * as XLSX from 'xlsx';
 
+export function normalizeSearchText(str) {
+  return (str || '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+export function cleanAlphaNumeric(str) {
+  return normalizeSearchText(str).replace(/[^a-z0-9]/gi, '');
+}
+
 export function getReceptionWarehousesInfo(r, whList = []) {
   const whMap = Object.fromEntries((whList || []).map(w => [w.id, w.name]));
 
@@ -262,21 +274,49 @@ export function useRecepcionesList() {
       }
 
       // Search term
-      if (searchTerm) {
-        const s = searchTerm.toLowerCase();
-        const match =
-          (r.container_label || '').toLowerCase().includes(s) ||
-          (r.pedimento_number || '').toLowerCase().includes(s) ||
-          (r.operation_number || '').toLowerCase().includes(s) ||
-          (r.customs_broker_ref || '').toLowerCase().includes(s) ||
-          (r.distributor?.full_name || '').toLowerCase().includes(s) ||
-          (r.distributor?.client_number || '').toLowerCase().includes(s) ||
-          (r.warehouse?.name || '').toLowerCase().includes(s) ||
-          (r._whInfo?.fullName || '').toLowerCase().includes(s) ||
-          (r._whInfo?.isMulti && 'multibodega'.includes(s)) ||
-          (r.po?.po_number || '').toLowerCase().includes(s);
+      if (searchTerm && searchTerm.trim()) {
+        const normQuery = normalizeSearchText(searchTerm).replace(/\s+/g, ' ').trim();
+        const alphaQuery = cleanAlphaNumeric(searchTerm);
 
-        if (!match) return false;
+        const searchableFields = [
+          r.pedimento_number,
+          r.container_label,
+          r.operation_number,
+          r.customs_broker_ref,
+          r.distributor?.full_name,
+          r.distributor?.client_number,
+          r.warehouse?.name,
+          r._whInfo?.fullName,
+          r._whInfo?.isMulti ? 'multibodega' : '',
+          r.po?.po_number,
+          r.notes,
+          ...(r.items || []).flatMap(i => [i.product?.name, i.product?.sku]),
+        ].filter(Boolean);
+
+        const rawCombined = searchableFields.join(' ');
+        const normCombined = normalizeSearchText(rawCombined).replace(/\s+/g, ' ');
+        const alphaCombined = cleanAlphaNumeric(rawCombined);
+
+        // 1. Direct standard includes on normalized spaces (handles normal text, names, single space pedimentos)
+        let matches = normCombined.includes(normQuery);
+
+        // 2. Alphanumeric search (handles pedimentos without spaces, double spaces, hyphens, slashes: e.g. "261639046010611", "26 16", "6010611", "WHSU 6955800")
+        if (!matches && alphaQuery) {
+          matches = alphaCombined.includes(alphaQuery);
+        }
+
+        // 3. Multi-word token search (every word in the query must match either normCombined or alphaCombined)
+        if (!matches) {
+          const queryTokens = normQuery.split(' ').filter(Boolean);
+          if (queryTokens.length > 1) {
+            matches = queryTokens.every(token => {
+              const alphaToken = cleanAlphaNumeric(token);
+              return normCombined.includes(token) || (alphaToken && alphaCombined.includes(alphaToken));
+            });
+          }
+        }
+
+        if (!matches) return false;
       }
 
       return true;
