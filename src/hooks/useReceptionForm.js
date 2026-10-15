@@ -24,6 +24,30 @@ export const isUserAuthorizedToEdit = (email, name) => {
   );
 };
 
+export const getWarehouseFromCode = (code, warehousesList = []) => {
+  if (!code) return null;
+  const c = code.toUpperCase().trim();
+  if (c === 'VITO' || c === 'SLW' || c === 'SALTILLO') {
+    return warehousesList.find(w => w.name?.toLowerCase().includes('vito') || w.name?.toLowerCase().includes('saltillo'))?.id || null;
+  }
+  if (c === 'ECH' || c === 'ECHEVERRIA') {
+    return warehousesList.find(w => w.name?.toLowerCase().includes('echeverr'))?.id || null;
+  }
+  if (c === 'TL' || c === 'TLALNEPANTLA') {
+    return warehousesList.find(w => w.name?.toLowerCase().includes('tlaln'))?.id || null;
+  }
+  if (c === 'MRO' || c === 'MORELIA') {
+    return warehousesList.find(w => w.name?.toLowerCase().includes('morelia'))?.id || null;
+  }
+  if (c === 'QRO' || c === 'QUERETARO') {
+    return warehousesList.find(w => w.name?.toLowerCase().includes('queretaro'))?.id || null;
+  }
+  if (c === 'ALT' || c === 'ALTAMIRA') {
+    return warehousesList.find(w => w.name?.toLowerCase().includes('altamira'))?.id || null;
+  }
+  return warehousesList.find(w => w.name?.toUpperCase().includes(c))?.id || null;
+};
+
 export function useReceptionForm() {
   const supabase = createClient();
   const router = useRouter();
@@ -141,7 +165,7 @@ export function useReceptionForm() {
 
     const { data: posData, error: posError } = await supabase
       .from('purchase_orders')
-      .select('id, po_number, status, supplier_id, destination_warehouse_id')
+      .select('id, po_number, status, supplier_id, destination_code')
       .in('status', ['draft', 'sent', 'partially_received'])
       .order('created_at', { ascending: false });
 
@@ -160,6 +184,12 @@ export function useReceptionForm() {
         const supplierMap = Object.fromEntries((suppliersData || []).map(s => [s.id, s.short_name]));
         posList.forEach(po => {
           po.supplier_name = supplierMap[po.supplier_id] || 'Sin proveedor';
+          po.destination_warehouse_id = getWarehouseFromCode(po.destination_code, warehousesRes.data || []);
+        });
+      } else {
+        posList.forEach(po => {
+          po.supplier_name = 'Sin proveedor';
+          po.destination_warehouse_id = getWarehouseFromCode(po.destination_code, warehousesRes.data || []);
         });
       }
     }
@@ -179,12 +209,13 @@ export function useReceptionForm() {
           if (!exists) {
             const { data: singlePo } = await supabase
               .from('purchase_orders')
-              .select('id, po_number, status, supplier_id, destination_warehouse_id')
+              .select('id, po_number, status, supplier_id, destination_code')
               .eq('id', reception.purchase_order_id)
               .single();
             if (singlePo) {
               const sName = (suppliersRes.data || []).find(s => s.id === singlePo.supplier_id)?.short_name || 'Sin proveedor';
               singlePo.supplier_name = sName;
+              singlePo.destination_warehouse_id = getWarehouseFromCode(singlePo.destination_code, warehousesRes.data || []);
               posList.push(singlePo);
               setPurchaseOrders([...posList]);
             }
@@ -295,7 +326,7 @@ export function useReceptionForm() {
       }
     }
 
-    const assignedWarehouse = po.destination_warehouse_id || defaultWarehouseFallback || '';
+    const assignedWarehouse = getWarehouseFromCode(po.destination_code, warehouses) || defaultWarehouseFallback || '';
     const remaining = (po.items || [])
       .map(i => ({
         product_id: i.product_id,
@@ -315,13 +346,9 @@ export function useReceptionForm() {
 
   // Handle Primary PO selection change
   const handlePOChange = async (poId, posList = purchaseOrders, distList = distributors) => {
-    setForm(f => ({ ...f, purchase_order_id: poId }));
     if (!poId) {
-      // If cleared, remove primary PO items
-      setLinkedPOs(prev => {
-        const secondaries = prev.slice(1);
-        return secondaries;
-      });
+      setForm(f => ({ ...f, purchase_order_id: '' }));
+      setLinkedPOs(prev => prev.slice(1));
       setItems(prev => prev.filter(i => i.purchase_order_id !== form.purchase_order_id));
       return;
     }
@@ -329,10 +356,13 @@ export function useReceptionForm() {
     const { po, items: poItems } = await fetchPOItems(poId, form.warehouse_id);
     if (!po) return;
 
-    const poWarehouse = po.destination_warehouse_id || form.warehouse_id;
-    if (poWarehouse && !form.warehouse_id) {
-      setForm(f => ({ ...f, warehouse_id: poWarehouse }));
-    }
+    const poWarehouse = getWarehouseFromCode(po.destination_code, warehouses) || form.warehouse_id;
+    setForm(f => ({
+      ...f,
+      purchase_order_id: poId,
+      warehouse_id: f.warehouse_id || poWarehouse,
+      supplier_id: f.supplier_id || po.supplier_id || '',
+    }));
 
     // Auto-detect distributor by warehouse if not selected
     if (poWarehouse && !form.distributor_id) {
@@ -348,7 +378,7 @@ export function useReceptionForm() {
       po_number: po.po_number,
       supplier_id: po.supplier_id,
       supplier_name: sName,
-      destination_warehouse_id: po.destination_warehouse_id,
+      destination_warehouse_id: poWarehouse,
       is_final: false,
     };
 
@@ -376,12 +406,13 @@ export function useReceptionForm() {
     if (!po) return;
 
     const sName = suppliers.find(s => s.id === po.supplier_id)?.short_name || 'Sin proveedor';
+    const secondaryWarehouse = getWarehouseFromCode(po.destination_code, warehouses) || form.warehouse_id;
     const newPO = {
       id: po.id,
       po_number: po.po_number,
       supplier_id: po.supplier_id,
       supplier_name: sName,
-      destination_warehouse_id: po.destination_warehouse_id,
+      destination_warehouse_id: secondaryWarehouse,
       is_final: false,
     };
 
