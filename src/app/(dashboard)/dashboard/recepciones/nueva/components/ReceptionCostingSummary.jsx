@@ -18,9 +18,12 @@ export default function ReceptionCostingSummary({
   isAuthorized,
 }) {
   return (
-    <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-6 mb-6">
-      <h3 className="text-lg font-bold text-slate-900 m-0 mb-5 pb-4 border-b border-slate-200 flex items-center gap-2">
-        <FileText size={18} className="text-[#6a9a04]" /> Resumen de Costeo y Landed Cost
+    <div className="bg-white/70 backdrop-blur-xl border border-white/60 shadow-xl rounded-3xl p-6 sm:p-7 mb-6">
+      <h3 className="text-lg font-black text-slate-900 m-0 mb-5 pb-4 border-b border-slate-200 flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-xl bg-[#6a9a04]/10 text-[#6a9a04] flex items-center justify-center shrink-0">
+          <FileText size={18} />
+        </div>
+        <span>Resumen de Costeo y Landed Cost</span>
       </h3>
 
       {/* 3 Metric Cards */}

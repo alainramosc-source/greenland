@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { ArrowLeft, Save, Loader2, AlertTriangle, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, AlertTriangle, CheckCircle, Container } from 'lucide-react';
 import { useReceptionForm } from '@/hooks/useReceptionForm';
 import ReceptionHeaderCard from './components/ReceptionHeaderCard';
 import ReceptionItemsTable from './components/ReceptionItemsTable';
@@ -77,35 +77,47 @@ export default function NuevaRecepcionPage() {
 
   return (
     <div className="relative z-10 max-w-5xl mx-auto pb-12">
-      {/* Page Header */}
-      <div className="mb-6">
-        <Link
-          href="/dashboard/recepciones"
-          className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors mb-4 text-sm font-semibold no-underline"
-        >
-          <ArrowLeft size={16} /> Volver al listado de recepciones
-        </Link>
-        <div className="flex items-center justify-between flex-wrap gap-4">
+      {/* Back button */}
+      <Link
+        href="/dashboard/recepciones"
+        className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors mb-4 text-xs font-bold no-underline"
+      >
+        <ArrowLeft size={15} /> Volver al listado de recepciones
+      </Link>
+
+      {/* Top Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/70 backdrop-blur-xl border border-white/60 p-5 sm:p-6 rounded-3xl shadow-xl mb-6">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#6a9a04] to-emerald-600 text-white flex items-center justify-center shadow-lg shadow-[#6a9a04]/25 shrink-0">
+            <Container size={26} />
+          </div>
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 m-0">
-              {isCompleted ? '📦 Recepción Completada' : editId ? 'Editar Recepción' : 'Nueva Recepción de Contenedor'}
-            </h1>
-            <p className="text-slate-500 mt-1 font-medium m-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight m-0">
+                {isCompleted ? 'Recepción Completada' : editId ? 'Editar Recepción' : 'Nueva Recepción de Contenedor'}
+              </h1>
+              {isCompleted ? (
+                <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
+                  ✓ Completada
+                </span>
+              ) : (
+                <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shadow-xs">
+                  {editId ? 'Borrador' : 'Nuevo Registro'}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 font-medium m-0 mt-0.5">
               {isCompleted
                 ? 'Esta recepción ya fue procesada e ingresada a los inventarios correspondientes.'
                 : 'Registra la llegada de mercancía, asignación de bodega y costeo landed.'}
             </p>
           </div>
-          {isCompleted && (
-            <span className="text-xs font-bold px-4 py-2 rounded-full bg-green-50 text-green-700 border border-green-200 shadow-sm">
-              ✓ Completada
-            </span>
-          )}
         </div>
+      </div>
 
         {/* Authorized Edit Mode Banner */}
         {isCompleted && isAuthorized && (
-          <div className="mt-4 p-4 bg-amber-50/90 border border-amber-200 rounded-2xl text-amber-900 text-xs font-medium flex items-center gap-3 shadow-sm">
+          <div className="mb-6 p-4 bg-amber-50/90 border border-amber-200 rounded-2xl text-amber-900 text-xs font-medium flex items-center gap-3 shadow-sm">
             <AlertTriangle size={20} className="text-amber-600 shrink-0" />
             <span>
               <strong>Modo de Edición Administrativa (Alain Ramos):</strong> Puedes modificar la etiqueta de contenedor,
@@ -114,7 +126,6 @@ export default function NuevaRecepcionPage() {
             </span>
           </div>
         )}
-      </div>
 
       {/* 1. General Header Data (with Multi-PO support) */}
       <ReceptionHeaderCard

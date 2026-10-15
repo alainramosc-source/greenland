@@ -18,10 +18,13 @@ export default function LandedCostsCard({
   ];
 
   return (
-    <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-6 mb-6">
+    <div className="bg-white/70 backdrop-blur-xl border border-white/60 shadow-xl rounded-3xl p-6 sm:p-7 mb-6">
       <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-200 flex-wrap gap-2">
-        <h3 className="text-lg font-bold text-slate-900 m-0 flex items-center gap-2">
-          <DollarSign size={18} className="text-[#6a9a04]" /> Costos de Importación y Logística (Landed)
+        <h3 className="text-lg font-black text-slate-900 m-0 flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-[#6a9a04]/10 text-[#6a9a04] flex items-center justify-center shrink-0">
+            <DollarSign size={18} />
+          </div>
+          <span>Costos de Importación y Logística (Landed)</span>
         </h3>
         <span className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1 rounded-full">
           💡 Estos costos se prorratean de forma unificada entre todos los productos del cargamento
