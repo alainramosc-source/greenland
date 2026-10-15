@@ -21,6 +21,11 @@ export default function NuevaRecepcionPage() {
     suppliers,
     purchaseOrders,
     distributors,
+    // Multi-PO
+    linkedPOs,
+    addSecondaryPO,
+    removeLinkedPO,
+    togglePOFinal,
     isFinalReception,
     setIsFinalReception,
     productSearch,
@@ -111,7 +116,7 @@ export default function NuevaRecepcionPage() {
         )}
       </div>
 
-      {/* 1. General Header Data */}
+      {/* 1. General Header Data (with Multi-PO support) */}
       <ReceptionHeaderCard
         form={form}
         setForm={setForm}
@@ -119,8 +124,10 @@ export default function NuevaRecepcionPage() {
         purchaseOrders={purchaseOrders}
         warehouses={warehouses}
         distributors={distributors}
-        isFinalReception={isFinalReception}
-        setIsFinalReception={setIsFinalReception}
+        linkedPOs={linkedPOs}
+        addSecondaryPO={addSecondaryPO}
+        removeLinkedPO={removeLinkedPO}
+        togglePOFinal={togglePOFinal}
         handlePOChange={handlePOChange}
         handleWarehouseChange={handleWarehouseChange}
         isCompleted={isCompleted}
@@ -132,6 +139,7 @@ export default function NuevaRecepcionPage() {
         items={items}
         warehouses={warehouses}
         defaultWarehouseId={form.warehouse_id}
+        linkedPOs={linkedPOs}
         isDistributorPro={!!form.distributor_id}
         isCompleted={isCompleted}
         updateItem={updateItem}

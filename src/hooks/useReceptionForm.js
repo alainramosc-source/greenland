@@ -50,7 +50,7 @@ export function useReceptionForm() {
   // Form State
   const [form, setForm] = useState({
     supplier_id: '',
-    purchase_order_id: '',
+    purchase_order_id: '', // PO Principal
     warehouse_id: '', // Bodega Principal / Predeterminada
     distributor_id: '',
     reception_date: new Date().toISOString().split('T')[0],
@@ -71,7 +71,9 @@ export function useReceptionForm() {
     status: 'draft',
   });
 
-  const [items, setItems] = useState([]); // [{ id, product_id, name, sku, quantity, warehouse_id, unit_origin_cost, unit_pro_price }]
+  // Multi-PO State: [{ id, po_number, supplier_id, supplier_name, destination_warehouse_id, is_final: false }]
+  const [linkedPOs, setLinkedPOs] = useState([]);
+  const [items, setItems] = useState([]); // [{ id, product_id, name, sku, quantity, warehouse_id, purchase_order_id, po_number, unit_origin_cost, unit_pro_price }]
   const [isFinalReception, setIsFinalReception] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -139,7 +141,7 @@ export function useReceptionForm() {
 
     const { data: posData, error: posError } = await supabase
       .from('purchase_orders')
-      .select('id, po_number, status, supplier_id')
+      .select('id, po_number, status, supplier_id, destination_warehouse_id')
       .in('status', ['draft', 'sent', 'partially_received'])
       .order('created_at', { ascending: false });
 
@@ -177,7 +179,7 @@ export function useReceptionForm() {
           if (!exists) {
             const { data: singlePo } = await supabase
               .from('purchase_orders')
-              .select('id, po_number, status, supplier_id')
+              .select('id, po_number, status, supplier_id, destination_warehouse_id')
               .eq('id', reception.purchase_order_id)
               .single();
             if (singlePo) {
@@ -186,6 +188,18 @@ export function useReceptionForm() {
               posList.push(singlePo);
               setPurchaseOrders([...posList]);
             }
+          }
+
+          const matchedPo = posList.find(p => p.id === reception.purchase_order_id);
+          if (matchedPo) {
+            setLinkedPOs([{
+              id: matchedPo.id,
+              po_number: matchedPo.po_number,
+              supplier_id: matchedPo.supplier_id,
+              supplier_name: matchedPo.supplier_name,
+              destination_warehouse_id: matchedPo.destination_warehouse_id,
+              is_final: false,
+            }]);
           }
         }
 
@@ -226,6 +240,7 @@ export function useReceptionForm() {
             sku: i.product?.sku,
             quantity: i.quantity,
             warehouse_id: i.warehouse_id || reception.warehouse_id || '',
+            purchase_order_id: reception.purchase_order_id || null,
             unit_origin_cost: i.unit_origin_cost || '',
             unit_pro_price: i.unit_pro_price || '',
           })));
@@ -244,75 +259,155 @@ export function useReceptionForm() {
     // Preload PO if query param exists
     if (poParam && !editId) {
       setForm(f => ({ ...f, purchase_order_id: poParam }));
-      await loadPOData(poParam, productsRes.data || [], distributorsRes.data || []);
+      await handlePOChange(poParam, posList, distributorsRes.data || []);
     }
 
     setLoading(false);
   };
 
-  const loadPOData = async (poId, productsList, distList) => {
+  // Helper to fetch PO items with pending quantities
+  const fetchPOItems = async (poId, defaultWarehouseFallback = '') => {
     const { data: po } = await supabase
       .from('purchase_orders')
       .select('*, items:purchase_order_items(product_id, quantity, unit_price_usd, products(name, sku))')
       .eq('id', poId)
       .single();
+    if (!po) return { po: null, items: [] };
+
+    let receivedMap = {};
+    if (po.status === 'partially_received') {
+      const { data: pastReceptions } = await supabase
+        .from('container_receptions')
+        .select('id')
+        .eq('purchase_order_id', poId)
+        .eq('status', 'completed');
+      if (pastReceptions?.length) {
+        const receptionIds = pastReceptions.map(r => r.id);
+        const { data: receivedItems } = await supabase
+          .from('container_reception_items')
+          .select('product_id, quantity')
+          .in('reception_id', receptionIds);
+        if (receivedItems) {
+          for (const ri of receivedItems) {
+            receivedMap[ri.product_id] = (receivedMap[ri.product_id] || 0) + Number(ri.quantity);
+          }
+        }
+      }
+    }
+
+    const assignedWarehouse = po.destination_warehouse_id || defaultWarehouseFallback || '';
+    const remaining = (po.items || [])
+      .map(i => ({
+        product_id: i.product_id,
+        name: i.products?.name || '',
+        sku: i.products?.sku || '',
+        quantity: i.quantity - (receivedMap[i.product_id] || 0),
+        warehouse_id: assignedWarehouse,
+        purchase_order_id: po.id,
+        po_number: po.po_number,
+        unit_origin_cost: i.unit_price_usd || '',
+        unit_pro_price: '',
+      }))
+      .filter(i => i.quantity > 0);
+
+    return { po, items: remaining };
+  };
+
+  // Handle Primary PO selection change
+  const handlePOChange = async (poId, posList = purchaseOrders, distList = distributors) => {
+    setForm(f => ({ ...f, purchase_order_id: poId }));
+    if (!poId) {
+      // If cleared, remove primary PO items
+      setLinkedPOs(prev => {
+        const secondaries = prev.slice(1);
+        return secondaries;
+      });
+      setItems(prev => prev.filter(i => i.purchase_order_id !== form.purchase_order_id));
+      return;
+    }
+
+    const { po, items: poItems } = await fetchPOItems(poId, form.warehouse_id);
     if (!po) return;
 
     const poWarehouse = po.destination_warehouse_id || form.warehouse_id;
-    setForm(f => ({
-      ...f,
-      warehouse_id: poWarehouse,
-    }));
+    if (poWarehouse && !form.warehouse_id) {
+      setForm(f => ({ ...f, warehouse_id: poWarehouse }));
+    }
 
-    if (poWarehouse) {
+    // Auto-detect distributor by warehouse if not selected
+    if (poWarehouse && !form.distributor_id) {
       const matchDist = distList.find(d => d.assigned_warehouse_id === poWarehouse);
       if (matchDist) {
         setForm(f => ({ ...f, distributor_id: matchDist.id }));
       }
     }
 
-    if (po.items?.length) {
-      let receivedMap = {};
-      if (po.status === 'partially_received') {
-        const { data: pastReceptions } = await supabase
-          .from('container_receptions')
-          .select('id')
-          .eq('purchase_order_id', poId)
-          .eq('status', 'completed');
-        if (pastReceptions?.length) {
-          const receptionIds = pastReceptions.map(r => r.id);
-          const { data: receivedItems } = await supabase
-            .from('container_reception_items')
-            .select('product_id, quantity')
-            .in('reception_id', receptionIds);
-          if (receivedItems) {
-            for (const ri of receivedItems) {
-              receivedMap[ri.product_id] = (receivedMap[ri.product_id] || 0) + Number(ri.quantity);
-            }
-          }
-        }
-      }
+    const sName = suppliers.find(s => s.id === po.supplier_id)?.short_name || 'Sin proveedor';
+    const primaryLinked = {
+      id: po.id,
+      po_number: po.po_number,
+      supplier_id: po.supplier_id,
+      supplier_name: sName,
+      destination_warehouse_id: po.destination_warehouse_id,
+      is_final: false,
+    };
 
-      const remaining = po.items
-        .map(i => ({
-          product_id: i.product_id,
-          name: i.products?.name || '',
-          sku: i.products?.sku || '',
-          quantity: i.quantity - (receivedMap[i.product_id] || 0),
-          warehouse_id: poWarehouse || '',
-          unit_origin_cost: i.unit_price_usd || '',
-          unit_pro_price: '',
-        }))
-        .filter(i => i.quantity > 0);
+    setLinkedPOs(prev => {
+      const secondaries = prev.slice(1);
+      return [primaryLinked, ...secondaries];
+    });
 
-      setItems(remaining);
+    // Replace primary PO items, preserving secondary items
+    setItems(prev => {
+      const secondariesItems = prev.filter(i => i.purchase_order_id && i.purchase_order_id !== form.purchase_order_id);
+      return [...poItems, ...secondariesItems];
+    });
+  };
+
+  // Add Secondary PO (For Full double container arrival)
+  const addSecondaryPO = async (poId) => {
+    if (!poId) return;
+    if (linkedPOs.some(p => p.id === poId)) {
+      alert('Esta Orden de Compra ya está vinculada a esta recepción');
+      return;
+    }
+
+    const { po, items: poItems } = await fetchPOItems(poId, form.warehouse_id);
+    if (!po) return;
+
+    const sName = suppliers.find(s => s.id === po.supplier_id)?.short_name || 'Sin proveedor';
+    const newPO = {
+      id: po.id,
+      po_number: po.po_number,
+      supplier_id: po.supplier_id,
+      supplier_name: sName,
+      destination_warehouse_id: po.destination_warehouse_id,
+      is_final: false,
+    };
+
+    setLinkedPOs(prev => [...prev, newPO]);
+
+    // Append items from secondary PO
+    setItems(prev => [...prev, ...poItems]);
+  };
+
+  // Remove a linked PO
+  const removeLinkedPO = (poId) => {
+    setLinkedPOs(prev => prev.filter(p => p.id !== poId));
+    setItems(prev => prev.filter(i => i.purchase_order_id !== poId));
+    if (form.purchase_order_id === poId) {
+      const remaining = linkedPOs.filter(p => p.id !== poId);
+      setForm(f => ({ ...f, purchase_order_id: remaining[0]?.id || '' }));
     }
   };
 
-  const handlePOChange = async (poId) => {
-    setForm(f => ({ ...f, purchase_order_id: poId }));
-    if (poId) {
-      await loadPOData(poId, products, distributors);
+  // Toggle closure for a specific PO
+  const togglePOFinal = (poId, isFinal) => {
+    setLinkedPOs(prev =>
+      prev.map(p => (p.id === poId ? { ...p, is_final: isFinal } : p))
+    );
+    if (linkedPOs.length === 1 && linkedPOs[0].id === poId) {
+      setIsFinalReception(isFinal);
     }
   };
 
@@ -350,7 +445,9 @@ export function useReceptionForm() {
         name: product.name,
         sku: product.sku,
         quantity: 0,
-        warehouse_id: form.warehouse_id || '', // Automatically defaults to header warehouse
+        warehouse_id: form.warehouse_id || '', // Defaults to header warehouse
+        purchase_order_id: linkedPOs[0]?.id || form.purchase_order_id || null,
+        po_number: linkedPOs[0]?.po_number || null,
         unit_origin_cost: '',
         unit_pro_price: '',
       },
@@ -365,11 +462,6 @@ export function useReceptionForm() {
 
   const updateItem = (idx, field, value) => {
     setItems(prev => prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item)));
-  };
-
-  // Helper: batch apply a warehouse to all rows or selected rows
-  const setAllItemsWarehouse = (whId) => {
-    setItems(prev => prev.map(item => ({ ...item, warehouse_id: whId })));
   };
 
   // Barcode / Scanner
@@ -404,6 +496,8 @@ export function useReceptionForm() {
           sku: product.sku,
           quantity: 1,
           warehouse_id: form.warehouse_id || '',
+          purchase_order_id: linkedPOs[0]?.id || form.purchase_order_id || null,
+          po_number: linkedPOs[0]?.po_number || null,
           unit_origin_cost: '',
           unit_pro_price: '',
         },
@@ -525,7 +619,7 @@ export function useReceptionForm() {
         .from('container_receptions')
         .insert({
           supplier_id: form.supplier_id || null,
-          purchase_order_id: form.purchase_order_id || null,
+          purchase_order_id: linkedPOs[0]?.id || form.purchase_order_id || null,
           warehouse_id: form.warehouse_id,
           distributor_id: form.distributor_id || null,
           reception_date: form.reception_date,
@@ -641,7 +735,6 @@ export function useReceptionForm() {
       return;
     }
 
-    // 2. Update unit_landed_cost for items
     for (const item of items) {
       const landedCost = getLandedPerUnit(item);
       await supabase
@@ -651,7 +744,6 @@ export function useReceptionForm() {
         .eq('product_id', item.product_id);
     }
 
-    // 3. Recalculate avg_cost for products
     for (const item of items) {
       if (!item.product_id) continue;
       const { data: recItems } = await supabase
@@ -670,7 +762,6 @@ export function useReceptionForm() {
       }
     }
 
-    // 4. Sync transport service order
     try {
       const freightAmount = Number(form.freight_national) || 0;
       const destLocation = getUnifiedDestination();
@@ -680,6 +771,7 @@ export function useReceptionForm() {
       if (form.pedimento_number) refParts.push(`Pedimento: ${form.pedimento_number}`);
       if (form.customs_broker_ref) refParts.push(`Ref. Aduanal: ${form.customs_broker_ref}`);
       if (formattedOp) refParts.push(`Operación: ${formattedOp}`);
+      if (linkedPOs.length > 0) refParts.push(`POs: ${linkedPOs.map(p => p.po_number).join(' / ')}`);
       if (destLocation) refParts.push(`Destino: ${destLocation}`);
 
       const cleanDesc = `Flete contenedor ${form.container_label || ''} — ${formattedOp || ''}`.replace(/\s+/g, ' ').trim();
@@ -756,9 +848,19 @@ export function useReceptionForm() {
 
     setSaving(true);
     const formattedOp = cleanOperationNumber(form.operation_number);
+
+    // Format notes to include multi-PO info if more than 1 PO
+    let finalNotes = form.notes || '';
+    if (linkedPOs.length > 1) {
+      const poListTag = `[Full - POs vinculadas: ${linkedPOs.map(p => p.po_number).join(' / ')}]`;
+      if (!finalNotes.includes(poListTag)) {
+        finalNotes = finalNotes ? `${poListTag}\n${finalNotes}` : poListTag;
+      }
+    }
+
     const payload = {
-      supplier_id: form.supplier_id || null,
-      purchase_order_id: form.purchase_order_id || null,
+      supplier_id: form.supplier_id || linkedPOs[0]?.supplier_id || null,
+      purchase_order_id: linkedPOs[0]?.id || form.purchase_order_id || null,
       warehouse_id: form.warehouse_id,
       distributor_id: form.distributor_id || null,
       reception_date: form.reception_date,
@@ -779,7 +881,7 @@ export function useReceptionForm() {
       total_additional_costs: totalAdditionalCosts,
       total_landed_cost: totalLandedCost,
       charge_amount: chargeAmount,
-      notes: form.notes || null,
+      notes: finalNotes || null,
       status: 'draft',
       created_by: userId,
     };
@@ -804,7 +906,6 @@ export function useReceptionForm() {
       setReceptionId(id);
     }
 
-    // Insert items with resilient warehouse_id support
     const itemsPayload = items.map(i => ({
       reception_id: id,
       product_id: i.product_id,
@@ -817,7 +918,6 @@ export function useReceptionForm() {
 
     let { error: itemsError } = await supabase.from('container_reception_items').insert(itemsPayload);
     if (itemsError && itemsError.code === 'PGRST204') {
-      // Column not migrated yet in DB, insert without warehouse_id
       const fallbackPayload = itemsPayload.map(({ warehouse_id, ...rest }) => rest);
       const res = await supabase.from('container_reception_items').insert(fallbackPayload);
       itemsError = res.error;
@@ -852,7 +952,7 @@ export function useReceptionForm() {
       return;
     }
 
-    // Multi-warehouse breakdown text for confirmation modal
+    // Warehouse breakdown text for confirmation modal
     const whSummaryMap = {};
     items.forEach(i => {
       const wid = i.warehouse_id || form.warehouse_id;
@@ -863,19 +963,24 @@ export function useReceptionForm() {
       .map(([name, qty]) => `  • ${name}: ${qty} pzas`)
       .join('\n');
 
+    // Multi-PO breakdown text
+    const poSummaryText = linkedPOs.length > 0
+      ? `• Órdenes de Compra (POs):\n` + linkedPOs.map(p => `  • ${p.po_number} (${p.supplier_name}) ${p.is_final ? '[Cerrar PO]' : '[Parcial]'}`).join('\n') + '\n'
+      : '';
+
     const isMultiWarehouse = Object.keys(whSummaryMap).length > 1;
 
     if (
       !confirm(
         `¿Confirmar recepción?\n\n` +
-        `• Total: ${items.length} SKUs (${totalQuantity} pzas)\n` +
+        `• Total: ${items.length} partidas (${totalQuantity} pzas)\n` +
         (isMultiWarehouse
           ? `• Distribución Multibodega:\n${whSummaryText}\n`
           : `• Ingreso a ${warehouses.find(w => w.id === form.warehouse_id)?.name}\n`) +
+        poSummaryText +
         (form.distributor_id
           ? `• Se generará un cargo de $${chargeAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} al distribuidor PRO\n`
           : '') +
-        (form.purchase_order_id ? `• Se resolverán los tránsitos asociados al PO\n` : '') +
         `\nEsta acción no se puede deshacer.`
       )
     ) {
@@ -885,9 +990,17 @@ export function useReceptionForm() {
     setConfirming(true);
     const formattedOp = cleanOperationNumber(form.operation_number);
 
+    let finalNotes = form.notes || '';
+    if (linkedPOs.length > 1) {
+      const poListTag = `[Full - POs vinculadas: ${linkedPOs.map(p => p.po_number).join(' / ')}]`;
+      if (!finalNotes.includes(poListTag)) {
+        finalNotes = finalNotes ? `${poListTag}\n${finalNotes}` : poListTag;
+      }
+    }
+
     const payload = {
-      supplier_id: form.supplier_id || null,
-      purchase_order_id: form.purchase_order_id || null,
+      supplier_id: form.supplier_id || linkedPOs[0]?.supplier_id || null,
+      purchase_order_id: linkedPOs[0]?.id || form.purchase_order_id || null,
       warehouse_id: form.warehouse_id,
       distributor_id: form.distributor_id || null,
       reception_date: form.reception_date,
@@ -908,7 +1021,7 @@ export function useReceptionForm() {
       total_additional_costs: totalAdditionalCosts,
       total_landed_cost: totalLandedCost,
       charge_amount: chargeAmount,
-      notes: form.notes || null,
+      notes: finalNotes || null,
       status: 'completed',
       created_by: userId,
     };
@@ -932,7 +1045,6 @@ export function useReceptionForm() {
       id = data.id;
     }
 
-    // Insert items
     const itemsPayload = items.map(i => ({
       reception_id: id,
       product_id: i.product_id,
@@ -1006,15 +1118,25 @@ export function useReceptionForm() {
         .eq('id', item.product_id);
     }
 
-    // 3. Resolve Transits if PO exists
-    if (form.purchase_order_id) {
-      if (isFinalReception) {
-        await supabase.from('purchase_orders').update({ status: 'received' }).eq('id', form.purchase_order_id);
+    // 3. Resolve Transits and update status for ALL linked POs
+    const activePOs = linkedPOs.length > 0
+      ? linkedPOs
+      : form.purchase_order_id
+      ? [{ id: form.purchase_order_id, is_final: isFinalReception }]
+      : [];
+
+    for (const lpo of activePOs) {
+      const poIsFinal = lpo.is_final;
+      if (poIsFinal) {
+        await supabase.from('purchase_orders').update({ status: 'received' }).eq('id', lpo.id);
       } else {
-        await supabase.from('purchase_orders').update({ status: 'partially_received' }).eq('id', form.purchase_order_id);
+        await supabase.from('purchase_orders').update({ status: 'partially_received' }).eq('id', lpo.id);
       }
 
-      for (const item of items) {
+      // Filter items belonging to this PO (or all items if items don't have purchase_order_id)
+      const poItems = items.filter(i => !i.purchase_order_id || i.purchase_order_id === lpo.id);
+
+      for (const item of poItems) {
         const qtyReceived = Number(item.quantity) || 0;
         if (qtyReceived <= 0) continue;
         const targetWarehouse = item.warehouse_id || form.warehouse_id;
@@ -1023,7 +1145,7 @@ export function useReceptionForm() {
         let { data: transits } = await supabase
           .from('transit_shipments')
           .select('id, quantity')
-          .eq('purchase_order_id', form.purchase_order_id)
+          .eq('purchase_order_id', lpo.id)
           .eq('product_id', item.product_id)
           .eq('warehouse_id', targetWarehouse)
           .eq('status', 'in_transit')
@@ -1034,7 +1156,7 @@ export function useReceptionForm() {
           const { data: headerTransits } = await supabase
             .from('transit_shipments')
             .select('id, quantity')
-            .eq('purchase_order_id', form.purchase_order_id)
+            .eq('purchase_order_id', lpo.id)
             .eq('product_id', item.product_id)
             .eq('warehouse_id', form.warehouse_id)
             .eq('status', 'in_transit')
@@ -1042,16 +1164,16 @@ export function useReceptionForm() {
           transits = headerTransits;
         }
 
-        // Fallback to legacy transits
+        // Fallback to any warehouse for this PO
         if (!transits || transits.length === 0) {
-          const { data: legacyTransits } = await supabase
+          const { data: poTransits } = await supabase
             .from('transit_shipments')
             .select('id, quantity')
+            .eq('purchase_order_id', lpo.id)
             .eq('product_id', item.product_id)
             .eq('status', 'in_transit')
-            .is('purchase_order_id', null)
             .order('created_at', { ascending: true });
-          transits = legacyTransits;
+          transits = poTransits;
         }
 
         if (!transits || transits.length === 0) continue;
@@ -1072,8 +1194,8 @@ export function useReceptionForm() {
         }
       }
 
-      if (isFinalReception) {
-        await supabase.from('transit_shipments').delete().eq('purchase_order_id', form.purchase_order_id);
+      if (poIsFinal) {
+        await supabase.from('transit_shipments').delete().eq('purchase_order_id', lpo.id);
       }
     }
 
@@ -1095,6 +1217,7 @@ export function useReceptionForm() {
         if (form.pedimento_number) refParts.push(`Pedimento: ${form.pedimento_number}`);
         if (form.customs_broker_ref) refParts.push(`Ref. Aduanal: ${form.customs_broker_ref}`);
         if (formattedOp) refParts.push(`Operación: ${formattedOp}`);
+        if (activePOs.length > 0) refParts.push(`POs: ${activePOs.map(p => p.po_number || p.id).join(' / ')}`);
         if (destLocation) refParts.push(`Destino: ${destLocation}`);
 
         await supabase.from('service_orders').insert({
@@ -1136,6 +1259,11 @@ export function useReceptionForm() {
     suppliers,
     purchaseOrders,
     distributors,
+    // Multi-PO
+    linkedPOs,
+    addSecondaryPO,
+    removeLinkedPO,
+    togglePOFinal,
     isFinalReception,
     setIsFinalReception,
     productSearch,
@@ -1169,7 +1297,6 @@ export function useReceptionForm() {
     addProduct,
     removeItem,
     updateItem,
-    setAllItemsWarehouse,
     openReceptionScanner,
     closeReceptionScanner,
     handleScanKeyDown,

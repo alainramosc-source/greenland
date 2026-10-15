@@ -1,11 +1,12 @@
 'use client';
 import { useState } from 'react';
-import { Package, Search, Plus, Trash2, Camera, QrCode, Warehouse, CheckSquare, Square, ArrowRightLeft } from 'lucide-react';
+import { Package, Search, Plus, Trash2, Camera, QrCode, Warehouse, CheckSquare, Square, FileText } from 'lucide-react';
 
 export default function ReceptionItemsTable({
   items,
   warehouses,
   defaultWarehouseId,
+  linkedPOs = [],
   isDistributorPro,
   isCompleted,
   updateItem,
@@ -61,10 +62,15 @@ export default function ReceptionItemsTable({
 
   // Group items by warehouse for the summary badge
   const summaryByWarehouse = {};
+  const summaryByPO = {};
   items.forEach((item) => {
     const wid = item.warehouse_id || defaultWarehouseId;
     const wName = warehouses.find((w) => w.id === wid)?.name || 'Sin bodega';
     summaryByWarehouse[wName] = (summaryByWarehouse[wName] || 0) + (Number(item.quantity) || 0);
+
+    if (item.po_number) {
+      summaryByPO[item.po_number] = (summaryByPO[item.po_number] || 0) + (Number(item.quantity) || 0);
+    }
   });
 
   return (
@@ -79,15 +85,26 @@ export default function ReceptionItemsTable({
           </p>
         </div>
 
-        {/* Multibodega live counter tag */}
-        {items.length > 0 && Object.keys(summaryByWarehouse).length > 1 && (
-          <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-700">
-            <Warehouse size={14} className="text-indigo-600 shrink-0" />
-            <span>
-              Multibodega activo ({Object.entries(summaryByWarehouse).map(([w, q]) => `${w}: ${q} pzas`).join(' | ')})
-            </span>
-          </div>
-        )}
+        {/* Live Counters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {items.length > 0 && Object.keys(summaryByPO).length > 1 && (
+            <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-700">
+              <FileText size={13} className="text-blue-600 shrink-0" />
+              <span>
+                Full (2 POs): {Object.entries(summaryByPO).map(([po, q]) => `${po}: ${q} pzas`).join(' | ')}
+              </span>
+            </div>
+          )}
+
+          {items.length > 0 && Object.keys(summaryByWarehouse).length > 1 && (
+            <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-800">
+              <Warehouse size={13} className="text-amber-600 shrink-0" />
+              <span>
+                Multibodega: {Object.entries(summaryByWarehouse).map(([w, q]) => `${w}: ${q} pzas`).join(' | ')}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Entry Mode Toggle */}
@@ -207,7 +224,7 @@ export default function ReceptionItemsTable({
                     </button>
                   </th>
                 )}
-                <th className="pb-3">SKU</th>
+                <th className="pb-3">SKU / PO</th>
                 <th className="pb-3">Producto</th>
                 <th className="pb-3" style={{ minWidth: '170px' }}>
                   Bodega de Descarga
@@ -263,7 +280,14 @@ export default function ReceptionItemsTable({
                         />
                       </td>
                     )}
-                    <td className="py-3 font-mono text-xs font-bold text-slate-600">{item.sku}</td>
+                    <td className="py-3 font-mono text-xs font-bold text-slate-700">
+                      <div>{item.sku}</div>
+                      {item.po_number && (
+                        <span className="inline-block mt-0.5 text-[9px] font-black uppercase text-blue-700 bg-blue-50 border border-blue-200/80 px-1.5 py-0.5 rounded">
+                          {item.po_number}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3 text-sm font-semibold text-slate-800">{item.name}</td>
 
                     {/* Warehouse per item */}

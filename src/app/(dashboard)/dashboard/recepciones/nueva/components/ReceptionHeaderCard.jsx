@@ -1,5 +1,6 @@
 'use client';
-import { Container, Calendar, Warehouse, User, FileText, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
+import { Container, Calendar, Warehouse, User, FileText, Plus, Trash2, X, CheckSquare, Square } from 'lucide-react';
 
 export default function ReceptionHeaderCard({
   form,
@@ -8,13 +9,23 @@ export default function ReceptionHeaderCard({
   purchaseOrders,
   warehouses,
   distributors,
-  isFinalReception,
-  setIsFinalReception,
+  linkedPOs,
+  addSecondaryPO,
+  removeLinkedPO,
+  togglePOFinal,
   handlePOChange,
   handleWarehouseChange,
   isCompleted,
   isAuthorized,
 }) {
+  const [showAddSecondary, setShowAddSecondary] = useState(false);
+  const [secondarySelectedId, setSecondarySelectedId] = useState('');
+
+  // Available POs for linking as secondary (exclude already linked ones)
+  const availableSecondaryPOs = purchaseOrders.filter(
+    (po) => !linkedPOs.some((lp) => lp.id === po.id)
+  );
+
   return (
     <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-6 mb-6">
       <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-200 flex-wrap gap-2">
@@ -22,7 +33,7 @@ export default function ReceptionHeaderCard({
           <Container size={18} className="text-[#6a9a04]" /> Datos Generales de la Llegada
         </h3>
         <span className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1 rounded-full">
-          💡 Para contenedores en Full puedes capturar ambos números separados con una diagonal ( / )
+          💡 Para Full: puedes capturar ambos contenedores, pedimentos y vincular 2 Órdenes de Compra (POs)
         </span>
       </div>
 
@@ -34,7 +45,7 @@ export default function ReceptionHeaderCard({
             value={form.supplier_id}
             onChange={(e) => {
               const sid = e.target.value;
-              setForm((f) => ({ ...f, supplier_id: sid, purchase_order_id: '' }));
+              setForm((f) => ({ ...f, supplier_id: sid }));
             }}
             disabled={isCompleted}
             className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm disabled:opacity-60 font-medium"
@@ -46,41 +57,6 @@ export default function ReceptionHeaderCard({
               </option>
             ))}
           </select>
-        </div>
-
-        {/* PO Selector */}
-        <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">Orden de Compra (opcional)</label>
-          <select
-            value={form.purchase_order_id}
-            onChange={(e) => handlePOChange(e.target.value)}
-            disabled={isCompleted || !form.supplier_id}
-            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm disabled:opacity-60 font-medium"
-          >
-            <option value="">{form.supplier_id ? '— Sin PO vinculada —' : '— Selecciona proveedor primero —'}</option>
-            {purchaseOrders
-              .filter((po) => !form.supplier_id || po.supplier_id === form.supplier_id)
-              .map((po) => (
-                <option key={po.id} value={po.id}>
-                  {po.po_number} — {po.supplier_name || 'Sin proveedor'} ({po.status})
-                </option>
-              ))}
-          </select>
-          {form.purchase_order_id && (
-            <div className="mt-2.5 flex items-center gap-2 bg-amber-50/70 border border-amber-200/80 rounded-xl px-3 py-2">
-              <input
-                type="checkbox"
-                id="isFinalReception"
-                checked={isFinalReception}
-                onChange={(e) => setIsFinalReception(e.target.checked)}
-                disabled={isCompleted}
-                className="w-4 h-4 accent-[#6a9a04] rounded cursor-pointer"
-              />
-              <label htmlFor="isFinalReception" className="text-xs text-amber-900 font-bold cursor-pointer select-none">
-                Esta es la última recepción / Cerrar Orden de Compra (PO)
-              </label>
-            </div>
-          )}
         </div>
 
         {/* Primary Warehouse */}
@@ -105,6 +81,150 @@ export default function ReceptionHeaderCard({
           <p className="text-[11px] text-slate-400 mt-1 m-0">
             Todas las partidas asumirán esta bodega automáticamente. Solo cambia la bodega abajo para las que fueron a otra sucursal.
           </p>
+        </div>
+
+        {/* Multi-PO Section (Full Width or 2-col) */}
+        <div className="md:col-span-2 bg-slate-50/80 border border-slate-200/80 rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div>
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Órdenes de Compra Vinculadas (PO)
+              </span>
+              <p className="text-[11px] text-slate-400 m-0">
+                Al vincular las POs se cargarán sus partidas y se resolverán sus tránsitos correspondientes.
+              </p>
+            </div>
+            {linkedPOs.length === 1 && !isCompleted && !showAddSecondary && (
+              <button
+                type="button"
+                onClick={() => setShowAddSecondary(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6a9a04]/10 hover:bg-[#6a9a04]/20 text-[#6a9a04] text-xs font-bold rounded-xl border border-[#6a9a04]/30 cursor-pointer transition-all"
+              >
+                <Plus size={14} /> Vincular 2ª Orden de Compra (Full / 2º Contenedor)
+              </button>
+            )}
+          </div>
+
+          {/* Primary PO selector if none linked yet */}
+          {linkedPOs.length === 0 && (
+            <div>
+              <select
+                value={form.purchase_order_id}
+                onChange={(e) => handlePOChange(e.target.value)}
+                disabled={isCompleted}
+                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm disabled:opacity-60 font-medium"
+              >
+                <option value="">— Seleccionar Orden de Compra —</option>
+                {purchaseOrders
+                  .filter((po) => !form.supplier_id || po.supplier_id === form.supplier_id)
+                  .map((po) => (
+                    <option key={po.id} value={po.id}>
+                      {po.po_number} — {po.supplier_name || 'Sin proveedor'} ({po.status})
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+
+          {/* Linked POs Cards */}
+          {linkedPOs.length > 0 && (
+            <div className="space-y-2.5">
+              {linkedPOs.map((lpo, idx) => (
+                <div
+                  key={lpo.id}
+                  className="flex items-center justify-between p-3.5 bg-white border border-slate-200 rounded-xl shadow-sm flex-wrap gap-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
+                        idx === 0
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-purple-100 text-purple-800'
+                      }`}
+                    >
+                      {idx === 0 ? 'PO 1 (Principal)' : 'PO 2 (Full / Contenedor 2)'}
+                    </span>
+                    <div>
+                      <span className="font-bold text-sm text-slate-900 mr-2">{lpo.po_number}</span>
+                      <span className="text-xs text-slate-500">Proveedor: {lpo.supplier_name}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    {/* Closure Checkbox */}
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={lpo.is_final || false}
+                        onChange={(e) => togglePOFinal(lpo.id, e.target.checked)}
+                        disabled={isCompleted}
+                        className="w-4 h-4 accent-[#6a9a04] rounded cursor-pointer"
+                      />
+                      <span className="text-xs text-slate-700 font-bold">
+                        Cerrar Orden de Compra ({lpo.po_number})
+                      </span>
+                    </label>
+
+                    {/* Unlink button */}
+                    {!isCompleted && (
+                      <button
+                        type="button"
+                        onClick={() => removeLinkedPO(lpo.id)}
+                        className="p-1 text-slate-400 hover:text-red-500 bg-transparent border-none cursor-pointer transition-colors"
+                        title="Desvincular esta PO y sus partidas"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add Secondary PO Dropdown */}
+          {!isCompleted && showAddSecondary && (
+            <div className="mt-3 p-3 bg-purple-50/80 border border-purple-200 rounded-xl flex items-center gap-3 flex-wrap animate-in fade-in duration-200">
+              <span className="text-xs font-bold text-purple-900">
+                Selecciona la 2ª Orden de Compra (Contenedor 2):
+              </span>
+              <select
+                value={secondarySelectedId}
+                onChange={(e) => setSecondarySelectedId(e.target.value)}
+                className="flex-1 min-w-[240px] px-3 py-2 bg-white border border-purple-300 rounded-lg text-xs font-bold text-slate-800 outline-none"
+              >
+                <option value="">— Seleccionar PO para 2º contenedor —</option>
+                {availableSecondaryPOs.map((po) => (
+                  <option key={po.id} value={po.id}>
+                    {po.po_number} — {po.supplier_name || 'Sin proveedor'} ({po.status})
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={!secondarySelectedId}
+                onClick={async () => {
+                  await addSecondaryPO(secondarySelectedId);
+                  setSecondarySelectedId('');
+                  setShowAddSecondary(false);
+                }}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg border-none cursor-pointer transition-colors disabled:opacity-50"
+              >
+                Vincular y Cargar Partidas
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddSecondary(false);
+                  setSecondarySelectedId('');
+                }}
+                className="p-2 text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer"
+                title="Cancelar"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Distributor PRO */}
@@ -140,7 +260,7 @@ export default function ReceptionHeaderCard({
           />
         </div>
 
-        {/* Container Label (Supports Full / multiple containers) */}
+        {/* Container Label */}
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-1">
             Etiqueta del Contenedor / Contenedores
