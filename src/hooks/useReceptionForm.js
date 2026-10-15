@@ -264,13 +264,79 @@ export function useReceptionForm() {
           .eq('reception_id', editId);
 
         if (existingItems) {
+          // 1. Try to parse [ITEM_WAREHOUSES:{...}] from reception.notes
+          let notesWarehouseMap = {};
+          if (reception.notes) {
+            const matchI = reception.notes.match(/\[ITEM_WAREHOUSES:\s*({[^\]]+})\]/);
+            if (matchI) {
+              try {
+                notesWarehouseMap = JSON.parse(matchI[1]);
+              } catch {}
+            }
+          }
+
+          // 2. If any items lack warehouse_id and notes didn't have it either,
+          // inspect inventory_logs for this container/operation to reconstruct real destination
+          const missingWarehouse = existingItems.some(
+            i => !i.warehouse_id && !notesWarehouseMap[i.product_id]
+          );
+          if (missingWarehouse) {
+            try {
+              const searchKey = (reception.container_label || reception.operation_number || '')
+                .split('/')[0]
+                .trim();
+              if (searchKey) {
+                const { data: invLogs } = await supabase
+                  .from('inventory_logs')
+                  .select('product_id, reason')
+                  .ilike('reason', `%${searchKey}%`)
+                  .order('created_at', { ascending: false });
+
+                if (invLogs && invLogs.length > 0) {
+                  const allWhs = warehousesRes.data || [];
+                  invLogs.forEach(l => {
+                    if (l.product_id && !notesWarehouseMap[l.product_id]) {
+                      const matchedWh = allWhs.find(w =>
+                        l.reason?.toLowerCase().includes(w.name.toLowerCase())
+                      );
+                      if (matchedWh) {
+                        notesWarehouseMap[l.product_id] = matchedWh.id;
+                      }
+                    }
+                  });
+                }
+              }
+            } catch (logErr) {
+              console.warn('Could not reconstruct warehouse from inventory logs:', logErr);
+            }
+          }
+
+          // 3. Fallback for natural language notes mentioning multiple bodegas (e.g. Op40 Full split)
+          if (Object.keys(notesWarehouseMap).length === 0 && reception.notes) {
+            const nl = reception.notes.toLowerCase();
+            if (nl.includes('echeverr') && nl.includes('vito')) {
+              const echWh = (warehousesRes.data || []).find(w => w.name.toLowerCase().includes('echeverr'));
+              const vitoWh = (warehousesRes.data || []).find(w => w.name.toLowerCase().includes('vito'));
+              if (echWh && vitoWh) {
+                existingItems.forEach(i => {
+                  const sku = (i.product?.sku || '').toUpperCase();
+                  if (sku === 'GL12' || sku === 'GL13') {
+                    notesWarehouseMap[i.product_id] = echWh.id;
+                  } else if (sku === 'GL07') {
+                    notesWarehouseMap[i.product_id] = vitoWh.id;
+                  }
+                });
+              }
+            }
+          }
+
           setItems(existingItems.map(i => ({
             id: i.id,
             product_id: i.product_id,
             name: i.product?.name,
             sku: i.product?.sku,
             quantity: i.quantity,
-            warehouse_id: i.warehouse_id || reception.warehouse_id || '',
+            warehouse_id: i.warehouse_id || notesWarehouseMap[i.product_id] || reception.warehouse_id || '',
             purchase_order_id: reception.purchase_order_id || null,
             unit_origin_cost: i.unit_origin_cost || '',
             unit_pro_price: i.unit_pro_price || '',
@@ -734,6 +800,34 @@ export function useReceptionForm() {
     setSaving(true);
     const formattedOp = cleanOperationNumber(form.operation_number);
 
+    // Format notes to include multi-PO info and item warehouse mappings
+    let finalNotes = form.notes || '';
+    if (linkedPOs.length > 1) {
+      const poListTag = `[Full - POs vinculadas: ${linkedPOs.map(p => p.po_number).join(' / ')}]`;
+      if (!finalNotes.includes(poListTag)) {
+        finalNotes = finalNotes ? `${poListTag}\n${finalNotes}` : poListTag;
+      }
+    }
+
+    // Serialize warehouse metadata tag
+    const itemWhMap = {};
+    items.forEach(i => {
+      if (i.product_id) itemWhMap[i.product_id] = i.warehouse_id || form.warehouse_id;
+    });
+    const whTag = `[ITEM_WAREHOUSES:${JSON.stringify(itemWhMap)}]`;
+    finalNotes = finalNotes.replace(/\[ITEM_WAREHOUSES:[^\]]*\]/g, '').trim();
+    finalNotes = finalNotes ? `${finalNotes}\n${whTag}` : whTag;
+
+    const usedWarehouseIds = [...new Set(items.map(i => i.warehouse_id || form.warehouse_id).filter(Boolean))];
+    const warehouseNames = usedWarehouseIds
+      .map(id => warehouses.find(w => w.id === id)?.name || '')
+      .filter(Boolean);
+    if (warehouseNames.length > 1) {
+      const bodegasTag = `[BODEGAS:${warehouseNames.join(' / ')}]`;
+      finalNotes = finalNotes.replace(/\[BODEGAS:[^\]]*\]/g, '').trim();
+      finalNotes = `${finalNotes}\n${bodegasTag}`;
+    }
+
     const payload = {
       container_label: form.container_label || null,
       pedimento_number: form.pedimento_number || null,
@@ -752,7 +846,7 @@ export function useReceptionForm() {
       total_origin_cost: totalOriginCostMXN,
       total_additional_costs: totalAdditionalCosts,
       total_landed_cost: totalLandedCost,
-      notes: form.notes || null,
+      notes: finalNotes || null,
     };
 
     const { error: recErr } = await supabase
@@ -768,11 +862,23 @@ export function useReceptionForm() {
 
     for (const item of items) {
       const landedCost = getLandedPerUnit(item);
-      await supabase
+      const updateData = { unit_landed_cost: landedCost };
+      if (item.warehouse_id) {
+        updateData.warehouse_id = item.warehouse_id;
+      }
+      const { error: updErr } = await supabase
         .from('container_reception_items')
-        .update({ unit_landed_cost: landedCost })
+        .update(updateData)
         .eq('reception_id', editId)
         .eq('product_id', item.product_id);
+
+      if (updErr && updErr.code === 'PGRST204') {
+        await supabase
+          .from('container_reception_items')
+          .update({ unit_landed_cost: landedCost })
+          .eq('reception_id', editId)
+          .eq('product_id', item.product_id);
+      }
     }
 
     for (const item of items) {
@@ -887,6 +993,24 @@ export function useReceptionForm() {
       if (!finalNotes.includes(poListTag)) {
         finalNotes = finalNotes ? `${poListTag}\n${finalNotes}` : poListTag;
       }
+    }
+
+    const itemWhMap = {};
+    items.forEach(i => {
+      if (i.product_id) itemWhMap[i.product_id] = i.warehouse_id || form.warehouse_id;
+    });
+    const whTag = `[ITEM_WAREHOUSES:${JSON.stringify(itemWhMap)}]`;
+    finalNotes = finalNotes.replace(/\[ITEM_WAREHOUSES:[^\]]*\]/g, '').trim();
+    finalNotes = finalNotes ? `${finalNotes}\n${whTag}` : whTag;
+
+    const usedWarehouseIds = [...new Set(items.map(i => i.warehouse_id || form.warehouse_id).filter(Boolean))];
+    const warehouseNames = usedWarehouseIds
+      .map(id => warehouses.find(w => w.id === id)?.name || '')
+      .filter(Boolean);
+    if (warehouseNames.length > 1) {
+      const bodegasTag = `[BODEGAS:${warehouseNames.join(' / ')}]`;
+      finalNotes = finalNotes.replace(/\[BODEGAS:[^\]]*\]/g, '').trim();
+      finalNotes = `${finalNotes}\n${bodegasTag}`;
     }
 
     const payload = {
@@ -1027,6 +1151,24 @@ export function useReceptionForm() {
       if (!finalNotes.includes(poListTag)) {
         finalNotes = finalNotes ? `${poListTag}\n${finalNotes}` : poListTag;
       }
+    }
+
+    const itemWhMap = {};
+    items.forEach(i => {
+      if (i.product_id) itemWhMap[i.product_id] = i.warehouse_id || form.warehouse_id;
+    });
+    const whTag = `[ITEM_WAREHOUSES:${JSON.stringify(itemWhMap)}]`;
+    finalNotes = finalNotes.replace(/\[ITEM_WAREHOUSES:[^\]]*\]/g, '').trim();
+    finalNotes = finalNotes ? `${finalNotes}\n${whTag}` : whTag;
+
+    const usedWarehouseIds = [...new Set(items.map(i => i.warehouse_id || form.warehouse_id).filter(Boolean))];
+    const warehouseNames = usedWarehouseIds
+      .map(id => warehouses.find(w => w.id === id)?.name || '')
+      .filter(Boolean);
+    if (warehouseNames.length > 1) {
+      const bodegasTag = `[BODEGAS:${warehouseNames.join(' / ')}]`;
+      finalNotes = finalNotes.replace(/\[BODEGAS:[^\]]*\]/g, '').trim();
+      finalNotes = `${finalNotes}\n${bodegasTag}`;
     }
 
     const payload = {

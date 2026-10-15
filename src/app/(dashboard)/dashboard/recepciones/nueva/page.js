@@ -142,6 +142,7 @@ export default function NuevaRecepcionPage() {
         linkedPOs={linkedPOs}
         isDistributorPro={!!form.distributor_id}
         isCompleted={isCompleted}
+        isAuthorized={isAuthorized}
         updateItem={updateItem}
         removeItem={removeItem}
         addProduct={addProduct}

@@ -17,6 +17,7 @@ const STATUS_MAP = {
 
 export default function RecepcionesPage() {
   const [receptions, setReceptions] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -25,6 +26,80 @@ export default function RecepcionesPage() {
 
   useEffect(() => { fetchData(); }, []);
 
+  const getReceptionWarehousesInfo = (r, whList = []) => {
+    const whMap = Object.fromEntries((whList || []).map(w => [w.id, w.name]));
+
+    // 1. Direct tag in notes: [BODEGAS: Bodega Vito Alessio / Bodega Echeverría]
+    if (r.notes) {
+      const matchB = r.notes.match(/\[BODEGAS:\s*([^\]]+)\]/i);
+      if (matchB) {
+        const full = matchB[1].trim();
+        const parts = full.split('/').map(p => p.trim());
+        return {
+          isMulti: true,
+          names: parts.map(p => p.replace(/^Bodega\s+/i, '')),
+          fullName: full,
+        };
+      }
+
+      // 2. JSON mapping in notes: [ITEM_WAREHOUSES:{"<prodId>":"<whId>"}]
+      const matchI = r.notes.match(/\[ITEM_WAREHOUSES:\s*({[^\]]+})\]/);
+      if (matchI) {
+        try {
+          const itemMap = JSON.parse(matchI[1]);
+          const uniqueIds = [...new Set(Object.values(itemMap))];
+          if (uniqueIds.length > 1) {
+            const names = uniqueIds.map(id => whMap[id] || id).filter(Boolean);
+            return {
+              isMulti: true,
+              names: names.map(p => p.replace(/^Bodega\s+/i, '')),
+              fullName: names.join(' / '),
+            };
+          }
+        } catch {}
+      }
+    }
+
+    // 3. Enriched from inventory logs
+    if (r._detectedMultiWarehouses && r._detectedMultiWarehouses.length > 1) {
+      return {
+        isMulti: true,
+        names: r._detectedMultiWarehouses.map(p => p.replace(/^Bodega\s+/i, '')),
+        fullName: r._detectedMultiWarehouses.join(' / '),
+      };
+    }
+
+    // 4. Item-level warehouse_id if column exists
+    const itemWhIds = [...new Set((r.items || []).map(i => i.warehouse_id).filter(Boolean))];
+    if (itemWhIds.length > 1) {
+      const names = itemWhIds.map(id => whMap[id] || id).filter(Boolean);
+      return {
+        isMulti: true,
+        names: names.map(p => p.replace(/^Bodega\s+/i, '')),
+        fullName: names.join(' / '),
+      };
+    }
+
+    // 5. Special fallback: if multiple containers in label and notes/labels suggest split
+    const hasMultipleContainers = (r.container_label || '').includes('/');
+    const notesLower = (r.notes || '').toLowerCase();
+    if (hasMultipleContainers && (notesLower.includes('echeverr') || notesLower.includes('multibodega'))) {
+      return {
+        isMulti: true,
+        names: ['Vito Alessio', 'Echeverría'],
+        fullName: 'Bodega Vito Alessio / Bodega Echeverría',
+      };
+    }
+
+    // Single warehouse fallback
+    const singleName = (itemWhIds[0] && whMap[itemWhIds[0]]) || r.warehouse?.name || '—';
+    return {
+      isMulti: false,
+      names: [singleName.replace(/^Bodega\s+/i, '')],
+      fullName: singleName,
+    };
+  };
+
   const fetchData = async () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -32,22 +107,79 @@ export default function RecepcionesPage() {
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
     if (profile?.role !== 'admin') { router.push('/dashboard'); return; }
 
-    const { data } = await supabase
+    const { data: whsData } = await supabase.from('warehouses').select('id, name');
+    const whList = whsData || [];
+    setWarehouses(whList);
+
+    let recsData = null;
+    const { data: fullData, error: fullError } = await supabase
       .from('container_receptions')
       .select(`
         *,
-        warehouse:warehouses(name),
+        warehouse:warehouses(id, name),
         distributor:profiles!container_receptions_distributor_id_fkey(full_name, client_number),
         po:purchase_orders(po_number),
-        items:container_reception_items(id, quantity, product_id, unit_pro_price)
+        items:container_reception_items(id, quantity, product_id, unit_pro_price, warehouse_id)
       `)
       .order('created_at', { ascending: false });
 
-    setReceptions(data || []);
+    if (fullError && (fullError.code === '42703' || fullError.message?.includes('warehouse_id'))) {
+      const { data: fallbackData } = await supabase
+        .from('container_receptions')
+        .select(`
+          *,
+          warehouse:warehouses(id, name),
+          distributor:profiles!container_receptions_distributor_id_fkey(full_name, client_number),
+          po:purchase_orders(po_number),
+          items:container_reception_items(id, quantity, product_id, unit_pro_price)
+        `)
+        .order('created_at', { ascending: false });
+      recsData = fallbackData || [];
+    } else {
+      recsData = fullData || [];
+    }
+
+    // Inspect recent inventory_logs to enrich multibodega detection
+    try {
+      const multiContainerRecs = recsData.filter(r => (r.container_label || '').includes('/'));
+      if (multiContainerRecs.length > 0) {
+        const { data: recentLogs } = await supabase
+          .from('inventory_logs')
+          .select('product_id, reason')
+          .ilike('reason', '%Recepción contenedor%')
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (recentLogs && recentLogs.length > 0) {
+          multiContainerRecs.forEach(r => {
+            const firstContainer = r.container_label.split('/')[0].trim();
+            const matchedLogs = recentLogs.filter(l => l.reason?.includes(firstContainer));
+            if (matchedLogs.length > 0) {
+              const detectedWhNames = [];
+              whList.forEach(w => {
+                if (matchedLogs.some(l => l.reason?.toLowerCase().includes(w.name.toLowerCase()))) {
+                  detectedWhNames.push(w.name);
+                }
+              });
+              if (detectedWhNames.length > 1) {
+                r._detectedMultiWarehouses = detectedWhNames;
+              }
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Inventory log enrichment error:', e);
+    }
+
+    setReceptions(recsData);
     setLoading(false);
   };
 
-  const filtered = receptions.filter(r => {
+  const filtered = receptions.map(r => ({
+    ...r,
+    _whInfo: getReceptionWarehousesInfo(r, warehouses),
+  })).filter(r => {
     if (statusFilter !== 'all' && r.status !== statusFilter) return false;
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
@@ -58,6 +190,8 @@ export default function RecepcionesPage() {
         || (r.distributor?.full_name || '').toLowerCase().includes(s)
         || (r.distributor?.client_number || '').toLowerCase().includes(s)
         || (r.warehouse?.name || '').toLowerCase().includes(s)
+        || (r._whInfo?.fullName || '').toLowerCase().includes(s)
+        || (r._whInfo?.isMulti && 'multibodega'.includes(s))
         || (r.po?.po_number || '').toLowerCase().includes(s);
       if (!match) return false;
     }
@@ -188,7 +322,22 @@ export default function RecepcionesPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-sm text-slate-600">{r.warehouse?.name || '—'}</td>
+                      <td className="px-4 py-4">
+                        {r._whInfo?.isMulti ? (
+                          <div className="flex flex-col gap-1 items-start">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200 shadow-xs">
+                              <Warehouse size={11} className="text-purple-600 shrink-0" /> Multibodega
+                            </span>
+                            <span className="text-xs font-bold text-slate-800 leading-snug">
+                              {r._whInfo.names.join(' / ')}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-sm font-medium text-slate-700">
+                            {r._whInfo?.fullName || r.warehouse?.name || '—'}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-4">
                         {r.distributor ? (
                           <div>

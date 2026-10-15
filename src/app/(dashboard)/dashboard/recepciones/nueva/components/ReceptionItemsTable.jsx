@@ -9,6 +9,7 @@ export default function ReceptionItemsTable({
   linkedPOs = [],
   isDistributorPro,
   isCompleted,
+  isAuthorized,
   updateItem,
   removeItem,
   addProduct,
@@ -81,7 +82,11 @@ export default function ReceptionItemsTable({
             <Package size={18} className="text-[#6a9a04]" /> Productos Recibidos y Destino de Descarga
           </h3>
           <p className="text-xs text-slate-500 m-0 mt-0.5">
-            Por defecto van a <strong>{defaultWhName}</strong>. Si una partida o contenedor se descargó en otra bodega, selecciónala directamente en su fila.
+            {isCompleted ? (
+              <span>Destino asignado a cada partida ingresada. Bodega principal: <strong>{defaultWhName}</strong>.</span>
+            ) : (
+              <span>Por defecto van a <strong>{defaultWhName}</strong>. Si una partida o contenedor se descargó en otra bodega, selecciónala directamente en su fila.</span>
+            )}
           </p>
         </div>
 
@@ -149,7 +154,7 @@ export default function ReceptionItemsTable({
                 <option value="">— Asignar bodega a marcadas —</option>
                 {warehouses.map((w) => (
                   <option key={w.id} value={w.id}>
-                    {w.name} {w.id === defaultWarehouseId ? '(Predeterminada)' : ''}
+                    {w.name} {w.id === defaultWarehouseId ? '(Cabecera)' : ''}
                   </option>
                 ))}
               </select>
@@ -296,26 +301,33 @@ export default function ReceptionItemsTable({
                         <select
                           value={currentWarehouseId || ''}
                           onChange={(e) => updateItem(idx, 'warehouse_id', e.target.value)}
-                          disabled={isCompleted}
+                          disabled={isCompleted && !isAuthorized}
                           className={`w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border outline-none transition-all ${
                             isDifferentWarehouse
-                              ? 'bg-amber-50 border-amber-300 text-amber-900 font-extrabold focus:ring-2 focus:ring-amber-400/30'
-                              : 'bg-white border-slate-200 text-slate-700 focus:ring-2 focus:ring-[#6a9a04]/20'
-                          } disabled:opacity-60`}
+                              ? 'bg-amber-50 border-amber-300 text-amber-950 font-black focus:ring-2 focus:ring-amber-400/30'
+                              : 'bg-white border-slate-200 text-slate-800 focus:ring-2 focus:ring-[#6a9a04]/20'
+                          } disabled:opacity-85 disabled:cursor-not-allowed`}
                         >
-                          <option value="">— {defaultWhName} (Predeterminada) —</option>
+                          <option value="">— {defaultWhName} —</option>
                           {warehouses.map((w) => (
                             <option key={w.id} value={w.id}>
-                              {w.name} {w.id === defaultWarehouseId ? '★ (Predeterminada)' : ''}
+                              {w.name} {w.id === defaultWarehouseId ? '(Cabecera)' : ''}
                             </option>
                           ))}
                         </select>
-                        {isDifferentWarehouse && (
+                        {isDifferentWarehouse ? (
                           <span
-                            className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold"
+                            className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 shadow-xs"
                             title="Descargado en bodega alterna"
                           >
-                            !
+                            Alterna
+                          </span>
+                        ) : (
+                          <span
+                            className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold text-slate-400 bg-slate-100"
+                            title="Bodega de cabecera"
+                          >
+                            Cabecera
                           </span>
                         )}
                       </div>
