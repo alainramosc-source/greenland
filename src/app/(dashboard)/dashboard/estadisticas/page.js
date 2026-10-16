@@ -24,6 +24,7 @@ export default function EstadisticasPage() {
     const [orderItems, setOrderItems] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
     const [warehouseStock, setWarehouseStock] = useState([]);
+    const [hoveredMonth, setHoveredMonth] = useState(null);
 
     useEffect(() => { checkAdminAndFetch(); }, []);
 
@@ -500,12 +501,14 @@ export default function EstadisticasPage() {
                             {monthlyRevenue.map((rev, i) => {
                                 const barH = Math.max((rev / maxMonthly) * 180, rev > 0 ? 6 : 0);
                                 return (
-                                <div key={i} className="flex-1 flex flex-col items-center justify-end gap-2 group" style={{ height: '100%' }}>
+                                <div key={i} className="flex-1 flex flex-col items-center justify-end gap-2 cursor-default" style={{ height: '100%' }} onMouseEnter={() => setHoveredMonth(i)} onMouseLeave={() => setHoveredMonth(null)}>
                                     <div className="w-full relative" style={{ height: `${barH}px` }}>
-                                        <div className="absolute bottom-0 w-full bg-[#6a9a04] rounded-t-lg transition-all group-hover:brightness-110 h-full" />
-                                        <div className="absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all bg-slate-900 text-white text-[9px] font-bold px-2 py-1 rounded-lg whitespace-nowrap z-10">
-                                            {fmt(rev)}
-                                        </div>
+                                        <div className={`absolute bottom-0 w-full bg-[#6a9a04] rounded-t-lg transition-all h-full ${hoveredMonth === i ? 'brightness-110' : ''}`} />
+                                        {hoveredMonth === i && (
+                                            <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] font-bold px-2 py-1 rounded-lg whitespace-nowrap z-10 pointer-events-none">
+                                                {fmt(rev)}
+                                            </div>
+                                        )}
                                     </div>
                                     <span className={`text-[10px] font-bold ${i === new Date().getMonth() ? 'text-[#6a9a04]' : 'text-slate-400'}`}>{monthNames[i]}</span>
                                 </div>
