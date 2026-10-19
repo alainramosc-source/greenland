@@ -411,9 +411,17 @@ export default function CashMovementsTab({
                             ? 'bg-emerald-100 text-emerald-800'
                             : m.reference_type === 'recycling_purchase'
                             ? 'bg-rose-100 text-rose-800'
+                            : m.reference_type === 'retail_sale'
+                            ? 'bg-sky-100 text-sky-800'
                             : 'bg-slate-100 text-slate-700'
                         }`}>
-                          {m.reference_type === 'counter_sale' ? 'Venta Mostrador' : m.reference_type === 'recycling_purchase' ? 'Compra Recycling' : 'Aprobado'}
+                          {m.reference_type === 'counter_sale'
+                            ? 'Venta Mostrador'
+                            : m.reference_type === 'recycling_purchase'
+                            ? 'Compra Recycling'
+                            : m.reference_type === 'retail_sale'
+                            ? (String(m.concept || '').toLowerCase().startsWith('envío a domicilio') ? 'Envío a Domicilio' : 'Venta a Público')
+                            : 'Aprobado'}
                         </span>
                       )}
                     </div>
