@@ -153,6 +153,7 @@ export function useRecepcionesList() {
 
         const rawCombined = [
           r.pedimento_number,
+          r.bl_number,
           r.container_label,
           r.operation_number,
           r.customs_broker_ref,
@@ -198,6 +199,7 @@ export function useRecepcionesList() {
           : 'Stock Propio (Saltillo)',
         'Fecha Recepción': r.reception_date || '',
         'Pedimento': r.pedimento_number || '',
+        'BL / Guía': r.bl_number || '',
         'Ref. Aduanal': r.customs_broker_ref || '',
         'Partidas (SKUs)': (r.items || []).length,
         'Total Piezas': r._totalUnits,

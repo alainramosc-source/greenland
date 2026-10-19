@@ -84,6 +84,7 @@ export function useReceptionForm() {
     reception_date: today(),
     container_label: '',
     pedimento_number: '',
+    bl_number: '',
     operation_number: '',
     customs_broker_ref: '',
     freight_maritime: '',
@@ -219,6 +220,7 @@ export function useReceptionForm() {
           reception_date: reception.reception_date || today(),
           container_label: reception.container_label || '',
           pedimento_number: reception.pedimento_number || '',
+          bl_number: reception.bl_number || '',
           operation_number: reception.operation_number || '',
           customs_broker_ref: reception.customs_broker_ref || '',
           freight_maritime: reception.freight_maritime || '',
@@ -629,6 +631,7 @@ export function useReceptionForm() {
   const buildEditableFields = () => ({
     container_label: form.container_label || null,
     pedimento_number: form.pedimento_number || null,
+    bl_number: form.bl_number?.trim() || null,
     operation_number: cleanOperationNumber(form.operation_number) || null,
     customs_broker_ref: form.customs_broker_ref || null,
     reception_date: form.reception_date,

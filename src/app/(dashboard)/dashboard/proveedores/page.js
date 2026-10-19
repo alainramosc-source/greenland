@@ -7,15 +7,7 @@ import {
   FileText, CheckCircle, XCircle, Copy, ExternalLink
 } from 'lucide-react';
 
-const SERVICE_TYPES = [
-  { value: 'flete', label: 'Flete' },
-  { value: 'maniobra', label: 'Maniobra' },
-  { value: 'despacho', label: 'Despacho Aduanal' },
-  { value: 'bodega', label: 'Renta de Bodega' },
-  { value: 'almacenaje', label: 'Almacenaje' },
-  { value: 'seguro', label: 'Seguro de Carga' },
-  { value: 'otro', label: 'Otro' },
-];
+import { SERVICE_TYPES, serviceLabel } from './serviceTypes';
 
 export default function SuppliersPage() {
   const supabase = createClient();
@@ -25,10 +17,11 @@ export default function SuppliersPage() {
   const [showModal, setShowModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [successInfo, setSuccessInfo] = useState(null);
-  const [form, setForm] = useState({
+  const emptyForm = {
     company_name: '', contact_name: '', email: '', phone: '', rfc: '',
-    address: '', service_types: [], notes: ''
-  });
+    address: '', service_types: [], notes: '', portal_access: true
+  };
+  const [form, setForm] = useState(emptyForm);
 
   const fetchSuppliers = async () => {
     const { data, error } = await supabase
@@ -43,8 +36,8 @@ export default function SuppliersPage() {
   useEffect(() => { fetchSuppliers(); }, []);
 
   const handleCreate = async () => {
-    if (!form.company_name.trim() || !form.email.trim()) {
-      alert('Nombre de empresa y email son obligatorios.');
+    if (!form.company_name.trim() || (form.portal_access && !form.email.trim())) {
+      alert(form.portal_access ? 'Nombre de empresa y email son obligatorios.' : 'Nombre de empresa es obligatorio.');
       return;
     }
     setCreating(true);
@@ -62,9 +55,10 @@ export default function SuppliersPage() {
           message: data.message,
           portalUrl: data.portalUrl,
           email: form.email,
-          companyName: form.company_name
+          companyName: form.company_name,
+          portalAccess: form.portal_access
         });
-        setForm({ company_name: '', contact_name: '', email: '', phone: '', rfc: '', address: '', service_types: [], notes: '' });
+        setForm(emptyForm);
         await fetchSuppliers();
       }
     } catch (err) {
@@ -161,12 +155,12 @@ export default function SuppliersPage() {
                     <div className="text-sm font-medium text-slate-700">{supplier.contact_name || '—'}</div>
                     {supplier.phone && <div className="text-xs text-slate-400">{supplier.phone}</div>}
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{supplier.email}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{supplier.email || <span className="text-slate-400 italic">Sin email</span>}</td>
                   <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-1">
                       {(supplier.service_types || []).map(st => (
                         <span key={st} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#6a9a04]/10 text-[#6a9a04] uppercase tracking-wider">
-                          {st}
+                          {serviceLabel(st)}
                         </span>
                       ))}
                     </div>
@@ -208,9 +202,11 @@ export default function SuppliersPage() {
 
             {successInfo ? (
               <div className="p-6 space-y-4">
+                {successInfo.portalAccess && (
+                <>
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                   <p className="text-sm font-medium text-green-700 mb-1">{successInfo.message}</p>
-                  <p className="text-xs text-green-600">Se enviará un email a <strong>{successInfo.email}</strong> para que establezca su contraseña.</p>
+                  <p className="text-xs text-green-600">Cuenta creada para <strong>{successInfo.email}</strong>. El email de acceso se envía desde el detalle del proveedor.</p>
                 </div>
 
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
@@ -230,6 +226,14 @@ export default function SuppliersPage() {
                     </button>
                   </div>
                 </div>
+                </>
+                )}
+                {!successInfo.portalAccess && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                    <p className="text-sm font-medium text-green-700 m-0">{successInfo.message}</p>
+                    <p className="text-xs text-green-600 mt-1 mb-0">Para darle acceso después, usa "Enviar email de bienvenida" en su detalle (necesita email capturado).</p>
+                  </div>
+                )}
 
                 <div className="flex justify-end gap-3 pt-2">
                   <button onClick={() => { setShowModal(false); setSuccessInfo(null); }} className="px-5 py-2.5 rounded-xl text-white font-bold bg-[#6a9a04] hover:bg-[#5a8503] shadow-lg shadow-[#6a9a04]/20 cursor-pointer transition-all border-none">
@@ -267,7 +271,7 @@ export default function SuppliersPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Email *</label>
+                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Email {form.portal_access ? '*' : ''}</label>
                     <div className="relative">
                       <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
@@ -351,11 +355,22 @@ export default function SuppliersPage() {
                   />
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-                  <p className="text-xs font-medium text-blue-700">
-                    📧 Se creará la cuenta del proveedor <strong>{form.email || '...'}</strong>. El email de acceso se envía manualmente desde el detalle del proveedor cuando estés listo.
-                  </p>
-                </div>
+                <label className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.portal_access}
+                    onChange={(e) => setForm(f => ({ ...f, portal_access: e.target.checked }))}
+                    className="mt-0.5 w-4 h-4 accent-[#6a9a04] cursor-pointer"
+                  />
+                  <span className="text-xs text-slate-700">
+                    <strong>Dar acceso al Portal de Proveedores</strong>
+                    <span className="block text-slate-500 mt-0.5">
+                      {form.portal_access
+                        ? <>Se creará la cuenta <strong>{form.email || '...'}</strong>. El email de acceso se envía manualmente desde su detalle.</>
+                        : 'Sin cuenta ni acceso (ej. naviera). Si capturas su email, podrás darle acceso después desde su detalle.'}
+                    </span>
+                  </span>
+                </label>
 
                 <div className="flex justify-end gap-3 pt-2">
                   <button onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-xl text-slate-700 font-semibold bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm">

@@ -105,8 +105,8 @@ export default function ReceptionItemsTable({
           )}
 
           {items.length > 0 && Object.keys(summaryByWarehouse).length > 1 && (
-            <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-800">
-              <Warehouse size={13} className="text-amber-600 shrink-0" />
+            <div className="flex items-center gap-1.5 bg-purple-50 border border-purple-200 px-3 py-1.5 rounded-xl text-xs font-bold text-purple-700">
+              <Warehouse size={13} className="text-purple-600 shrink-0" />
               <span>
                 Multibodega: {Object.entries(summaryByWarehouse).map(([w, q]) => `${w}: ${q} pzas`).join(' | ')}
               </span>
@@ -272,7 +272,7 @@ export default function ReceptionItemsTable({
                     key={idx}
                     className={`transition-colors ${
                       isDifferentWarehouse
-                        ? 'bg-amber-50/40 hover:bg-amber-50/70'
+                        ? 'bg-purple-50/40 hover:bg-purple-50/70'
                         : isSelected
                         ? 'bg-blue-50/40 hover:bg-blue-50/60'
                         : 'hover:bg-slate-50/50'
@@ -307,7 +307,7 @@ export default function ReceptionItemsTable({
                           disabled={isCompleted && !isAuthorized}
                           className={`w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border outline-none transition-all ${
                             isDifferentWarehouse
-                              ? 'bg-amber-50 border-amber-300 text-amber-950 font-black focus:ring-2 focus:ring-amber-400/30'
+                              ? 'bg-purple-50 border-purple-300 text-purple-900 font-black focus:ring-2 focus:ring-purple-400/30'
                               : 'bg-white border-slate-200 text-slate-800 focus:ring-2 focus:ring-[#6a9a04]/20'
                           } disabled:opacity-85 disabled:cursor-not-allowed`}
                         >
@@ -320,7 +320,7 @@ export default function ReceptionItemsTable({
                         </select>
                         {isDifferentWarehouse ? (
                           <span
-                            className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 shadow-xs"
+                            className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-700 border border-purple-300 shadow-xs"
                             title="Descargado en bodega alterna"
                           >
                             Alterna
