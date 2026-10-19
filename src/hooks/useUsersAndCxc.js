@@ -149,7 +149,7 @@ export function useUsersAndCxc() {
 
     const updateData = {
       role: selectedUser.role,
-      sub_role: selectedUser.sub_role || null,
+      sub_role: selectedUser.role === 'driver' ? null : (selectedUser.sub_role || null),
       is_active: selectedUser.is_active,
       full_name: selectedUser.full_name,
       company_name: selectedUser.company_name,
@@ -274,6 +274,11 @@ export function useUsersAndCxc() {
     setCreatingCollab(true);
 
     try {
+      // 'driver' is offered in the same form but is its own role (route-only access)
+      const isDriver = newCollab.sub_role === 'driver';
+      const collabRole = isDriver ? 'driver' : 'admin';
+      const collabSubRole = isDriver ? null : newCollab.sub_role;
+
       // Create user using Supabase auth signUp
       const { data: authData, error: authErr } = await supabase.auth.signUp({
         email: newCollab.email,
@@ -281,8 +286,8 @@ export function useUsersAndCxc() {
         options: {
           data: {
             full_name: newCollab.full_name,
-            role: 'admin',
-            sub_role: newCollab.sub_role
+            role: collabRole,
+            sub_role: collabSubRole
           }
         }
       });
@@ -301,15 +306,15 @@ export function useUsersAndCxc() {
           id: newUserId,
           full_name: newCollab.full_name,
           email: newCollab.email,
-          role: 'admin',
-          sub_role: newCollab.sub_role,
+          role: collabRole,
+          sub_role: collabSubRole,
           is_active: true
         });
 
         if (profErr) console.error('Error upserting profile:', profErr);
       }
 
-      alert(`✅ Colaborador ${newCollab.full_name} creado exitosamente como Administrador.`);
+      alert(`✅ Colaborador ${newCollab.full_name} creado exitosamente como ${isDriver ? 'Chofer' : 'Administrador'}.`);
       setShowNewCollab(false);
       setNewCollab({ full_name: '', email: '', password: '', sub_role: 'viewer' });
       fetchUsers();
@@ -631,7 +636,7 @@ export function useUsersAndCxc() {
 
   // Filtered lists by Role:
   const distributors = users.filter(u => u.role === 'distributor');
-  const admins = users.filter(u => u.role === 'admin');
+  const admins = users.filter(u => u.role === 'admin' || u.role === 'driver');
 
   // Filter helpers
   const filterList = (list) => {

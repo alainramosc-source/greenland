@@ -6,8 +6,10 @@ import Link from 'next/link';
 import {
   ArrowLeft, Building, Mail, Phone, MapPin, FileText, Loader2,
   CheckCircle, XCircle, Truck, DollarSign, Eye, Download, Check, X,
-  Upload, Clock, AlertTriangle, CreditCard, ExternalLink, Send, Trash2
+  Upload, Clock, AlertTriangle, CreditCard, ExternalLink, Send, Trash2, Pencil
 } from 'lucide-react';
+import EditSupplierModal from './EditSupplierModal';
+import { serviceLabel } from '../serviceTypes';
 
 const fmt = (n) => Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -47,6 +49,7 @@ export default function SupplierDetailPage() {
   const [payProofUploading, setPayProofUploading] = useState(null);
   const [sendingWelcome, setSendingWelcome] = useState(false);
   const [welcomeSent, setWelcomeSent] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
 
   // New States
   const [comments, setComments] = useState([]);
@@ -124,10 +127,14 @@ export default function SupplierDetailPage() {
     try {
       const res = await fetch('/api/suppliers/send-welcome', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ supplierId: id }),
+        body: JSON.stringify({ supplier_id: id }),
       });
       const data = await res.json();
-      if (data.success) { setWelcomeSent(true); alert('✅ Email enviado a ' + supplier.email); }
+      if (data.success) {
+        setWelcomeSent(true);
+        alert('✅ Email enviado a ' + supplier.email);
+        if (!supplier.user_id) fetchAll(); // se creó la cuenta
+      }
       else alert('Error: ' + (data.error || 'No se pudo enviar'));
     } catch (err) { alert('Error: ' + err.message); }
     setSendingWelcome(false);
@@ -293,14 +300,18 @@ export default function SupplierDetailPage() {
                 {supplier.is_active ? 'Activo' : 'Inactivo'}
               </span>
             </div>
-            <p className="text-sm text-slate-500">{supplier.contact_name} · {supplier.email} · {(supplier.service_types || []).join(', ')}</p>
+            <p className="text-sm text-slate-500">{[supplier.contact_name, supplier.email, (supplier.service_types || []).map(serviceLabel).join(', ')].filter(Boolean).join(' · ')}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setShowEdit(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none transition-all bg-slate-100 text-slate-700 hover:bg-slate-200">
+            <Pencil size={16} /> Editar
+          </button>
           <button onClick={sendWelcomeEmail} disabled={sendingWelcome || welcomeSent}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none transition-all bg-blue-50 text-blue-600 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed">
             {sendingWelcome ? <Loader2 size={16} className="animate-spin" /> : welcomeSent ? <CheckCircle size={16} /> : <Send size={16} />}
-            {sendingWelcome ? 'Enviando...' : welcomeSent ? 'Email Enviado' : 'Enviar Email de Acceso'}
+            {sendingWelcome ? 'Enviando...' : welcomeSent ? 'Email Enviado' : supplier.user_id ? 'Enviar Email de Acceso' : 'Dar Acceso al Portal'}
           </button>
           <button onClick={toggleActive}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none transition-all ${supplier.is_active ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}>
@@ -308,6 +319,14 @@ export default function SupplierDetailPage() {
           </button>
         </div>
       </div>
+
+      {showEdit && (
+        <EditSupplierModal
+          supplier={supplier}
+          onClose={() => setShowEdit(false)}
+          onSaved={(updated) => { setSupplier(updated); setShowEdit(false); }}
+        />
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -353,7 +372,7 @@ export default function SupplierDetailPage() {
           <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-6">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Contacto</h3>
             <div className="space-y-3">
-              <div className="flex items-center gap-3"><Mail size={16} className="text-slate-400" /><span className="text-sm text-slate-600">{supplier.email}</span></div>
+              <div className="flex items-center gap-3"><Mail size={16} className="text-slate-400" /><span className="text-sm text-slate-600">{supplier.email || <span className="text-slate-400 italic">Sin email</span>}</span></div>
               {supplier.phone && <div className="flex items-center gap-3"><Phone size={16} className="text-slate-400" /><span className="text-sm text-slate-600">{supplier.phone}</span></div>}
               {supplier.address && <div className="flex items-center gap-3"><MapPin size={16} className="text-slate-400" /><span className="text-sm text-slate-600">{supplier.address}</span></div>}
             </div>
@@ -362,7 +381,7 @@ export default function SupplierDetailPage() {
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Servicios</h3>
             <div className="flex flex-wrap gap-2">
               {(supplier.service_types || []).map(st => (
-                <span key={st} className="text-xs font-bold px-3 py-1 rounded-full bg-[#6a9a04]/10 text-[#6a9a04] uppercase tracking-wider">{st}</span>
+                <span key={st} className="text-xs font-bold px-3 py-1 rounded-full bg-[#6a9a04]/10 text-[#6a9a04] uppercase tracking-wider">{serviceLabel(st)}</span>
               ))}
             </div>
             {supplier.notes && <p className="mt-4 text-xs text-slate-500 bg-slate-50 p-3 rounded-lg">{supplier.notes}</p>}

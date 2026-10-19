@@ -16,79 +16,26 @@ export function cleanAlphaNumeric(str) {
   return normalizeSearchText(str).replace(/[^a-z0-9]/gi, '');
 }
 
+// Créditos PRO por traspaso de inventario: se guardan como "recepción" con cargo
+// negativo para que resten del saldo del distribuidor (ver useInventarios.js).
+// No son contenedores, así que no se muestran ni se cuentan en este módulo.
+const isProTransferCredit = (r) => Number(r.charge_amount) < 0;
+
+// Bodegas de una recepción, a partir del warehouse_id de cada partida.
 export function getReceptionWarehousesInfo(r, whList = []) {
-  const whMap = Object.fromEntries((whList || []).map(w => [w.id, w.name]));
+  const whMap = Object.fromEntries(whList.map(w => [w.id, w.name]));
+  const ids = [...new Set((r.items || []).map(i => i.warehouse_id || r.warehouse_id).filter(Boolean))];
+  if (ids.length === 0 && r.warehouse_id) ids.push(r.warehouse_id);
 
-  // 1. Direct tag in notes: [BODEGAS: Bodega Vito Alessio / Bodega Echeverría]
-  if (r.notes) {
-    const matchB = r.notes.match(/\[BODEGAS:\s*([^\]]+)\]/i);
-    if (matchB) {
-      const full = matchB[1].trim();
-      const parts = full.split('/').map(p => p.trim());
-      return {
-        isMulti: true,
-        names: parts.map(p => p.replace(/^Bodega\s+/i, '')),
-        fullName: full,
-      };
-    }
-
-    // 2. JSON mapping in notes: [ITEM_WAREHOUSES:{"<prodId>":"<whId>"}]
-    const matchI = r.notes.match(/\[ITEM_WAREHOUSES:\s*({[^\]]+})\]/);
-    if (matchI) {
-      try {
-        const itemMap = JSON.parse(matchI[1]);
-        const uniqueIds = [...new Set(Object.values(itemMap))];
-        if (uniqueIds.length > 1) {
-          const names = uniqueIds.map(id => whMap[id] || id).filter(Boolean);
-          return {
-            isMulti: true,
-            names: names.map(p => p.replace(/^Bodega\s+/i, '')),
-            fullName: names.join(' / '),
-          };
-        }
-      } catch {}
-    }
-  }
-
-  // 3. Enriched from inventory logs (for legacy receptions before warehouse_id column)
-  if (r._detectedMultiWarehouses && r._detectedMultiWarehouses.length > 1) {
-    return {
-      isMulti: true,
-      names: r._detectedMultiWarehouses.map(p => p.replace(/^Bodega\s+/i, '')),
-      fullName: r._detectedMultiWarehouses.join(' / '),
-    };
-  }
-
-  // 4. Item-level warehouse_id if column exists
-  const itemWhIds = [...new Set((r.items || []).map(i => i.warehouse_id).filter(Boolean))];
-  if (itemWhIds.length > 1) {
-    const names = itemWhIds.map(id => whMap[id] || id).filter(Boolean);
-    return {
-      isMulti: true,
-      names: names.map(p => p.replace(/^Bodega\s+/i, '')),
-      fullName: names.join(' / '),
-    };
-  }
-
-  // 5. Special fallback: if multiple containers in label and notes suggest split
-  const hasMultipleContainers = (r.container_label || '').includes('/');
-  const notesLower = (r.notes || '').toLowerCase();
-  if (hasMultipleContainers && (notesLower.includes('echeverr') || notesLower.includes('multibodega'))) {
-    return {
-      isMulti: true,
-      names: ['Vito Alessio', 'Echeverría'],
-      fullName: 'Bodega Vito Alessio / Bodega Echeverría',
-    };
-  }
-
-  // Single warehouse fallback
-  const singleName = (itemWhIds[0] && whMap[itemWhIds[0]]) || r.warehouse?.name || '—';
+  const fullNames = ids.map(id => whMap[id] || r.warehouse?.name || '—');
   return {
-    isMulti: false,
-    names: [singleName.replace(/^Bodega\s+/i, '')],
-    fullName: singleName,
+    isMulti: ids.length > 1,
+    names: fullNames.map(n => n.replace(/^Bodega\s+/i, '')),
+    fullName: fullNames.join(' / ') || '—',
   };
 }
+
+const STATUS_LABELS = { completed: 'Completada', draft: 'Borrador', cancelled: 'Cancelada' };
 
 export function useRecepcionesList() {
   const [receptions, setReceptions] = useState([]);
@@ -130,78 +77,23 @@ export function useRecepcionesList() {
         return;
       }
 
-      // Fetch warehouses
-      const { data: whsData } = await supabase
-        .from('warehouses')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-      const whList = whsData || [];
-      setWarehouses(whList);
-
-      // Fetch receptions with fallback if warehouse_id is not yet in PostgREST cache
-      let recsData = null;
-      const { data: fullData, error: fullError } = await supabase
-        .from('container_receptions')
-        .select(`
-          *,
-          warehouse:warehouses(id, name),
-          distributor:profiles!container_receptions_distributor_id_fkey(full_name, client_number),
-          po:purchase_orders(po_number),
-          items:container_reception_items(id, quantity, product_id, unit_origin_cost, unit_landed_cost, unit_pro_price, warehouse_id, product:products(name, sku))
-        `)
-        .order('created_at', { ascending: false });
-
-      if (fullError && (fullError.code === '42703' || fullError.message?.includes('warehouse_id'))) {
-        const { data: fallbackData } = await supabase
+      const [{ data: whsData }, { data: recsData, error }] = await Promise.all([
+        supabase.from('warehouses').select('id, name, is_active').order('name'),
+        supabase
           .from('container_receptions')
           .select(`
             *,
             warehouse:warehouses(id, name),
             distributor:profiles!container_receptions_distributor_id_fkey(full_name, client_number),
             po:purchase_orders(po_number),
-            items:container_reception_items(id, quantity, product_id, unit_origin_cost, unit_landed_cost, unit_pro_price, product:products(name, sku))
+            items:container_reception_items(id, quantity, product_id, unit_origin_cost, unit_landed_cost, unit_pro_price, warehouse_id, product:products(name, sku))
           `)
-          .order('created_at', { ascending: false });
-        recsData = fallbackData || [];
-      } else {
-        recsData = fullData || [];
-      }
+          .order('created_at', { ascending: false }),
+      ]);
+      if (error) throw error;
 
-      // Enrich multibodega from recent inventory_logs if needed
-      try {
-        const multiContainerRecs = recsData.filter(r => (r.container_label || '').includes('/'));
-        if (multiContainerRecs.length > 0) {
-          const { data: recentLogs } = await supabase
-            .from('inventory_logs')
-            .select('product_id, reason')
-            .ilike('reason', '%Recepción contenedor%')
-            .order('created_at', { ascending: false })
-            .limit(50);
-
-          if (recentLogs && recentLogs.length > 0) {
-            multiContainerRecs.forEach(r => {
-              const firstContainer = r.container_label.split('/')[0].trim();
-              const matchedLogs = recentLogs.filter(l => l.reason?.includes(firstContainer));
-              if (matchedLogs.length > 0) {
-                const detectedWhNames = [];
-                whList.forEach(w => {
-                  if (matchedLogs.some(l => l.reason?.toLowerCase().includes(w.name.toLowerCase()))) {
-                    detectedWhNames.push(w.name);
-                  }
-                });
-                if (detectedWhNames.length > 1) {
-                  r._detectedMultiWarehouses = detectedWhNames;
-                }
-              }
-            });
-          }
-        }
-      } catch (logErr) {
-        console.warn('Inventory log enrichment error:', logErr);
-      }
-
-      setReceptions(recsData);
+      setWarehouses(whsData || []);
+      setReceptions((recsData || []).filter(r => !isProTransferCredit(r)));
       if (isManualRefresh) showToast('Datos actualizados');
     } catch (err) {
       console.error('Error fetching receptions:', err);
@@ -227,101 +119,71 @@ export function useRecepcionesList() {
 
   // Overall statistics
   const stats = useMemo(() => {
-    const totalCount = enrichedReceptions.length;
-    const draftsCount = enrichedReceptions.filter(r => r.status === 'draft').length;
-    const completedCount = enrichedReceptions.filter(r => r.status === 'completed').length;
-    const cancelledCount = enrichedReceptions.filter(r => r.status === 'cancelled').length;
-
-    const totalUnitsReceived = enrichedReceptions
-      .filter(r => r.status === 'completed')
-      .reduce((s, r) => s + r._totalUnits, 0);
-
-    const totalLandedValue = enrichedReceptions
-      .filter(r => r.status === 'completed')
-      .reduce((s, r) => s + Number(r.total_landed_cost || 0), 0);
-
-    const totalChargesGenerated = enrichedReceptions
-      .filter(r => r.status === 'completed')
-      .reduce((s, r) => s + Number(r.charge_amount || 0), 0);
+    const completed = enrichedReceptions.filter(r => r.status === 'completed');
+    const sum = (list, fn) => list.reduce((s, r) => s + fn(r), 0);
 
     return {
-      totalCount,
-      draftsCount,
-      completedCount,
-      cancelledCount,
-      totalUnitsReceived,
-      totalLandedValue,
-      totalChargesGenerated,
+      totalCount: enrichedReceptions.length,
+      draftsCount: enrichedReceptions.filter(r => r.status === 'draft').length,
+      completedCount: completed.length,
+      cancelledCount: enrichedReceptions.filter(r => r.status === 'cancelled').length,
+      totalUnitsReceived: sum(completed, r => r._totalUnits),
+      totalLandedValue: sum(completed, r => Number(r.total_landed_cost || 0)),
+      totalChargesGenerated: sum(completed, r => Number(r.charge_amount || 0)),
     };
   }, [enrichedReceptions]);
 
   // Filtered receptions
   const filtered = useMemo(() => {
     return enrichedReceptions.filter(r => {
-      // Status filter
       if (statusFilter !== 'all' && r.status !== statusFilter) return false;
 
-      // Warehouse filter
       if (warehouseFilter === 'multibodega') {
-        if (!r._whInfo?.isMulti) return false;
+        if (!r._whInfo.isMulti) return false;
       } else if (warehouseFilter !== 'all') {
-        const matchesMain = r.warehouse_id === warehouseFilter;
-        const matchesItem = (r.items || []).some(i => i.warehouse_id === warehouseFilter);
-        const matchesName = r._whInfo?.fullName?.toLowerCase().includes(
-          warehouses.find(w => w.id === warehouseFilter)?.name?.toLowerCase() || ''
-        );
-        if (!matchesMain && !matchesItem && !matchesName) return false;
+        const matches =
+          r.warehouse_id === warehouseFilter ||
+          (r.items || []).some(i => i.warehouse_id === warehouseFilter);
+        if (!matches) return false;
       }
 
-      // Search term
       if (searchTerm && searchTerm.trim()) {
         const normQuery = normalizeSearchText(searchTerm).replace(/\s+/g, ' ').trim();
         const alphaQuery = cleanAlphaNumeric(searchTerm);
 
-        const searchableFields = [
+        const rawCombined = [
           r.pedimento_number,
+          r.bl_number,
           r.container_label,
           r.operation_number,
           r.customs_broker_ref,
           r.distributor?.full_name,
           r.distributor?.client_number,
-          r.warehouse?.name,
-          r._whInfo?.fullName,
-          r._whInfo?.isMulti ? 'multibodega' : '',
+          r._whInfo.fullName,
+          r._whInfo.isMulti ? 'multibodega' : '',
           r.po?.po_number,
           r.notes,
           ...(r.items || []).flatMap(i => [i.product?.name, i.product?.sku]),
-        ].filter(Boolean);
-
-        const rawCombined = searchableFields.join(' ');
+        ].filter(Boolean).join(' ');
         const normCombined = normalizeSearchText(rawCombined).replace(/\s+/g, ' ');
         const alphaCombined = cleanAlphaNumeric(rawCombined);
 
-        // 1. Direct standard includes on normalized spaces (handles normal text, names, single space pedimentos)
-        let matches = normCombined.includes(normQuery);
-
-        // 2. Alphanumeric search (handles pedimentos without spaces, double spaces, hyphens, slashes: e.g. "261639046010611", "26 16", "6010611", "WHSU 6955800")
-        if (!matches && alphaQuery) {
-          matches = alphaCombined.includes(alphaQuery);
-        }
-
-        // 3. Multi-word token search (every word in the query must match either normCombined or alphaCombined)
-        if (!matches) {
-          const queryTokens = normQuery.split(' ').filter(Boolean);
-          if (queryTokens.length > 1) {
-            matches = queryTokens.every(token => {
-              const alphaToken = cleanAlphaNumeric(token);
-              return normCombined.includes(token) || (alphaToken && alphaCombined.includes(alphaToken));
-            });
-          }
-        }
+        // 1. Texto normal  2. Ignorando espacios/guiones (pedimentos, contenedores)
+        // 3. Cada palabra por separado
+        const matches =
+          normCombined.includes(normQuery) ||
+          (alphaQuery && alphaCombined.includes(alphaQuery)) ||
+          normQuery.split(' ').filter(Boolean).every(token => {
+            const alphaToken = cleanAlphaNumeric(token);
+            return normCombined.includes(token) || (alphaToken && alphaCombined.includes(alphaToken));
+          });
 
         if (!matches) return false;
       }
 
       return true;
     });
-  }, [enrichedReceptions, statusFilter, warehouseFilter, searchTerm, warehouses]);
+  }, [enrichedReceptions, statusFilter, warehouseFilter, searchTerm]);
 
   // Excel export
   const exportToExcel = () => {
@@ -330,13 +192,14 @@ export function useRecepcionesList() {
         'Operación': r.operation_number || 'S/N',
         'Contenedor / Contenedores': r.container_label || 'Sin etiqueta',
         'PO Principal': r.po?.po_number || '',
-        'Bodega de Destino': r._whInfo?.fullName || r.warehouse?.name || '',
-        'Tipo Destino': r._whInfo?.isMulti ? 'MULTIBODEGA' : 'Unitaria',
+        'Bodega de Destino': r._whInfo.fullName,
+        'Tipo Destino': r._whInfo.isMulti ? 'MULTIBODEGA' : 'Unitaria',
         'Distribuidor PRO': r.distributor
           ? `${r.distributor.full_name} (${r.distributor.client_number || ''})`
           : 'Stock Propio (Saltillo)',
         'Fecha Recepción': r.reception_date || '',
         'Pedimento': r.pedimento_number || '',
+        'BL / Guía': r.bl_number || '',
         'Ref. Aduanal': r.customs_broker_ref || '',
         'Partidas (SKUs)': (r.items || []).length,
         'Total Piezas': r._totalUnits,
@@ -344,21 +207,13 @@ export function useRecepcionesList() {
         'Costos Adicionales Landed (MXN)': Number(r.total_additional_costs || 0),
         'Costo Landed Total (MXN)': Number(r.total_landed_cost || 0),
         'Cargo Generado PRO (MXN)': Number(r.charge_amount || 0),
-        'Estatus':
-          r.status === 'completed'
-            ? 'Completada'
-            : r.status === 'draft'
-            ? 'Borrador'
-            : 'Cancelada',
+        'Estatus': STATUS_LABELS[r.status] || 'Cancelada',
       }));
 
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Recepciones');
-      XLSX.writeFile(
-        wb,
-        `Recepciones_Contenedores_${new Date().toISOString().split('T')[0]}.xlsx`
-      );
+      XLSX.writeFile(wb, `Recepciones_Contenedores_${new Date().toISOString().split('T')[0]}.xlsx`);
       showToast('Reporte de recepciones exportado exitosamente');
     } catch (err) {
       console.error('Error exporting to excel:', err);
@@ -369,7 +224,7 @@ export function useRecepcionesList() {
   return {
     receptions: enrichedReceptions,
     filtered,
-    warehouses,
+    warehouses: warehouses.filter(w => w.is_active),
     loading,
     refreshing,
     searchTerm,

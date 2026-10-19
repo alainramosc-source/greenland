@@ -2,12 +2,14 @@
 import { useState, useEffect, use } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
+import { getDeliveryStatus, amountToCollect, formatMoney } from '@/components/delivery/deliveryUtils';
 
 export default function DeliverySheetPage({ params }) {
   const supabase = createClient();
   const router = useRouter();
   const { id } = use(params);
   const [order, setOrder] = useState(null);
+  const [driverName, setDriverName] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,15 +17,21 @@ export default function DeliverySheetPage({ params }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
 
-      // Support both UUID and order_number (e.g. LM-260317-4163)
-      const isOrderNumber = id.startsWith('LM-');
+      // Support both UUID and order_number (e.g. LM-260317-4163, VP-261019-C2C7)
+      const isOrderNumber = /^(LM|VP)-/i.test(id);
       const { data, error } = await supabase
         .from('lastmile_orders')
         .select('*')
         .eq(isOrderNumber ? 'order_number' : 'id', id)
         .single();
 
-      if (data) setOrder(data);
+      if (data) {
+        setOrder(data);
+        if (data.assigned_driver_id) {
+          const { data: drv } = await supabase.from('profiles').select('full_name, email').eq('id', data.assigned_driver_id).single();
+          setDriverName(drv?.full_name || drv?.email || null);
+        }
+      }
       setLoading(false);
     }
     load();
@@ -114,18 +122,13 @@ export default function DeliverySheetPage({ params }) {
             <p className="text-sm font-mono font-bold text-[#6a9a04] mt-1">{order.order_number || '—'}</p>
             <p className="text-xs text-slate-500 mt-1">{createdDate}</p>
             <div className="mt-2">
-              <span className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
-                order.status === 'delivered' ? 'bg-green-100 text-green-700' :
-                order.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
-                order.status === 'in_delivery' ? 'bg-amber-100 text-amber-700' :
-                'bg-slate-100 text-slate-600'
-              }`}>
-                {order.status === 'delivered' ? '✓ Entregado' :
-                 order.status === 'confirmed' ? 'Confirmado' :
-                 order.status === 'in_delivery' ? 'En camino' :
-                 'Pendiente'}
+              <span className="inline-block px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700">
+                {getDeliveryStatus(order).label}
               </span>
             </div>
+            {driverName && (
+              <p className="text-[11px] text-slate-500 mt-1">Chofer: <span className="font-bold text-slate-700">{driverName}</span></p>
+            )}
           </div>
         </div>
 
@@ -208,6 +211,23 @@ export default function DeliverySheetPage({ params }) {
             </tfoot>
           </table>
         </div>
+
+        {/* ======== PAYMENT ON DELIVERY ======== */}
+        {order.delivery_type === 'delivery' && (
+          amountToCollect(order) > 0 ? (
+            <div className="mb-6 border-2 border-amber-400 rounded-xl p-4 bg-amber-50 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-amber-700">💵 Cobrar al entregar</p>
+                <p className="text-[11px] text-amber-700 mt-0.5">Forma de pago: efectivo ▢   transferencia ▢   tarjeta ▢   Monto recibido: ________</p>
+              </div>
+              <p className="text-2xl font-black text-amber-800">{formatMoney(amountToCollect(order))}</p>
+            </div>
+          ) : (
+            <div className="mb-6 border-2 border-emerald-400 rounded-xl p-4 bg-emerald-50 text-center">
+              <p className="text-lg font-black text-emerald-700">✓ PAGADO — NO COBRAR</p>
+            </div>
+          )
+        )}
 
         {/* ======== DELIVERY ADDRESS ======== */}
         {order.delivery_type === 'delivery' && (

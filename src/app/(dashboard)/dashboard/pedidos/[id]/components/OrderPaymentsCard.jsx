@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { CreditCard, Plus, CheckCircle2, AlertCircle } from 'lucide-react';
+import { formatDateOnly } from '@/utils/formatters';
 
 export default function OrderPaymentsCard({
   order,
@@ -92,7 +93,7 @@ export default function OrderPaymentsCard({
                       {p.payment_method} {p.reference ? `· Ref: ${p.reference}` : ''}
                     </p>
                     <p className="text-[10px] text-slate-400">
-                      {new Date(p.payment_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {formatDateOnly(p.payment_date)}
                       {p.notes ? ` · ${p.notes}` : ''}
                     </p>
                   </div>

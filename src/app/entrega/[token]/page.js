@@ -161,6 +161,7 @@ export default function EntregaPage({ params }) {
   const [phase, setPhase] = useState('splash'); // splash → form → success → error
   const [order, setOrder] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   // Form fields
   const [form, setForm] = useState({
@@ -197,11 +198,8 @@ export default function EntregaPage({ params }) {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('lastmile_orders')
-        .select('*')
-        .eq('checkout_token', token)
-        .single();
+      // Token-scoped RPC: only returns this order's number/items, never other customers' data
+      const { data, error } = await supabase.rpc('get_lastmile_checkout', { p_token: token });
 
       if (error || !data) {
         setTimeout(() => setPhase('error'), 2500);
@@ -209,7 +207,7 @@ export default function EntregaPage({ params }) {
       }
 
       // If already confirmed (has address data), show success
-      if (data.customer_name && data.address_street) {
+      if (data.already_submitted) {
         setOrder(data);
         setTimeout(() => setPhase('already_done'), 2500);
         return;
@@ -238,40 +236,36 @@ export default function EntregaPage({ params }) {
     e.preventDefault();
     if (!isValid || submitting) return;
     setSubmitting(true);
+    setSubmitError(null);
 
     try {
-      const { error } = await supabase
-        .from('lastmile_orders')
-        .update({
+      const { error } = await supabase.rpc('submit_lastmile_checkout', {
+        p_token: token,
+        p_data: {
           customer_name: form.customer_name,
           customer_phone: form.customer_phone,
-          customer_alt_contact: form.customer_alt_contact || null,
-          customer_alt_phone: form.customer_alt_phone || null,
+          customer_alt_contact: form.customer_alt_contact,
+          customer_alt_phone: form.customer_alt_phone,
           address_street: form.address_street,
           address_ext_number: form.address_ext_number,
-          address_int_number: form.address_int_number || null,
-          address_line: `${form.address_street} #${form.address_ext_number}${form.address_int_number ? ` Int. ${form.address_int_number}` : ''}, ${form.address_colony}`,
+          address_int_number: form.address_int_number,
           address_colony: form.address_colony,
           address_municipality: form.address_municipality,
-          address_city: form.address_municipality,
           address_zip: form.address_zip,
           address_state: form.address_state,
           address_between_streets: form.address_between_streets,
           address_references: form.address_references,
           lat: form.lat,
           lng: form.lng,
-          special_instructions: form.special_instructions || null,
-          status: 'confirmed',
-          confirmed_at: new Date().toISOString(),
-        })
-        .eq('checkout_token', token);
+          special_instructions: form.special_instructions,
+        },
+      });
 
       if (error) throw error;
       setPhase('success');
     } catch (err) {
       console.error('Submit error:', err);
-      // For demo, still show success
-      setPhase('success');
+      setSubmitError(err?.message || 'No se pudieron enviar tus datos. Intenta de nuevo.');
     } finally {
       setSubmitting(false);
     }
@@ -537,6 +531,9 @@ export default function EntregaPage({ params }) {
 
         {/* Submit */}
         <div className="pt-2 pb-8">
+          {submitError && (
+            <p className="mb-3 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-xl p-3">⚠️ {submitError}</p>
+          )}
           <button type="submit" disabled={!isValid || submitting} className="w-full py-4 text-base font-bold bg-gradient-to-r from-[#6a9a04] to-[#5a8403] text-white rounded-2xl hover:shadow-lg hover:shadow-[#6a9a04]/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer">
             {submitting ? 'Enviando datos...' : '✓ Enviar datos de entrega'}
           </button>

@@ -72,6 +72,9 @@ function buildSupplierWelcomeEmail({ companyName, contactName, portalUrl, email,
 }
 
 export async function POST(request) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json({ error: 'Falta SUPABASE_SERVICE_ROLE_KEY en el servidor.' }, { status: 500 });
+  }
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -84,14 +87,31 @@ export async function POST(request) {
     // Get supplier info
     const { data: supplier } = await supabaseAdmin.from('suppliers').select('*').eq('id', supplier_id).single();
     if (!supplier) return NextResponse.json({ error: 'Proveedor no encontrado' }, { status: 404 });
-    if (!supplier.user_id) return NextResponse.json({ error: 'Proveedor no tiene cuenta de usuario' }, { status: 400 });
+    if (!supplier.email) return NextResponse.json({ error: 'El proveedor no tiene email' }, { status: 400 });
 
-    // Generate a new temporary password and update the user
     const tempPassword = 'GL-' + crypto.randomUUID().slice(0, 8).toUpperCase();
-    const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(supplier.user_id, {
-      password: tempPassword,
-    });
-    if (updateErr) return NextResponse.json({ error: 'Error actualizando contraseña: ' + updateErr.message }, { status: 500 });
+
+    if (supplier.user_id) {
+      // Ya tiene cuenta: solo renovar contraseña temporal
+      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(supplier.user_id, {
+        password: tempPassword,
+      });
+      if (updateErr) return NextResponse.json({ error: 'Error actualizando contraseña: ' + updateErr.message }, { status: 500 });
+    } else {
+      // Dado de alta sin acceso al portal: crear la cuenta ahora
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: supplier.email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: { full_name: supplier.contact_name || supplier.company_name, role: 'supplier' },
+      });
+      if (authError) return NextResponse.json({ error: 'Error al crear cuenta: ' + authError.message }, { status: 400 });
+      await supabaseAdmin
+        .from('profiles')
+        .update({ role: 'supplier', full_name: supplier.contact_name || supplier.company_name, is_active: true })
+        .eq('id', authData.user.id);
+      await supabaseAdmin.from('suppliers').update({ user_id: authData.user.id }).eq('id', supplier.id);
+    }
 
     const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://greenland-products.com.mx'}/portal-proveedores`;
 

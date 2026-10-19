@@ -5,11 +5,8 @@ import { Html5Qrcode } from 'html5-qrcode';
 
 export const cleanOperationNumber = (rawOp) => {
   if (!rawOp) return '';
-  let val = rawOp.trim();
-  if (/^op/i.test(val)) {
-    val = val.replace(/^(op\s*)+/i, 'Op');
-    return val;
-  }
+  const val = rawOp.trim();
+  if (/^op/i.test(val)) return val.replace(/^(op\s*)+/i, 'Op');
   return `Op${val}`;
 };
 
@@ -24,29 +21,36 @@ export const isUserAuthorizedToEdit = (email, name) => {
   );
 };
 
+// Código de destino de la PO → palabras clave en el nombre de la bodega
+const WAREHOUSE_CODE_KEYWORDS = {
+  VITO: ['vito', 'saltillo'], SLW: ['vito', 'saltillo'], SALTILLO: ['vito', 'saltillo'],
+  ECH: ['echeverr'], ECHEVERRIA: ['echeverr'],
+  TL: ['tlaln'], TLALNEPANTLA: ['tlaln'],
+  MRO: ['morelia'], MORELIA: ['morelia'],
+  QRO: ['queretaro'], QUERETARO: ['queretaro'],
+  ALT: ['altamira'], ALTAMIRA: ['altamira'],
+};
+
+const plain = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
 export const getWarehouseFromCode = (code, warehousesList = []) => {
   if (!code) return null;
   const c = code.toUpperCase().trim();
-  if (c === 'VITO' || c === 'SLW' || c === 'SALTILLO') {
-    return warehousesList.find(w => w.name?.toLowerCase().includes('vito') || w.name?.toLowerCase().includes('saltillo'))?.id || null;
-  }
-  if (c === 'ECH' || c === 'ECHEVERRIA') {
-    return warehousesList.find(w => w.name?.toLowerCase().includes('echeverr'))?.id || null;
-  }
-  if (c === 'TL' || c === 'TLALNEPANTLA') {
-    return warehousesList.find(w => w.name?.toLowerCase().includes('tlaln'))?.id || null;
-  }
-  if (c === 'MRO' || c === 'MORELIA') {
-    return warehousesList.find(w => w.name?.toLowerCase().includes('morelia'))?.id || null;
-  }
-  if (c === 'QRO' || c === 'QUERETARO') {
-    return warehousesList.find(w => w.name?.toLowerCase().includes('queretaro'))?.id || null;
-  }
-  if (c === 'ALT' || c === 'ALTAMIRA') {
-    return warehousesList.find(w => w.name?.toLowerCase().includes('altamira'))?.id || null;
-  }
-  return warehousesList.find(w => w.name?.toUpperCase().includes(c))?.id || null;
+  const keywords = WAREHOUSE_CODE_KEYWORDS[c] || [plain(c)];
+  return warehousesList.find(w => keywords.some(k => plain(w.name).includes(k)))?.id || null;
 };
+
+// Etiquetas técnicas que versiones anteriores guardaban dentro de las notas.
+// Ya no se usan (la bodega vive en container_reception_items.warehouse_id).
+const stripTechnicalTags = (notes) =>
+  (notes || '')
+    .replace(/\[ITEM_WAREHOUSES:[^\]]*\]/g, '')
+    .replace(/\[BODEGAS:[^\]]*\]/g, '')
+    .replace(/\[Full - POs vinculadas:[^\]]*\]/g, '')
+    .trim();
+
+const toNum = (v) => Number(v) || 0;
+const today = () => new Date().toISOString().split('T')[0];
 
 export function useReceptionForm() {
   const supabase = createClient();
@@ -77,9 +81,10 @@ export function useReceptionForm() {
     purchase_order_id: '', // PO Principal
     warehouse_id: '', // Bodega Principal / Predeterminada
     distributor_id: '',
-    reception_date: new Date().toISOString().split('T')[0],
+    reception_date: today(),
     container_label: '',
     pedimento_number: '',
+    bl_number: '',
     operation_number: '',
     customs_broker_ref: '',
     freight_maritime: '',
@@ -95,7 +100,7 @@ export function useReceptionForm() {
     status: 'draft',
   });
 
-  // Multi-PO State: [{ id, po_number, supplier_id, supplier_name, destination_warehouse_id, is_final: false }]
+  // Multi-PO State: [{ id, po_number, supplier_id, supplier_name, destination_warehouse_id, is_final }]
   const [linkedPOs, setLinkedPOs] = useState([]);
   const [items, setItems] = useState([]); // [{ id, product_id, name, sku, quantity, warehouse_id, purchase_order_id, po_number, unit_origin_cost, unit_pro_price }]
   const [isFinalReception, setIsFinalReception] = useState(false);
@@ -117,9 +122,6 @@ export function useReceptionForm() {
 
   useEffect(() => {
     fetchData();
-  }, []);
-
-  useEffect(() => {
     return () => {
       if (receptionScannerRef.current) {
         try {
@@ -128,6 +130,15 @@ export function useReceptionForm() {
       }
     };
   }, []);
+
+  const toLinkedPO = (po, destinationWarehouseId = po.destination_warehouse_id) => ({
+    id: po.id,
+    po_number: po.po_number,
+    supplier_id: po.supplier_id,
+    supplier_name: po.supplier_name || suppliers.find(s => s.id === po.supplier_id)?.short_name || 'Sin proveedor',
+    destination_warehouse_id: destinationWarehouseId,
+    is_final: false,
+  });
 
   const fetchData = async () => {
     setLoading(true);
@@ -151,49 +162,29 @@ export function useReceptionForm() {
     setUserEmail(user.email || profile?.email || '');
     setUserName(profile?.full_name || '');
 
-    const [productsRes, warehousesRes, distributorsRes, suppliersRes] = await Promise.all([
+    const [productsRes, warehousesRes, distributorsRes, suppliersRes, posRes] = await Promise.all([
       supabase.from('products').select('id, name, sku, price').eq('is_active', true).order('sku'),
       supabase.from('warehouses').select('*').eq('is_active', true).order('name'),
       supabase.from('profiles').select('id, full_name, client_number, assigned_warehouse_id').eq('role', 'distributor').eq('sub_role', 'distributor_pro').eq('is_active', true).order('full_name'),
-      supabase.from('suppliers').select('id, name, short_name').eq('is_active', true).order('short_name'),
+      supabase.from('suppliers').select('id, name, short_name, is_active').order('short_name'),
+      supabase.from('purchase_orders').select('id, po_number, status, supplier_id, destination_code').in('status', ['draft', 'sent', 'partially_received']).order('created_at', { ascending: false }),
     ]);
+    if (posRes.error) console.error('PO fetch error:', posRes.error);
 
+    const allWarehouses = warehousesRes.data || [];
+    const allSuppliers = suppliersRes.data || [];
     setProducts(productsRes.data || []);
-    setWarehouses(warehousesRes.data || []);
+    setWarehouses(allWarehouses);
     setDistributors(distributorsRes.data || []);
-    setSuppliers(suppliersRes.data || []);
+    setSuppliers(allSuppliers.filter(s => s.is_active));
 
-    const { data: posData, error: posError } = await supabase
-      .from('purchase_orders')
-      .select('id, po_number, status, supplier_id, destination_code')
-      .in('status', ['draft', 'sent', 'partially_received'])
-      .order('created_at', { ascending: false });
-
-    if (posError) {
-      console.error('PO fetch error:', posError);
-    }
-
-    const posList = posData || [];
-    if (posList.length > 0) {
-      const supplierIds = [...new Set(posList.map(p => p.supplier_id).filter(Boolean))];
-      if (supplierIds.length > 0) {
-        const { data: suppliersData } = await supabase
-          .from('suppliers')
-          .select('id, short_name')
-          .in('id', supplierIds);
-        const supplierMap = Object.fromEntries((suppliersData || []).map(s => [s.id, s.short_name]));
-        posList.forEach(po => {
-          po.supplier_name = supplierMap[po.supplier_id] || 'Sin proveedor';
-          po.destination_warehouse_id = getWarehouseFromCode(po.destination_code, warehousesRes.data || []);
-        });
-      } else {
-        posList.forEach(po => {
-          po.supplier_name = 'Sin proveedor';
-          po.destination_warehouse_id = getWarehouseFromCode(po.destination_code, warehousesRes.data || []);
-        });
-      }
-    }
-    setPurchaseOrders(posList);
+    const supplierMap = Object.fromEntries(allSuppliers.map(s => [s.id, s.short_name]));
+    const enrichPO = (po) => ({
+      ...po,
+      supplier_name: supplierMap[po.supplier_id] || 'Sin proveedor',
+      destination_warehouse_id: getWarehouseFromCode(po.destination_code, allWarehouses),
+    });
+    const posList = (posRes.data || []).map(enrichPO);
 
     // If editing, load existing data
     if (editId) {
@@ -205,33 +196,20 @@ export function useReceptionForm() {
 
       if (reception) {
         if (reception.purchase_order_id) {
-          const exists = posList.some(p => p.id === reception.purchase_order_id);
-          if (!exists) {
+          let matchedPo = posList.find(p => p.id === reception.purchase_order_id);
+          if (!matchedPo) {
+            // PO ya cerrada: no viene en la lista de POs activas
             const { data: singlePo } = await supabase
               .from('purchase_orders')
               .select('id, po_number, status, supplier_id, destination_code')
               .eq('id', reception.purchase_order_id)
               .single();
             if (singlePo) {
-              const sName = (suppliersRes.data || []).find(s => s.id === singlePo.supplier_id)?.short_name || 'Sin proveedor';
-              singlePo.supplier_name = sName;
-              singlePo.destination_warehouse_id = getWarehouseFromCode(singlePo.destination_code, warehousesRes.data || []);
-              posList.push(singlePo);
-              setPurchaseOrders([...posList]);
+              matchedPo = enrichPO(singlePo);
+              posList.push(matchedPo);
             }
           }
-
-          const matchedPo = posList.find(p => p.id === reception.purchase_order_id);
-          if (matchedPo) {
-            setLinkedPOs([{
-              id: matchedPo.id,
-              po_number: matchedPo.po_number,
-              supplier_id: matchedPo.supplier_id,
-              supplier_name: matchedPo.supplier_name,
-              destination_warehouse_id: matchedPo.destination_warehouse_id,
-              is_final: false,
-            }]);
-          }
+          if (matchedPo) setLinkedPOs([toLinkedPO(matchedPo)]);
         }
 
         setForm({
@@ -239,9 +217,10 @@ export function useReceptionForm() {
           purchase_order_id: reception.purchase_order_id || '',
           warehouse_id: reception.warehouse_id || '',
           distributor_id: reception.distributor_id || '',
-          reception_date: reception.reception_date || new Date().toISOString().split('T')[0],
+          reception_date: reception.reception_date || today(),
           container_label: reception.container_label || '',
           pedimento_number: reception.pedimento_number || '',
+          bl_number: reception.bl_number || '',
           operation_number: reception.operation_number || '',
           customs_broker_ref: reception.customs_broker_ref || '',
           freight_maritime: reception.freight_maritime || '',
@@ -253,110 +232,36 @@ export function useReceptionForm() {
           other_costs_description: reception.other_costs_description || '',
           exchange_rate_goods: reception.exchange_rate_goods || '',
           exchange_rate_freight: reception.exchange_rate_freight || '',
-          notes: reception.notes || '',
+          notes: stripTechnicalTags(reception.notes),
           status: reception.status,
         });
 
-        // Load items with potential warehouse_id
-        const { data: existingItems } = await supabase
-          .from('container_reception_items')
-          .select('*, product:products(name, sku)')
-          .eq('reception_id', editId);
+        const [{ data: existingItems }, { data: existingDocs }] = await Promise.all([
+          supabase.from('container_reception_items').select('*, product:products(name, sku)').eq('reception_id', editId),
+          supabase.from('reception_documents').select('*').eq('reception_id', editId).order('created_at'),
+        ]);
 
-        if (existingItems) {
-          // 1. Try to parse [ITEM_WAREHOUSES:{...}] from reception.notes
-          let notesWarehouseMap = {};
-          if (reception.notes) {
-            const matchI = reception.notes.match(/\[ITEM_WAREHOUSES:\s*({[^\]]+})\]/);
-            if (matchI) {
-              try {
-                notesWarehouseMap = JSON.parse(matchI[1]);
-              } catch {}
-            }
-          }
-
-          // 2. If any items lack warehouse_id and notes didn't have it either,
-          // inspect inventory_logs for this container/operation to reconstruct real destination
-          const missingWarehouse = existingItems.some(
-            i => !i.warehouse_id && !notesWarehouseMap[i.product_id]
-          );
-          if (missingWarehouse) {
-            try {
-              const searchKey = (reception.container_label || reception.operation_number || '')
-                .split('/')[0]
-                .trim();
-              if (searchKey) {
-                const { data: invLogs } = await supabase
-                  .from('inventory_logs')
-                  .select('product_id, reason')
-                  .ilike('reason', `%${searchKey}%`)
-                  .order('created_at', { ascending: false });
-
-                if (invLogs && invLogs.length > 0) {
-                  const allWhs = warehousesRes.data || [];
-                  invLogs.forEach(l => {
-                    if (l.product_id && !notesWarehouseMap[l.product_id]) {
-                      const matchedWh = allWhs.find(w =>
-                        l.reason?.toLowerCase().includes(w.name.toLowerCase())
-                      );
-                      if (matchedWh) {
-                        notesWarehouseMap[l.product_id] = matchedWh.id;
-                      }
-                    }
-                  });
-                }
-              }
-            } catch (logErr) {
-              console.warn('Could not reconstruct warehouse from inventory logs:', logErr);
-            }
-          }
-
-          // 3. Fallback for natural language notes mentioning multiple bodegas (e.g. Op40 Full split)
-          if (Object.keys(notesWarehouseMap).length === 0 && reception.notes) {
-            const nl = reception.notes.toLowerCase();
-            if (nl.includes('echeverr') && nl.includes('vito')) {
-              const echWh = (warehousesRes.data || []).find(w => w.name.toLowerCase().includes('echeverr'));
-              const vitoWh = (warehousesRes.data || []).find(w => w.name.toLowerCase().includes('vito'));
-              if (echWh && vitoWh) {
-                existingItems.forEach(i => {
-                  const sku = (i.product?.sku || '').toUpperCase();
-                  if (sku === 'GL12' || sku === 'GL13') {
-                    notesWarehouseMap[i.product_id] = echWh.id;
-                  } else if (sku === 'GL07') {
-                    notesWarehouseMap[i.product_id] = vitoWh.id;
-                  }
-                });
-              }
-            }
-          }
-
-          setItems(existingItems.map(i => ({
-            id: i.id,
-            product_id: i.product_id,
-            name: i.product?.name,
-            sku: i.product?.sku,
-            quantity: i.quantity,
-            warehouse_id: i.warehouse_id || notesWarehouseMap[i.product_id] || reception.warehouse_id || '',
-            purchase_order_id: reception.purchase_order_id || null,
-            unit_origin_cost: i.unit_origin_cost || '',
-            unit_pro_price: i.unit_pro_price || '',
-          })));
-        }
-
-        // Load documents
-        const { data: existingDocs } = await supabase
-          .from('reception_documents')
-          .select('*')
-          .eq('reception_id', editId)
-          .order('created_at');
+        setItems((existingItems || []).map(i => ({
+          id: i.id,
+          product_id: i.product_id,
+          name: i.product?.name,
+          sku: i.product?.sku,
+          quantity: i.quantity,
+          warehouse_id: i.warehouse_id || reception.warehouse_id || '',
+          purchase_order_id: reception.purchase_order_id || null,
+          unit_origin_cost: i.unit_origin_cost || '',
+          unit_pro_price: i.unit_pro_price || '',
+        })));
         setDocuments(existingDocs || []);
       }
     }
 
+    setPurchaseOrders(posList);
+
     // Preload PO if query param exists
     if (poParam && !editId) {
       setForm(f => ({ ...f, purchase_order_id: poParam }));
-      await handlePOChange(poParam, posList, distributorsRes.data || []);
+      await handlePOChange(poParam, distributorsRes.data || []);
     }
 
     setLoading(false);
@@ -371,7 +276,7 @@ export function useReceptionForm() {
       .single();
     if (!po) return { po: null, items: [] };
 
-    let receivedMap = {};
+    const receivedMap = {};
     if (po.status === 'partially_received') {
       const { data: pastReceptions } = await supabase
         .from('container_receptions')
@@ -379,15 +284,12 @@ export function useReceptionForm() {
         .eq('purchase_order_id', poId)
         .eq('status', 'completed');
       if (pastReceptions?.length) {
-        const receptionIds = pastReceptions.map(r => r.id);
         const { data: receivedItems } = await supabase
           .from('container_reception_items')
           .select('product_id, quantity')
-          .in('reception_id', receptionIds);
-        if (receivedItems) {
-          for (const ri of receivedItems) {
-            receivedMap[ri.product_id] = (receivedMap[ri.product_id] || 0) + Number(ri.quantity);
-          }
+          .in('reception_id', pastReceptions.map(r => r.id));
+        for (const ri of receivedItems || []) {
+          receivedMap[ri.product_id] = (receivedMap[ri.product_id] || 0) + Number(ri.quantity);
         }
       }
     }
@@ -411,7 +313,7 @@ export function useReceptionForm() {
   };
 
   // Handle Primary PO selection change
-  const handlePOChange = async (poId, posList = purchaseOrders, distList = distributors) => {
+  const handlePOChange = async (poId, distList = distributors) => {
     if (!poId) {
       setForm(f => ({ ...f, purchase_order_id: '' }));
       setLinkedPOs(prev => prev.slice(1));
@@ -433,30 +335,15 @@ export function useReceptionForm() {
     // Auto-detect distributor by warehouse if not selected
     if (poWarehouse && !form.distributor_id) {
       const matchDist = distList.find(d => d.assigned_warehouse_id === poWarehouse);
-      if (matchDist) {
-        setForm(f => ({ ...f, distributor_id: matchDist.id }));
-      }
+      if (matchDist) setForm(f => ({ ...f, distributor_id: matchDist.id }));
     }
 
-    const sName = suppliers.find(s => s.id === po.supplier_id)?.short_name || 'Sin proveedor';
-    const primaryLinked = {
-      id: po.id,
-      po_number: po.po_number,
-      supplier_id: po.supplier_id,
-      supplier_name: sName,
-      destination_warehouse_id: poWarehouse,
-      is_final: false,
-    };
-
-    setLinkedPOs(prev => {
-      const secondaries = prev.slice(1);
-      return [primaryLinked, ...secondaries];
-    });
+    setLinkedPOs(prev => [toLinkedPO(po, poWarehouse), ...prev.slice(1)]);
 
     // Replace primary PO items, preserving secondary items
     setItems(prev => {
-      const secondariesItems = prev.filter(i => i.purchase_order_id && i.purchase_order_id !== form.purchase_order_id);
-      return [...poItems, ...secondariesItems];
+      const secondaryItems = prev.filter(i => i.purchase_order_id && i.purchase_order_id !== form.purchase_order_id);
+      return [...poItems, ...secondaryItems];
     });
   };
 
@@ -471,20 +358,8 @@ export function useReceptionForm() {
     const { po, items: poItems } = await fetchPOItems(poId, form.warehouse_id);
     if (!po) return;
 
-    const sName = suppliers.find(s => s.id === po.supplier_id)?.short_name || 'Sin proveedor';
     const secondaryWarehouse = getWarehouseFromCode(po.destination_code, warehouses) || form.warehouse_id;
-    const newPO = {
-      id: po.id,
-      po_number: po.po_number,
-      supplier_id: po.supplier_id,
-      supplier_name: sName,
-      destination_warehouse_id: secondaryWarehouse,
-      is_final: false,
-    };
-
-    setLinkedPOs(prev => [...prev, newPO]);
-
-    // Append items from secondary PO
+    setLinkedPOs(prev => [...prev, toLinkedPO(po, secondaryWarehouse)]);
     setItems(prev => [...prev, ...poItems]);
   };
 
@@ -500,55 +375,47 @@ export function useReceptionForm() {
 
   // Toggle closure for a specific PO
   const togglePOFinal = (poId, isFinal) => {
-    setLinkedPOs(prev =>
-      prev.map(p => (p.id === poId ? { ...p, is_final: isFinal } : p))
-    );
+    setLinkedPOs(prev => prev.map(p => (p.id === poId ? { ...p, is_final: isFinal } : p)));
     if (linkedPOs.length === 1 && linkedPOs[0].id === poId) {
       setIsFinalReception(isFinal);
     }
   };
 
   const handleWarehouseChange = (whId) => {
-    setForm(f => ({ ...f, warehouse_id: whId }));
     const matchDist = distributors.find(d => d.assigned_warehouse_id === whId);
-    if (matchDist) {
-      setForm(f => ({ ...f, distributor_id: matchDist.id }));
-    } else {
-      setForm(f => ({ ...f, distributor_id: '' }));
-    }
+    setForm(f => ({ ...f, warehouse_id: whId, distributor_id: matchDist?.id || '' }));
   };
 
   const handleProductSearch = (q) => {
     setProductSearch(q);
-    if (q.length >= 2) {
-      const s = q.toLowerCase();
-      const existingIds = items.map(i => i.product_id);
-      setSearchResults(
-        products.filter(p =>
-          (p.name?.toLowerCase().includes(s) || p.sku?.toLowerCase().includes(s)) &&
-          !existingIds.includes(p.id)
-        ).slice(0, 5)
-      );
-    } else {
+    if (q.length < 2) {
       setSearchResults([]);
+      return;
     }
+    const s = q.toLowerCase();
+    const existingIds = items.map(i => i.product_id);
+    setSearchResults(
+      products
+        .filter(p => (p.name?.toLowerCase().includes(s) || p.sku?.toLowerCase().includes(s)) && !existingIds.includes(p.id))
+        .slice(0, 5)
+    );
   };
 
+  // New line item, defaulting to the header warehouse and primary PO
+  const newItem = (product, quantity) => ({
+    product_id: product.id,
+    name: product.name,
+    sku: product.sku,
+    quantity,
+    warehouse_id: form.warehouse_id || '',
+    purchase_order_id: linkedPOs[0]?.id || form.purchase_order_id || null,
+    po_number: linkedPOs[0]?.po_number || null,
+    unit_origin_cost: '',
+    unit_pro_price: '',
+  });
+
   const addProduct = (product) => {
-    setItems(prev => [
-      ...prev,
-      {
-        product_id: product.id,
-        name: product.name,
-        sku: product.sku,
-        quantity: 0,
-        warehouse_id: form.warehouse_id || '', // Defaults to header warehouse
-        purchase_order_id: linkedPOs[0]?.id || form.purchase_order_id || null,
-        po_number: linkedPOs[0]?.po_number || null,
-        unit_origin_cost: '',
-        unit_pro_price: '',
-      },
-    ]);
+    setItems(prev => [...prev, newItem(product, 0)]);
     setProductSearch('');
     setSearchResults([]);
   };
@@ -562,46 +429,29 @@ export function useReceptionForm() {
   };
 
   // Barcode / Scanner
+  const flashScanFeedback = (type, message, ms) => {
+    setScanFeedback({ type, message });
+    setTimeout(() => setScanFeedback(null), ms);
+  };
+
   const handleReceptionScan = (scannedSku) => {
     const sku = scannedSku.trim().toUpperCase();
     const product = products.find(p => p.sku?.toUpperCase() === sku);
 
     if (!product) {
-      setScanFeedback({ type: 'error', message: `Código "${sku}" no encontrado` });
-      setTimeout(() => setScanFeedback(null), 3000);
+      flashScanFeedback('error', `Código "${sku}" no encontrado`, 3000);
       return;
     }
 
     const existingIndex = items.findIndex(i => i.product_id === product.id);
     if (existingIndex >= 0) {
-      const updatedItems = [...items];
-      updatedItems[existingIndex] = {
-        ...updatedItems[existingIndex],
-        quantity: (Number(updatedItems[existingIndex].quantity) || 0) + 1,
-      };
-      setItems(updatedItems);
-      setScanFeedback({
-        type: 'success',
-        message: `${sku} — ${product.name} (${updatedItems[existingIndex].quantity} pzas)`,
-      });
+      const newQty = (Number(items[existingIndex].quantity) || 0) + 1;
+      setItems(prev => prev.map((it, i) => (i === existingIndex ? { ...it, quantity: newQty } : it)));
+      flashScanFeedback('success', `${sku} — ${product.name} (${newQty} pzas)`, 2000);
     } else {
-      setItems(prev => [
-        ...prev,
-        {
-          product_id: product.id,
-          name: product.name,
-          sku: product.sku,
-          quantity: 1,
-          warehouse_id: form.warehouse_id || '',
-          purchase_order_id: linkedPOs[0]?.id || form.purchase_order_id || null,
-          po_number: linkedPOs[0]?.po_number || null,
-          unit_origin_cost: '',
-          unit_pro_price: '',
-        },
-      ]);
-      setScanFeedback({ type: 'success', message: `${sku} — ${product.name} agregado (1 pza)` });
+      setItems(prev => [...prev, newItem(product, 1)]);
+      flashScanFeedback('success', `${sku} — ${product.name} agregado (1 pza)`, 2000);
     }
-    setTimeout(() => setScanFeedback(null), 2000);
   };
 
   const openReceptionScanner = async () => {
@@ -613,15 +463,12 @@ export function useReceptionForm() {
         await html5QrCode.start(
           { facingMode: 'environment' },
           { fps: 10, qrbox: { width: 250, height: 150 } },
-          decodedText => {
-            handleReceptionScan(decodedText);
-          },
+          decodedText => handleReceptionScan(decodedText),
           () => {}
         );
       } catch (err) {
-        setScanFeedback({ type: 'error', message: 'No se pudo acceder a la cámara' });
         setShowReceptionScanner(false);
-        setTimeout(() => setScanFeedback(null), 3000);
+        flashScanFeedback('error', 'No se pudo acceder a la cámara', 3000);
       }
     }, 350);
   };
@@ -651,9 +498,7 @@ export function useReceptionForm() {
       return;
     }
     if (e.key.length === 1) {
-      if (now - lastScanKeystrokeRef.current > 300) {
-        scanBarcodeBufferRef.current = '';
-      }
+      if (now - lastScanKeystrokeRef.current > 300) scanBarcodeBufferRef.current = '';
       scanBarcodeBufferRef.current += e.key;
       lastScanKeystrokeRef.current = now;
     }
@@ -663,43 +508,29 @@ export function useReceptionForm() {
   const tcGoods = Number(form.exchange_rate_goods) || 1;
   const tcFreight = Number(form.exchange_rate_freight) || 1;
   const totalOriginCostUSD = useMemo(() => {
-    return items.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unit_origin_cost) || 0), 0);
+    return items.reduce((s, i) => s + toNum(i.quantity) * toNum(i.unit_origin_cost), 0);
   }, [items]);
   const totalOriginCostMXN = totalOriginCostUSD * tcGoods;
-  const freightMaritimeMXN = (Number(form.freight_maritime) || 0) * tcFreight;
-  const totalAdditionalCosts = useMemo(() => {
-    return (
-      freightMaritimeMXN +
-      (Number(form.freight_national) || 0) +
-      (Number(form.import_taxes) || 0) +
-      (Number(form.port_handling) || 0) +
-      (Number(form.customs_broker) || 0) +
-      (Number(form.other_costs) || 0)
-    );
-  }, [
-    freightMaritimeMXN,
-    form.freight_national,
-    form.import_taxes,
-    form.port_handling,
-    form.customs_broker,
-    form.other_costs,
-  ]);
+  const totalAdditionalCosts =
+    toNum(form.freight_maritime) * tcFreight +
+    toNum(form.freight_national) +
+    toNum(form.import_taxes) +
+    toNum(form.port_handling) +
+    toNum(form.customs_broker) +
+    toNum(form.other_costs);
   const totalLandedCost = totalOriginCostMXN + totalAdditionalCosts;
-  const totalQuantity = useMemo(() => {
-    return items.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
-  }, [items]);
+  const totalQuantity = useMemo(() => items.reduce((s, i) => s + toNum(i.quantity), 0), [items]);
 
   const getLandedPerUnit = (item) => {
     if (totalOriginCostMXN === 0 || !item.quantity) return 0;
-    const itemOriginMXN = (Number(item.quantity) || 0) * (Number(item.unit_origin_cost) || 0) * tcGoods;
-    const proportion = itemOriginMXN / totalOriginCostMXN;
-    const additionalShare = totalAdditionalCosts * proportion;
-    return (itemOriginMXN + additionalShare) / (Number(item.quantity) || 1);
+    const itemOriginMXN = toNum(item.quantity) * toNum(item.unit_origin_cost) * tcGoods;
+    const additionalShare = totalAdditionalCosts * (itemOriginMXN / totalOriginCostMXN);
+    return (itemOriginMXN + additionalShare) / (toNum(item.quantity) || 1);
   };
 
   const chargeAmount = useMemo(() => {
     return form.distributor_id
-      ? items.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unit_pro_price) || 0), 0)
+      ? items.reduce((s, i) => s + toNum(i.quantity) * toNum(i.unit_pro_price), 0)
       : 0;
   }, [form.distributor_id, items]);
 
@@ -773,270 +604,75 @@ export function useReceptionForm() {
     if (data?.signedUrl) window.open(data.signedUrl, '_blank');
   };
 
-  // Helper to compute unified destination string for transport
-  const getUnifiedDestination = () => {
-    const usedWarehouseIds = [
-      ...new Set(items.map(i => i.warehouse_id || form.warehouse_id).filter(Boolean)),
-    ];
-    const warehouseNames = usedWarehouseIds
-      .map(id => warehouses.find(w => w.id === id)?.name || '')
-      .filter(Boolean);
+  // ─── Shared save helpers ────────────────────────────────────────────────
 
-    if (warehouseNames.length > 1) {
-      return (
-        warehouseNames
-          .map(n => (n.toLowerCase().includes('bodega') ? n : `Bodega ${n}`))
-          .join(' / ') + ' (Full)'
-      );
-    } else if (warehouseNames.length === 1) {
-      const singleName = warehouseNames[0];
-      return singleName.toLowerCase().includes('bodega') ? singleName : `Bodega ${singleName}`;
-    }
+  const warehouseOf = (item) => item.warehouse_id || form.warehouse_id;
+  const warehouseName = (id) => warehouses.find(w => w.id === id)?.name || '';
+
+  // Unified destination string for the freight service order
+  const getUnifiedDestination = () => {
+    const names = [...new Set(items.map(warehouseOf).filter(Boolean))].map(warehouseName).filter(Boolean);
+    const withPrefix = (n) => (n.toLowerCase().includes('bodega') ? n : `Bodega ${n}`);
+    if (names.length > 1) return names.map(withPrefix).join(' / ') + ' (Full)';
+    if (names.length === 1) return withPrefix(names[0]);
     return suppliers.find(s => s.id === form.supplier_id)?.short_name || 'Puerto';
   };
 
-  // Save changes on an ALREADY COMPLETED reception (Alain Ramos only)
-  const handleSaveCompleted = async () => {
-    setSaving(true);
-    const formattedOp = cleanOperationNumber(form.operation_number);
-
-    // Format notes to include multi-PO info and item warehouse mappings
-    let finalNotes = form.notes || '';
+  const buildNotes = () => {
+    let notes = stripTechnicalTags(form.notes);
     if (linkedPOs.length > 1) {
       const poListTag = `[Full - POs vinculadas: ${linkedPOs.map(p => p.po_number).join(' / ')}]`;
-      if (!finalNotes.includes(poListTag)) {
-        finalNotes = finalNotes ? `${poListTag}\n${finalNotes}` : poListTag;
-      }
+      notes = notes ? `${poListTag}\n${notes}` : poListTag;
     }
-
-    // Serialize warehouse metadata tag
-    const itemWhMap = {};
-    items.forEach(i => {
-      if (i.product_id) itemWhMap[i.product_id] = i.warehouse_id || form.warehouse_id;
-    });
-    const whTag = `[ITEM_WAREHOUSES:${JSON.stringify(itemWhMap)}]`;
-    finalNotes = finalNotes.replace(/\[ITEM_WAREHOUSES:[^\]]*\]/g, '').trim();
-    finalNotes = finalNotes ? `${finalNotes}\n${whTag}` : whTag;
-
-    const usedWarehouseIds = [...new Set(items.map(i => i.warehouse_id || form.warehouse_id).filter(Boolean))];
-    const warehouseNames = usedWarehouseIds
-      .map(id => warehouses.find(w => w.id === id)?.name || '')
-      .filter(Boolean);
-    if (warehouseNames.length > 1) {
-      const bodegasTag = `[BODEGAS:${warehouseNames.join(' / ')}]`;
-      finalNotes = finalNotes.replace(/\[BODEGAS:[^\]]*\]/g, '').trim();
-      finalNotes = `${finalNotes}\n${bodegasTag}`;
-    }
-
-    const payload = {
-      container_label: form.container_label || null,
-      pedimento_number: form.pedimento_number || null,
-      operation_number: formattedOp || null,
-      customs_broker_ref: form.customs_broker_ref || null,
-      reception_date: form.reception_date,
-      freight_maritime: Number(form.freight_maritime) || 0,
-      freight_national: Number(form.freight_national) || 0,
-      import_taxes: Number(form.import_taxes) || 0,
-      port_handling: Number(form.port_handling) || 0,
-      customs_broker: Number(form.customs_broker) || 0,
-      other_costs: Number(form.other_costs) || 0,
-      other_costs_description: form.other_costs_description || null,
-      exchange_rate_goods: Number(form.exchange_rate_goods) || 1,
-      exchange_rate_freight: Number(form.exchange_rate_freight) || 1,
-      total_origin_cost: totalOriginCostMXN,
-      total_additional_costs: totalAdditionalCosts,
-      total_landed_cost: totalLandedCost,
-      notes: finalNotes || null,
-    };
-
-    const { error: recErr } = await supabase
-      .from('container_receptions')
-      .update(payload)
-      .eq('id', editId);
-
-    if (recErr) {
-      alert('Error al actualizar la recepción: ' + recErr.message);
-      setSaving(false);
-      return;
-    }
-
-    for (const item of items) {
-      const landedCost = getLandedPerUnit(item);
-      const updateData = { unit_landed_cost: landedCost };
-      if (item.warehouse_id) {
-        updateData.warehouse_id = item.warehouse_id;
-      }
-      const { error: updErr } = await supabase
-        .from('container_reception_items')
-        .update(updateData)
-        .eq('reception_id', editId)
-        .eq('product_id', item.product_id);
-
-      if (updErr && updErr.code === 'PGRST204') {
-        await supabase
-          .from('container_reception_items')
-          .update({ unit_landed_cost: landedCost })
-          .eq('reception_id', editId)
-          .eq('product_id', item.product_id);
-      }
-    }
-
-    for (const item of items) {
-      if (!item.product_id) continue;
-      const { data: recItems } = await supabase
-        .from('container_reception_items')
-        .select('quantity, unit_landed_cost, reception:container_receptions!inner(status)')
-        .eq('product_id', item.product_id)
-        .eq('reception.status', 'completed');
-
-      if (recItems && recItems.length > 0) {
-        const totalQty = recItems.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
-        const totalVal = recItems.reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unit_landed_cost) || 0), 0);
-        if (totalQty > 0) {
-          const newAvg = Math.round((totalVal / totalQty) * 100) / 100;
-          await supabase.from('products').update({ avg_cost: newAvg }).eq('id', item.product_id);
-        }
-      }
-    }
-
-    try {
-      const freightAmount = Number(form.freight_national) || 0;
-      const destLocation = getUnifiedDestination();
-
-      const refParts = [];
-      if (form.container_label) refParts.push(`Contenedor: ${form.container_label}`);
-      if (form.pedimento_number) refParts.push(`Pedimento: ${form.pedimento_number}`);
-      if (form.customs_broker_ref) refParts.push(`Ref. Aduanal: ${form.customs_broker_ref}`);
-      if (formattedOp) refParts.push(`Operación: ${formattedOp}`);
-      if (linkedPOs.length > 0) refParts.push(`POs: ${linkedPOs.map(p => p.po_number).join(' / ')}`);
-      if (destLocation) refParts.push(`Destino: ${destLocation}`);
-
-      const cleanDesc = `Flete contenedor ${form.container_label || ''} — ${formattedOp || ''}`.replace(/\s+/g, ' ').trim();
-      const refString = refParts.join(' | ');
-
-      let { data: existingSO } = await supabase
-        .from('service_orders')
-        .select('id')
-        .eq('reception_id', editId)
-        .maybeSingle();
-
-      if (!existingSO && formattedOp) {
-        const { data: matchedSO } = await supabase
-          .from('service_orders')
-          .select('id')
-          .ilike('description', `%${formattedOp}%`)
-          .order('created_at', { ascending: false })
-          .limit(1);
-        if (matchedSO && matchedSO.length > 0) {
-          existingSO = matchedSO[0];
-        }
-      }
-
-      if (existingSO) {
-        await supabase.from('service_orders').update({
-          reception_id: editId,
-          description: cleanDesc,
-          location: destLocation,
-          reference_info: refString,
-          agreed_amount: freightAmount,
-          scheduled_date: form.reception_date,
-        }).eq('id', existingSO.id);
-      } else {
-        const { data: fleteSuppliers } = await supabase
-          .from('suppliers')
-          .select('id')
-          .contains('service_types', ['flete'])
-          .eq('is_active', true)
-          .limit(1);
-
-        if (fleteSuppliers && fleteSuppliers.length > 0) {
-          await supabase.from('service_orders').insert({
-            supplier_id: fleteSuppliers[0].id,
-            service_type: 'flete',
-            description: cleanDesc,
-            location: destLocation,
-            reference_info: refString,
-            agreed_amount: freightAmount,
-            status: 'completada',
-            scheduled_date: form.reception_date,
-            reception_id: editId,
-          });
-        }
-      }
-    } catch (soErr) {
-      console.error('Error syncing service order:', soErr);
-    }
-
-    setSaving(false);
-    alert('✅ Recepción actualizada exitosamente. Costos ponderados y orden de flete sincronizados.');
-    router.push('/dashboard/recepciones');
+    return notes || null;
   };
 
-  // Save Draft
-  const handleSave = async () => {
+  // Fields that can be edited even after the reception is completed
+  const buildEditableFields = () => ({
+    container_label: form.container_label || null,
+    pedimento_number: form.pedimento_number || null,
+    bl_number: form.bl_number?.trim() || null,
+    operation_number: cleanOperationNumber(form.operation_number) || null,
+    customs_broker_ref: form.customs_broker_ref || null,
+    reception_date: form.reception_date,
+    freight_maritime: toNum(form.freight_maritime),
+    freight_national: toNum(form.freight_national),
+    import_taxes: toNum(form.import_taxes),
+    port_handling: toNum(form.port_handling),
+    customs_broker: toNum(form.customs_broker),
+    other_costs: toNum(form.other_costs),
+    other_costs_description: form.other_costs_description || null,
+    exchange_rate_goods: Number(form.exchange_rate_goods) || 1,
+    exchange_rate_freight: Number(form.exchange_rate_freight) || 1,
+    total_origin_cost: totalOriginCostMXN,
+    total_additional_costs: totalAdditionalCosts,
+    total_landed_cost: totalLandedCost,
+    notes: buildNotes(),
+  });
+
+  const validateBasics = () => {
     if (!form.warehouse_id) {
       alert('Selecciona una bodega principal en el encabezado');
-      return;
+      return false;
     }
     if (items.length === 0) {
       alert('Agrega al menos un producto');
-      return;
+      return false;
     }
+    return true;
+  };
 
-    setSaving(true);
-    const formattedOp = cleanOperationNumber(form.operation_number);
-
-    // Format notes to include multi-PO info if more than 1 PO
-    let finalNotes = form.notes || '';
-    if (linkedPOs.length > 1) {
-      const poListTag = `[Full - POs vinculadas: ${linkedPOs.map(p => p.po_number).join(' / ')}]`;
-      if (!finalNotes.includes(poListTag)) {
-        finalNotes = finalNotes ? `${poListTag}\n${finalNotes}` : poListTag;
-      }
-    }
-
-    const itemWhMap = {};
-    items.forEach(i => {
-      if (i.product_id) itemWhMap[i.product_id] = i.warehouse_id || form.warehouse_id;
-    });
-    const whTag = `[ITEM_WAREHOUSES:${JSON.stringify(itemWhMap)}]`;
-    finalNotes = finalNotes.replace(/\[ITEM_WAREHOUSES:[^\]]*\]/g, '').trim();
-    finalNotes = finalNotes ? `${finalNotes}\n${whTag}` : whTag;
-
-    const usedWarehouseIds = [...new Set(items.map(i => i.warehouse_id || form.warehouse_id).filter(Boolean))];
-    const warehouseNames = usedWarehouseIds
-      .map(id => warehouses.find(w => w.id === id)?.name || '')
-      .filter(Boolean);
-    if (warehouseNames.length > 1) {
-      const bodegasTag = `[BODEGAS:${warehouseNames.join(' / ')}]`;
-      finalNotes = finalNotes.replace(/\[BODEGAS:[^\]]*\]/g, '').trim();
-      finalNotes = `${finalNotes}\n${bodegasTag}`;
-    }
-
+  // Saves header + items as a draft. Returns the reception id, or null on error.
+  // New items are inserted BEFORE the old ones are deleted, so a failure
+  // never leaves the reception without products.
+  const saveDraft = async () => {
     const payload = {
       supplier_id: form.supplier_id || linkedPOs[0]?.supplier_id || null,
       purchase_order_id: linkedPOs[0]?.id || form.purchase_order_id || null,
       warehouse_id: form.warehouse_id,
       distributor_id: form.distributor_id || null,
-      reception_date: form.reception_date,
-      container_label: form.container_label || null,
-      pedimento_number: form.pedimento_number || null,
-      operation_number: formattedOp || null,
-      customs_broker_ref: form.customs_broker_ref || null,
-      freight_maritime: Number(form.freight_maritime) || 0,
-      freight_national: Number(form.freight_national) || 0,
-      import_taxes: Number(form.import_taxes) || 0,
-      port_handling: Number(form.port_handling) || 0,
-      customs_broker: Number(form.customs_broker) || 0,
-      other_costs: Number(form.other_costs) || 0,
-      other_costs_description: form.other_costs_description || null,
-      exchange_rate_goods: Number(form.exchange_rate_goods) || 1,
-      exchange_rate_freight: Number(form.exchange_rate_freight) || 1,
-      total_origin_cost: totalOriginCostMXN,
-      total_additional_costs: totalAdditionalCosts,
-      total_landed_cost: totalLandedCost,
+      ...buildEditableFields(),
       charge_amount: chargeAmount,
-      notes: finalNotes || null,
       status: 'draft',
       created_by: userId,
     };
@@ -1046,58 +682,160 @@ export function useReceptionForm() {
       const { error } = await supabase.from('container_receptions').update(payload).eq('id', id);
       if (error) {
         alert('Error: ' + error.message);
-        setSaving(false);
-        return;
+        return null;
       }
-      await supabase.from('container_reception_items').delete().eq('reception_id', id);
     } else {
       const { data, error } = await supabase.from('container_receptions').insert(payload).select('id').single();
       if (error) {
         alert('Error: ' + error.message);
-        setSaving(false);
-        return;
+        return null;
       }
       id = data.id;
       setReceptionId(id);
     }
 
-    const itemsPayload = items.map(i => ({
-      reception_id: id,
-      product_id: i.product_id,
-      quantity: Number(i.quantity) || 0,
-      unit_origin_cost: Number(i.unit_origin_cost) || 0,
-      unit_landed_cost: getLandedPerUnit(i),
-      unit_pro_price: form.distributor_id ? (Number(i.unit_pro_price) || null) : null,
-      warehouse_id: i.warehouse_id || form.warehouse_id || null,
-    }));
-
-    let { error: itemsError } = await supabase.from('container_reception_items').insert(itemsPayload);
-    if (itemsError && itemsError.code === 'PGRST204') {
-      const fallbackPayload = itemsPayload.map(({ warehouse_id, ...rest }) => rest);
-      const res = await supabase.from('container_reception_items').insert(fallbackPayload);
-      itemsError = res.error;
-    }
-
+    const { data: oldItems } = await supabase.from('container_reception_items').select('id').eq('reception_id', id);
+    const { error: itemsError } = await supabase.from('container_reception_items').insert(
+      items.map(i => ({
+        reception_id: id,
+        product_id: i.product_id,
+        quantity: toNum(i.quantity),
+        unit_origin_cost: toNum(i.unit_origin_cost),
+        unit_landed_cost: getLandedPerUnit(i),
+        unit_pro_price: form.distributor_id ? (Number(i.unit_pro_price) || null) : null,
+        warehouse_id: warehouseOf(i) || null,
+      }))
+    );
     if (itemsError) {
-      alert('Error guardando items: ' + itemsError.message);
+      alert('Error guardando productos: ' + itemsError.message);
+      return null;
+    }
+    const oldIds = (oldItems || []).map(o => o.id);
+    if (oldIds.length) await supabase.from('container_reception_items').delete().in('id', oldIds);
+
+    return id;
+  };
+
+  // Creates or updates the inland freight service order linked to this reception
+  const syncFreightServiceOrder = async (id, { matchByOperation = false } = {}) => {
+    try {
+      const formattedOp = cleanOperationNumber(form.operation_number);
+      const destLocation = getUnifiedDestination();
+      const refParts = [
+        form.container_label && `Contenedor: ${form.container_label}`,
+        form.pedimento_number && `Pedimento: ${form.pedimento_number}`,
+        form.customs_broker_ref && `Ref. Aduanal: ${form.customs_broker_ref}`,
+        formattedOp && `Operación: ${formattedOp}`,
+        linkedPOs.length > 0 && `POs: ${linkedPOs.map(p => p.po_number).join(' / ')}`,
+        destLocation && `Destino: ${destLocation}`,
+      ].filter(Boolean);
+
+      const fields = {
+        reception_id: id,
+        description: `Flete contenedor ${form.container_label || ''} — ${formattedOp || ''}`.replace(/\s+/g, ' ').trim(),
+        location: destLocation,
+        reference_info: refParts.join(' | '),
+        agreed_amount: toNum(form.freight_national),
+        scheduled_date: form.reception_date,
+      };
+
+      let { data: existing } = await supabase.from('service_orders').select('id').eq('reception_id', id).maybeSingle();
+      if (!existing && matchByOperation && formattedOp) {
+        // Legacy orders created before reception_id existed
+        const { data: matched } = await supabase
+          .from('service_orders')
+          .select('id')
+          .ilike('description', `%${formattedOp}%`)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        existing = matched?.[0] || null;
+      }
+
+      if (existing) {
+        await supabase.from('service_orders').update(fields).eq('id', existing.id);
+        return;
+      }
+
+      const { data: fleteSuppliers } = await supabase
+        .from('suppliers')
+        .select('id')
+        .contains('service_types', ['flete'])
+        .eq('is_active', true)
+        .limit(1);
+      if (fleteSuppliers?.length) {
+        await supabase.from('service_orders').insert({
+          ...fields,
+          supplier_id: fleteSuppliers[0].id,
+          service_type: 'flete',
+          status: 'completada',
+        });
+      }
+    } catch (soErr) {
+      console.error('Error syncing service order:', soErr);
+    }
+  };
+
+  // In-transit rows for a PO product: exact warehouse first, then header warehouse, then any
+  const findTransits = async (poId, productId, warehouseIds) => {
+    for (const wh of [...new Set(warehouseIds.filter(Boolean)), null]) {
+      let q = supabase
+        .from('transit_shipments')
+        .select('id, quantity')
+        .eq('purchase_order_id', poId)
+        .eq('product_id', productId)
+        .eq('status', 'in_transit');
+      if (wh) q = q.eq('warehouse_id', wh);
+      const { data } = await q.order('created_at', { ascending: true });
+      if (data?.length) return data;
+    }
+    return [];
+  };
+
+  // ─── Actions ────────────────────────────────────────────────────────────
+
+  // Save changes on an ALREADY COMPLETED reception (Alain Ramos only).
+  // Does not touch stock or the product's avg_cost.
+  const handleSaveCompleted = async () => {
+    setSaving(true);
+
+    const { error: recErr } = await supabase
+      .from('container_receptions')
+      .update(buildEditableFields())
+      .eq('id', editId);
+    if (recErr) {
+      alert('Error al actualizar la recepción: ' + recErr.message);
       setSaving(false);
       return;
     }
 
+    for (const item of items) {
+      const { error } = await supabase
+        .from('container_reception_items')
+        .update({ unit_landed_cost: getLandedPerUnit(item), warehouse_id: warehouseOf(item) || null })
+        .eq('reception_id', editId)
+        .eq('product_id', item.product_id);
+      if (error) console.error('Error updating item', item.sku, error);
+    }
+
+    await syncFreightServiceOrder(editId, { matchByOperation: true });
+
     setSaving(false);
-    alert('Recepción guardada como borrador');
+    alert('✅ Recepción actualizada exitosamente. Orden de flete sincronizada.');
+    router.push('/dashboard/recepciones');
+  };
+
+  // Save Draft
+  const handleSave = async () => {
+    if (!validateBasics()) return;
+    setSaving(true);
+    const id = await saveDraft();
+    setSaving(false);
+    if (id) alert('Recepción guardada como borrador');
   };
 
   // Confirm Reception
   const handleConfirm = async () => {
-    if (!form.warehouse_id) {
-      alert('Selecciona una bodega principal en el encabezado');
-      return;
-    }
-    if (items.length === 0) {
-      alert('Agrega al menos un producto');
-      return;
-    }
+    if (!validateBasics()) return;
     if (items.some(i => !i.quantity || Number(i.quantity) <= 0)) {
       alert('Todos los productos deben tener cantidad mayor a 0');
       return;
@@ -1107,22 +845,16 @@ export function useReceptionForm() {
       return;
     }
 
-    // Warehouse breakdown text for confirmation modal
+    // Warehouse breakdown for the confirmation dialog
     const whSummaryMap = {};
     items.forEach(i => {
-      const wid = i.warehouse_id || form.warehouse_id;
-      const wName = warehouses.find(w => w.id === wid)?.name || 'Bodega';
+      const wName = warehouseName(warehouseOf(i)) || 'Bodega';
       whSummaryMap[wName] = (whSummaryMap[wName] || 0) + Number(i.quantity);
     });
-    const whSummaryText = Object.entries(whSummaryMap)
-      .map(([name, qty]) => `  • ${name}: ${qty} pzas`)
-      .join('\n');
-
-    // Multi-PO breakdown text
+    const whSummaryText = Object.entries(whSummaryMap).map(([name, qty]) => `  • ${name}: ${qty} pzas`).join('\n');
     const poSummaryText = linkedPOs.length > 0
       ? `• Órdenes de Compra (POs):\n` + linkedPOs.map(p => `  • ${p.po_number} (${p.supplier_name}) ${p.is_final ? '[Cerrar PO]' : '[Parcial]'}`).join('\n') + '\n'
       : '';
-
     const isMultiWarehouse = Object.keys(whSummaryMap).length > 1;
 
     if (
@@ -1131,7 +863,7 @@ export function useReceptionForm() {
         `• Total: ${items.length} partidas (${totalQuantity} pzas)\n` +
         (isMultiWarehouse
           ? `• Distribución Multibodega:\n${whSummaryText}\n`
-          : `• Ingreso a ${warehouses.find(w => w.id === form.warehouse_id)?.name}\n`) +
+          : `• Ingreso a ${warehouseName(form.warehouse_id)}\n`) +
         poSummaryText +
         (form.distributor_id
           ? `• Se generará un cargo de $${chargeAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} al distribuidor PRO\n`
@@ -1143,155 +875,55 @@ export function useReceptionForm() {
     }
 
     setConfirming(true);
-    const formattedOp = cleanOperationNumber(form.operation_number);
 
-    let finalNotes = form.notes || '';
-    if (linkedPOs.length > 1) {
-      const poListTag = `[Full - POs vinculadas: ${linkedPOs.map(p => p.po_number).join(' / ')}]`;
-      if (!finalNotes.includes(poListTag)) {
-        finalNotes = finalNotes ? `${poListTag}\n${finalNotes}` : poListTag;
-      }
+    // 1. Save header + items, and only then mark as completed
+    const id = await saveDraft();
+    if (!id) {
+      setConfirming(false);
+      return;
     }
-
-    const itemWhMap = {};
-    items.forEach(i => {
-      if (i.product_id) itemWhMap[i.product_id] = i.warehouse_id || form.warehouse_id;
-    });
-    const whTag = `[ITEM_WAREHOUSES:${JSON.stringify(itemWhMap)}]`;
-    finalNotes = finalNotes.replace(/\[ITEM_WAREHOUSES:[^\]]*\]/g, '').trim();
-    finalNotes = finalNotes ? `${finalNotes}\n${whTag}` : whTag;
-
-    const usedWarehouseIds = [...new Set(items.map(i => i.warehouse_id || form.warehouse_id).filter(Boolean))];
-    const warehouseNames = usedWarehouseIds
-      .map(id => warehouses.find(w => w.id === id)?.name || '')
-      .filter(Boolean);
-    if (warehouseNames.length > 1) {
-      const bodegasTag = `[BODEGAS:${warehouseNames.join(' / ')}]`;
-      finalNotes = finalNotes.replace(/\[BODEGAS:[^\]]*\]/g, '').trim();
-      finalNotes = `${finalNotes}\n${bodegasTag}`;
-    }
-
-    const payload = {
-      supplier_id: form.supplier_id || linkedPOs[0]?.supplier_id || null,
-      purchase_order_id: linkedPOs[0]?.id || form.purchase_order_id || null,
-      warehouse_id: form.warehouse_id,
-      distributor_id: form.distributor_id || null,
-      reception_date: form.reception_date,
-      container_label: form.container_label || null,
-      pedimento_number: form.pedimento_number || null,
-      operation_number: formattedOp || null,
-      customs_broker_ref: form.customs_broker_ref || null,
-      freight_maritime: Number(form.freight_maritime) || 0,
-      freight_national: Number(form.freight_national) || 0,
-      import_taxes: Number(form.import_taxes) || 0,
-      port_handling: Number(form.port_handling) || 0,
-      customs_broker: Number(form.customs_broker) || 0,
-      other_costs: Number(form.other_costs) || 0,
-      other_costs_description: form.other_costs_description || null,
-      exchange_rate_goods: Number(form.exchange_rate_goods) || 1,
-      exchange_rate_freight: Number(form.exchange_rate_freight) || 1,
-      total_origin_cost: totalOriginCostMXN,
-      total_additional_costs: totalAdditionalCosts,
-      total_landed_cost: totalLandedCost,
-      charge_amount: chargeAmount,
-      notes: finalNotes || null,
-      status: 'completed',
-      created_by: userId,
-    };
-
-    let id = receptionId;
-    if (id) {
-      const { error } = await supabase.from('container_receptions').update(payload).eq('id', id);
-      if (error) {
-        alert('Error: ' + error.message);
-        setConfirming(false);
-        return;
-      }
-      await supabase.from('container_reception_items').delete().eq('reception_id', id);
-    } else {
-      const { data, error } = await supabase.from('container_receptions').insert(payload).select('id').single();
-      if (error) {
-        alert('Error: ' + error.message);
-        setConfirming(false);
-        return;
-      }
-      id = data.id;
-    }
-
-    const itemsPayload = items.map(i => ({
-      reception_id: id,
-      product_id: i.product_id,
-      quantity: Number(i.quantity) || 0,
-      unit_origin_cost: Number(i.unit_origin_cost) || 0,
-      unit_landed_cost: getLandedPerUnit(i),
-      unit_pro_price: form.distributor_id ? (Number(i.unit_pro_price) || null) : null,
-      warehouse_id: i.warehouse_id || form.warehouse_id || null,
-    }));
-
-    let { error: itemsError } = await supabase.from('container_reception_items').insert(itemsPayload);
-    if (itemsError && itemsError.code === 'PGRST204') {
-      const fallbackPayload = itemsPayload.map(({ warehouse_id, ...rest }) => rest);
-      const res = await supabase.from('container_reception_items').insert(fallbackPayload);
-      itemsError = res.error;
-    }
-
-    if (itemsError) {
-      alert('Error items: ' + itemsError.message);
+    const { error: statusErr } = await supabase.from('container_receptions').update({ status: 'completed' }).eq('id', id);
+    if (statusErr) {
+      alert('Error al confirmar: ' + statusErr.message);
       setConfirming(false);
       return;
     }
 
-    // 2. Adjust warehouse stock for each item routing to its SPECIFIC destination warehouse!
+    // 2. Add stock to each item's destination warehouse
     const stockErrors = [];
     for (const item of items) {
-      const targetWarehouse = item.warehouse_id || form.warehouse_id;
-      const targetWarehouseName = warehouses.find(w => w.id === targetWarehouse)?.name || targetWarehouse;
-
+      const targetWarehouse = warehouseOf(item);
+      const targetName = warehouseName(targetWarehouse) || targetWarehouse;
       const { error } = await supabase.rpc('adjust_warehouse_stock', {
         p_product_id: item.product_id,
         p_warehouse_id: targetWarehouse,
         p_quantity_change: Number(item.quantity),
-        p_reason: `Recepción contenedor: ${form.container_label || id} (${targetWarehouseName})`,
+        p_reason: `Recepción contenedor: ${form.container_label || id} (${targetName})`,
       });
-      if (error) {
-        stockErrors.push(`${item.sku} en ${targetWarehouseName}: ${error.message}`);
-      }
+      if (error) stockErrors.push(`${item.sku} en ${targetName}: ${error.message}`);
     }
 
-    // 2b. Update weighted average cost per product
+    // 2b. Weighted average cost against current total stock
     for (const item of items) {
       const landedCost = getLandedPerUnit(item);
-      const qtyReceived = Number(item.quantity) || 0;
+      const qtyReceived = toNum(item.quantity);
       if (landedCost <= 0 || qtyReceived <= 0) continue;
 
-      const { data: stockRows } = await supabase
-        .from('warehouse_stock')
-        .select('stock_quantity')
-        .eq('product_id', item.product_id);
+      const [{ data: stockRows }, { data: prod }] = await Promise.all([
+        supabase.from('warehouse_stock').select('stock_quantity').eq('product_id', item.product_id),
+        supabase.from('products').select('avg_cost').eq('id', item.product_id).single(),
+      ]);
       const totalStockNow = (stockRows || []).reduce((s, r) => s + (r.stock_quantity || 0), 0);
-
-      const { data: prod } = await supabase
-        .from('products')
-        .select('avg_cost')
-        .eq('id', item.product_id)
-        .single();
       const oldAvg = Number(prod?.avg_cost) || 0;
-
       const stockBefore = totalStockNow - qtyReceived;
-      let newAvg;
-      if (stockBefore <= 0 || oldAvg <= 0) {
-        newAvg = landedCost;
-      } else {
-        newAvg = ((stockBefore * oldAvg) + (qtyReceived * landedCost)) / totalStockNow;
-      }
+      const newAvg = stockBefore <= 0 || oldAvg <= 0
+        ? landedCost
+        : ((stockBefore * oldAvg) + (qtyReceived * landedCost)) / totalStockNow;
 
-      await supabase
-        .from('products')
-        .update({ avg_cost: Math.round(newAvg * 100) / 100 })
-        .eq('id', item.product_id);
+      await supabase.from('products').update({ avg_cost: Math.round(newAvg * 100) / 100 }).eq('id', item.product_id);
     }
 
-    // 3. Resolve Transits and update status for ALL linked POs
+    // 3. Resolve transits and update status for ALL linked POs
     const activePOs = linkedPOs.length > 0
       ? linkedPOs
       : form.purchase_order_id
@@ -1299,122 +931,42 @@ export function useReceptionForm() {
       : [];
 
     for (const lpo of activePOs) {
-      const poIsFinal = lpo.is_final;
-      if (poIsFinal) {
-        await supabase.from('purchase_orders').update({ status: 'received' }).eq('id', lpo.id);
-      } else {
-        await supabase.from('purchase_orders').update({ status: 'partially_received' }).eq('id', lpo.id);
-      }
+      await supabase
+        .from('purchase_orders')
+        .update({ status: lpo.is_final ? 'received' : 'partially_received' })
+        .eq('id', lpo.id);
 
-      // Filter items belonging to this PO (or all items if items don't have purchase_order_id)
       const poItems = items.filter(i => !i.purchase_order_id || i.purchase_order_id === lpo.id);
-
       for (const item of poItems) {
-        const qtyReceived = Number(item.quantity) || 0;
-        if (qtyReceived <= 0) continue;
-        const targetWarehouse = item.warehouse_id || form.warehouse_id;
+        let remaining = toNum(item.quantity);
+        if (remaining <= 0) continue;
 
-        // Try exact warehouse first
-        let { data: transits } = await supabase
-          .from('transit_shipments')
-          .select('id, quantity')
-          .eq('purchase_order_id', lpo.id)
-          .eq('product_id', item.product_id)
-          .eq('warehouse_id', targetWarehouse)
-          .eq('status', 'in_transit')
-          .order('created_at', { ascending: true });
-
-        // Fallback to header warehouse
-        if (!transits || transits.length === 0) {
-          const { data: headerTransits } = await supabase
-            .from('transit_shipments')
-            .select('id, quantity')
-            .eq('purchase_order_id', lpo.id)
-            .eq('product_id', item.product_id)
-            .eq('warehouse_id', form.warehouse_id)
-            .eq('status', 'in_transit')
-            .order('created_at', { ascending: true });
-          transits = headerTransits;
-        }
-
-        // Fallback to any warehouse for this PO
-        if (!transits || transits.length === 0) {
-          const { data: poTransits } = await supabase
-            .from('transit_shipments')
-            .select('id, quantity')
-            .eq('purchase_order_id', lpo.id)
-            .eq('product_id', item.product_id)
-            .eq('status', 'in_transit')
-            .order('created_at', { ascending: true });
-          transits = poTransits;
-        }
-
-        if (!transits || transits.length === 0) continue;
-
-        let remaining = qtyReceived;
+        const transits = await findTransits(lpo.id, item.product_id, [warehouseOf(item), form.warehouse_id]);
         for (const t of transits) {
           if (remaining <= 0) break;
           if (remaining >= t.quantity) {
             await supabase.from('transit_shipments').delete().eq('id', t.id);
             remaining -= t.quantity;
           } else {
-            await supabase
-              .from('transit_shipments')
-              .update({ quantity: t.quantity - remaining })
-              .eq('id', t.id);
+            await supabase.from('transit_shipments').update({ quantity: t.quantity - remaining }).eq('id', t.id);
             remaining = 0;
           }
         }
       }
 
-      if (poIsFinal) {
+      if (lpo.is_final) {
         await supabase.from('transit_shipments').delete().eq('purchase_order_id', lpo.id);
       }
     }
 
-    // 4. Create unified freight service order in service_orders
-    try {
-      const { data: fleteSuppliers } = await supabase
-        .from('suppliers')
-        .select('id')
-        .contains('service_types', ['flete'])
-        .eq('is_active', true)
-        .limit(1);
+    // 4. Inland freight service order
+    await syncFreightServiceOrder(id);
 
-      if (fleteSuppliers && fleteSuppliers.length > 0) {
-        const freightAmount = Number(form.freight_national) || 0;
-        const destLocation = getUnifiedDestination();
-
-        const refParts = [];
-        if (form.container_label) refParts.push(`Contenedor: ${form.container_label}`);
-        if (form.pedimento_number) refParts.push(`Pedimento: ${form.pedimento_number}`);
-        if (form.customs_broker_ref) refParts.push(`Ref. Aduanal: ${form.customs_broker_ref}`);
-        if (formattedOp) refParts.push(`Operación: ${formattedOp}`);
-        if (activePOs.length > 0) refParts.push(`POs: ${activePOs.map(p => p.po_number || p.id).join(' / ')}`);
-        if (destLocation) refParts.push(`Destino: ${destLocation}`);
-
-        await supabase.from('service_orders').insert({
-          supplier_id: fleteSuppliers[0].id,
-          service_type: 'flete',
-          description: `Flete contenedor ${form.container_label || ''} — ${formattedOp || ''}`.replace(/\s+/g, ' ').trim(),
-          location: destLocation,
-          reference_info: refParts.join(' | '),
-          agreed_amount: freightAmount,
-          status: 'completada',
-          scheduled_date: form.reception_date,
-          reception_id: id,
-        });
-      }
-    } catch (soErr) {
-      console.error('Error creating service order:', soErr);
-    }
-
-    if (stockErrors.length) {
-      alert(`Recepción confirmada con algunos errores de stock:\n${stockErrors.join('\n')}`);
-    } else {
-      alert('✅ Recepción confirmada exitosamente');
-    }
-
+    alert(
+      stockErrors.length
+        ? `Recepción confirmada con algunos errores de stock:\n${stockErrors.join('\n')}`
+        : '✅ Recepción confirmada exitosamente'
+    );
     setConfirming(false);
     router.push('/dashboard/recepciones');
   };

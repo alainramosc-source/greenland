@@ -43,7 +43,7 @@ export default function ReceptionsFilters({
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <input
           type="text"
-          placeholder="Buscar por contenedor, pedimento, OP, distribuidor, bodega..."
+          placeholder="Buscar por contenedor, pedimento, BL, OP, distribuidor, bodega..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full pl-11 pr-9 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#6a9a04]/25 focus:border-[#6a9a04] text-xs sm:text-sm placeholder:text-slate-400 text-slate-800 outline-none shadow-xs font-medium"

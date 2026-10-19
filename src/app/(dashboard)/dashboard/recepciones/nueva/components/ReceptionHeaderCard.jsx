@@ -293,6 +293,21 @@ export default function ReceptionHeaderCard({
           />
         </div>
 
+        {/* BL / Guía marítima */}
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-1">
+            BL / Guía Marítima
+          </label>
+          <input
+            type="text"
+            value={form.bl_number}
+            onChange={(e) => setForm((f) => ({ ...f, bl_number: e.target.value }))}
+            placeholder="Ej: MEDUQ1234567 / MEDUQ7654321"
+            disabled={isCompleted && !isAuthorized}
+            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm placeholder:text-slate-400 font-mono disabled:opacity-60 font-medium"
+          />
+        </div>
+
         {/* Operation Number */}
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-1">Nº de Operación *</label>

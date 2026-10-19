@@ -2,6 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
 export async function POST(request) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json({ error: 'Falta SUPABASE_SERVICE_ROLE_KEY en el servidor.' }, { status: 500 });
+  }
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -9,32 +12,35 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { company_name, contact_name, email, phone, rfc, address, service_types, notes } = body;
+    const { company_name, contact_name, email, phone, rfc, address, service_types, notes, portal_access = true } = body;
 
-    if (!company_name || !email) {
-      return NextResponse.json({ error: 'Nombre de empresa y email son requeridos.' }, { status: 400 });
+    if (!company_name || (portal_access && !email)) {
+      return NextResponse.json({ error: portal_access ? 'Nombre de empresa y email son requeridos.' : 'Nombre de empresa es requerido.' }, { status: 400 });
     }
 
-    // 1. Create Supabase Auth user with auto-generated password
-    const tempPassword = crypto.randomUUID().slice(0, 12) + 'Aa1!';
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: { full_name: contact_name || company_name, role: 'supplier' }
-    });
+    // 1. Cuenta de acceso al portal (solo si se pidió)
+    let userId = null;
+    if (portal_access) {
+      const tempPassword = crypto.randomUUID().slice(0, 12) + 'Aa1!';
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: { full_name: contact_name || company_name, role: 'supplier' }
+      });
 
-    if (authError) {
-      return NextResponse.json({ error: 'Error al crear cuenta: ' + authError.message }, { status: 400 });
+      if (authError) {
+        return NextResponse.json({ error: 'Error al crear cuenta: ' + authError.message }, { status: 400 });
+      }
+
+      userId = authData.user.id;
+
+      // 2. Update profiles table to set role = supplier
+      await supabaseAdmin
+        .from('profiles')
+        .update({ role: 'supplier', full_name: contact_name || company_name, is_active: true })
+        .eq('id', userId);
     }
-
-    const userId = authData.user.id;
-
-    // 2. Update profiles table to set role = supplier
-    await supabaseAdmin
-      .from('profiles')
-      .update({ role: 'supplier', full_name: contact_name || company_name, is_active: true })
-      .eq('id', userId);
 
     // 3. Create supplier record
     const { data: supplier, error: supplierError } = await supabaseAdmin
@@ -42,8 +48,10 @@ export async function POST(request) {
       .insert({
         user_id: userId,
         company_name,
+        name: company_name,
+        short_name: company_name,
         contact_name,
-        email,
+        email: email || null,
         phone,
         rfc,
         address,
@@ -66,7 +74,9 @@ export async function POST(request) {
       supplier,
       portalUrl,
       emailSent: false,
-      message: 'Proveedor creado. Envía el link de acceso al portal cuando estés listo.'
+      message: portal_access
+        ? 'Proveedor creado. Envía el link de acceso al portal cuando estés listo.'
+        : 'Proveedor creado sin acceso al portal.'
     });
 
   } catch (err) {
