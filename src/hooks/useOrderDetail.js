@@ -878,7 +878,7 @@ export function useOrderDetail() {
       reference: paymentForm.reference || null,
       payment_date: paymentForm.payment_date,
       notes: paymentForm.notes || null,
-      recorded_by: (await supabase.auth.getUser()).data.user?.id
+      registered_by: (await supabase.auth.getUser()).data.user?.id
     }).select().single();
 
     if (error) {
