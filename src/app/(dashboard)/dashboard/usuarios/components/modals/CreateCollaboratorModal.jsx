@@ -70,7 +70,7 @@ export default function CreateCollaboratorModal({
           </div>
 
           <div>
-            <label className="block font-bold text-slate-700 mb-1">Sub-Rol Admin</label>
+            <label className="block font-bold text-slate-700 mb-1">Tipo de acceso</label>
             <select
               value={newCollab.sub_role || 'viewer'}
               onChange={(e) => setNewCollab({ ...newCollab, sub_role: e.target.value })}
@@ -80,7 +80,11 @@ export default function CreateCollaboratorModal({
               <option value="warehouse_admin">Admin Bodega (inventarios)</option>
               <option value="accountant">Contabilidad (pagos/precios)</option>
               <option value="viewer">Solo Lectura</option>
+              <option value="driver">Chofer (solo ruta de entregas)</option>
             </select>
+            {newCollab.sub_role === 'driver' && (
+              <p className="text-[11px] text-slate-500 mt-1">Solo podrá entrar a la pantalla de ruta y ver los envíos que le asignen.</p>
+            )}
           </div>
         </div>
 

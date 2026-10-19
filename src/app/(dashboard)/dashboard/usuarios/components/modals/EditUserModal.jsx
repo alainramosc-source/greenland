@@ -128,6 +128,7 @@ export default function EditUserModal({
               >
                 <option value="distributor">Distribuidor / Cliente</option>
                 <option value="admin">Administrador / Empleado</option>
+                <option value="driver">Chofer (solo ruta de entregas)</option>
               </select>
             </div>
 

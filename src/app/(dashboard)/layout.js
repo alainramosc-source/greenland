@@ -36,6 +36,12 @@ export default function DashboardLayout({ children }) {
             return;
           }
 
+          // Drivers only have access to the delivery route screen
+          if (profile.role === 'driver') {
+            router.replace('/chofer');
+            return;
+          }
+
           if (profile.role === 'distributor' && !profile.client_number) {
             supabase.rpc('assign_client_number_to_user', { p_user_id: user.id }).catch(() => { });
           }

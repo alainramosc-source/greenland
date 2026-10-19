@@ -102,34 +102,22 @@ export default function ExpressLinkModal({ isOpen, onClose, onLinkCreated }) {
         });
       }
 
-      let resData = null;
-      try {
-        const { data, error } = await supabase.rpc('create_retail_sale', {
-          p_conversation_id: null,
-          p_warehouse_id: selectedWarehouse,
-          p_delivery_type: deliveryType,
-          p_items: items,
-          p_notes: notes || null,
-        });
-        if (!error && data) resData = data;
-      } catch (_) {}
-
-      if (!resData) {
-        const token = Math.random().toString(36).substring(2, 10);
-        resData = {
-          success: true,
-          order_number: `LM-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${token.slice(0, 4).toUpperCase()}`,
-          checkout_token: token,
-          delivery_type: deliveryType,
-          total: subtotal,
-        };
+      const { data: resData, error: rpcError } = await supabase.rpc('create_retail_sale', {
+        p_conversation_id: null,
+        p_warehouse_id: selectedWarehouse,
+        p_delivery_type: deliveryType,
+        p_items: items,
+        p_notes: notes || null,
+      });
+      if (rpcError || !resData?.success) {
+        throw new Error(rpcError?.message || resData?.error || 'No se pudo crear el pedido');
       }
 
       setResult(resData);
       onLinkCreated && onLinkCreated(resData);
     } catch (err) {
       console.error('Express link error:', err);
-      alert('Error al generar enlace express. Por favor reintenta.');
+      alert('Error al generar enlace express: ' + (err?.message || 'Por favor reintenta.'));
     } finally {
       setIsSubmitting(false);
     }
