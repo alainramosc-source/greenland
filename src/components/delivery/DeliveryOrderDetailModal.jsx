@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   X, MapPin, Phone, User, Users, MessageCircle, Package, Truck, CheckCircle2,
   AlertTriangle, RotateCcw, Image as ImageIcon, Check, Printer, Copy, Wallet,
-  Navigation, Clock, Signpost
+  Navigation, Clock, Signpost, Landmark
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import DeliverOrderModal from './DeliverOrderModal';
@@ -33,7 +33,7 @@ export default function DeliveryOrderDetailModal({ order, isOpen, onClose, onOrd
 
   // Prepayment form
   const [showPrepay, setShowPrepay] = useState(false);
-  const [prepayMethod, setPrepayMethod] = useState('transfer');
+  const prepayMethod = 'transfer'; // anticipos solo por transferencia
   const [prepayAmount, setPrepayAmount] = useState('');
 
   // Deliver dialog
@@ -46,7 +46,7 @@ export default function DeliveryOrderDetailModal({ order, isOpen, onClose, onOrd
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [returnedItems, setReturnedItems] = useState({});
   const [restock, setRestock] = useState(true);
-  const [partialMethod, setPartialMethod] = useState('cash');
+  const [partialMethod, setPartialMethod] = useState('');
   const [partialAmount, setPartialAmount] = useState('');
 
   // Load warehouses, assignable drivers (admins + drivers) and current user
@@ -76,7 +76,7 @@ export default function DeliveryOrderDetailModal({ order, isOpen, onClose, onOrd
     setReturnNotes(order.return_notes || '');
     setEvidenceUrl(order.return_evidence_url || '');
     setRestock(true);
-    setPartialMethod('cash');
+    setPartialMethod('');
     setPartialAmount('');
     setPrepayAmount(String(order.total || ''));
     setShowPrepay(false);
@@ -224,9 +224,7 @@ export default function DeliveryOrderDetailModal({ order, isOpen, onClose, onOrd
       p_order_id: order.id,
       p_method: prepayMethod,
       p_amount: amountNum,
-    }, prepayMethod === 'cash'
-      ? `✅ Pago registrado. ${formatMoney(amountNum)} entraron a caja de efectivo.`
-      : '✅ Pago registrado. El pedido quedó como pagado.');
+    }, '✅ Pago por transferencia registrado. El pedido quedó como pagado.');
     if (ok) setShowPrepay(false);
   }
 
@@ -259,6 +257,10 @@ export default function DeliveryOrderDetailModal({ order, isOpen, onClose, onOrd
   const isPartialReturn = returnPayload.some((r, idx) => r.quantity_returned < (productItems[idx].quantity || 0));
 
   async function handleConfirmReturn() {
+    if (isPartialReturn && !partialMethod) {
+      setErrorMessage('Seleccione un método de pago');
+      return;
+    }
     const willRestock = restock && Boolean(order.stock_deducted_at);
     const msg = willRestock
       ? `¿Confirmar devolución y reintegrar las piezas a ${order.warehouse_name || 'la bodega'}?`
@@ -591,13 +593,11 @@ export default function DeliveryOrderDetailModal({ order, isOpen, onClose, onOrd
                         </button>
                       ) : (
                         <div className="space-y-2">
-                          <p className="text-[11px] text-slate-400">El cliente pagó antes de la entrega. Si es efectivo, entra a caja en este momento.</p>
+                          <p className="text-[11px] text-slate-400">El cliente pagó por transferencia antes de la entrega. El chofer ya no cobrará.</p>
                           <div className="grid grid-cols-2 gap-2">
-                            <select value={prepayMethod} onChange={(e) => setPrepayMethod(e.target.value)} className={selectClass}>
-                              <option value="transfer">Transferencia</option>
-                              <option value="cash">Efectivo</option>
-                              <option value="card">Tarjeta</option>
-                            </select>
+                            <div className={`${selectClass} flex items-center gap-1.5 font-bold`}>
+                              <Landmark className="w-3.5 h-3.5 text-sky-300" /> Transferencia
+                            </div>
                             <div className="relative">
                               <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">$</span>
                               <input type="number" min="0" step="0.01" value={prepayAmount} onChange={(e) => setPrepayAmount(e.target.value)} className={`${selectClass} pl-6`} />
@@ -724,10 +724,10 @@ export default function DeliveryOrderDetailModal({ order, isOpen, onClose, onOrd
                 <div className="p-4 bg-slate-800/60 border border-slate-700 rounded-2xl space-y-2">
                   <p className="text-xs font-bold text-slate-200">Devolución parcial: ¿cuánto cobró el chofer por lo que sí se quedó el cliente?</p>
                   <div className="grid grid-cols-2 gap-2">
-                    <select value={partialMethod} onChange={(e) => setPartialMethod(e.target.value)} className={selectClass}>
+                    <select value={partialMethod} onChange={(e) => { setPartialMethod(e.target.value); setErrorMessage(null); }} className={selectClass}>
+                      <option value="" disabled>Método de pago...</option>
                       <option value="cash">Efectivo</option>
                       <option value="transfer">Transferencia</option>
-                      <option value="card">Tarjeta</option>
                       {order.payment_status === 'paid' && <option value="prepaid">Ya estaba pagado</option>}
                       <option value="none">No cobró</option>
                     </select>
@@ -736,6 +736,9 @@ export default function DeliveryOrderDetailModal({ order, isOpen, onClose, onOrd
                       <input type="number" min="0" step="0.01" value={partialAmount} onChange={(e) => setPartialAmount(e.target.value)} placeholder="0.00" className={`${selectClass} pl-6`} />
                     </div>
                   </div>
+                  {errorMessage === 'Seleccione un método de pago' && (
+                    <p className="text-xs font-bold text-red-400">Seleccione un método de pago</p>
+                  )}
                 </div>
               )}
 

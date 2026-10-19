@@ -1113,13 +1113,16 @@ function NewRetailSaleModal({ supabase, onClose, onSaleCreated }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [cart, setCart] = useState([]);
-  const [deliveryType, setDeliveryType] = useState('pickup');
+  const deliveryType = 'delivery'; // con recolección se registra en Venta Mostrador
   const [customerName, setCustomerName] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [warehouses, setWarehouses] = useState([]);
   const [selectedWarehouse, setSelectedWarehouse] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState('cash');
+  // 'cod' = cobrar al entregar (el chofer cobra; el efectivo entra a caja al liquidar la ruta)
+  // 'transfer' = ya pagó por transferencia. Sin preselección: el usuario debe elegir.
+  const [paymentMethod, setPaymentMethod] = useState(null);
+  const [formError, setFormError] = useState(null);
   const searchInputRef = useRef(null);
 
   useEffect(() => {
@@ -1172,6 +1175,11 @@ function NewRetailSaleModal({ supabase, onClose, onSaleCreated }) {
 
   async function handleSubmit() {
     if (!isValid || isSubmitting) return;
+    if (!paymentMethod) {
+      setFormError('Seleccione un método de pago');
+      return;
+    }
+    setFormError(null);
     setIsSubmitting(true);
     try {
       const items = cart.map(item => ({
@@ -1190,30 +1198,18 @@ function NewRetailSaleModal({ supabase, onClose, onSaleCreated }) {
 
       if (error) throw error;
       if (data?.success) {
-        // Save payment_method and auto-mark as paid
-        if (data.order_id) {
-          await supabase.from('lastmile_orders').update({
-            payment_method: paymentMethod,
-            payment_status: 'paid',
-          }).eq('id', data.order_id);
-
-          // Auto-insert cash entry if payment is cash
-          if (paymentMethod === 'cash') {
-            const { data: { user } } = await supabase.auth.getUser();
-            await supabase.from('cash_movements').insert({
-              type: 'entry',
-              amount: subtotal,
-              concept: `Venta a público: ${data.order_number}${customerName ? ` — ${customerName}` : ''}`,
-              responsible: 'Venta directa',
-              reference_id: data.order_id,
-              reference_type: 'retail_sale',
-              movement_date: new Date().toISOString().split('T')[0],
-              created_by: user?.id
-            });
-          }
+        let payNote = 'por cobrar al entregar';
+        if (paymentMethod === 'transfer' && data.order_id) {
+          const { error: payError } = await supabase.rpc('register_lastmile_prepayment', {
+            p_order_id: data.order_id,
+            p_method: 'transfer',
+            p_amount: subtotal,
+          });
+          payNote = payError
+            ? `⚠️ no se pudo marcar como pagado: ${payError.message}`
+            : 'pagado por transferencia';
         }
-        const methodLabel = paymentMethod === 'cash' ? 'Efectivo' : 'Transferencia';
-        alert(`✅ Venta ${data.order_number} registrada (${methodLabel}) — $${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`);
+        alert(`✅ Envío ${data.order_number} creado (${payNote}) — $${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}\n\nCopia el link para el cliente desde "Ver detalle" para que capture su dirección.`);
         onSaleCreated && onSaleCreated();
       } else {
         alert('Error: ' + (data?.error || 'Desconocido'));
@@ -1340,40 +1336,34 @@ function NewRetailSaleModal({ supabase, onClose, onSaleCreated }) {
           {/* Delivery + Warehouse */}
           {cart.length > 0 && (
             <>
-              <div>
-                <label className="text-xs font-bold text-slate-500 mb-1.5 block">Tipo de entrega</label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setDeliveryType('pickup')}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer border ${
-                      deliveryType === 'pickup' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                    }`}
-                  >🏪 Recoger en sitio</button>
-                  <button
-                    onClick={() => setDeliveryType('delivery')}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer border ${
-                      deliveryType === 'delivery' ? 'bg-green-50 border-green-300 text-green-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                    }`}
-                  >🚚 Envío</button>
-                </div>
+              <div className="px-4 py-2.5 rounded-xl bg-green-50 border border-green-200 text-sm font-bold text-green-700">
+                🚚 Envío a domicilio
+                <span className="block text-[11px] font-medium text-green-600">El inventario se descuenta al surtir. Para recolección en bodega usa Venta Mostrador.</span>
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-500 mb-1.5 block">Método de pago</label>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setPaymentMethod('cash')}
+                    id="retail-pay-cod"
+                    type="button"
+                    onClick={() => { setPaymentMethod('cod'); setFormError(null); }}
                     className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer border ${
-                      paymentMethod === 'cash' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                      paymentMethod === 'cod' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
                     }`}
-                  >💵 Efectivo</button>
+                  >💵 Cobrar al entregar</button>
                   <button
-                    onClick={() => setPaymentMethod('transfer')}
+                    id="retail-pay-transfer"
+                    type="button"
+                    onClick={() => { setPaymentMethod('transfer'); setFormError(null); }}
                     className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer border ${
                       paymentMethod === 'transfer' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
                     }`}
-                  >🏦 Transferencia</button>
+                  >🏦 Ya pagó por transferencia</button>
                 </div>
+                {formError && (
+                  <p className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg mt-2">{formError}</p>
+                )}
               </div>
 
               <div>

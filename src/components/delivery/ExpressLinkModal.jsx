@@ -237,14 +237,9 @@ export default function ExpressLinkModal({ isOpen, onClose, onLinkCreated }) {
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-400 mb-1">Tipo de Entrega</label>
-                  <select
-                    value={deliveryType}
-                    onChange={(e) => setDeliveryType(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none"
-                  >
-                    <option value="delivery">🚚 Envío a Domicilio</option>
-                    <option value="pickup">🏪 Recolección en Bodega</option>
-                  </select>
+                  <div className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs font-bold text-white">
+                    🚚 Envío a Domicilio
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-slate-400 mb-1">Bodega de Origen</label>
