@@ -661,7 +661,7 @@ export function usePayments() {
       const typeLabel = pType === 'containers' ? 'Contenedores' : pType === 'mixed' ? 'Mixto' : 'Pedido';
       const statusLabel = p.status === 'approved' ? 'Aprobado' : p.status === 'rejected' ? 'Rechazado' : 'Pendiente';
       const base = {
-        'Fecha Pago': p.payment_date ? new Date(p.payment_date).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' }) : (p.created_at ? new Date(p.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''),
+        'Fecha Pago': p.payment_date ? formatDateOnly(p.payment_date, { year: 'numeric', month: '2-digit', day: '2-digit' }) : (p.created_at ? new Date(p.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''),
         'Distribuidor': p.profiles?.full_name || p.distributor?.company_name || p.distributor_name || '',
         'No. Cliente': p.profiles?.client_number || '',
         'Monto Total Pago': Number(p.amount || 0),
