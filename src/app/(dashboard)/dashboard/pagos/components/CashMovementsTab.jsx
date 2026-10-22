@@ -507,18 +507,20 @@ export default function CashMovementsTab({
                     <div className="text-right">
                       <span className="text-slate-400 block text-[10px]">Esperado vs Contado</span>
                       <span className="font-bold text-slate-700">
-                        $${Number(audit.expected_balance).toLocaleString('es-MX')} / $${Number(audit.counted_balance).toLocaleString('es-MX')}
+                        ${Number(audit.expected_balance).toLocaleString('es-MX', { minimumFractionDigits: 2 })} / ${Number(audit.counted_balance).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </span>
                       <span className={`block font-bold text-[11px] ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        Dif: $${diff.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        Dif: {diff >= 0 ? '+' : '-'}${Math.abs(diff).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
 
-                    {!audit.applied && onApplyAudit && (
+                    {!audit.applied && onApplyAudit && userSubRole !== 'lectura' && (
                       <button
                         onClick={() => onApplyAudit(audit)}
-                        className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-all"
+                        disabled={actionLoading === audit.id}
+                        className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-all disabled:opacity-50 flex items-center gap-1.5"
                       >
+                        {actionLoading === audit.id && <Loader2 size={12} className="animate-spin" />}
                         Aplicar Arqueo
                       </button>
                     )}
@@ -874,7 +876,7 @@ export default function CashMovementsTab({
                   Cancelar
                 </button>
                 <button
-                  onClick={onPerformAudit}
+                  onClick={() => onPerformAudit(expectedBalance)}
                   disabled={auditSubmitting || !auditForm.counted || !auditForm.performed_by}
                   className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-all disabled:opacity-50 flex items-center gap-1.5"
                 >

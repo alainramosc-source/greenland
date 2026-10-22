@@ -161,8 +161,7 @@ export function usePayments() {
         const totalOrders = dOrders.reduce((s, o) => s + Number(o.total_amount), 0);
         const dOrderIds = dOrders.map(o => o.id);
         const totalPaid = (orderPaymentsData || []).filter(p => dOrderIds.includes(p.order_id)).reduce((s, p) => s + Number(p.amount), 0);
-        return {
-    handleApplyAudit, ...d, total_orders: totalOrders, total_paid: totalPaid, balance: totalOrders - totalPaid };
+        return { ...d, total_orders: totalOrders, total_paid: totalPaid, balance: totalOrders - totalPaid };
       });
       setBalances(bals);
     }
@@ -619,7 +618,12 @@ export function usePayments() {
 
   // ========== RENDER ==========
 
-  const handlePerformAudit = async () => {
+  // expectedBalance: saldo de caja calculado en CashMovementsTab (anclado al último arqueo aplicado)
+  const handlePerformAudit = async (expectedBalance) => {
+    if (typeof expectedBalance !== 'number' || !Number.isFinite(expectedBalance)) {
+      alert('No se pudo calcular el saldo esperado de caja');
+      return;
+    }
     if (!auditForm.counted || parseFloat(auditForm.counted) < 0) {
       alert('Ingresa el monto contado');
       return;
@@ -632,7 +636,7 @@ export function usePayments() {
     const userId = (await supabase.auth.getUser()).data.user?.id;
     const { error } = await supabase.from('cash_audits').insert({
       audit_date: new Date().toISOString().split('T')[0],
-      expected_balance: Number(balances.reduce((s, b) => s + b.balance, 0)) || 0,
+      expected_balance: Math.round(expectedBalance * 100) / 100,
       counted_balance: parseFloat(auditForm.counted),
       notes: auditForm.notes.trim() || null,
       performed_by: auditForm.performed_by.trim(),
@@ -729,19 +733,39 @@ export function usePayments() {
 
   const handleApplyAudit = async (audit) => {
     if (!audit || audit.applied) return;
-    const diff = Number(audit.counted_balance) - Number(audit.expected_balance);
-    if (diff !== 0) {
-      await supabase.from('cash_movements').insert({
-        movement_date: new Date().toISOString().split('T')[0],
-        type: diff > 0 ? 'entry' : 'exit',
-        amount: Math.abs(diff),
-        concept: `Ajuste por arqueo (${new Date(audit.created_at).toLocaleDateString('es-MX')})`,
-        notes: `Arqueo ${new Date(audit.created_at).toLocaleDateString('es-MX')}. Esperado: $${Number(audit.expected_balance).toLocaleString('es-MX')} / Contado: $${Number(audit.counted_balance).toLocaleString('es-MX')}`,
+    const diff = Math.round((Number(audit.counted_balance) - Number(audit.expected_balance)) * 100) / 100;
+    const absDiff = Math.abs(diff);
+    const tipo = diff < 0 ? 'faltante' : 'sobrante';
+    const fmt = (n) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+    const msg = absDiff > 0
+      ? `¿Asentar corte de caja y aplicar ajuste por ${tipo} de $${fmt(absDiff)}?\nEl saldo de caja quedará en $${fmt(audit.counted_balance)}.`
+      : `¿Asentar el corte de caja con saldo de $${fmt(audit.counted_balance)}? Esto fijará el punto de partida oficial para las siguientes operaciones.`;
+    if (!confirm(msg)) return;
+    setActionLoading(audit.id);
+    if (absDiff > 0) {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      const { error: movErr } = await supabase.from('cash_movements').insert({
+        type: diff < 0 ? 'exit' : 'entry',
+        amount: absDiff,
+        // Este concepto se usa para excluir el ajuste del saldo anclado (CashMovementsTab)
+        concept: `Ajuste por arqueo de caja — ${tipo}`,
+        responsible: audit.performed_by,
+        notes: `Arqueo ${new Date(audit.created_at).toLocaleDateString('es-MX')}. Esperado: $${fmt(audit.expected_balance)} / Contado: $${fmt(audit.counted_balance)}`,
+        reference_type: 'manual',
+        movement_date: audit.audit_date,
+        created_by: userId,
+        registered_by: currentUserName,
         approval_status: 'approved',
-        reference_type: 'audit_adjustment',
       });
+      if (movErr) {
+        alert('Error al registrar ajuste: ' + movErr.message);
+        setActionLoading(null);
+        return;
+      }
     }
-    await supabase.from('cash_audits').update({ applied: true, applied_at: new Date().toISOString() }).eq('id', audit.id);
+    const { error: updErr } = await supabase.from('cash_audits').update({ applied: true, applied_at: new Date().toISOString() }).eq('id', audit.id);
+    if (updErr) alert('Error al marcar arqueo como aplicado: ' + updErr.message);
+    setActionLoading(null);
     fetchData();
   };
 
@@ -762,6 +786,6 @@ export function usePayments() {
     cajaDateFrom, setCajaDateFrom, cajaDateTo, setCajaDateTo, cajaSubTab, setCajaSubTab, dailySearchTerm, setDailySearchTerm,
     orderMap, setOrderMap, currentUserId, setCurrentUserId, currentUserName, setCurrentUserName, currentUserEmail, setCurrentUserEmail,
     fetchData, handleApprovePayment: handleApprove, handleRejectPayment: handleReject, handleRegisterEntry, handleRegisterExit,
-    handleSignExit, handleEditMovement, handleDeleteMovement, handlePerformAudit, parseBankCSV, parsePDFStatement, exportPaymentsXLSX, handleViewReceipt
+    handleSignExit, handleEditMovement, handleDeleteMovement, handlePerformAudit, handleApplyAudit, parseBankCSV, parsePDFStatement, exportPaymentsXLSX, handleViewReceipt
   };
 }
