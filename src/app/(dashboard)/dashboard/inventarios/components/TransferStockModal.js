@@ -9,33 +9,39 @@ export default function TransferStockModal({
   targetSkus = [],
   warehouses = [],
   stockData = [],
+  proDistributors = [],
   onSubmit,
   loading = false
 }) {
   const [originWarehouse, setOriginWarehouse] = useState('');
   const [destWarehouse, setDestWarehouse] = useState('');
   const [itemsToTransfer, setItemsToTransfer] = useState([]); // [{ sku, qty, maxQty }]
-  const [notes, setNotes] = useState('');
+  const [credits, setCredits] = useState({}); // { [sku]: montoMXN } — solo origen PRO
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       setErrorMsg('');
-      const wh1 = warehouses[0]?.id || '';
-      const wh2 = warehouses[1]?.id || warehouses[0]?.id || '';
+      setCredits({});
+      const availableIn = (sku, whId) => stockData.find(s => s.sku === sku && s.warehouse_id === whId)?.cantidad || 0;
+
+      // Origen por defecto: la bodega con más disponible del primer SKU seleccionado
+      const firstSku = targetSkus[0];
+      const byStock = [...warehouses].sort((a, b) => availableIn(firstSku, b.id) - availableIn(firstSku, a.id));
+      const wh1 = (firstSku && availableIn(firstSku, byStock[0]?.id) > 0 ? byStock[0]?.id : warehouses[0]?.id) || '';
+      const wh2 = warehouses.find(w => w.id !== wh1)?.id || '';
       setOriginWarehouse(wh1);
       setDestWarehouse(wh2);
-      setNotes('');
 
       // Build items array for selected targetSkus
       const items = targetSkus.map(sku => {
-        const originStockItem = stockData.find(s => s.sku === sku && s.warehouse_id === wh1);
-        const maxQty = originStockItem ? originStockItem.cantidad : 0;
-        return { sku, qty: maxQty > 0 ? 1 : 0, maxQty };
+        const maxQty = availableIn(sku, wh1);
+        return { sku, qty: 0, maxQty };
       });
       setItemsToTransfer(items);
     }
-  }, [isOpen, targetSkus, warehouses, stockData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, targetSkus]);
 
   // Update maxQty when originWarehouse changes
   useEffect(() => {
@@ -53,8 +59,14 @@ export default function TransferStockModal({
 
   if (!isOpen) return null;
 
+  // Distribuidor PRO dueño de la bodega origen (si aplica)
+  const originPro = proDistributors.find(d => d.assigned_warehouse_id === originWarehouse) || null;
+  const totalCredit = originPro
+    ? itemsToTransfer.reduce((s, i) => s + (i.qty > 0 ? Number(credits[i.sku]) || 0 : 0), 0)
+    : 0;
+
   const handleQtyChange = (sku, val) => {
-    const numVal = parseFloat(val) || 0;
+    const numVal = parseInt(val, 10) || 0;
     setItemsToTransfer(prev => prev.map(item => {
       if (item.sku === sku) {
         return { ...item, qty: Math.max(0, Math.min(numVal, item.maxQty)) };
@@ -84,7 +96,7 @@ export default function TransferStockModal({
       originWarehouseId: originWarehouse,
       destWarehouseId: destWarehouse,
       items: validItems,
-      notes
+      credits: originPro ? credits : {},
     });
   };
 
@@ -156,47 +168,73 @@ export default function TransferStockModal({
             </div>
           </div>
 
+          {/* PRO origin: credit to distributor balance */}
+          {originPro && (
+            <div className="p-3 rounded-xl border border-purple-200 bg-purple-50 dark:bg-purple-950/30 dark:border-purple-800 text-xs text-purple-800 dark:text-purple-300">
+              <p className="font-bold">Bodega de distribuidor PRO: {originPro.full_name}{originPro.client_number ? ` (#${originPro.client_number})` : ''}</p>
+              <p className="mt-0.5">Opcional: captura el crédito (MXN) por partida para abonarlo a su saldo. Déjalo vacío si no aplica crédito.</p>
+            </div>
+          )}
+
           {/* Items Quantities Table */}
           <div className="space-y-2">
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
               Productos a Transferir ({itemsToTransfer.length})
             </label>
             <div className="max-h-56 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl divide-y divide-slate-100 dark:divide-slate-700/60">
-              {itemsToTransfer.map((item) => (
-                <div key={item.sku} className="p-3 flex items-center justify-between gap-3 bg-white dark:bg-slate-800/80">
-                  <div className="min-w-0">
-                    <p className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">{item.sku}</p>
-                    <p className="text-[11px] text-slate-400">
-                      Disponible en origen: <span className="font-semibold text-slate-600 dark:text-slate-300">{item.maxQty} u</span>
-                    </p>
+              {itemsToTransfer.map((item) => {
+                const creditVal = credits[item.sku] ?? '';
+                const unit = item.qty > 0 && Number(creditVal) > 0 ? Number(creditVal) / item.qty : 0;
+                return (
+                  <div key={item.sku} className="p-3 flex items-center justify-between gap-3 bg-white dark:bg-slate-800/80">
+                    <div className="min-w-0">
+                      <p className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">{item.sku}</p>
+                      <p className="text-[11px] text-slate-400">
+                        Disponible en origen: <span className="font-semibold text-slate-600 dark:text-slate-300">{item.maxQty} u</span>
+                      </p>
+                      {originPro && unit > 0 && (
+                        <p className="text-[11px] text-purple-600 dark:text-purple-300">
+                          ${unit.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / pza
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-24">
+                        <label className="block text-[10px] text-slate-400 mb-0.5 text-center">Piezas</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          max={item.maxQty}
+                          value={item.qty}
+                          onChange={(e) => handleQtyChange(item.sku, e.target.value)}
+                          className="w-full px-2.5 py-1 text-sm font-semibold text-center bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-900 dark:text-white"
+                        />
+                      </div>
+                      {originPro && (
+                        <div className="w-28">
+                          <label className="block text-[10px] text-purple-500 mb-0.5 text-center">Crédito $ MXN</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={creditVal}
+                            onChange={(e) => setCredits(c => ({ ...c, [item.sku]: e.target.value }))}
+                            placeholder="0.00"
+                            className="w-full px-2.5 py-1 text-sm font-semibold text-center bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 text-slate-900 dark:text-white"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="w-32">
-                    <input
-                      type="number"
-                      min="0"
-                      max={item.maxQty}
-                      value={item.qty}
-                      onChange={(e) => handleQtyChange(item.sku, e.target.value)}
-                      className="w-full px-2.5 py-1 text-sm font-semibold text-center bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Notas de Transferencia / Referencia
-            </label>
-            <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ej: Reubicación de stock a Bodega Monterrey por venta..."
-              className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-900 dark:text-white"
-            />
+            {originPro && totalCredit > 0 && (
+              <p className="text-xs font-bold text-purple-700 dark:text-purple-300 text-right">
+                Crédito total a {originPro.full_name}: ${totalCredit.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+              </p>
+            )}
           </div>
 
           {/* Action Buttons */}

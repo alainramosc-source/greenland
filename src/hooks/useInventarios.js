@@ -874,28 +874,103 @@ export function useInventarios() {
   }, [products, getWhStock, supabase, fetchData]);
 
   // Action Handler: Transfer Stock
-  const handleTransferStockWrapper = useCallback(async ({ originWarehouseId, destWarehouseId, items, notes }) => {
-    setLoading(true);
-    for (const item of items) {
-      const prod = products.find(p => p.sku === item.sku);
-      if (!prod || item.qty <= 0) continue;
+  // transfer_stock(p_product_id, p_from_warehouse_id, p_to_warehouse_id, p_quantity, p_user_id) — no acepta notas.
+  // credits: { [sku]: montoMXN } — solo si el origen es la bodega de un distribuidor PRO.
+  // Por cada transferencia con crédito se registra un cargo negativo (container_receptions) al PRO,
+  // igual que el flujo legacy handleTransfer.
+  // Devuelve true solo si TODAS las partidas se transfirieron.
+  const handleTransferStockWrapper = useCallback(async ({ originWarehouseId, destWarehouseId, items, credits = {} }) => {
+    const pro = proDistributors.find(d => d.assigned_warehouse_id === originWarehouseId) || null;
+    const fromName = warehouses.find(w => w.id === originWarehouseId)?.name || 'bodega origen';
+    const destName = warehouses.find(w => w.id === destWarehouseId)?.name || 'otra bodega';
+    const fmt = (n) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
-      const { error } = await supabase.rpc('transfer_stock', {
-        p_product_id: prod.id,
+    const valid = items
+      .map(i => ({ ...i, qty: parseInt(i.qty, 10), prod: products.find(p => p.sku === i.sku) }))
+      .filter(i => i.prod && i.qty > 0);
+    const withCredit = pro ? valid.filter(i => Number(credits[i.sku]) > 0) : [];
+    const totalCredit = withCredit.reduce((s, i) => s + Number(credits[i.sku]), 0);
+
+    if (pro && totalCredit > 0) {
+      if (!confirm(
+        `¿Confirmar transferencia con crédito PRO?\n\n` +
+        valid.map(i => `• ${i.qty} pzas de ${i.sku}${Number(credits[i.sku]) > 0 ? ` — crédito $${fmt(credits[i.sku])}` : ''}`).join('\n') +
+        `\n• De: ${fromName} → A: ${destName}\n` +
+        `• Crédito total de $${fmt(totalCredit)} al saldo de ${pro.full_name}\n\n` +
+        `El saldo pendiente del distribuidor PRO se reducirá por este monto.`
+      )) return false;
+    }
+
+    setLoading(true);
+    const done = [];
+    let ok = true;
+    for (const item of valid) {
+      const { data, error } = await supabase.rpc('transfer_stock', {
+        p_product_id: item.prod.id,
         p_from_warehouse_id: originWarehouseId,
         p_to_warehouse_id: destWarehouseId,
         p_quantity: item.qty,
-        p_notes: sanitizeText(notes, 300) || 'Transferencia entre bodegas'
       });
 
-      if (error) {
-        alert(`Error al transferir ${item.sku}: ` + error.message);
+      const errMsg = error?.message || (data && data.success === false ? data.error : null);
+      if (errMsg) {
+        alert(
+          `Error al transferir ${item.sku}: ${errMsg}` +
+          (done.length ? `\n\nYa transferidos: ${done.map(d => `${d.sku} (${d.qty})`).join(', ')}` : '')
+        );
+        ok = false;
         break;
       }
+      done.push(item);
     }
+
+    // Crédito PRO solo por lo que sí se transfirió
+    if (pro) {
+      for (const item of done) {
+        const creditAmt = Number(credits[item.sku]) || 0;
+        if (creditAmt <= 0) continue;
+        const unitPrice = Math.round((creditAmt / item.qty) * 100) / 100;
+        const { data: creditData, error: creditError } = await supabase
+          .from('container_receptions')
+          .insert({
+            distributor_id: pro.id,
+            warehouse_id: originWarehouseId,
+            reception_date: new Date().toISOString().split('T')[0],
+            container_label: `Traspaso ${fromName} → ${destName}`,
+            charge_amount: -creditAmt,
+            total_origin_cost: 0,
+            total_additional_costs: 0,
+            total_landed_cost: 0,
+            status: 'completed',
+            notes: `Crédito por traspaso de ${item.qty} pzas de ${item.sku} (${item.prod.name}) de ${fromName} a ${destName}. Precio unitario: $${fmt(unitPrice)}`,
+            created_by: userId,
+          })
+          .select('id')
+          .single();
+
+        if (creditError) {
+          // El stock ya se movió: no dejar la ventana abierta (re-enviar transferiría dos veces)
+          alert(`⚠️ ${item.sku} transferido, pero error al crear crédito: ${creditError.message}\nRegistra el crédito manualmente.`);
+          continue;
+        }
+        const { error: itemErr } = await supabase.from('container_reception_items').insert({
+          reception_id: creditData.id,
+          product_id: item.prod.id,
+          quantity: item.qty,
+          unit_origin_cost: 0,
+          unit_landed_cost: 0,
+          unit_pro_price: unitPrice,
+        });
+        if (itemErr) alert(`⚠️ Crédito de ${item.sku} creado, pero error en su partida: ${itemErr.message}`);
+      }
+    }
+
     await fetchData();
     setLoading(false);
-  }, [products, supabase, fetchData]);
+    // Si algo ya se movió, cerrar la ventana aunque una partida haya fallado:
+    // re-enviar el mismo formulario duplicaría lo ya transferido.
+    return ok || done.length > 0;
+  }, [products, warehouses, proDistributors, supabase, userId, fetchData]);
 
   // Action Handler: Count Session
   const handleCreateCountSessionWrapper = useCallback(async ({ warehouseId, notes }) => {
@@ -988,6 +1063,28 @@ export function useInventarios() {
     handleCsvFile({ target: { files: [file] } });
   }, [handleCsvFile]);
 
+  // Flat stock rows for modals: { product_id, sku, warehouse_id, stock, reserved, cantidad (= disponible) }
+  const stockData = useMemo(() => {
+    const skuById = {};
+    products.forEach(p => { skuById[p.id] = p.sku; });
+    const rows = [];
+    Object.entries(warehouseStock).forEach(([productId, byWarehouse]) => {
+      Object.values(byWarehouse || {}).forEach(ws => {
+        const stock = ws.stock_quantity || 0;
+        const reserved = ws.reserved_quantity || 0;
+        rows.push({
+          product_id: productId,
+          sku: skuById[productId],
+          warehouse_id: ws.warehouse_id,
+          stock,
+          reserved,
+          cantidad: Math.max(0, stock - reserved),
+        });
+      });
+    });
+    return rows;
+  }, [products, warehouseStock]);
+
   return {
     supabase,
     router,
@@ -1023,7 +1120,8 @@ export function useInventarios() {
     refreshData: fetchData,
 
     // Stock Data raw format
-    stockData: Object.values(warehouseStock),
+    stockData,
+    proDistributors,
 
     // Subcomponents Handlers
     handleAdjustStock: handleAdjustStockWrapper,

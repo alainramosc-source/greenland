@@ -18,6 +18,7 @@ import RetailSalesHistoryView from './components/RetailSalesHistoryView';
 export default function InventariosPage() {
   const {
     stockData,
+    proDistributors,
     products,
     warehouses,
     countSessions,
@@ -377,9 +378,10 @@ export default function InventariosPage() {
         targetSkus={modalState.targetSkus}
         warehouses={warehouses}
         stockData={stockData}
+        proDistributors={proDistributors}
         onSubmit={async (data) => {
-          await handleTransferStock(data);
-          closeModal();
+          const ok = await handleTransferStock(data);
+          if (ok) closeModal();
         }}
         loading={loading}
       />

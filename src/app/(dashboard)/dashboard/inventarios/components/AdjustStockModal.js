@@ -61,7 +61,7 @@ export default function AdjustStockModal({
   const currentItem = stockData.find(
     s => s.sku === selectedSku && s.warehouse_id === selectedWarehouse
   );
-  const currentStock = currentItem ? currentItem.cantidad : 0;
+  const currentStock = currentItem ? (currentItem.stock ?? currentItem.cantidad) : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
