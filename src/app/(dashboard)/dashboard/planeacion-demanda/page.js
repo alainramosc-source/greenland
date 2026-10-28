@@ -35,6 +35,8 @@ function PlaneacionDemandaPage() {
     const [orderItems, setOrderItems] = useState([]);
     const [coverageData, setCoverageData] = useState([]);
     const [warehouseStock, setWarehouseStock] = useState([]);
+    // Ventas al público de bodegas PRO (botón "Venta al Público PRO" → lastmile_orders)
+    const [proRetailSales, setProRetailSales] = useState([]);
 
     // Config Filters
     const [daysWindow, setDaysWindow] = useState(60); // 30, 60, 90, 180, 365
@@ -88,17 +90,39 @@ function PlaneacionDemandaPage() {
     const fetchData = async (proWarehouseId = null) => {
         setLoading(true);
 
-        const [whRes, prodRes, covRes, wsRes, salesRes, ordersRes, profRes] = await Promise.all([
+        // Supabase corta en 1,000 filas por consulta sin avisar: ventas y pedidos se piden por bloques.
+        // Se trae hasta 366 días (la ventana máxima del selector es 365).
+        const sinceIso = new Date(Date.now() - 366 * 24 * 60 * 60 * 1000).toISOString();
+        const fetchAll = async (build) => {
+            const PAGE = 1000;
+            const all = [];
+            for (let page = 0; page < 50; page++) {
+                const { data, error } = await build().range(page * PAGE, page * PAGE + PAGE - 1);
+                if (error) { console.error('Planeación fetch error:', error); break; }
+                all.push(...(data || []));
+                if (!data || data.length < PAGE) break;
+            }
+            return { data: all };
+        };
+
+        const [whRes, prodRes, covRes, wsRes, salesRes, ordersRes, profRes, proSalesRes] = await Promise.all([
             supabase.from('warehouses').select('*').eq('is_active', true).order('sort_order'),
             supabase.from('products').select('id, name, sku, category_id, container_capacity').eq('is_active', true).order('sku'),
             supabase.from('coverage_inventory').select('*'),
             supabase.from('warehouse_stock').select('*'),
-            supabase.from('counter_sales').select('*').eq('status', 'completed').order('created_at', { ascending: false }),
-            supabase.from('orders').select(`
+            fetchAll(() => supabase.from('counter_sales').select('*').eq('status', 'completed').gte('created_at', sinceIso).order('created_at', { ascending: false })),
+            fetchAll(() => supabase.from('orders').select(`
                 id, status, created_at, distributor_id,
                 order_items (id, product_id, quantity, warehouse_id)
-            `).order('created_at', { ascending: false }).limit(2000),
-            supabase.from('profiles').select('id, assigned_warehouse_id')
+            `).gte('created_at', sinceIso).order('created_at', { ascending: false })),
+            supabase.from('profiles').select('id, assigned_warehouse_id'),
+            // Ventas al público PRO (contenedores). Se excluyen pendientes y canceladas.
+            fetchAll(() => supabase.from('lastmile_orders')
+                .select('id, warehouse_id, items, status, created_at')
+                .not('warehouse_id', 'is', null)
+                .in('status', ['confirmed', 'in_delivery', 'delivered'])
+                .gte('created_at', sinceIso)
+                .order('created_at', { ascending: false }))
         ]);
 
         const SALTILLO_BODEGAS = ['Bodega Vito Alessio', 'Bodega Echeverría'];
@@ -130,6 +154,7 @@ function PlaneacionDemandaPage() {
         setWarehouseStock(wsRes.data || []);
         setCounterSales(salesRes.data || []);
         setProfiles(profRes.data || []);
+        setProRetailSales(proSalesRes.data || []);
 
         const EFFECTIVE_STATUSES = ['closed', 'shipped', 'in_fulfillment', 'confirmed', 'completed'];
         setOrders((ordersRes.data || []).filter(o => EFFECTIVE_STATUSES.includes((o.status || '').toLowerCase())));
@@ -170,6 +195,21 @@ function PlaneacionDemandaPage() {
             ? saltilloWarehouseIds
             : [selectedWarehouse.id];
 
+        // Bodega PRO = cualquier bodega que no sea de Saltillo.
+        // Su demanda sale SOLO de sus ventas al público (contenedores). Saltillo no cambia.
+        const isProWh = !selectedWarehouse.isCombined && !saltilloWarehouseIds.includes(selectedWarehouse.id);
+        const proSalesForWh = isProWh
+            ? proRetailSales.filter(s => s.warehouse_id === selectedWarehouse.id)
+            : [];
+        const proQtyInRange = (productId, from, to) => proSalesForWh.reduce((sum, sale) => {
+            const d = new Date(sale.created_at);
+            if (isNaN(d.getTime()) || d < from || (to && d >= to)) return sum;
+            const items = Array.isArray(sale.items) ? sale.items : [];
+            return sum + items
+                .filter(i => i.product_id === productId)
+                .reduce((s, i) => s + (parseFloat(i.quantity) || 0), 0);
+        }, 0);
+
         return products.map(product => {
             // Get current stock
             const stockRows = warehouseStock.filter(ws => ws.product_id === product.id && targetWarehouseIds.includes(ws.warehouse_id));
@@ -179,8 +219,8 @@ function PlaneacionDemandaPage() {
             const covRows = coverageData.filter(c => c.product_id === product.id && targetWarehouseIds.includes(c.warehouse_id));
             const existingCoverageDemand = covRows.reduce((sum, c) => sum + (c.weekly_demand || 0), 0);
 
-            // 1. Calculate POS Counter Sales
-            const posQty = counterSales
+            // 1. Calculate POS Counter Sales (PRO: ventas al público de su bodega)
+            const posQty = isProWh ? proQtyInRange(product.id, cutoffDate, null) : counterSales
                 .filter(cs => targetWarehouseIds.includes(cs.warehouse_id))
                 .filter(cs => new Date(cs.created_at || cs.sale_date) >= cutoffDate)
                 .reduce((sum, sale) => {
@@ -189,8 +229,8 @@ function PlaneacionDemandaPage() {
                     return sum + (itemMatch ? (parseFloat(itemMatch.quantity) || 0) : 0);
                 }, 0);
 
-            // 2. Calculate Distributor Order Sales
-            const distQty = distOrderItems
+            // 2. Calculate Distributor Order Sales (PRO: no aplica, sus pedidos son reabastecimiento)
+            const distQty = isProWh ? 0 : distOrderItems
                 .filter(item => {
                     if (item.product_id !== product.id) return false;
                     const itemDate = new Date(item.created_at);
@@ -214,7 +254,7 @@ function PlaneacionDemandaPage() {
                 const weekStart = new Date(now.getTime() - ((totalWeeksInWindow - w) * 7 * 24 * 60 * 60 * 1000));
                 const weekEnd = new Date(weekStart.getTime() + (7 * 24 * 60 * 60 * 1000));
 
-                const weekPos = counterSales
+                const weekPos = isProWh ? proQtyInRange(product.id, weekStart, weekEnd) : counterSales
                     .filter(cs => targetWarehouseIds.includes(cs.warehouse_id))
                     .filter(cs => {
                         const d = new Date(cs.created_at || cs.sale_date);
@@ -226,7 +266,7 @@ function PlaneacionDemandaPage() {
                         return sum + (itemMatch ? (parseFloat(itemMatch.quantity) || 0) : 0);
                     }, 0);
 
-                const weekDist = distOrderItems
+                const weekDist = isProWh ? 0 : distOrderItems
                     .filter(item => {
                         if (item.product_id !== product.id) return false;
                         const itemDate = new Date(item.created_at);
@@ -290,7 +330,10 @@ function PlaneacionDemandaPage() {
                 isNewProduct: totalSales === 0 && currentStock > 0
             };
         });
-    }, [selectedWarehouse, products, counterSales, orders, orderItems, warehouseStock, coverageData, daysWindow, residualStockThreshold, weekExclusions, saltilloWarehouseIds]);
+    }, [selectedWarehouse, products, counterSales, orders, orderItems, warehouseStock, coverageData, daysWindow, residualStockThreshold, weekExclusions, saltilloWarehouseIds, proRetailSales, distOrderItems]);
+
+    // ¿La sede seleccionada es una bodega PRO? (solo cambia etiquetas de la UI)
+    const isProWarehouse = !!selectedWarehouse && !selectedWarehouse.isCombined && !saltilloWarehouseIds.includes(selectedWarehouse.id);
 
     const filteredPlanningData = useMemo(() => {
         if (!skuFilter.trim()) return planningData;
@@ -405,7 +448,7 @@ function PlaneacionDemandaPage() {
                             Planeación de Demanda
                         </h1>
                         <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            Venta POS + Distribuidores
+                            {isProWarehouse ? 'Venta al Público PRO' : 'Venta POS + Distribuidores'}
                         </span>
                     </div>
                     <p className="text-xs text-slate-500 max-w-2xl">
@@ -569,8 +612,8 @@ function PlaneacionDemandaPage() {
                             <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-black text-slate-500 uppercase tracking-wider">
                                 <th className="p-3 pl-4">SKU / Producto</th>
                                 <th className="p-3 text-center">Stock Actual</th>
-                                <th className="p-3 text-center">Ventas Mostrador</th>
-                                <th className="p-3 text-center">Ventas Distribuidor</th>
+                                <th className="p-3 text-center">{isProWarehouse ? 'Ventas al Público PRO' : 'Ventas Mostrador'}</th>
+                                {!isProWarehouse && <th className="p-3 text-center">Ventas Distribuidor</th>}
                                 <th className="p-3 text-center bg-slate-100/70">Total Ventas</th>
                                 <th className="p-3 text-center">Semanas Activas</th>
                                 <th className="p-3 text-center bg-emerald-50 text-emerald-900">Demanda Real Calculada</th>
@@ -615,6 +658,7 @@ function PlaneacionDemandaPage() {
                                             )}
                                         </td>
 
+                                        {!isProWarehouse && (
                                         <td className="p-3 text-center font-semibold text-slate-600">
                                             {row.distQty > 0 ? (
                                                 <span className="inline-flex items-center gap-1 font-bold text-slate-800">
@@ -624,6 +668,7 @@ function PlaneacionDemandaPage() {
                                                 <span className="text-slate-300">—</span>
                                             )}
                                         </td>
+                                        )}
 
                                         <td className="p-3 text-center font-black bg-slate-50 text-slate-900">
                                             {row.totalSales} u
@@ -733,8 +778,8 @@ function PlaneacionDemandaPage() {
                                     <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px]">
                                         <tr>
                                             <th className="p-2.5 pl-3">Semana</th>
-                                            <th className="p-2.5 text-center">Ventas POS</th>
-                                            <th className="p-2.5 text-center">Ventas Distrib.</th>
+                                            <th className="p-2.5 text-center">{isProWarehouse ? 'Venta Público' : 'Ventas POS'}</th>
+                                            {!isProWarehouse && <th className="p-2.5 text-center">Ventas Distrib.</th>}
                                             <th className="p-2.5 text-center font-black">Total Ventas</th>
                                             <th className="p-2.5 text-center">Estado Automático</th>
                                             <th className="p-2.5 text-right pr-3">Activar/Desactivar</th>
@@ -756,7 +801,7 @@ function PlaneacionDemandaPage() {
                                                     </td>
 
                                                     <td className="p-2.5 text-center font-semibold text-slate-600">{w.weekPos} u</td>
-                                                    <td className="p-2.5 text-center font-semibold text-slate-600">{w.weekDist} u</td>
+                                                    {!isProWarehouse && <td className="p-2.5 text-center font-semibold text-slate-600">{w.weekDist} u</td>}
                                                     <td className="p-2.5 text-center font-black text-slate-900">{w.weekSales} u</td>
 
                                                     <td className="p-2.5 text-center">
