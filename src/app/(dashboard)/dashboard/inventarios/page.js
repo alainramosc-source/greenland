@@ -1,7 +1,7 @@
 'use client';
 import { todayMX } from '@/utils/formatters';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Boxes, RefreshCw, FileSpreadsheet, Sliders, ArrowRightLeft, ClipboardCheck, History, Package, AlertTriangle, Layers, Download, ShoppingCart, CalendarCheck
 } from 'lucide-react';
@@ -25,6 +25,11 @@ export default function InventariosPage() {
     warehouses,
     countSessions,
     movementLogs,
+    logsRange,
+    setLogsRange,
+    logsLoading,
+    logsTruncated,
+    ensureLogsLoaded,
     visibleWarehouses,
     toggleWarehouseVisibility,
     searchFilter,
@@ -68,6 +73,11 @@ export default function InventariosPage() {
   const canSeeClosings = userRole === 'ADMIN' && ['super_admin', 'accountant', 'viewer'].includes(subRole);
 
   const [activeTab, setActiveTab] = useState('matrix'); // 'matrix' | 'conteo' | 'historial'
+
+  // El historial de movimientos se consulta solo cuando se abre su pestaña
+  useEffect(() => {
+    if (activeTab === 'historial' && !loading) ensureLogsLoaded();
+  }, [activeTab, loading, ensureLogsLoaded]);
   const [modalState, setModalState] = useState({
     adjust: false,
     transfer: false,
@@ -382,6 +392,10 @@ export default function InventariosPage() {
         <MovementLogsView
           logs={movementLogs}
           warehouses={warehouses}
+          range={logsRange}
+          onRangeChange={setLogsRange}
+          loading={logsLoading}
+          truncated={logsTruncated}
         />
       )}
 

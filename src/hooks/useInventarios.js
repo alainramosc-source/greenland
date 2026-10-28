@@ -77,6 +77,17 @@ export function useInventarios() {
   // Movement Logs History
   const [movementLogs, setMovementLogs] = useState([]);
   const [movementSearch, setMovementSearch] = useState('');
+  const [logsRange, setLogsRangeState] = useState(() => {
+    const to = todayMX();
+    const d = new Date(`${to}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 30);
+    return { from: d.toISOString().slice(0, 10), to };
+  });
+  const logsRangeRef = useRef(logsRange);
+  const logsCtxRef = useRef({ prodList: [], whList: [] });
+  const logsLoadedRef = useRef(false); // el historial solo se carga al abrir su pestaña
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsTruncated, setLogsTruncated] = useState(false);
 
   // CSV Import State
   const [showCsvModal, setShowCsvModal] = useState(false);
@@ -97,6 +108,122 @@ export function useInventarios() {
   // Retail Sales History (PRO)
   const [retailSales, setRetailSales] = useState([]);
   const [salesSearch, setSalesSearch] = useState('');
+
+  // Movement logs by date range (fechas en hora de México, sin tope de 200)
+  const fetchMovementLogs = useCallback(async (range) => {
+    const { from, to } = range || logsRangeRef.current;
+    const { prodList, whList } = logsCtxRef.current;
+    const fromTs = `${from}T00:00:00-06:00`;
+    const toTs = `${to}T23:59:59.999-06:00`;
+    const PAGE = 1000;
+    const MAX_PAGES = 30; // tope de seguridad: 30,000 filas por fuente
+    let truncated = false;
+
+    const fetchAll = async (build) => {
+      const all = [];
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const { data, error } = await build().range(page * PAGE, page * PAGE + PAGE - 1);
+        if (error) throw error;
+        all.push(...(data || []));
+        if (!data || data.length < PAGE) return all;
+      }
+      truncated = true;
+      return all;
+    };
+
+    setLogsLoading(true);
+    let logs = [];
+    try {
+      try {
+        logs = await fetchAll(() => supabase
+          .from('inventory_logs')
+          .select('*, product:products(name, sku), user:profiles(full_name, email)')
+          .gte('created_at', fromTs)
+          .lte('created_at', toTs)
+          .order('created_at', { ascending: false }));
+      } catch {
+        const raw = await fetchAll(() => supabase
+          .from('inventory_logs')
+          .select('*')
+          .gte('created_at', fromTs)
+          .lte('created_at', toTs)
+          .order('created_at', { ascending: false }));
+        const { data: allProfiles } = await supabase.from('profiles').select('id, full_name, email');
+        const profMap = {};
+        (allProfiles || []).forEach(p => { profMap[p.id] = p; });
+        logs = raw.map(l => ({
+          ...l,
+          product: (prodList || []).find(p => p.id === l.product_id) || null,
+          user: profMap[l.user_id || l.created_by] || null
+        }));
+      }
+
+      // Salidas por pedidos (confirmados/surtiendo/enviados/cerrados) dentro del rango
+      try {
+        const ordersData = await fetchAll(() => supabase
+          .from('orders')
+          .select(`
+            id, order_number, status, created_at, confirmed_at, shipped_at,
+            profiles:distributor_id(full_name),
+            order_items(id, quantity, product_id, warehouse_id,
+              products(name, sku))
+          `)
+          .in('status', ['confirmed', 'in_fulfillment', 'shipped', 'closed'])
+          .lte('created_at', toTs)
+          .or(`created_at.gte."${fromTs}",confirmed_at.gte."${fromTs}",shipped_at.gte."${fromTs}"`)
+          .order('created_at', { ascending: false }));
+
+        const fromMs = new Date(fromTs).getTime();
+        const toMs = new Date(toTs).getTime();
+        const orderLogs = [];
+        ordersData.forEach(o => {
+          const dateUsed = o.shipped_at || o.confirmed_at || o.created_at;
+          const t = new Date(dateUsed).getTime();
+          if (t < fromMs || t > toMs) return;
+          const statusLabel = o.status === 'shipped' || o.status === 'closed' ? 'Enviado' :
+                              o.status === 'in_fulfillment' ? 'En Surtido' : 'Confirmado';
+          (o.order_items || []).forEach(item => {
+            const whName = (whList || []).find(w => w.id === item.warehouse_id)?.name || '';
+            orderLogs.push({
+              id: `order-${item.id}`,
+              created_at: dateUsed,
+              quantity_change: -(item.quantity),
+              reason: `Pedido #${o.order_number} (${statusLabel}) [Bodega: ${whName}]`,
+              product: item.products,
+              user: { full_name: o.profiles?.full_name || 'Distribuidor' },
+              _source: 'order'
+            });
+          });
+        });
+        logs = [...logs, ...orderLogs];
+      } catch (e) { console.error('Error fetching order movements:', e); }
+
+      logs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      setMovementLogs(logs);
+      setLogsTruncated(truncated);
+    } catch (err) {
+      console.error('Error fetching movement logs:', err);
+      alert('Error al cargar movimientos: ' + (err.message || err));
+    } finally {
+      setLogsLoading(false);
+    }
+  }, [supabase]);
+
+  const setLogsRange = useCallback((range) => {
+    if (!range?.from || !range?.to) return;
+    const fixed = range.from > range.to ? { from: range.to, to: range.from } : range;
+    logsRangeRef.current = fixed;
+    logsLoadedRef.current = true;
+    setLogsRangeState(fixed);
+    fetchMovementLogs(fixed);
+  }, [fetchMovementLogs]);
+
+  // Primera carga del historial (al abrir la pestaña). Después se refresca con fetchData.
+  const ensureLogsLoaded = useCallback(() => {
+    if (logsLoadedRef.current) return;
+    logsLoadedRef.current = true;
+    fetchMovementLogs();
+  }, [fetchMovementLogs]);
 
   // Primary Data Fetching
   const fetchData = useCallback(async () => {
@@ -181,73 +308,9 @@ export function useInventarios() {
         .eq('role', 'admin');
       setAdmins(adminUsers || []);
 
-      // 7. Fetch movement logs (last 200)
-      let logs = [];
-      try {
-        const { data: logsData, error: logsErr } = await supabase
-          .from('inventory_logs')
-          .select('*, product:products(name, sku), user:profiles(full_name, email)')
-          .order('created_at', { ascending: false })
-          .limit(200);
-        if (logsErr) throw logsErr;
-        logs = logsData || [];
-      } catch {
-        const { data: logsData } = await supabase
-          .from('inventory_logs')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(200);
-
-        const { data: allProfiles } = await supabase.from('profiles').select('id, full_name, email');
-        const profMap = {};
-        (allProfiles || []).forEach(p => { profMap[p.id] = p; });
-
-        logs = (logsData || []).map(l => ({
-          ...l,
-          product: (productsData || []).find(p => p.id === l.product_id) || null,
-          user: profMap[l.user_id || l.created_by] || null
-        }));
-      }
-
-      // 8. Fetch order movements (confirmed/shipped/closed orders)
-      try {
-        const { data: ordersData } = await supabase
-          .from('orders')
-          .select(`
-            id, order_number, status, created_at, confirmed_at, shipped_at,
-            profiles:distributor_id(full_name),
-            order_items(id, quantity, product_id, warehouse_id,
-              products(name, sku))
-          `)
-          .in('status', ['confirmed', 'in_fulfillment', 'shipped', 'closed'])
-          .order('created_at', { ascending: false })
-          .limit(100);
-
-        if (ordersData) {
-          const orderLogs = [];
-          ordersData.forEach(o => {
-            const dateUsed = o.shipped_at || o.confirmed_at || o.created_at;
-            const statusLabel = o.status === 'shipped' || o.status === 'closed' ? 'Enviado' :
-                                o.status === 'in_fulfillment' ? 'En Surtido' : 'Confirmado';
-            (o.order_items || []).forEach(item => {
-              const whName = (whData || []).find(w => w.id === item.warehouse_id)?.name || '';
-              orderLogs.push({
-                id: `order-${item.id}`,
-                created_at: dateUsed,
-                quantity_change: -(item.quantity),
-                reason: `Pedido #${o.order_number} (${statusLabel}) [Bodega: ${whName}]`,
-                product: item.products,
-                user: { full_name: o.profiles?.full_name || 'Distribuidor' },
-                _source: 'order'
-              });
-            });
-          });
-          logs = [...logs, ...orderLogs];
-        }
-      } catch (e) { console.error('Error fetching order movements:', e); }
-
-      logs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      setMovementLogs(logs);
+      // 7-8. Movement logs: solo si ya se abrió la pestaña Historial (evita cargar 30 días en cada refresco)
+      logsCtxRef.current = { prodList: productsData || [], whList: whData || [] };
+      if (logsLoadedRef.current) await fetchMovementLogs();
 
       // 9. Fetch retail sales for PRO users (from lastmile_orders)
       if (isPro) {
@@ -278,7 +341,7 @@ export function useInventarios() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, router]);
+  }, [supabase, router, fetchMovementLogs]);
 
   useEffect(() => {
     fetchData();
@@ -1208,6 +1271,11 @@ export function useInventarios() {
     // Sessions, Logs and Retail Sales
     countSessions,
     movementLogs,
+    logsRange,
+    setLogsRange,
+    logsLoading,
+    logsTruncated,
+    ensureLogsLoaded,
     retailSales,
     setRetailSales,
     salesSearch,

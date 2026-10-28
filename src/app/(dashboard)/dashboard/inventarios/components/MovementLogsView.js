@@ -1,13 +1,66 @@
 'use client';
 
-import React, { useState } from 'react';
-import { History, Search, Warehouse, FileDown, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
+import { History, Search, Warehouse, FileDown, User, Calendar, Loader2, ChevronDown, AlertTriangle } from 'lucide-react';
+import { todayMX } from '@/utils/formatters';
+
+const PAGE_SIZE = 300;
+
+const shiftDays = (ymd, days) => {
+  const d = new Date(`${ymd}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+};
+
+const buildPresets = () => {
+  const today = todayMX();
+  const [y, m] = today.split('-').map(Number);
+  const firstThis = `${today.slice(0, 7)}-01`;
+  const prevY = m === 1 ? y - 1 : y;
+  const prevM = m === 1 ? 12 : m - 1;
+  const firstPrev = `${prevY}-${String(prevM).padStart(2, '0')}-01`;
+  const lastPrev = shiftDays(firstThis, -1);
+  return [
+    { key: 'today', label: 'Hoy', from: today, to: today },
+    { key: '7d', label: '7 días', from: shiftDays(today, -6), to: today },
+    { key: '30d', label: '30 días', from: shiftDays(today, -30), to: today },
+    { key: 'month', label: 'Este mes', from: firstThis, to: today },
+    { key: 'prev', label: 'Mes pasado', from: firstPrev, to: lastPrev },
+    { key: '90d', label: '90 días', from: shiftDays(today, -90), to: today },
+  ];
+};
+
+const getRowData = (log) => {
+  const whMatch = (log.reason || '').match(/\[Bodega:\s*(.+?)\]/);
+  const warehouseName = whMatch ? whMatch[1] : (log.warehouse?.name || '');
+  const cleanReason = (log.reason || log.notes || '').replace(/\s*\[Bodega:.*?\]/, '').trim();
+  const qty = log.quantity_change ?? log.qty_change ?? 0;
+  const userName = log.user?.full_name || log.user?.email || log.user_email || 'Sistema';
+  return { warehouseName, cleanReason, qty, userName };
+};
 
 export default function MovementLogsView({
   logs = [],
-  warehouses = []
+  warehouses = [],
+  range,
+  onRangeChange,
+  loading = false,
+  truncated = false
 }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [draftFrom, setDraftFrom] = useState(range?.from || '');
+  const [draftTo, setDraftTo] = useState(range?.to || '');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const presets = buildPresets();
+  const activePreset = presets.find(p => p.from === range?.from && p.to === range?.to)?.key;
+
+  useEffect(() => {
+    setDraftFrom(range?.from || '');
+    setDraftTo(range?.to || '');
+  }, [range?.from, range?.to]);
+
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [searchQuery, logs]);
 
   const filteredLogs = logs.filter((log) => {
     const query = searchQuery.toLowerCase();
@@ -18,35 +71,95 @@ export default function MovementLogsView({
 
     return name.includes(query) || sku.includes(query) || user.includes(query) || reason.includes(query);
   });
+  const visibleLogs = filteredLogs.slice(0, visibleCount);
 
-  const handleExportCsv = () => {
-    const headers = ['Fecha', 'Hora', 'SKU', 'Producto', 'Cantidad', 'Bodega', 'Motivo', 'Usuario'];
+  const applyCustomRange = () => {
+    if (!draftFrom || !draftTo || !onRangeChange) return;
+    onRangeChange({ from: draftFrom, to: draftTo });
+  };
+
+  const handleExportExcel = () => {
     const rows = filteredLogs.map(log => {
-      const whMatch = (log.reason || '').match(/\[Bodega:\s*(.+?)\]/);
-      const warehouseName = whMatch ? whMatch[1] : (log.warehouse?.name || '');
-      const cleanReason = (log.reason || '').replace(/\s*\[Bodega:.*?\]/, '').trim();
-      return [
-        new Date(log.created_at).toLocaleDateString('es-MX'),
-        new Date(log.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-        log.product?.sku || '',
-        log.product?.name || '',
-        log.quantity_change ?? log.qty_change ?? 0,
-        warehouseName,
-        cleanReason,
-        log.user?.full_name || log.user?.email || ''
-      ];
+      const { warehouseName, cleanReason, qty, userName } = getRowData(log);
+      const d = new Date(log.created_at);
+      return {
+        'Fecha': d.toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' }),
+        'Hora': d.toLocaleTimeString('es-MX', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit' }),
+        'SKU': log.product?.sku || '',
+        'Producto': log.product?.name || '',
+        'Cantidad': Number(qty) || 0,
+        'Bodega': warehouseName,
+        'Motivo': cleanReason,
+        'Usuario': userName
+      };
     });
-    const csv = '\uFEFF' + [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url;
-    a.download = `movimientos_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 32 }, { wch: 10 }, { wch: 22 }, { wch: 50 }, { wch: 28 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Movimientos');
+    const suffix = searchQuery ? '_filtrado' : '';
+    XLSX.writeFile(wb, `Movimientos_${range?.from || ''}_a_${range?.to || ''}${suffix}.xlsx`);
   };
 
   return (
     <div className="space-y-4">
+      {/* Date range */}
+      {range && onRangeChange && (
+        <div className="bg-white/70 backdrop-blur-md border border-slate-200 rounded-2xl p-3 shadow-sm flex flex-col lg:flex-row lg:items-center gap-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {presets.map(p => (
+              <button
+                key={p.key}
+                id={`logs-preset-${p.key}`}
+                onClick={() => onRangeChange({ from: p.from, to: p.to })}
+                disabled={loading}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer disabled:opacity-50 ${
+                  activePreset === p.key
+                    ? 'bg-[#6a9a04] text-white border-[#6a9a04] shadow-sm'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+            <Calendar size={15} className="text-slate-400" />
+            <input
+              id="logs-date-from"
+              type="date"
+              value={draftFrom}
+              max={draftTo || undefined}
+              onChange={(e) => setDraftFrom(e.target.value)}
+              className="px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20"
+            />
+            <span className="text-xs text-slate-400">a</span>
+            <input
+              id="logs-date-to"
+              type="date"
+              value={draftTo}
+              min={draftFrom || undefined}
+              onChange={(e) => setDraftTo(e.target.value)}
+              className="px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20"
+            />
+            <button
+              id="logs-apply-range"
+              onClick={applyCustomRange}
+              disabled={loading || !draftFrom || !draftTo || (draftFrom === range.from && draftTo === range.to)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 rounded-lg border-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {loading ? <Loader2 size={13} className="animate-spin" /> : null} Aplicar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {truncated && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium">
+          <AlertTriangle size={14} /> El rango es muy grande y se cortó en 30,000 registros. Usa un rango más corto para ver todo.
+        </div>
+      )}
+
       {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="relative flex-1 w-full max-w-md">
@@ -61,10 +174,14 @@ export default function MovementLogsView({
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-          <span className="text-sm text-slate-500 font-medium">{filteredLogs.length} movimientos</span>
+          <span className="text-sm text-slate-500 font-medium inline-flex items-center gap-1.5">
+            {loading && <Loader2 size={14} className="animate-spin text-[#6a9a04]" />}
+            {filteredLogs.length.toLocaleString('es-MX')} movimientos
+          </span>
           <button
-            onClick={handleExportCsv}
-            disabled={filteredLogs.length === 0}
+            id="logs-export-excel"
+            onClick={handleExportExcel}
+            disabled={filteredLogs.length === 0 || loading}
             className="flex items-center gap-2 px-4 py-2.5 bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white text-sm font-bold rounded-xl shadow-lg shadow-[#6a9a04]/20 border-none cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <FileDown size={16} /> Exportar Excel
@@ -77,7 +194,7 @@ export default function MovementLogsView({
         <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-12 text-center">
           <History size={48} className="mx-auto mb-4 text-slate-300" />
           <p className="text-lg font-bold text-slate-400">Sin movimientos</p>
-          <p className="text-sm text-slate-400 mt-1">Los ajustes manuales, salidas y pedidos aparecerán aquí.</p>
+          <p className="text-sm text-slate-400 mt-1">{loading ? 'Cargando movimientos del rango...' : 'No hay movimientos en el rango seleccionado.'}</p>
         </div>
       ) : (
         <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-xl rounded-2xl overflow-hidden">
@@ -94,19 +211,17 @@ export default function MovementLogsView({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredLogs.map((log, idx) => {
-                  const qty = log.quantity_change ?? log.qty_change ?? 0;
+                {visibleLogs.map((log, idx) => {
+                  const { warehouseName: whRaw, cleanReason: reasonRaw, qty, userName } = getRowData(log);
                   const isPositive = qty > 0;
-                  const whMatch = (log.reason || '').match(/\[Bodega:\s*(.+?)\]/);
-                  const warehouseName = whMatch ? whMatch[1] : (log.warehouse?.name || '—');
-                  const cleanReason = (log.reason || '—').replace(/\s*\[Bodega:.*?\]/, '').trim();
+                  const warehouseName = whRaw || '—';
+                  const cleanReason = reasonRaw || '—';
                   const dateStr = new Date(log.created_at || Date.now()).toLocaleDateString('es-MX', {
                     day: '2-digit', month: 'short', year: 'numeric'
                   });
                   const timeStr = new Date(log.created_at || Date.now()).toLocaleTimeString('es-MX', {
                     hour: '2-digit', minute: '2-digit'
                   });
-                  const userName = log.user?.full_name || log.user?.email || log.user_email || 'Sistema';
 
                   return (
                     <tr key={log.id || idx} className="hover:bg-white/50 transition-colors">
@@ -150,6 +265,20 @@ export default function MovementLogsView({
               </tbody>
             </table>
           </div>
+          {filteredLogs.length > visibleCount && (
+            <div className="border-t border-slate-100 p-3 flex items-center justify-center gap-3 bg-slate-50/50">
+              <span className="text-xs text-slate-500">
+                Mostrando {visibleCount.toLocaleString('es-MX')} de {filteredLogs.length.toLocaleString('es-MX')}
+              </span>
+              <button
+                id="logs-show-more"
+                onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#6a9a04] bg-white border border-[#6a9a04]/30 hover:bg-[#6a9a04]/5 rounded-xl cursor-pointer transition-all"
+              >
+                <ChevronDown size={14} /> Ver más movimientos
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
