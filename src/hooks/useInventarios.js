@@ -1,3 +1,4 @@
+import { todayMX } from '@/utils/formatters';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -29,6 +30,11 @@ export function useInventarios() {
   const [isProUser, setIsProUser] = useState(false);
   const [proWarehouseId, setProWarehouseId] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [subRole, setSubRole] = useState(null);
+
+  // Monthly inventory closings (cierres mensuales)
+  const [closings, setClosings] = useState([]);
+  const [generatingClosing, setGeneratingClosing] = useState(false);
 
   // Stock Adjustment State
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -112,8 +118,18 @@ export function useInventarios() {
       }
 
       setIsAdmin(profile?.role === 'admin');
+      setSubRole(profile?.sub_role || null);
       setIsProUser(!!isPro);
       if (isPro) setProWarehouseId(profile.assigned_warehouse_id);
+
+      // Cierres mensuales (solo admins; RLS bloquea al resto)
+      if (profile?.role === 'admin') {
+        const { data: closingsData } = await supabase
+          .from('inventory_closings')
+          .select('*')
+          .order('period', { ascending: false });
+        setClosings(closingsData || []);
+      }
 
       // 1. Fetch active products
       const { data: productsData } = await supabase
@@ -450,7 +466,7 @@ export function useInventarios() {
           .insert({
             distributor_id: transferProInfo.id,
             warehouse_id: transferFrom,
-            reception_date: new Date().toISOString().split('T')[0],
+            reception_date: todayMX(),
             container_label: `Traspaso ${fromName} → ${destName}`,
             charge_amount: -creditAmt,
             total_origin_cost: 0,
@@ -935,7 +951,7 @@ export function useInventarios() {
           .insert({
             distributor_id: pro.id,
             warehouse_id: originWarehouseId,
-            reception_date: new Date().toISOString().split('T')[0],
+            reception_date: todayMX(),
             container_label: `Traspaso ${fromName} → ${destName}`,
             charge_amount: -creditAmt,
             total_origin_cost: 0,
@@ -1063,6 +1079,39 @@ export function useInventarios() {
     handleCsvFile({ target: { files: [file] } });
   }, [handleCsvFile]);
 
+  // ─── Cierres mensuales ───
+  // Genera el cierre del mes en curso (solo Super Admin, solo el último día del mes; lo valida la base)
+  const handleGenerateClosing = useCallback(async () => {
+    if (!confirm(
+      '¿Generar AHORA el cierre de inventario de este mes?\n\n' +
+      'Se guardará una foto del stock y su valor tal como están en este momento. ' +
+      'Después ya no se puede modificar, y el cierre automático de las 23:00 ya no se generará.'
+    )) return;
+    setGeneratingClosing(true);
+    const { data, error } = await supabase.rpc('generate_inventory_closing', { p_method: 'manual' });
+    setGeneratingClosing(false);
+    if (error) { alert('Error al generar cierre: ' + error.message); return; }
+    if (data && !data.success) { alert(data.error || 'No se pudo generar el cierre.'); return; }
+    alert(`✅ Cierre ${data.period} generado.\nValor total: $${Number(data.total_value).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`);
+    await fetchData();
+  }, [supabase, fetchData]);
+
+  // Detalle (SKU × bodega) de un cierre
+  const fetchClosingItems = useCallback(async (closingId) => {
+    const { data, error } = await supabase
+      .from('inventory_closing_items')
+      .select('*')
+      .eq('closing_id', closingId)
+      .order('sku')
+      .order('warehouse_name');
+    if (error) { alert('Error al cargar el detalle del cierre: ' + error.message); return []; }
+    return data || [];
+  }, [supabase]);
+
+  // Contabilidad y Solo Lectura: ven inventarios pero no pueden moverlos
+  const isReadOnly = isAdmin && ['accountant', 'viewer'].includes(subRole);
+  const isSuperAdmin = isAdmin && subRole === 'super_admin';
+
   // Flat stock rows for modals: { product_id, sku, warehouse_id, stock, reserved, cantidad (= disponible) }
   const stockData = useMemo(() => {
     const skuById = {};
@@ -1100,6 +1149,15 @@ export function useInventarios() {
     userId,
     userRole: isAdmin ? 'ADMIN' : isProUser ? 'PRO' : 'USER',
     isPro: isProUser,
+    subRole,
+    isReadOnly,
+    isSuperAdmin,
+
+    // Monthly closings
+    closings,
+    generatingClosing,
+    handleGenerateClosing,
+    fetchClosingItems,
 
     // Matrix and Filters
     matrix,

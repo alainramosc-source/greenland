@@ -18,7 +18,8 @@ export default function CountSessionsView({
   sessions = [],
   warehouses = [],
   onCreateSession,
-  loading = false
+  loading = false,
+  isReadOnly = false
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedWarehouse, setSelectedWarehouse] = useState('');
@@ -61,12 +62,14 @@ export default function CountSessionsView({
           />
         </div>
 
+        {!isReadOnly && (
         <button
           onClick={() => setShowCreateModal(true)}
           className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white text-sm font-bold rounded-xl border-none cursor-pointer transition-all shadow-lg shadow-[#6a9a04]/20 shrink-0"
         >
           <Plus size={16} /> Nuevo Conteo
         </button>
+        )}
       </div>
 
       {/* Sessions List */}

@@ -104,7 +104,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
     : [...baseDistributorItems, ...proItems];
 
   const allAdminItems = [
-    { name: 'Inventarios', href: '/dashboard/inventarios', icon: Package, roles: ['super_admin', 'warehouse_admin'] },
+    { name: 'Inventarios', href: '/dashboard/inventarios', icon: Package, roles: ['super_admin', 'warehouse_admin', 'accountant'] },
     { name: 'Venta en Mostrador', href: '/dashboard/venta-mostrador', icon: ShoppingBag, roles: ['super_admin', 'warehouse_admin'] },
     { name: 'Etiquetas', href: '/dashboard/etiquetas', icon: Tag, roles: ['super_admin', 'warehouse_admin'] },
     { name: 'Cobertura', href: '/dashboard/cobertura', icon: ShieldCheck, roles: ['super_admin'] },

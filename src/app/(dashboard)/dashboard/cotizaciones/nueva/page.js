@@ -71,8 +71,8 @@ function round2(x) {
 // Today's date in YYYY-MM-DD
 // =============================================================================
 function todayStr() {
-  const d = new Date();
-  return d.toISOString().split('T')[0];
+  // Hora de México (toISOString es UTC y después de las 18:00 da el día siguiente)
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
 }
 
 // =============================================================================

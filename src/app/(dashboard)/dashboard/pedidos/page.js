@@ -1,4 +1,5 @@
 'use client';
+import { todayMX } from '@/utils/formatters';
 import React from 'react';
 import * as XLSX from 'xlsx';
 import { createClient } from '@/utils/supabase/client';
@@ -457,7 +458,7 @@ export default function PedidosPage() {
                     const ws = XLSX.utils.json_to_sheet(rows);
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
-                    XLSX.writeFile(wb, `pedidos_${new Date().toISOString().split('T')[0]}.xlsx`);
+                    XLSX.writeFile(wb, `pedidos_${todayMX()}.xlsx`);
                   }}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 bg-white/50 border border-white/80 hover:bg-white cursor-pointer transition-all backdrop-blur-md shadow-sm"
                   title="Exportar pedidos a Excel"

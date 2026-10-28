@@ -1,3 +1,4 @@
+import { todayMX } from '@/utils/formatters';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
@@ -50,7 +51,7 @@ const stripTechnicalTags = (notes) =>
     .trim();
 
 const toNum = (v) => Number(v) || 0;
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => todayMX();
 
 export function useReceptionForm() {
   const supabase = createClient();

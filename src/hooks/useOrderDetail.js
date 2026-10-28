@@ -1,4 +1,5 @@
 'use client';
+import { todayMX } from '@/utils/formatters';
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
@@ -55,7 +56,7 @@ export function useOrderDetail() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     amount: '', payment_method: 'transferencia', reference: '',
-    payment_date: new Date().toISOString().split('T')[0], notes: ''
+    payment_date: todayMX(), notes: ''
   });
   
   const [editingItems, setEditingItems] = useState({});
@@ -895,7 +896,7 @@ export function useOrderDetail() {
       setShowPaymentModal(false);
       setPaymentForm({
         amount: '', payment_method: 'transferencia', reference: '',
-        payment_date: new Date().toISOString().split('T')[0], notes: ''
+        payment_date: todayMX(), notes: ''
       });
       await fetchOrderDetails();
     }

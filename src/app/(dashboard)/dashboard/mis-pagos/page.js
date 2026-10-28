@@ -7,7 +7,7 @@ import {
   Loader2, Plus, FileText, AlertTriangle, ChevronDown, ChevronUp, Eye,
   Copy, Building2, Mail, Shield
 } from 'lucide-react';
-import { formatDateOnly } from '@/utils/formatters';
+import { formatDateOnly, todayMX } from '@/utils/formatters';
 
 const STATUS_MAP = {
   pending: { label: 'Pendiente', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: Clock },
@@ -30,7 +30,7 @@ export default function MisPagosPage() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [form, setForm] = useState({
     amount: '', payment_method: 'transferencia', reference: '',
-    payment_date: new Date().toISOString().split('T')[0],
+    payment_date: todayMX(),
     notes: '', receipt_url: ''
   });
   const [allocations, setAllocations] = useState([]); // [{order_id, amount}]
@@ -241,7 +241,7 @@ export default function MisPagosPage() {
     if (data && !data.success) { alert(data.error || 'Error al registrar el pago. Contacta al administrador.'); return; }
 
     setShowModal(false);
-    setForm({ amount: '', payment_method: 'transferencia', reference: '', payment_date: new Date().toISOString().split('T')[0], notes: '', receipt_url: '' });
+    setForm({ amount: '', payment_method: 'transferencia', reference: '', payment_date: todayMX(), notes: '', receipt_url: '' });
     setAllocations([]);
     fetchData();
   };

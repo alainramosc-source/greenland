@@ -1,4 +1,5 @@
 'use client';
+import { todayMX } from '@/utils/formatters';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
@@ -213,7 +214,7 @@ export function useRecepcionesList() {
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Recepciones');
-      XLSX.writeFile(wb, `Recepciones_Contenedores_${new Date().toISOString().split('T')[0]}.xlsx`);
+      XLSX.writeFile(wb, `Recepciones_Contenedores_${todayMX()}.xlsx`);
       showToast('Reporte de recepciones exportado exitosamente');
     } catch (err) {
       console.error('Error exporting to excel:', err);

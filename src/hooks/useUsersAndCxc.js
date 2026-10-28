@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useSearchParams } from 'next/navigation';
-import { formatDateOnly } from '@/utils/formatters';
+import { formatDateOnly, todayMX } from '@/utils/formatters';
 
 export function useUsersAndCxc() {
   const supabase = createClient();
@@ -593,7 +593,7 @@ export function useUsersAndCxc() {
       const link = document.createElement('a');
       link.setAttribute('href', url);
       const safeName = (dist.full_name || 'distribuidor').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
-      link.setAttribute('download', `reporte_${safeName}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute('download', `reporte_${safeName}_${todayMX()}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -628,7 +628,7 @@ export function useUsersAndCxc() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `usuarios_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `usuarios_${todayMX()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

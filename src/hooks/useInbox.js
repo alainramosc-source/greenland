@@ -539,15 +539,19 @@ export function useInbox() {
   // Delete conversation
   const handleDeleteConversation = useCallback(async (convId) => {
     try {
-      await supabase.from('inbox_messages').delete().eq('conversation_id', convId);
-      await supabase.from('inbox_conversations').delete().eq('id', convId);
+      const { error: msgErr } = await supabase.from('inbox_messages').delete().eq('conversation_id', convId);
+      if (msgErr) throw msgErr;
+      const { data: delRows, error: convErr } = await supabase.from('inbox_conversations').delete().eq('id', convId).select('id');
+      if (convErr) throw convErr;
+      // Si RLS bloquea, Supabase no da error: simplemente borra 0 filas
+      if (!delRows?.length) throw new Error('No se borró (sin permiso o ya no existe).');
       setConversations(prev => prev.filter(c => c.id !== convId));
       setActiveConversation(null);
       setMessages([]);
       setShowMobileChat(false);
     } catch (err) {
       console.error('Delete error:', err);
-      alert('Error al borrar conversación');
+      alert('Error al borrar conversación: ' + (err?.message || err));
     }
   }, [supabase]);
 

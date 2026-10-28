@@ -1,4 +1,5 @@
 'use client';
+import { todayMX } from '@/utils/formatters';
 
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
@@ -44,23 +45,21 @@ export function usePayments() {
   const [uploadingReceiptId, setUploadingReceiptId] = useState(null);
   const [cashMovements, setCashMovements] = useState([]);
   const [showExitModal, setShowExitModal] = useState(false);
-  const [exitForm, setExitForm] = useState({ amount: '', concept: '', responsible: '', notes: '', movement_date: new Date().toISOString().split('T')[0] });
+  const [exitForm, setExitForm] = useState({ amount: '', concept: '', responsible: '', notes: '', movement_date: todayMX() });
   const [exitSubmitting, setExitSubmitting] = useState(false);
   const [editModal, setEditModal] = useState(null);
   const [editForm, setEditForm] = useState({ amount: '', concept: '', responsible: '', notes: '', movement_date: '' });
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [showEntryModal, setShowEntryModal] = useState(false);
-  const [entryForm, setEntryForm] = useState({ amount: '', concept: '', responsible: '', notes: '', movement_date: new Date().toISOString().split('T')[0] });
+  const [entryForm, setEntryForm] = useState({ amount: '', concept: '', responsible: '', notes: '', movement_date: todayMX() });
   const [entrySubmitting, setEntrySubmitting] = useState(false);
   // Cash audits (arqueo de caja)
   const [cashAudits, setCashAudits] = useState([]);
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [auditForm, setAuditForm] = useState({ counted: '', notes: '', performed_by: '' });
   const [auditSubmitting, setAuditSubmitting] = useState(false);
-  const [cajaDateFrom, setCajaDateFrom] = useState(() => {
-    const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0];
-  });
-  const [cajaDateTo, setCajaDateTo] = useState(new Date().toISOString().split('T')[0]);
+  const [cajaDateFrom, setCajaDateFrom] = useState(() => `${todayMX().slice(0, 7)}-01`);
+  const [cajaDateTo, setCajaDateTo] = useState(todayMX());
   const [cajaSubTab, setCajaSubTab] = useState('movimientos'); // 'movimientos' | 'diario'
   const [dailySearchTerm, setDailySearchTerm] = useState('');
   // Order lookup map: uuid -> { order_number, total_amount }
@@ -281,7 +280,7 @@ export function usePayments() {
     setExitSubmitting(false);
     if (error) { alert('Error: ' + error.message); return; }
     setShowExitModal(false);
-    setExitForm({ amount: '', concept: '', responsible: '', notes: '', movement_date: new Date().toISOString().split('T')[0] });
+    setExitForm({ amount: '', concept: '', responsible: '', notes: '', movement_date: todayMX() });
     fetchData();
   };
 
@@ -324,7 +323,7 @@ export function usePayments() {
     setEntrySubmitting(false);
     if (error) { alert('Error: ' + error.message); return; }
     setShowEntryModal(false);
-    setEntryForm({ amount: '', concept: '', responsible: '', notes: '', movement_date: new Date().toISOString().split('T')[0] });
+    setEntryForm({ amount: '', concept: '', responsible: '', notes: '', movement_date: todayMX() });
     fetchData();
   };
 
@@ -495,7 +494,7 @@ export function usePayments() {
   };
 
   const parseDate = (val) => {
-    if (!val) return new Date().toISOString().split('T')[0];
+    if (!val) return todayMX();
     if (typeof val === 'number') {
       // Excel serial date
       const date = new Date((val - 25569) * 86400 * 1000);
@@ -635,7 +634,7 @@ export function usePayments() {
     setAuditSubmitting(true);
     const userId = (await supabase.auth.getUser()).data.user?.id;
     const { error } = await supabase.from('cash_audits').insert({
-      audit_date: new Date().toISOString().split('T')[0],
+      audit_date: todayMX(),
       expected_balance: Math.round(expectedBalance * 100) / 100,
       counted_balance: parseFloat(auditForm.counted),
       notes: auditForm.notes.trim() || null,
@@ -712,7 +711,7 @@ export function usePayments() {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Pagos');
-    XLSX.writeFile(wb, `reporte_pagos_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(wb, `reporte_pagos_${todayMX()}.xlsx`);
   };
 
   

@@ -17,3 +17,18 @@ export const formatDateOnly = (dateString, opts) => {
     const options = opts || { day: '2-digit', month: 'short', year: 'numeric' };
     return new Date(safe).toLocaleDateString('es-MX', options);
 };
+
+// ─── Fechas en hora de México ───────────────────────────────────────────────
+// NO usar `new Date().toISOString().split('T')[0]` para "hoy": eso es fecha UTC
+// y a partir de las 18:00 hora de México ya devuelve el día siguiente.
+export const MX_TZ = 'America/Mexico_City';
+
+// 'YYYY-MM-DD' de una fecha (por defecto ahora) en hora de México
+export const toDateMX = (date = new Date()) =>
+    new Date(date).toLocaleDateString('en-CA', { timeZone: MX_TZ });
+
+// 'YYYY-MM-DD' de hoy en hora de México
+export const todayMX = () => toDateMX();
+
+// 'YYYY-MM-01' del mes actual en hora de México
+export const firstOfMonthMX = () => `${todayMX().slice(0, 7)}-01`;

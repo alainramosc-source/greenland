@@ -1,4 +1,5 @@
 'use client';
+import { todayMX } from '@/utils/formatters';
 
 import React from 'react';
 import {
@@ -24,6 +25,7 @@ export default function StockTableView({
   onOpenTransfer,
   onOpenProSale,
   userRole,
+  isReadOnly = false,
   isPro,
   stats,
   valuationData,
@@ -65,7 +67,7 @@ export default function StockTableView({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Inventario_Greenland_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `Inventario_Greenland_${todayMX()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -152,7 +154,7 @@ export default function StockTableView({
       </div>
 
       {/* Bulk Actions Bar if items selected */}
-      {someSelected && (
+      {someSelected && !isReadOnly && (
         <div className="bg-emerald-600 text-white p-3 rounded-xl shadow-md flex items-center justify-between animate-fadeIn">
           <span className="text-sm font-medium pl-2">
             {selectedSkus.length} producto(s) seleccionado(s)
@@ -319,6 +321,7 @@ export default function StockTableView({
 
                       {/* Actions */}
                       <td className="p-3.5 text-right">
+                        {!isReadOnly && (
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => onOpenAdjust([row.sku])}
@@ -333,6 +336,7 @@ export default function StockTableView({
                             <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
                           </button>
                         </div>
+                        )}
                       </td>
                     </tr>
                   );

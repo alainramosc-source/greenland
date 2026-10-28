@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import {
   Search, Receipt, Calendar, User, Warehouse, ChevronDown, ChevronUp, RotateCcw, Loader2, CheckCircle2, XCircle, Printer, Download
 } from 'lucide-react';
-import { formatDateOnly } from '@/utils/formatters';
+import { formatDateOnly, todayMX } from '@/utils/formatters';
 
 export default function SalesHistoryTab({
   salesHistory = [],
@@ -110,7 +110,7 @@ export default function SalesHistoryTab({
       XLSX.utils.book_append_sheet(wb, wsItems, 'Detalle de Productos');
       XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen de Ventas');
 
-      const fileName = `reporte_ventas_mostrador_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const fileName = `reporte_ventas_mostrador_${todayMX()}.xlsx`;
       XLSX.writeFile(wb, fileName);
     } catch (err) {
       console.error('Error al exportar ventas:', err);

@@ -1,8 +1,9 @@
 'use client';
+import { todayMX } from '@/utils/formatters';
 
 import React, { useState } from 'react';
 import {
-  Boxes, RefreshCw, FileSpreadsheet, Sliders, ArrowRightLeft, ClipboardCheck, History, Package, AlertTriangle, Layers, Download, ShoppingCart
+  Boxes, RefreshCw, FileSpreadsheet, Sliders, ArrowRightLeft, ClipboardCheck, History, Package, AlertTriangle, Layers, Download, ShoppingCart, CalendarCheck
 } from 'lucide-react';
 import useInventarios from '@/hooks/useInventarios';
 
@@ -14,6 +15,7 @@ import CountSessionsView from './components/CountSessionsView';
 import MovementLogsView from './components/MovementLogsView';
 import ProBulkSaleModal from './components/ProBulkSaleModal';
 import RetailSalesHistoryView from './components/RetailSalesHistoryView';
+import ClosingsView from './components/ClosingsView';
 
 export default function InventariosPage() {
   const {
@@ -53,8 +55,17 @@ export default function InventariosPage() {
     proWarehouseId,
     retailSales,
     salesSearch,
-    setSalesSearch
+    setSalesSearch,
+    subRole,
+    isReadOnly,
+    isSuperAdmin,
+    closings,
+    generatingClosing,
+    handleGenerateClosing,
+    fetchClosingItems
   } = useInventarios();
+
+  const canSeeClosings = userRole === 'ADMIN' && ['super_admin', 'accountant', 'viewer'].includes(subRole);
 
   const [activeTab, setActiveTab] = useState('matrix'); // 'matrix' | 'conteo' | 'historial'
   const [modalState, setModalState] = useState({
@@ -123,7 +134,7 @@ export default function InventariosPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Inventario_Greenland_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `Inventario_Greenland_${todayMX()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -161,6 +172,7 @@ export default function InventariosPage() {
             <Download className="w-4 h-4" /> Exportar a Excel
           </button>
 
+          {!isReadOnly && (<>
           <button
             onClick={handleDownloadTemplate}
             className="inline-flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold rounded-xl transition-all shadow-sm"
@@ -188,6 +200,7 @@ export default function InventariosPage() {
           >
             <Sliders className="w-4 h-4" /> Ajuste Manual
           </button>
+          </>)}
 
           {isPro && (
             <button
@@ -301,6 +314,19 @@ export default function InventariosPage() {
         >
           <History className="w-4 h-4" /> Historial de Movimientos
         </button>
+
+        {canSeeClosings && (
+          <button
+            onClick={() => setActiveTab('cierres')}
+            className={`pb-3 inline-flex items-center gap-2 transition-all border-b-2 ${
+              activeTab === 'cierres'
+                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+            }`}
+          >
+            <CalendarCheck className="w-4 h-4" /> Cierres Mensuales
+          </button>
+        )}
       </div>
 
       {/* Tab Panels */}
@@ -324,6 +350,7 @@ export default function InventariosPage() {
           onOpenTransfer={(skus) => openModal('transfer', skus)}
           onOpenProSale={(skus) => openModal('proSale', skus)}
           userRole={userRole}
+          isReadOnly={isReadOnly}
           isPro={isPro}
           stats={stats}
           valuationData={valuationData}
@@ -337,6 +364,17 @@ export default function InventariosPage() {
           warehouses={warehouses}
           onCreateSession={handleCreateCountSession}
           loading={loading}
+          isReadOnly={isReadOnly}
+        />
+      )}
+
+      {activeTab === 'cierres' && canSeeClosings && (
+        <ClosingsView
+          closings={closings}
+          fetchClosingItems={fetchClosingItems}
+          onGenerateClosing={handleGenerateClosing}
+          generatingClosing={generatingClosing}
+          canGenerate={isSuperAdmin}
         />
       )}
 
@@ -352,7 +390,7 @@ export default function InventariosPage() {
           sales={retailSales}
           searchFilter={salesSearch}
           setSearchFilter={setSalesSearch}
-          onNewSale={() => openModal('proSale', selectedSkus)}
+          onNewSale={isReadOnly ? undefined : () => openModal('proSale', selectedSkus)}
           isPro={isPro}
           loading={loading}
         />

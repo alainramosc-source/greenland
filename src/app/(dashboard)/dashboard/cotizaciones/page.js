@@ -1,4 +1,5 @@
 'use client';
+import { todayMX } from '@/utils/formatters';
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -66,7 +67,7 @@ export default function CotizacionesPage() {
       client_email: q.client_email,
       client_phone: q.client_phone,
       city: q.city,
-      quote_date: new Date().toISOString().split('T')[0],
+      quote_date: todayMX(),
       validity_days: q.validity_days,
       currency: q.currency,
       status: 'draft',
