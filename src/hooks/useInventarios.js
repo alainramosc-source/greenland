@@ -990,18 +990,30 @@ export function useInventarios() {
 
   // Action Handler: Count Session
   const handleCreateCountSessionWrapper = useCallback(async ({ warehouseId, notes }) => {
+    if (!warehouseId) { alert('Selecciona una bodega'); return; }
     setLoading(true);
-    const { error } = await supabase.rpc('create_count_session', {
+    const { data, error } = await supabase.rpc('create_count_session', {
       p_warehouse_id: warehouseId,
-      p_notes: sanitizeText(notes, 300) || 'Sesión de conteo físico'
+      p_count_type: 'full',
+      p_responsible_user_id: userId,
+      p_notes: sanitizeText(notes, 300) || 'Sesión de conteo físico',
+      p_freeze: false
     });
+    setLoading(false);
     if (error) {
       alert('Error al crear sesión: ' + error.message);
+      return;
+    }
+    if (data && data.success === false) {
+      alert('Error al crear sesión: ' + (data.error || 'desconocido'));
+      return;
+    }
+    if (data?.session_id) {
+      router.push(`/dashboard/inventarios/conteo/${data.session_id}`);
     } else {
       await fetchData();
     }
-    setLoading(false);
-  }, [supabase, fetchData]);
+  }, [supabase, fetchData, userId, router]);
 
   // Action Handler: Pro Retail Sale (via create_retail_sale RPC)
   const handleProRetailSaleWrapper = useCallback(async ({ warehouseId, items, clientName, notes }) => {
