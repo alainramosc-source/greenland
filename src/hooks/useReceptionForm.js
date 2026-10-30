@@ -90,6 +90,8 @@ export function useReceptionForm() {
     customs_broker_ref: '',
     freight_maritime: '',
     freight_national: '',
+    freight_external: false, // true = transportista externo/no frecuente: no se genera orden de flete
+    freight_external_carrier: '',
     import_taxes: '',
     port_handling: '',
     customs_broker: '',
@@ -226,6 +228,8 @@ export function useReceptionForm() {
           customs_broker_ref: reception.customs_broker_ref || '',
           freight_maritime: reception.freight_maritime || '',
           freight_national: reception.freight_national || '',
+          freight_external: !!reception.freight_external,
+          freight_external_carrier: reception.freight_external_carrier || '',
           import_taxes: reception.import_taxes || '',
           port_handling: reception.port_handling || '',
           customs_broker: reception.customs_broker || '',
@@ -638,6 +642,8 @@ export function useReceptionForm() {
     reception_date: form.reception_date,
     freight_maritime: toNum(form.freight_maritime),
     freight_national: toNum(form.freight_national),
+    freight_external: !!form.freight_external,
+    freight_external_carrier: form.freight_external ? (form.freight_external_carrier?.trim() || null) : null,
     import_taxes: toNum(form.import_taxes),
     port_handling: toNum(form.port_handling),
     customs_broker: toNum(form.customs_broker),
@@ -658,6 +664,10 @@ export function useReceptionForm() {
     }
     if (items.length === 0) {
       alert('Agrega al menos un producto');
+      return false;
+    }
+    if (form.freight_external && !form.freight_external_carrier?.trim()) {
+      alert('Indica el nombre del transportista externo del flete nacional');
       return false;
     }
     return true;
@@ -753,9 +763,16 @@ export function useReceptionForm() {
       }
 
       if (existing) {
+        if (form.freight_external) {
+          // No se toca una orden ya existente: se avisa para cancelarla a mano si corresponde
+          return { warning: 'Esta recepción ya tenía una orden de flete con el transportista registrado. Como ahora el flete es externo, revisa y cancela esa orden en Proveedores si no aplica.' };
+        }
         await supabase.from('service_orders').update(fields).eq('id', existing.id);
         return;
       }
+
+      // Transportista externo / no frecuente: no se genera orden de servicio
+      if (form.freight_external) return;
 
       const { data: fleteSuppliers } = await supabase
         .from('suppliers')
@@ -797,6 +814,10 @@ export function useReceptionForm() {
   // Save changes on an ALREADY COMPLETED reception (Alain Ramos only).
   // Does not touch stock or the product's avg_cost.
   const handleSaveCompleted = async () => {
+    if (form.freight_external && !form.freight_external_carrier?.trim()) {
+      alert('Indica el nombre del transportista externo del flete nacional');
+      return;
+    }
     setSaving(true);
 
     const { error: recErr } = await supabase
@@ -818,10 +839,14 @@ export function useReceptionForm() {
       if (error) console.error('Error updating item', item.sku, error);
     }
 
-    await syncFreightServiceOrder(editId, { matchByOperation: true });
+    const soResult = await syncFreightServiceOrder(editId, { matchByOperation: true });
 
     setSaving(false);
-    alert('✅ Recepción actualizada exitosamente. Orden de flete sincronizada.');
+    alert(
+      form.freight_external
+        ? `✅ Recepción actualizada. Flete externo (${form.freight_external_carrier}): no se generó orden de flete.` + (soResult?.warning ? `\n\n⚠️ ${soResult.warning}` : '')
+        : '✅ Recepción actualizada exitosamente. Orden de flete sincronizada.'
+    );
     router.push('/dashboard/recepciones');
   };
 
@@ -869,6 +894,9 @@ export function useReceptionForm() {
         (form.distributor_id
           ? `• Se generará un cargo de $${chargeAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} al distribuidor PRO\n`
           : '') +
+        (form.freight_external
+          ? `• Flete nacional con transportista externo (${form.freight_external_carrier}): NO se generará orden de flete\n`
+          : `• Se generará la orden de flete para el transportista registrado\n`) +
         `\nEsta acción no se puede deshacer.`
       )
     ) {
@@ -960,13 +988,14 @@ export function useReceptionForm() {
       }
     }
 
-    // 4. Inland freight service order
-    await syncFreightServiceOrder(id);
+    // 4. Inland freight service order (se omite si el flete es con transportista externo)
+    const soResult = await syncFreightServiceOrder(id);
 
     alert(
-      stockErrors.length
+      (stockErrors.length
         ? `Recepción confirmada con algunos errores de stock:\n${stockErrors.join('\n')}`
-        : '✅ Recepción confirmada exitosamente'
+        : '✅ Recepción confirmada exitosamente') +
+      (soResult?.warning ? `\n\n⚠️ ${soResult.warning}` : '')
     );
     setConfirming(false);
     router.push('/dashboard/recepciones');

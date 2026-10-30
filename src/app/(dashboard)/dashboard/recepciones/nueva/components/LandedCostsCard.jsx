@@ -1,5 +1,5 @@
 'use client';
-import { DollarSign } from 'lucide-react';
+import { DollarSign, Truck } from 'lucide-react';
 
 export default function LandedCostsCard({
   form,
@@ -10,7 +10,13 @@ export default function LandedCostsCard({
 }) {
   const fields = [
     { key: 'freight_maritime', label: 'Flete Marítimo (USD)', isUsd: true },
-    { key: 'freight_national', label: 'Flete Nacional (MXN)', hint: 'Se crea orden de flete única para el tractor' },
+    {
+      key: 'freight_national',
+      label: 'Flete Nacional (MXN)',
+      hint: form.freight_external
+        ? `Transportista externo${form.freight_external_carrier ? ` (${form.freight_external_carrier})` : ''}: no se crea orden de flete`
+        : 'Se crea orden de flete única para el tractor',
+    },
     { key: 'import_taxes', label: 'Impuestos Importación (MXN)' },
     { key: 'port_handling', label: 'Maniobras en Puerto (MXN)' },
     { key: 'customs_broker', label: 'Despacho Aduanal (MXN)' },
@@ -55,6 +61,44 @@ export default function LandedCostsCard({
             {hint && <p className="text-[10px] text-slate-400 mt-1 m-0">{hint}</p>}
           </div>
         ))}
+      </div>
+
+      {/* Flete con transportista externo / no frecuente */}
+      <div className={`mt-4 p-4 rounded-2xl border transition-colors ${form.freight_external ? 'bg-amber-50/70 border-amber-200' : 'bg-slate-50/70 border-slate-200'}`}>
+        <label className="flex items-start gap-3 cursor-pointer select-none">
+          <input
+            id="freight-external-toggle"
+            type="checkbox"
+            checked={!!form.freight_external}
+            onChange={(e) => setForm((f) => ({ ...f, freight_external: e.target.checked }))}
+            disabled={isCompleted && !isAuthorized}
+            className="mt-0.5 w-4 h-4 accent-[#6a9a04] cursor-pointer"
+          />
+          <span>
+            <span className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
+              <Truck size={15} className={form.freight_external ? 'text-amber-600' : 'text-slate-400'} />
+              Flete nacional con transportista externo (no generar orden de flete)
+            </span>
+            <span className="block text-[11px] text-slate-500 mt-0.5">
+              Úsalo cuando el traslado lo hace un transportista no frecuente (ej. traslado local en Altamira). El monto del flete se sigue sumando al costo aterrizado; sube su factura en Documentos.
+            </span>
+          </span>
+        </label>
+
+        {form.freight_external && (
+          <div className="mt-3 sm:pl-7">
+            <label className="block text-xs font-bold text-slate-700 mb-1">Nombre del transportista *</label>
+            <input
+              id="freight-external-carrier"
+              type="text"
+              value={form.freight_external_carrier || ''}
+              onChange={(e) => setForm((f) => ({ ...f, freight_external_carrier: e.target.value }))}
+              disabled={isCompleted && !isAuthorized}
+              placeholder="Ej: Transportes del Golfo"
+              className="w-full sm:max-w-md px-4 py-2.5 bg-white border border-amber-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-amber-300/40 shadow-sm disabled:opacity-60"
+            />
+          </div>
+        )}
       </div>
 
       {/* Description for other costs */}
