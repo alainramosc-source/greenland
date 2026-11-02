@@ -183,6 +183,8 @@ export default function InventariosPage() {
           </button>
 
           {!isReadOnly && (<>
+          {/* Ajustes y carga masiva: solo admins (los PRO solo registran ventas) */}
+          {!isPro && (<>
           <button
             onClick={handleDownloadTemplate}
             className="inline-flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold rounded-xl transition-all shadow-sm"
@@ -196,6 +198,7 @@ export default function InventariosPage() {
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> Cargar CSV
           </button>
+          </>)}
 
           <button
             onClick={() => openModal('transfer', selectedSkus)}
@@ -204,12 +207,14 @@ export default function InventariosPage() {
             <ArrowRightLeft className="w-4 h-4 text-blue-600" /> Transferir Stock
           </button>
 
+          {!isPro && (
           <button
             onClick={() => openModal('adjust', selectedSkus)}
             className="inline-flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
           >
             <Sliders className="w-4 h-4" /> Ajuste Manual
           </button>
+          )}
           </>)}
 
           {isPro && (
@@ -412,7 +417,7 @@ export default function InventariosPage() {
 
       {/* Dialog Modals */}
       <AdjustStockModal
-        isOpen={modalState.adjust}
+        isOpen={modalState.adjust && !isPro}
         onClose={closeModal}
         targetSkus={modalState.targetSkus}
         warehouses={warehouses}
@@ -439,7 +444,7 @@ export default function InventariosPage() {
       />
 
       <CsvImportModal
-        isOpen={modalState.csv}
+        isOpen={modalState.csv && !isPro}
         onClose={closeModal}
         onFileSelect={handleCsvFileSelect}
         previewData={csvPreviewData}

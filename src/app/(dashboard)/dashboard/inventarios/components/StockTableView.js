@@ -166,12 +166,14 @@ export default function StockTableView({
             >
               <ArrowRightLeft className="w-3.5 h-3.5" /> Transferencia Masiva
             </button>
+            {!isPro && (
             <button
               onClick={() => onOpenAdjust(selectedSkus)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-emerald-800 hover:bg-emerald-50 text-xs font-semibold rounded-lg transition-all shadow-sm"
             >
               <Sliders className="w-3.5 h-3.5" /> Ajuste Masivo
             </button>
+            )}
             {isPro && (
               <button
                 onClick={() => onOpenProSale(selectedSkus)}
@@ -323,12 +325,14 @@ export default function StockTableView({
                       <td className="p-3.5 text-right">
                         {!isReadOnly && (
                         <div className="flex items-center justify-end gap-1.5">
+                          {!isPro && (
                           <button
                             onClick={() => onOpenAdjust([row.sku])}
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-all"
                           >
                             <Sliders className="w-3.5 h-3.5" /> Ajustar
                           </button>
+                          )}
                           <button
                             onClick={() => onOpenTransfer([row.sku])}
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded-lg transition-all"
