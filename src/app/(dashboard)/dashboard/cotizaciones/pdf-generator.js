@@ -280,7 +280,8 @@ export default async function generateQuotationPDF(quotationData) {
   await Promise.all(items.map(async (it) => {
     const imgPath = it.image_url || (it.sku ? `/productos/${it.sku}-P1.jpg` : null);
     if (imgPath) {
-      const d = await loadImage(imgPath);
+      let d = await loadImage(imgPath);
+      if (!d && /\.jpg$/i.test(imgPath)) d = await loadImage(imgPath.replace(/\.jpg$/i, '.png'));
       if (d) {
         if (it.image_url) prodImgs[it.image_url] = d;
         if (it.sku) {

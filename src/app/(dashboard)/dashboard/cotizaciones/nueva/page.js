@@ -880,15 +880,13 @@ function QuotationFormInner() {
                           alt={item.name}
                           className="w-full h-full object-cover"
                           onError={(e) => {
-                            if (e.target.src.endsWith('.jpg')) {
-                              e.target.src = e.target.src.replace(/\.jpg$/, '.png');
-                            } else if (e.target.src.endsWith('.png')) {
-                              e.target.src = e.target.src.replace(/\.png$/, '.jpg');
+                            const img = e.currentTarget;
+                            if (!img.dataset.retried && /\.jpg$/i.test(img.src)) {
+                              img.dataset.retried = '1';
+                              img.src = img.src.replace(/\.jpg$/i, '.png');
                             } else {
-                              e.target.style.display = 'none';
-                              if (e.target.nextSibling) {
-                                e.target.nextSibling.style.display = 'flex';
-                              }
+                              img.style.display = 'none';
+                              if (img.nextSibling) img.nextSibling.style.display = 'flex';
                             }
                           }}
                         />
