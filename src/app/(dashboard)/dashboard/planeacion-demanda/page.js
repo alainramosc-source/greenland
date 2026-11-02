@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { middleEllipsis } from '@/utils/formatters';
 import { useRouter } from 'next/navigation';
 import {
     TrendingUp, ShieldCheck, MapPin, Package, RefreshCw, AlertTriangle, CheckCircle,
@@ -631,7 +632,7 @@ function PlaneacionDemandaPage() {
                                         
                                         <td className="p-3 pl-4">
                                             <div className="font-bold text-slate-900">{row.product.sku}</div>
-                                            <div className="text-[11px] text-slate-500 line-clamp-1">{row.product.name}</div>
+                                            <div className="text-[11px] text-slate-500 line-clamp-1" title={row.product.name}>{middleEllipsis(row.product.name, 36)}</div>
                                             {row.isNewProduct && (
                                                 <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[9px] font-black bg-blue-100 text-blue-700">
                                                     ✨ Producto Nuevo / Lanzamiento

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { middleEllipsis } from '@/utils/formatters';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     ShieldCheck, MapPin, Package, Upload, Edit3, X, Save,
@@ -975,7 +976,7 @@ function CoberturaPage() {
                                     return (
                                         <tr key={row.product.id} className={`hover:bg-white/50 transition-colors ${isEditing ? 'bg-[#6a9a04]/5' : ''}`}>
                                             <td className="sticky left-0 z-5 bg-white/95 px-3 py-2 font-mono text-[11px] font-black text-[#6a9a04]">{row.product.sku}</td>
-                                            <td className="sticky left-[70px] z-5 bg-white/95 px-3 py-2 text-xs text-slate-700 truncate max-w-[200px]">{row.product.name}</td>
+                                            <td className="sticky left-[70px] z-5 bg-white/95 px-3 py-2 text-xs text-slate-700 truncate max-w-[200px]" title={row.product.name}>{middleEllipsis(row.product.name, 28)}</td>
                                             <td className="px-3 py-2 text-center">
                                                 {isEditing && !isCombinedView ? (
                                                     <input type="number" value={editForm.stock_bodega}

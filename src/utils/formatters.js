@@ -32,3 +32,41 @@ export const todayMX = () => toDateMX();
 
 // 'YYYY-MM-01' del mes actual en hora de México
 export const firstOfMonthMX = () => `${todayMX().slice(0, 7)}-01`;
+
+// ─── Nombres largos en una sola línea ───────────────────────────────────────
+// Recorta por en medio (no al final) para conservar la parte que distingue al
+// producto, que suele ir al final: "WPC Indoor Wall Panel / Lambrín Nogal"
+// → "WPC Indoor… Lambrín Nogal". Corta en espacios cuando es posible.
+export const middleEllipsis = (text, max = 30) => {
+    const s = String(text || '').trim().replace(/\s+/g, ' ');
+    if (s.length <= max) return s;
+    const room = max - 2; // "… " ocupa 2
+    let tail;
+    // 1) Si la parte en español (después de " / ") cabe dejando algo de inicio, úsala completa
+    const slash = s.lastIndexOf(' / ');
+    if (slash >= 0 && s.length - slash - 3 <= room - Math.max(4, s.indexOf(' '))) {
+        tail = s.slice(slash + 3);
+    } else {
+        // 2) Si no, palabras completas desde el final (~65% del espacio)
+        const words = s.split(' ');
+        const budget = Math.floor(room * 0.65);
+        tail = words[words.length - 1];
+        for (let i = words.length - 2; i > 0; i--) {
+            const next = `${words[i]} ${tail}`;
+            if (next.length > budget) break;
+            tail = next;
+        }
+        tail = tail.replace(/^[/\-|·]\s*/, '');
+    }
+    // Inicio: palabras completas que quepan en lo que sobra
+    const headBudget = Math.max(3, room - tail.length);
+    let head = '';
+    for (const w of s.split(' ')) {
+        const next = head ? `${head} ${w}` : w;
+        if (next.length > headBudget) break;
+        head = next;
+    }
+    if (!head) head = s.slice(0, headBudget);
+    head = head.replace(/\s*[/\-|·]$/, '');
+    return `${head}… ${tail}`;
+};
