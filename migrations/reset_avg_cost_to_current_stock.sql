@@ -15,6 +15,7 @@
 -- 1. Respaldo de los costos actuales
 CREATE TABLE IF NOT EXISTS products_avg_cost_backup_20261103 AS
 SELECT id, sku, avg_cost, NOW() AS backed_up_at FROM products;
+ALTER TABLE products_avg_cost_backup_20261103 ENABLE ROW LEVEL SECURITY;  -- sin políticas: solo SQL Editor
 
 -- 2. Corrección
 WITH stock AS (
