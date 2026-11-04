@@ -59,7 +59,7 @@ export default function PreciosPage() {
         const [productsRes, historyRes, distributorsRes] = await Promise.all([
             supabase
                 .from('products')
-                .select('id, name, sku, price, category_id, categories:category_id(name)')
+                .select('id, name, sku, price, avg_cost, category_id, categories:category_id(name)')
                 .eq('is_active', true)
                 .order('name'),
             supabase
@@ -520,6 +520,7 @@ export default function PreciosPage() {
             if (sortBy === 'name') { va = a.name; vb = b.name; }
             else if (sortBy === 'sku') { va = a.sku || ''; vb = b.sku || ''; }
             else if (sortBy === 'price') { va = getCurrentPrice(a); vb = getCurrentPrice(b); }
+            else if (sortBy === 'avg_cost') { va = Number(a.avg_cost) || 0; vb = Number(b.avg_cost) || 0; }
             else { va = a.name; vb = b.name; }
             if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
             return sortDir === 'asc' ? va - vb : vb - va;
@@ -743,13 +744,17 @@ export default function PreciosPage() {
                                             {isDistributorMode ? 'Precio Distribuidor' : 'Precio Actual'} <ArrowUpDown className="w-3 h-3" />
                                         </span>
                                     </th>
+                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500 cursor-pointer select-none" onClick={() => handleSort('avg_cost')} title="Costo promedio ponderado puesto en almacén (se recalcula con cada recepción, todas las bodegas)">
+                                        <span className="flex items-center gap-1">Costo Prom. <ArrowUpDown className="w-3 h-3" /></span>
+                                    </th>
+                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500" title="(Precio − Costo) / Precio">Margen</th>
                                     <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Nuevo Precio</th>
                                     <th className="px-4 py-4 text-[11px] font-black uppercase tracking-wider text-slate-500">Diferencia</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredProducts.length === 0 ? (
-                                    <tr><td colSpan={isDistributorMode ? 7 : 6} className="px-6 py-12 text-center text-slate-400">No se encontraron productos.</td></tr>
+                                    <tr><td colSpan={isDistributorMode ? 9 : 8} className="px-6 py-12 text-center text-slate-400">No se encontraron productos.</td></tr>
                                 ) : (
                                     filteredProducts.map(product => {
                                         const currentPrice = getCurrentPrice(product);
@@ -758,6 +763,8 @@ export default function PreciosPage() {
                                         const diff = newPrice - currentPrice;
                                         const diffPct = currentPrice > 0 ? ((diff / currentPrice) * 100).toFixed(1) : 0;
                                         const isCustom = hasCustomPrice(product);
+                                        const avgCost = Number(product.avg_cost) || 0;
+                                        const marginPct = avgCost > 0 && newPrice > 0 ? ((newPrice - avgCost) / newPrice) * 100 : null;
                                         return (
                                             <tr key={product.id} className={`transition-colors ${hasEdit ? 'bg-amber-50/50' : 'hover:bg-white/50'}`}>
                                                 <td className="px-6 py-3">
@@ -790,6 +797,24 @@ export default function PreciosPage() {
                                                             <span className="text-[8px] font-bold text-blue-500 bg-blue-50 px-1 py-0.5 rounded">CUSTOM</span>
                                                         )}
                                                     </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {avgCost > 0 ? (
+                                                        <span className="text-sm font-semibold text-slate-600">
+                                                            ${avgCost.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded" title="Aún no hay recepción con costo para este SKU">Sin costo</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {marginPct === null ? (
+                                                        <span className="text-xs text-slate-300">—</span>
+                                                    ) : (
+                                                        <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${marginPct < 0 ? 'bg-red-50 text-red-600' : marginPct < 15 ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
+                                                            {marginPct.toFixed(1)}%
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="relative">
