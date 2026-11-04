@@ -812,7 +812,7 @@ export function useReceptionForm() {
   // ─── Actions ────────────────────────────────────────────────────────────
 
   // Save changes on an ALREADY COMPLETED reception (Alain Ramos only).
-  // Does not touch stock or the product's avg_cost.
+  // Does not touch stock; adjusts the product's avg_cost if landed costs changed.
   const handleSaveCompleted = async () => {
     if (form.freight_external && !form.freight_external_carrier?.trim()) {
       alert('Indica el nombre del transportista externo del flete nacional');
@@ -830,14 +830,53 @@ export function useReceptionForm() {
       return;
     }
 
+    // Costos ANTES de editar (para ajustar avg_cost con la diferencia)
+    const { data: oldRows } = await supabase
+      .from('container_reception_items')
+      .select('product_id, quantity, unit_landed_cost')
+      .eq('reception_id', editId);
+    const oldByProduct = {};
+    for (const r of oldRows || []) {
+      const o = oldByProduct[r.product_id] || (oldByProduct[r.product_id] = { qty: 0, landed: Number(r.unit_landed_cost) || 0 });
+      o.qty += Number(r.quantity) || 0;
+    }
+
+    const avgErrors = [];
+    const doneProducts = new Set();
     for (const item of items) {
+      const newLanded = getLandedPerUnit(item);
       const { error } = await supabase
         .from('container_reception_items')
-        .update({ unit_landed_cost: getLandedPerUnit(item), warehouse_id: warehouseOf(item) || null })
+        .update({ unit_landed_cost: newLanded, warehouse_id: warehouseOf(item) || null })
         .eq('reception_id', editId)
         .eq('product_id', item.product_id);
-      if (error) console.error('Error updating item', item.sku, error);
+      if (error) { console.error('Error updating item', item.sku, error); continue; }
+
+      // Costo promedio: (avg × stock + piezas del lote aún en stock × Δcosto) / stock
+      if (doneProducts.has(item.product_id)) continue;
+      doneProducts.add(item.product_id);
+      const old = oldByProduct[item.product_id];
+      const oldLanded = old?.landed || 0;
+      const delta = newLanded - oldLanded;
+      if (!old || oldLanded <= 0 || newLanded <= 0 || Math.abs(delta) < 0.005) continue;
+
+      const [{ data: stockRows }, { data: prod }] = await Promise.all([
+        supabase.from('warehouse_stock').select('stock_quantity').eq('product_id', item.product_id),
+        supabase.from('products').select('avg_cost').eq('id', item.product_id).single(),
+      ]);
+      const totalStock = (stockRows || []).reduce((s, r) => s + (Number(r.stock_quantity) || 0), 0);
+      const oldAvg = Number(prod?.avg_cost) || 0;
+      if (totalStock <= 0 || oldAvg <= 0) continue;
+      const qtyInStock = Math.min(old.qty, totalStock);
+      const newAvg = (oldAvg * totalStock + qtyInStock * delta) / totalStock;
+      if (newAvg <= 0) continue;
+      const { error: avgErr } = await supabase
+        .from('products')
+        .update({ avg_cost: Math.round(newAvg * 100) / 100 })
+        .eq('id', item.product_id);
+      if (avgErr) avgErrors.push(`${item.sku}: ${avgErr.message}`);
     }
+    if (avgErrors.length) alert('⚠️ No se pudo actualizar el costo promedio de:\n' + avgErrors.join('\n'));
 
     const soResult = await syncFreightServiceOrder(editId, { matchByOperation: true });
 
