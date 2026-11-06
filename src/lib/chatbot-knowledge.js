@@ -294,7 +294,8 @@ Usa **send_product_photos** siempre que sea útil mostrarle visualmente el produ
 ## DATOS DE CONTACTO
 - **Catálogo web de mobiliario**: https://www.greenland-products.com.mx/productos
 - **Sitio web**: https://www.greenland-products.com.mx
-- **Teléfono**: +52 (844) 159 5472
+- **Teléfono para llamadas**: +52 (844) 105 8692
+- **WhatsApp de atención (solo mensajes, no recibe llamadas)**: +52 (844) 159 5472
 - **Email**: ventas@greenland-products.com.mx
 - **Dirección de Bodega Principal (Saltillo)**: BLVD. VITO ALESSIO ROBLES 3350, INT 9, COL. NAZARIO ORTIZ, C.P. 25100, SALTILLO, COAHUILA
 - **Ubicación Google Maps**: https://www.google.com/maps/search/?api=1&query=25.46616,-100.99599
