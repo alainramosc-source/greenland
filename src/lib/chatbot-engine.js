@@ -369,7 +369,7 @@ async function sendTransferNotification(contactName, contactPhone, reason, conve
  */
 async function createCheckoutLink(supabase, conversationId, items) {
   try {
-    const decoCategories = new Set(['lambrin', 'wall_cladding', 'marmol_pvc', 'piedra_flexible', 'bodega']);
+    const decoCategories = new Set(['lambrin', 'wall_cladding', 'marmol_pvc', 'piedra_flexible', 'bodega', 'tarima']);
     const orderItems = [];
     for (const item of items) {
       const product = PRODUCT_CATALOG.find(
@@ -481,13 +481,18 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
       history.shift();
     }
 
-    // Check if within business hours (9am-6pm Mexico City time)
+    // Check if within business hours (Mexico City time: L-V 9am-6pm with lunch 1pm-2pm, Sat 10am-2pm)
     const now = new Date();
     const mxTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
     const hour = mxTime.getHours();
-    const isBusinessHours = hour >= 9 && hour < 18;
-    const dayName = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][mxTime.getDay()];
-    const isWeekend = mxTime.getDay() === 0 || mxTime.getDay() === 6;
+    const dayOfWeek = mxTime.getDay();
+    const dayName = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][dayOfWeek];
+    const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+    const isSaturday = dayOfWeek === 6;
+    const isLunchHour = isWeekday && hour === 13;
+    const isOpenNow =
+      (isWeekday && hour >= 9 && hour < 18 && !isLunchHour) ||
+      (isSaturday && hour >= 10 && hour < 14);
 
     // Setup Gemini
     const model = genAI.getGenerativeModel({
@@ -498,23 +503,26 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
       systemInstruction: GREENLAND_KNOWLEDGE + `
 
 ## FUNCIONES DISPONIBLES
-- **send_product_photos**: Cuando el cliente pida ver fotos, imágenes, colores o modelos de Lambrín ("lambrin"), Wall Cladding ("wall_cladding"), Mármol PVC ("marmol_pvc"), Piedra Flexible ("piedra_flexible"), o productos por SKU.
-- **create_checkout_link**: Cuando el cliente confirme que quiere comprar productos específicos con cantidades.
-- **transfer_to_human**: Cuando el cliente pida hablar con una persona real, quiera cotización detallada, o quiera ser distribuidor.
+- **send_product_photos**: Cuando el cliente pida ver fotos, imágenes, colores o modelos de Lambrín ("lambrin"), Wall Cladding ("wall_cladding"), Mármol PVC ("marmol_pvc"), Piedra Flexible ("piedra_flexible"), la fachada de la bodega en Saltillo ("bodega"), cómo se envían las tarimas foráneas ("tarima"), o productos por SKU.
+- **create_checkout_link**: Cuando el cliente confirme que quiere comprar productos específicos de mobiliario con cantidades.
+- **transfer_to_human**: Cuando el cliente pida hablar con una persona real, quiera cotización detallada, envío foráneo o quiera ser distribuidor.
 
 ## REGLAS CRÍTICAS
 - Cuando el cliente pida hablar con un humano, SIEMPRE usa la función transfer_to_human SIN IMPORTAR LA HORA. No intentes manejar la transferencia tú solo con un mensaje — DEBES llamar la función para que llegue la notificación al equipo.
-- Si es fuera de horario, PRIMERO llama transfer_to_human Y en tu respuesta menciona que el horario es de 9am a 6pm y que un asesor dará seguimiento a primera hora.
+- Si es fuera de horario, PRIMERO llama transfer_to_human Y en tu respuesta menciona nuestro horario (Lunes a Viernes de 9:00 AM a 6:00 PM con comida de 1:00 PM a 2:00 PM, y Sábados de 10:00 AM a 2:00 PM) y que un asesor dará seguimiento en cuanto estemos en horario.
 - Si no sabes algo, di "No tengo esa información exacta, pero puedo poner a un asesor contigo si quieres."
 - Mantén respuestas cortas (máximo 3-4 líneas).
 - Responde siempre en español.
 
 ## HORARIO DE ATENCIÓN
 - Ahora mismo es ${dayName} y son las ${mxTime.getHours()}:${String(mxTime.getMinutes()).padStart(2, '0')}.
-- ${isBusinessHours && !isWeekend
-  ? 'ESTAMOS ABIERTOS AHORITA. Si preguntan por horario, di que estamos abiertos en este momento y pueden comunicarse o visitarnos. NO recites el horario completo, solo confirma que ESTAMOS ABIERTOS.'
-  : 'ESTAMOS FUERA DE HORARIO. Nuestro horario de atención con asesores humanos es de lunes a viernes de 9:00 AM a 6:00 PM (hora centro de México). Menciona esto si preguntan.'}
-- NUNCA menciones el horario si no te lo preguntan.
+- Nuestro horario oficial de bodega y atención es: **Lunes a Viernes de 9:00 AM a 6:00 PM (cerramos de 1:00 PM a 2:00 PM en horario de comida)** y **Sábados de 10:00 AM a 2:00 PM**.
+- ${isOpenNow
+  ? 'ESTAMOS ABIERTOS AHORITA. Si preguntan por horario, confirma que estamos abiertos y comparte el horario (incluyendo que de 1pm a 2pm cerramos a comer y sábados de 10am a 2pm).'
+  : isLunchHour
+  ? 'AHORITA ESTAMOS EN HORARIO DE COMIDA (1:00 PM a 2:00 PM, la bodega cierra a esta hora y reabre a las 2:00 PM).'
+  : 'ESTAMOS FUERA DE HORARIO. Nuestro horario es de lunes a viernes de 9:00 AM a 6:00 PM (con horario de comida de 1:00 PM a 2:00 PM) y sábados de 10:00 AM a 2:00 PM. Menciona esto si preguntan.'}
+- NUNCA menciones el horario si no te lo preguntan (a menos que pidan la dirección para visitar la bodega).
 - El bot SIEMPRE responde, sin importar la hora.
 
 ## CONTEXTO
@@ -559,17 +567,17 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
           },
           {
             name: 'send_product_photos',
-            description: 'Envía fotografías reales de productos, colores disponibles o la fachada de la bodega en Saltillo directamente al chat del cliente.',
+            description: 'Envía fotografías reales de productos, colores disponibles, la fachada de la bodega en Saltillo o las tarimas de envío foráneo directamente al chat del cliente.',
             parameters: {
               type: 'object',
               properties: {
                 category: {
                   type: 'string',
-                  description: 'Categoría a mostrar: "lambrin", "wall_cladding", "marmol_pvc", "piedra_flexible", "bodega", "mesas", "sillas", "toldos"',
+                  description: 'Categoría a mostrar: "lambrin", "wall_cladding", "marmol_pvc", "piedra_flexible", "bodega", "tarima", "mesas", "sillas", "toldos"',
                 },
                 skus: {
                   type: 'array',
-                  description: 'Lista opcional de SKUs específicos para enviar foto (ej. ["GL26", "GL33", "BODEGA"])',
+                  description: 'Lista opcional de SKUs específicos para enviar foto (ej. ["GL26", "GL33", "BODEGA", "TARIMA-1"])',
                   items: { type: 'string' },
                 },
               },
