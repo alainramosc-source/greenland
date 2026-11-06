@@ -238,7 +238,7 @@ Modelos y precios base:
    - **Complementos**: **GL53** Perfil de Aluminio ($45 MXN/pz), **GL55** Cordón de empaque ($10 MXN/pz).
 
 4. **Piedra Flexible (Interior y Exterior — Medida: 1.22 m de ancho × 60 cm de alto)**
-   - **Ideal también para superficies curvas o columnas** (a diferencia del lambrín que es rígido para muros planos).
+   - **Ideal para muros planos y también para superficies curvas o columnas**.
    - **4 modelos disponibles**:
      - **GL39**: Piedra Flexible **Travertino** — **$145 MXN la pieza**
      - **GL42**: Piedra Flexible **Dacita** — **$165 MXN la pieza**
@@ -265,6 +265,8 @@ Modelos y precios base:
 
 - **¿Cómo se instalan nuestros revestimientos y qué accesorios vendemos?**
   - **Lambrín WPC**: Se instala con **pegamento adhesivo de montaje** o con **clips de instalación**.
+  - **¿El Lambrín se puede colocar en curvas o columnas?**: **¡Sí!** Aunque el lambrín es rígido en primera instancia, **también puede adaptarse a superficies curvas haciéndole cortes verticales en la parte de atrás** para que adquiera cierta flexibilidad y pueda cubrir bases curvas como columnas o muros en forma de ola. (Además de que la Piedra Flexible también es ideal para curvas).
+  - **¿Manejan material para pisos (piso deck / piso WPC)?**: **Por el momento no contamos con material para pisos**; todos nuestros revestimientos son para muros, techos y pérgolas.
   - **Clips de instalación**: **Sí los manejamos nosotros**, se venden sueltos a **$0.50 MXN (50 centavos) la pieza**.
   - **Pegamento**: Nosotros **no vendemos el pegamento**, pero se instala fácilmente con cualquier adhesivo de montaje en cartucho (tipo silicón), como **No Más Clavos (Resistol)**, **Adiós Clavos (Truper)** o **Sika Adhesivo de Montaje**.
   - **Mármol PVC y Piedra Flexible**: Se instalan con **ese mismo tipo de pegamento adhesivo de montaje en cartucho**.
