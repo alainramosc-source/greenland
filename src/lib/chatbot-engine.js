@@ -317,10 +317,25 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
       .order('created_at', { ascending: false })
       .limit(10);
 
-    const history = (msgs || []).reverse().map(m => ({
+    const FALLBACK_REPLY = '¡Hola! Disculpa la demora 😊 ¿En qué puedo ayudarte? Puedo darte información sobre nuestros productos o ponerte en contacto con un asesor.';
+    const alreadySentFallback = (msgs || []).some(
+      m => m.direction === 'outbound' && m.content === FALLBACK_REPLY
+    );
+
+    // Drop the latest inbound message if it matches the current message (already inserted by webhook)
+    const priorMsgs = (msgs || []).slice(
+      msgs?.[0]?.direction === 'inbound' && msgs?.[0]?.content === message ? 1 : 0
+    );
+
+    const history = priorMsgs.reverse().map(m => ({
       role: m.direction === 'inbound' ? 'user' : 'model',
       parts: [{ text: m.content || '' }],
     })).filter(m => m.parts[0].text);
+
+    // Gemini requires history to start with a 'user' message
+    while (history.length > 0 && history[0].role !== 'user') {
+      history.shift();
+    }
 
     // Check if within business hours (9am-6pm Mexico City time)
     const now = new Date();
@@ -401,12 +416,12 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
       }],
     });
 
-    // Chat with Gemini — with timeout protection
-    const chat = model.startChat({ history });
     let botReply = '';
+    let shouldStayActive = true;
 
     try {
-      // Race between Gemini response and 15s timeout
+      // Chat with Gemini — with timeout protection
+      const chat = model.startChat({ history });
       const geminiPromise = chat.sendMessage(message);
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('GEMINI_TIMEOUT')), 30000)
@@ -422,6 +437,7 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
         let functionResult;
 
         if (functionCall.name === 'transfer_to_human') {
+          shouldStayActive = false;
           await supabase
             .from('inbox_conversations')
             .update({ chatbot_active: false })
@@ -479,7 +495,41 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
     } catch (geminiErr) {
       // Fallback message if Gemini times out or fails
       console.error('[Bot] Gemini error:', geminiErr.message, geminiErr.stack?.substring(0, 300));
-      botReply = '¡Hola! Disculpa la demora 😊 ¿En qué puedo ayudarte? Puedo darte información sobre nuestros productos o ponerte en contacto con un asesor.';
+      const isBillingOrQuotaError = /402|429|prepayment|quota|billing/i.test(geminiErr.message || '');
+
+      if (alreadySentFallback || isBillingOrQuotaError) {
+        shouldStayActive = false;
+        botReply = '¡Gracias por tu mensaje! 😊 En este momento te estoy transfiriendo con un asesor de nuestro equipo para atenderte personalmente. En breve te contactamos.';
+
+        try {
+          const { data: conv } = await supabase
+            .from('inbox_conversations')
+            .select('contact_id')
+            .eq('id', conversationId)
+            .single();
+          let contactName = null;
+          let contactPhone = phoneNumber;
+          if (conv?.contact_id) {
+            const { data: contact } = await supabase
+              .from('inbox_contacts')
+              .select('name, phone')
+              .eq('id', conv.contact_id)
+              .single();
+            contactName = contact?.name;
+            contactPhone = contactPhone || contact?.phone;
+          }
+          await sendTransferNotification(
+            contactName,
+            contactPhone,
+            `Falla automática de IA (${geminiErr.message?.substring(0, 120) || 'Error Gemini'}). Mensaje del cliente: "${message}"`,
+            conversationId
+          );
+        } catch (notifyErr) {
+          console.error('[Bot] Fallback transfer notification error:', notifyErr);
+        }
+      } else {
+        botReply = FALLBACK_REPLY;
+      }
     }
 
     // Send reply via the correct platform + save to DB in parallel
@@ -498,7 +548,7 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
         last_message_at: new Date().toISOString(),
         bot_last_replied_at: new Date().toISOString(),
         bot_followup_count: 0, // Reset followup counter on new bot reply
-        chatbot_active: true,
+        chatbot_active: shouldStayActive,
       }).eq('id', conversationId),
     ]);
 
