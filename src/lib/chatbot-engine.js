@@ -369,6 +369,7 @@ async function sendTransferNotification(contactName, contactPhone, reason, conve
  */
 async function createCheckoutLink(supabase, conversationId, items) {
   try {
+    const decoCategories = new Set(['lambrin', 'wall_cladding', 'marmol_pvc', 'piedra_flexible', 'bodega']);
     const orderItems = [];
     for (const item of items) {
       const product = PRODUCT_CATALOG.find(
@@ -376,6 +377,13 @@ async function createCheckoutLink(supabase, conversationId, items) {
              p.name.toLowerCase().includes(item.name?.toLowerCase() || '')
       );
       if (!product) continue;
+
+      if (decoCategories.has(product.category)) {
+        return {
+          success: false,
+          error: 'Los revestimientos de la línea Deco NO cuentan con envío a domicilio. Se entregan únicamente en nuestra bodega en Saltillo: Blvd. Vito Alessio Robles 3350, Int. 9, Col. Nazario Ortiz, C.P. 25100, Saltillo, Coahuila.',
+        };
+      }
 
       const { data: prod } = await supabase
         .from('products')
@@ -551,17 +559,17 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
           },
           {
             name: 'send_product_photos',
-            description: 'Envía fotografías reales de productos o sus colores disponibles directamente al chat del cliente.',
+            description: 'Envía fotografías reales de productos, colores disponibles o la fachada de la bodega en Saltillo directamente al chat del cliente.',
             parameters: {
               type: 'object',
               properties: {
                 category: {
                   type: 'string',
-                  description: 'Categoría de producto a mostrar: "lambrin", "wall_cladding", "marmol_pvc", "piedra_flexible", "mesas", "sillas", "toldos"',
+                  description: 'Categoría a mostrar: "lambrin", "wall_cladding", "marmol_pvc", "piedra_flexible", "bodega", "mesas", "sillas", "toldos"',
                 },
                 skus: {
                   type: 'array',
-                  description: 'Lista opcional de SKUs específicos para enviar foto (ej. ["GL26", "GL33"])',
+                  description: 'Lista opcional de SKUs específicos para enviar foto (ej. ["GL26", "GL33", "BODEGA"])',
                   items: { type: 'string' },
                 },
               },
@@ -652,24 +660,28 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
           }
 
           const toSend = matchedProducts.slice(0, 5);
+          let sentCount = 0;
           for (const prod of toSend) {
             const fullImageUrl = prod.image.startsWith('http') ? prod.image : `${baseUrl}${prod.image}`;
             const caption = prod.caption || `${prod.name} (${prod.sku})`;
-            await sendBotImage(conversationId, phoneNumber, fullImageUrl, caption);
-            await supabase.from('inbox_messages').insert({
-              conversation_id: conversationId,
-              direction: 'outbound',
-              content: caption,
-              content_type: 'image',
-              media_url: fullImageUrl,
-              status: 'sent',
-              metadata: { sent_by: 'chatbot', sku: prod.sku },
-            });
+            const sentOk = await sendBotImage(conversationId, phoneNumber, fullImageUrl, caption);
+            if (sentOk) {
+              sentCount++;
+              await supabase.from('inbox_messages').insert({
+                conversation_id: conversationId,
+                direction: 'outbound',
+                content: caption,
+                content_type: 'image',
+                media_url: fullImageUrl,
+                status: 'sent',
+                metadata: { sent_by: 'chatbot', sku: prod.sku },
+              });
+            }
           }
 
           functionResult = {
-            success: toSend.length > 0,
-            sent_count: toSend.length,
+            success: sentCount > 0,
+            sent_count: sentCount,
             products_sent: toSend.map(p => p.name),
           };
         }
