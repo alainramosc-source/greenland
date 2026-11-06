@@ -32,6 +32,9 @@ async function sendWhatsAppMessage(phoneNumber, text) {
   const phoneNumberId = process.env.META_PHONE_NUMBER_ID;
   if (!accessToken || !phoneNumberId) return false;
 
+  // Convert Markdown **bold** to WhatsApp *bold*
+  const formattedText = String(text || '').replace(/\*\*(.+?)\*\*/g, '*$1*');
+
   try {
     const res = await fetch(
       `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
@@ -45,7 +48,7 @@ async function sendWhatsAppMessage(phoneNumber, text) {
           messaging_product: 'whatsapp',
           to: phoneNumber,
           type: 'text',
-          text: { body: text },
+          text: { body: formattedText },
         }),
       }
     );
@@ -517,23 +520,55 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
   const genAI = getGenAI();
 
   try {
-    // Get conversation history (last 10 messages for speed)
+    // 1) Snapshot latest inbound message ID right now, then debounce 1.8s in case user sends a 2nd message immediately (e.g. "?")
+    const { data: initialInbound } = await supabase
+      .from('inbox_messages')
+      .select('id, created_at')
+      .eq('conversation_id', conversationId)
+      .eq('direction', 'inbound')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    const initialInboundId = initialInbound?.[0]?.id;
+
+    await new Promise(resolve => setTimeout(resolve, 1800));
+
+    // Get conversation history (last 12 messages)
     const { data: msgs } = await supabase
       .from('inbox_messages')
-      .select('direction, content')
+      .select('id, direction, content, content_type, metadata, created_at')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(12);
+
+    // If a newer inbound message arrived during our 1.8s debounce window, skip this run so only the latest webhook responds once
+    const latestInbound = (msgs || []).find(m => m.direction === 'inbound');
+    if (initialInboundId && latestInbound && latestInbound.id !== initialInboundId) {
+      console.log(`[Bot] ⏭️ Skipping stale burst message ("${message}") — newer inbound message (${latestInbound.id}) will handle the reply.`);
+      return { success: true, skipped: true };
+    }
 
     const FALLBACK_REPLY = '¡Hola! Disculpa la demora 😊 ¿En qué puedo ayudarte? Puedo darte información sobre nuestros productos o ponerte en contacto con un asesor.';
-    const alreadySentFallback = (msgs || []).some(
-      m => m.direction === 'outbound' && m.content === FALLBACK_REPLY
+    const lastOutboundMsg = (msgs || []).find(m => m.direction === 'outbound');
+    const lastOutboundWasFallback = lastOutboundMsg?.content === FALLBACK_REPLY;
+
+    // Track which SKUs have already been sent as images in this conversation so we never spam the same photo 2-3 times
+    const alreadySentSkus = new Set(
+      (msgs || [])
+        .filter(m => m.direction === 'outbound' && m.content_type === 'image' && m.metadata?.sku)
+        .map(m => String(m.metadata.sku).toUpperCase())
     );
 
-    // Drop the latest inbound message if it matches the current message (already inserted by webhook)
-    const priorMsgs = (msgs || []).slice(
-      msgs?.[0]?.direction === 'inbound' && msgs?.[0]?.content === message ? 1 : 0
-    );
+    // Combine consecutive trailing inbound messages (e.g. "¿Dónde se encuentran ubicados en Saltillo?" followed by "?")
+    const trailingInbound = [];
+    let idx = 0;
+    while (idx < (msgs || []).length && msgs[idx].direction === 'inbound') {
+      if (msgs[idx].content && msgs[idx].content_type === 'text') {
+        trailingInbound.unshift(msgs[idx].content.trim());
+      }
+      idx++;
+    }
+    const effectiveMessage = trailingInbound.length > 0 ? trailingInbound.join(' ') : message;
+    const priorMsgs = (msgs || []).slice(idx);
 
     const rawHistory = priorMsgs
       .reverse()
@@ -599,19 +634,22 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
 
 ## FUNCIONES DISPONIBLES
 - **send_product_photos**: Cuando el cliente pida ver fotos, imágenes, colores o modelos de Lambrín ("lambrin"), Wall Cladding ("wall_cladding"), Mármol PVC ("marmol_pvc"), Piedra Flexible ("piedra_flexible"), la fachada de la bodega en Saltillo ("bodega"), cómo se envían las tarimas foráneas ("tarima"), o productos por SKU.
+  - **IMPORTANTE**: Si en la conversación YA enviaste la foto de la bodega (${alreadySentSkus.has('BODEGA') ? 'YA ENVIADA EN ESTE CHAT — NO VOLVER A LLAMAR send_product_photos PARA BODEGA' : 'aún no enviada'}), NO vuelvas a enviarla si el cliente solo agradece o dice que nos visitará después.
 - **create_checkout_link**: Cuando el cliente confirme que quiere comprar productos específicos de mobiliario con cantidades.
-- **transfer_to_human**: Cuando el cliente pida hablar con una persona real, quiera cotización detallada, envío foráneo o quiera ser distribuidor.
+- **transfer_to_human**: SOLO cuando el cliente pida hablar con una persona real, quiera cotización de mayoreo/envío foráneo o quiera ser distribuidor. NUNCA transfieras a humano cuando el cliente solo dice "gracias" o "los visitaré la próxima semana".
 
 ## REGLAS CRÍTICAS
+- Siempre que llames a una función (como send_product_photos), escribe también tu respuesta de texto en el mismo mensaje para acompañar la acción.
 - Cuando el cliente pida hablar con un humano, SIEMPRE usa la función transfer_to_human SIN IMPORTAR LA HORA. No intentes manejar la transferencia tú solo con un mensaje — DEBES llamar la función para que llegue la notificación al equipo.
 - Si es fuera de horario, PRIMERO llama transfer_to_human Y en tu respuesta menciona nuestro horario (Lunes a Viernes de 9:00 AM a 6:00 PM con comida de 1:00 PM a 2:00 PM, y Sábados de 10:00 AM a 2:00 PM) y que un asesor dará seguimiento en cuanto estemos en horario.
 - Si no sabes algo, di "No tengo esa información exacta, pero puedo poner a un asesor contigo si quieres."
 - Mantén respuestas cortas (máximo 3-4 líneas, salvo que estés compartiendo lista de precios o modelos solicitados).
+- Usa un solo asterisco *texto* para negritas (formato WhatsApp), no uses doble asterisco.
 - Responde siempre en español.
 
 ## HORARIO DE ATENCIÓN
 - Ahora mismo es ${dayName} y son las ${mxTime.getHours()}:${String(mxTime.getMinutes()).padStart(2, '0')}.
-- Nuestro horario oficial de bodega y atención es: **Lunes a Viernes de 9:00 AM a 6:00 PM (cerramos de 1:00 PM a 2:00 PM en horario de comida)** y **Sábados de 10:00 AM a 2:00 PM**.
+- Nuestro horario oficial de bodega y atención es: *Lunes a Viernes de 9:00 AM a 6:00 PM (cerramos de 1:00 PM a 2:00 PM en horario de comida)* y *Sábados de 10:00 AM a 2:00 PM*.
 - ${isOpenNow
   ? 'ESTAMOS ABIERTOS AHORITA. Si preguntan por horario, confirma que estamos abiertos y comparte el horario (incluyendo que de 1pm a 2pm cerramos a comer y sábados de 10am a 2pm).'
   : isLunchHour
@@ -652,7 +690,7 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
         },
         {
           name: 'transfer_to_human',
-          description: 'Transfiere a un humano. SOLO cuando el cliente lo pida explícitamente.',
+          description: 'Transfiere a un humano. SOLO cuando el cliente lo pida explícitamente o requiera evaluación de distribuidor/envío foráneo.',
           parameters: {
             type: 'object',
             properties: {
@@ -687,7 +725,6 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
 
     try {
       let response = null;
-      let activeChat = null;
       let lastModelErr = null;
 
       for (const modelName of GEMINI_MODELS) {
@@ -698,13 +735,12 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
             tools: toolsConfig,
           });
           const chat = model.startChat({ history });
-          const geminiPromise = chat.sendMessage(message);
+          const geminiPromise = chat.sendMessage(effectiveMessage);
           const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('GEMINI_TIMEOUT')), 20000)
           );
           const result = await Promise.race([geminiPromise, timeoutPromise]);
           response = result.response;
-          activeChat = chat;
           console.log(`[Bot] Model ${modelName} succeeded`);
           break;
         } catch (mErr) {
@@ -713,18 +749,23 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
         }
       }
 
-      if (!response || !activeChat) {
+      if (!response) {
         throw lastModelErr || new Error('All Gemini models failed');
       }
 
-      const chat = activeChat;
+      // Extract any text parts returned alongside or instead of a function call
+      const candidateParts = response.candidates?.[0]?.content?.parts || [];
+      const textFromModel = candidateParts
+        .filter(p => typeof p.text === 'string' && !p.thought)
+        .map(p => p.text)
+        .join('\n')
+        .trim();
 
-      // Handle function calls
+      // Handle function calls WITHOUT a second chat.sendMessage([{ functionResponse }]) call
+      // (avoids Gemini 3.5+ "[400 Bad Request] Role 'function' is not supported" and saves 50% API quota)
       const functionCall = response.functionCalls()?.[0];
 
       if (functionCall) {
-        let functionResult;
-
         if (functionCall.name === 'transfer_to_human') {
           shouldStayActive = false;
           await supabase
@@ -732,7 +773,6 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
             .update({ chatbot_active: false })
             .eq('id', conversationId);
 
-          // Get contact info for notification
           const { data: conv } = await supabase
             .from('inbox_conversations')
             .select('contact_id')
@@ -750,24 +790,23 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
             contactPhone = contactPhone || contact?.phone;
           }
 
-          // Send email + WhatsApp notification to admins
           await sendTransferNotification(
             contactName, contactPhone, functionCall.args.reason, conversationId
           );
 
-          functionResult = {
-            success: true,
-            message: `Conversación transferida. Razón: ${functionCall.args.reason}`,
-          };
+          botReply = textFromModel || (
+            isOpenNow
+              ? '¡Con gusto! 😊 En este momento te estoy comunicando con un asesor de nuestro equipo para atenderte personalmente. En breve te contactamos.'
+              : '¡Con gusto! 😊 He canalizado tu solicitud con un asesor de nuestro equipo. Nuestro horario de atención es de Lunes a Viernes de 9:00 AM a 6:00 PM (comida de 1:00 PM a 2:00 PM) y Sábados de 10:00 AM a 2:00 PM; te daremos seguimiento a primera hora.'
+          );
         } else if (functionCall.name === 'create_checkout_link') {
           const checkoutResult = await createCheckoutLink(supabase, conversationId, functionCall.args.items);
           if (checkoutResult.success) {
-            functionResult = {
-              success: true,
-              message: `Link generado: ${checkoutResult.checkout_url} — Orden: ${checkoutResult.order_number} — Total: $${checkoutResult.total?.toLocaleString('es-MX')} MXN`,
-            };
+            botReply = textFromModel
+              ? `${textFromModel}\n\n🔗 *Completa tus datos de entrega aquí*:\n${checkoutResult.checkout_url}\n📦 Orden: *${checkoutResult.order_number}* — Total: *$${checkoutResult.total?.toLocaleString('es-MX')} MXN*`
+              : `¡Excelente! 😊 Aquí tienes tu enlace para completar tus datos de entrega:\n\n🔗 ${checkoutResult.checkout_url}\n📦 Orden: *${checkoutResult.order_number}*\n💰 Total: *$${checkoutResult.total?.toLocaleString('es-MX')} MXN*`;
           } else {
-            functionResult = { success: false, error: checkoutResult.error };
+            botReply = checkoutResult.error;
           }
         } else if (functionCall.name === 'send_product_photos') {
           const { category, skus } = functionCall.args || {};
@@ -785,14 +824,17 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
             );
           }
 
-          const toSend = matchedProducts.slice(0, 5);
-          let sentCount = 0;
+          // Filter out images already sent in this conversation to prevent duplicate photo spam
+          const toSend = matchedProducts
+            .filter(p => !alreadySentSkus.has(p.sku.toUpperCase()))
+            .slice(0, 5);
+
           for (const prod of toSend) {
             const fullImageUrl = prod.image.startsWith('http') ? prod.image : `${baseUrl}${prod.image}`;
             const caption = prod.caption || `${prod.name} (${prod.sku})`;
             const sentOk = await sendBotImage(conversationId, phoneNumber, fullImageUrl, caption);
             if (sentOk) {
-              sentCount++;
+              alreadySentSkus.add(prod.sku.toUpperCase());
               await supabase.from('inbox_messages').insert({
                 conversation_id: conversationId,
                 direction: 'outbound',
@@ -808,29 +850,30 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
             }
           }
 
-          functionResult = {
-            success: sentCount > 0,
-            sent_count: sentCount,
-            products_sent: toSend.map(p => p.name),
-          };
+          const isBodegaRequest =
+            String(category || '').toLowerCase().trim() === 'bodega' ||
+            matchedProducts.some(p => p.sku === 'BODEGA');
+
+          if (textFromModel) {
+            botReply = textFromModel;
+          } else if (isBodegaRequest) {
+            botReply = '📍 Nuestra bodega en Saltillo se encuentra en:\n*Blvd. Vito Alessio Robles 3350, Int. 9, Col. Nazario Ortiz, C.P. 25100, Saltillo, Coahuila*.\n\n🕒 *Horario de atención*: Lunes a Viernes de 9:00 AM a 6:00 PM (cerramos de 1:00 PM a 2:00 PM en horario de comida) y Sábados de 10:00 AM a 2:00 PM.\n🗺️ *Ubicación en Google Maps*: https://www.google.com/maps/search/?api=1&query=25.46616,-100.99599\n\n¡Te esperamos con mucho gusto! 😊';
+          } else if (matchedProducts.length > 0) {
+            const names = matchedProducts.slice(0, 5).map(p => `*${p.name}*`).join(', ');
+            botReply = `Aquí tienes las imágenes y detalles de ${names} 😊 ¿Qué modelo o color te agrada más?`;
+          } else {
+            botReply = '¿Me podrías confirmar qué modelo o producto te gustaría ver? 😊';
+          }
         }
-
-        result = await chat.sendMessage([{
-          functionResponse: {
-            name: functionCall.name,
-            response: functionResult,
-          },
-        }]);
-        response = result.response;
+      } else {
+        botReply = textFromModel || response.text() || 'Disculpa, ¿podrías repetirlo?';
       }
-
-      botReply = response.text() || 'Disculpa, ¿podrías repetirlo?';
     } catch (geminiErr) {
-      // Fallback message if Gemini times out or fails
+      // Fallback message if ALL 7 Gemini models fail
       console.error('[Bot] Gemini error:', geminiErr.message, geminiErr.stack?.substring(0, 300));
       const isBillingOrQuotaError = /402|429|prepayment|quota|billing/i.test(geminiErr.message || '');
 
-      if (alreadySentFallback || isBillingOrQuotaError) {
+      if (lastOutboundWasFallback || isBillingOrQuotaError) {
         shouldStayActive = false;
         botReply = '¡Gracias por tu mensaje! 😊 En este momento te estoy transfiriendo con un asesor de nuestro equipo para atenderte personalmente. En breve te contactamos.';
 
@@ -854,7 +897,7 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
           await sendTransferNotification(
             contactName,
             contactPhone,
-            `Falla automática de IA (${geminiErr.message?.substring(0, 120) || 'Error Gemini'}). Mensaje del cliente: "${message}"`,
+            `Falla automática de IA (${geminiErr.message?.substring(0, 200) || 'Error Gemini'}). Mensaje del cliente: "${effectiveMessage}"`,
             conversationId
           );
         } catch (notifyErr) {
