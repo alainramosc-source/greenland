@@ -51,12 +51,15 @@ export async function GET(request) {
     if (analyzeWithAI && substantiveCustomerMessages.length > 0 && process.env.GOOGLE_GEMINI_API_KEY) {
       try {
         const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({
-          model: 'gemini-2.5-flash',
-          generationConfig: {
-            thinkingConfig: { thinkingBudget: 0 },
-          },
-        });
+        const GEMINI_MODELS = [
+          'gemini-3.5-flash',
+          'gemini-3.6-flash',
+          'gemini-3.7-flash',
+          'gemini-3-flash-preview',
+          'gemini-2.5-flash',
+          'gemini-3.5-flash-lite',
+          'gemini-3.1-flash-lite',
+        ];
 
         const sampleTranscripts = Array.from(convMap.values())
           .filter(msgs => msgs.some(m => m.direction === 'inbound' && m.content))
@@ -78,7 +81,7 @@ A continuación tienes:
 
 Tu objetivo es analizar todas las preguntas reales que han hecho los clientes e identificar:
 1. **Preguntas Frecuentes Reales (Top FAQs)**: Qué es lo que más preguntan los clientes (con ejemplos reales tomados de los chats).
-2. **Huecos de Información (Qué le falta saber al bot)**: Preguntas específicas que hicieron los clientes (ej. cuántos metros cuadrados cubre una caja de lambrín, cómo se instala o con qué pegamento/clips, si los toldos incluyen paredes laterales o qué colores de lona tienen, si facturan / precios con IVA, cuánto peso aguanta una silla, costos de envío en Saltillo, garantías, etc.) que NO están respondidas claramente en la Base de Conocimiento actual.
+2. **Huecos de Información (Qué le falta saber al bot)**: Preguntas específicas que hicieron los clientes que NO están respondidas claramente en la Base de Conocimiento actual.
 3. **Dónde se atora o transfiere el bot**: Casos donde el bot dio respuestas incompletas, repetitivas o transfirió cuando podría haber resuelto la duda.
 4. **Propuesta lista para agregar al bot**: Lista puntual de datos que debemos pedirle al dueño para que el bot batee el 100% de las preguntas.
 
@@ -90,8 +93,20 @@ ${sampleTranscripts}
 
 Responde en formato Markdown claro, estructurado y directo al grano.`;
 
-        const result = await model.generateContent(prompt);
-        aiReport = result.response.text();
+        let lastErr = null;
+        for (const mName of GEMINI_MODELS) {
+          try {
+            const model = genAI.getGenerativeModel({ model: mName });
+            const result = await model.generateContent(prompt);
+            aiReport = result.response.text();
+            break;
+          } catch (mErr) {
+            lastErr = mErr;
+          }
+        }
+        if (!aiReport && lastErr) {
+          aiReport = `Error generando análisis con IA: ${lastErr.message}`;
+        }
       } catch (aiErr) {
         aiReport = `Error generando análisis con IA: ${aiErr.message}`;
       }
@@ -110,3 +125,4 @@ Responde en formato Markdown claro, estructurado y directo al grano.`;
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+

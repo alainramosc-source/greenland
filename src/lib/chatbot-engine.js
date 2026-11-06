@@ -535,14 +535,25 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
       msgs?.[0]?.direction === 'inbound' && msgs?.[0]?.content === message ? 1 : 0
     );
 
-    const history = priorMsgs.reverse().map(m => ({
-      role: m.direction === 'inbound' ? 'user' : 'model',
-      parts: [{ text: m.content || '' }],
-    })).filter(m => m.parts[0].text);
+    const rawHistory = priorMsgs
+      .reverse()
+      .filter(m => m.content && m.content !== FALLBACK_REPLY)
+      .map(m => ({
+        role: m.direction === 'inbound' ? 'user' : 'model',
+        parts: [{ text: m.content || '' }],
+      }))
+      .filter(m => m.parts[0].text);
 
-    // Gemini requires history to start with a 'user' message
-    while (history.length > 0 && history[0].role !== 'user') {
-      history.shift();
+    // Ensure history starts with 'user' and strictly alternates user/model
+    const history = [];
+    for (const item of rawHistory) {
+      if (history.length === 0) {
+        if (item.role === 'user') history.push(item);
+      } else if (history[history.length - 1].role === item.role) {
+        history[history.length - 1].parts[0].text += '\n' + item.parts[0].text;
+      } else {
+        history.push(item);
+      }
     }
 
     // Check if within business hours (Mexico City time: L-V 9am-6pm with lunch 1pm-2pm, Sat 10am-2pm)
@@ -573,13 +584,18 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
           .join('\n')
       : '';
 
-    // Setup Gemini
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      generationConfig: {
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-      systemInstruction: GREENLAND_KNOWLEDGE + livePricesBlock + `
+    // Setup Gemini config with automatic multi-model failover (Free Tier has per-model daily quotas)
+    const GEMINI_MODELS = [
+      'gemini-3.5-flash',
+      'gemini-3.6-flash',
+      'gemini-3.7-flash',
+      'gemini-3-flash-preview',
+      'gemini-2.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
+    ];
+
+    const systemInstructionText = GREENLAND_KNOWLEDGE + livePricesBlock + `
 
 ## FUNCIONES DISPONIBLES
 - **send_product_photos**: Cuando el cliente pida ver fotos, imágenes, colores o modelos de Lambrín ("lambrin"), Wall Cladding ("wall_cladding"), Mármol PVC ("marmol_pvc"), Piedra Flexible ("piedra_flexible"), la fachada de la bodega en Saltillo ("bodega"), cómo se envían las tarimas foráneas ("tarima"), o productos por SKU.
@@ -590,7 +606,7 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
 - Cuando el cliente pida hablar con un humano, SIEMPRE usa la función transfer_to_human SIN IMPORTAR LA HORA. No intentes manejar la transferencia tú solo con un mensaje — DEBES llamar la función para que llegue la notificación al equipo.
 - Si es fuera de horario, PRIMERO llama transfer_to_human Y en tu respuesta menciona nuestro horario (Lunes a Viernes de 9:00 AM a 6:00 PM con comida de 1:00 PM a 2:00 PM, y Sábados de 10:00 AM a 2:00 PM) y que un asesor dará seguimiento en cuanto estemos en horario.
 - Si no sabes algo, di "No tengo esa información exacta, pero puedo poner a un asesor contigo si quieres."
-- Mantén respuestas cortas (máximo 3-4 líneas).
+- Mantén respuestas cortas (máximo 3-4 líneas, salvo que estés compartiendo lista de precios o modelos solicitados).
 - Responde siempre en español.
 
 ## HORARIO DE ATENCIÓN
@@ -607,78 +623,101 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
 ## CONTEXTO
 - Canal: Mensajería (WhatsApp, Messenger o Instagram)
 - Fecha: ${now.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-`,
-      tools: [{
-        functionDeclarations: [
-          {
-            name: 'create_checkout_link',
-            description: 'Genera un link de checkout para comprar productos.',
-            parameters: {
-              type: 'object',
-              properties: {
+`;
+
+    const toolsConfig = [{
+      functionDeclarations: [
+        {
+          name: 'create_checkout_link',
+          description: 'Genera un link de checkout para comprar productos.',
+          parameters: {
+            type: 'object',
+            properties: {
+              items: {
+                type: 'array',
+                description: 'Productos a comprar',
                 items: {
-                  type: 'array',
-                  description: 'Productos a comprar',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      sku: { type: 'string' },
-                      name: { type: 'string' },
-                      quantity: { type: 'integer' },
-                    },
-                    required: ['sku', 'quantity'],
+                  type: 'object',
+                  properties: {
+                    sku: { type: 'string' },
+                    name: { type: 'string' },
+                    quantity: { type: 'integer' },
                   },
-                },
-              },
-              required: ['items'],
-            },
-          },
-          {
-            name: 'transfer_to_human',
-            description: 'Transfiere a un humano. SOLO cuando el cliente lo pida explícitamente.',
-            parameters: {
-              type: 'object',
-              properties: {
-                reason: { type: 'string' },
-              },
-              required: ['reason'],
-            },
-          },
-          {
-            name: 'send_product_photos',
-            description: 'Envía fotografías reales de productos, colores disponibles, la fachada de la bodega en Saltillo o las tarimas de envío foráneo directamente al chat del cliente.',
-            parameters: {
-              type: 'object',
-              properties: {
-                category: {
-                  type: 'string',
-                  description: 'Categoría a mostrar: "lambrin", "wall_cladding", "marmol_pvc", "piedra_flexible", "bodega", "tarima", "mesas", "sillas", "toldos"',
-                },
-                skus: {
-                  type: 'array',
-                  description: 'Lista opcional de SKUs específicos para enviar foto (ej. ["GL26", "GL33", "BODEGA", "TARIMA-1"])',
-                  items: { type: 'string' },
+                  required: ['sku', 'quantity'],
                 },
               },
             },
+            required: ['items'],
           },
-        ],
-      }],
-    });
+        },
+        {
+          name: 'transfer_to_human',
+          description: 'Transfiere a un humano. SOLO cuando el cliente lo pida explícitamente.',
+          parameters: {
+            type: 'object',
+            properties: {
+              reason: { type: 'string' },
+            },
+            required: ['reason'],
+          },
+        },
+        {
+          name: 'send_product_photos',
+          description: 'Envía fotografías reales de productos, colores disponibles, la fachada de la bodega en Saltillo o las tarimas de envío foráneo directamente al chat del cliente.',
+          parameters: {
+            type: 'object',
+            properties: {
+              category: {
+                type: 'string',
+                description: 'Categoría a mostrar: "lambrin", "wall_cladding", "marmol_pvc", "piedra_flexible", "bodega", "tarima", "mesas", "sillas", "toldos"',
+              },
+              skus: {
+                type: 'array',
+                description: 'Lista opcional de SKUs específicos para enviar foto (ej. ["GL26", "GL33", "BODEGA", "TARIMA-1"])',
+                items: { type: 'string' },
+              },
+            },
+          },
+        },
+      ],
+    }];
 
     let botReply = '';
     let shouldStayActive = true;
 
     try {
-      // Chat with Gemini — with timeout protection
-      const chat = model.startChat({ history });
-      const geminiPromise = chat.sendMessage(message);
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('GEMINI_TIMEOUT')), 30000)
-      );
+      let response = null;
+      let activeChat = null;
+      let lastModelErr = null;
 
-      let result = await Promise.race([geminiPromise, timeoutPromise]);
-      let response = result.response;
+      for (const modelName of GEMINI_MODELS) {
+        try {
+          const model = genAI.getGenerativeModel({
+            model: modelName,
+            systemInstruction: systemInstructionText,
+            tools: toolsConfig,
+          });
+          const chat = model.startChat({ history });
+          const geminiPromise = chat.sendMessage(message);
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('GEMINI_TIMEOUT')), 20000)
+          );
+          const result = await Promise.race([geminiPromise, timeoutPromise]);
+          response = result.response;
+          activeChat = chat;
+          console.log(`[Bot] Model ${modelName} succeeded`);
+          break;
+        } catch (mErr) {
+          lastModelErr = mErr;
+          console.warn(`[Bot] Model ${modelName} failed (${mErr.message?.slice(0, 140)}), trying next model...`);
+        }
+      }
+
+      if (!response || !activeChat) {
+        throw lastModelErr || new Error('All Gemini models failed');
+      }
+
+      const chat = activeChat;
 
       // Handle function calls
       const functionCall = response.functionCalls()?.[0];
