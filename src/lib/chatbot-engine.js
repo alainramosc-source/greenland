@@ -253,6 +253,70 @@ async function sendBotImage(conversationId, recipientId, imageUrl, caption) {
   }
 }
 
+async function sendWhatsAppLocation(phoneNumber, latitude, longitude, name, address) {
+  const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.META_PHONE_NUMBER_ID;
+  if (!accessToken || !phoneNumberId) return false;
+
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: phoneNumber,
+          type: 'location',
+          location: {
+            latitude: String(latitude),
+            longitude: String(longitude),
+            name,
+            address,
+          },
+        }),
+      }
+    );
+    if (!res.ok) {
+      console.error('[Bot] WhatsApp location send error:', await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Bot] WhatsApp location exception:', err);
+    return false;
+  }
+}
+
+async function sendWarehouseLocation(conversationId, recipientId) {
+  const supabase = getSupabase();
+  const { data: conv } = await supabase
+    .from('inbox_conversations')
+    .select('channel_id, contact_id, inbox_channels(platform, access_token, platform_account_id), inbox_contacts(platform_user_id, phone)')
+    .eq('id', conversationId)
+    .single();
+
+  if (!conv?.inbox_channels) return false;
+
+  const platform = conv.inbox_channels.platform;
+  const contactId = conv.inbox_contacts?.platform_user_id || recipientId;
+  const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=25.46616,-100.99599';
+
+  if (platform === 'whatsapp') {
+    return sendWhatsAppLocation(
+      conv.inbox_contacts?.phone || contactId,
+      25.46616,
+      -100.99599,
+      'Greenland Products — Bodega Saltillo',
+      'Blvd. Vito Alessio Robles 3350, Int. 9, Col. Nazario Ortiz, C.P. 25100, Saltillo, Coahuila'
+    );
+  }
+  return sendBotReply(conversationId, recipientId, `📍 Ubicación GPS en Google Maps:\n${mapsUrl}`);
+}
+
 // Route bot reply to the correct platform based on conversation's channel
 async function sendBotReply(conversationId, recipientId, text) {
   const supabase = getSupabase();
@@ -494,13 +558,28 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
       (isWeekday && hour >= 9 && hour < 18 && !isLunchHour) ||
       (isSaturday && hour >= 10 && hour < 14);
 
+    // Query live prices from Supabase so any edits in /dashboard/precios are reflected immediately
+    const { data: liveProducts } = await supabase
+      .from('products')
+      .select('sku, name, price, category')
+      .eq('is_active', true)
+      .order('sku', { ascending: true });
+
+    const livePricesBlock = (liveProducts && liveProducts.length > 0)
+      ? '\n## PRECIOS BASE ACTUALIZADOS EN TIEMPO REAL (PORTAL GREENLAND)\n' +
+        liveProducts
+          .filter(p => Number(p.price) > 0)
+          .map(p => `- **${p.sku}** (${p.name}): **$${Number(p.price).toLocaleString('es-MX')} MXN**`)
+          .join('\n')
+      : '';
+
     // Setup Gemini
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash',
       generationConfig: {
         thinkingConfig: { thinkingBudget: 0 },
       },
-      systemInstruction: GREENLAND_KNOWLEDGE + `
+      systemInstruction: GREENLAND_KNOWLEDGE + livePricesBlock + `
 
 ## FUNCIONES DISPONIBLES
 - **send_product_photos**: Cuando el cliente pida ver fotos, imágenes, colores o modelos de Lambrín ("lambrin"), Wall Cladding ("wall_cladding"), Mármol PVC ("marmol_pvc"), Piedra Flexible ("piedra_flexible"), la fachada de la bodega en Saltillo ("bodega"), cómo se envían las tarimas foráneas ("tarima"), o productos por SKU.
@@ -684,6 +763,9 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
                 status: 'sent',
                 metadata: { sent_by: 'chatbot', sku: prod.sku },
               });
+            }
+            if (prod.sku === 'BODEGA') {
+              await sendWarehouseLocation(conversationId, phoneNumber);
             }
           }
 
