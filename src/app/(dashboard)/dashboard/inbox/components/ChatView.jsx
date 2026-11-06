@@ -319,7 +319,7 @@ export default function ChatView({
                       📄 {msg.content || 'Ver documento adjunto'}
                     </a>
                   )}
-                  {(msg.content_type === 'text' || (msg.content && !['audio', 'image', 'document', 'video'].includes(msg.content_type))) && (
+                  {(msg.content_type === 'text' || (msg.content_type === 'image' && msg.content && msg.content !== '[Imagen]' && !msg.content.startsWith('http')) || (msg.content && !['audio', 'image', 'document', 'video'].includes(msg.content_type))) && (
                     <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed font-normal">{msg.content}</p>
                   )}
                   <div className={`flex items-center justify-end gap-1.5 mt-1.5 ${isOutbound ? 'text-white/70' : 'text-slate-400'}`}>

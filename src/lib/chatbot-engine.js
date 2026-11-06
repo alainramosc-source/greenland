@@ -117,6 +117,142 @@ async function sendInstagramMessage(recipientId, text, accessToken, accountId) {
   }
 }
 
+async function sendWhatsAppImage(phoneNumber, imageUrl, caption) {
+  const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.META_PHONE_NUMBER_ID;
+  if (!accessToken || !phoneNumberId) return false;
+
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: phoneNumber,
+          type: 'image',
+          image: {
+            link: imageUrl,
+            ...(caption ? { caption } : {}),
+          },
+        }),
+      }
+    );
+    if (!res.ok) {
+      console.error('[Bot] WhatsApp image send error:', await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Bot] WhatsApp image exception:', err);
+    return false;
+  }
+}
+
+async function sendMessengerImage(recipientId, imageUrl, caption, accessToken, pageId) {
+  if (!recipientId || !accessToken) return false;
+  try {
+    const endpoint = pageId
+      ? `https://graph.facebook.com/v21.0/${pageId}/messages?access_token=${accessToken}`
+      : `https://graph.facebook.com/v21.0/me/messages?access_token=${accessToken}`;
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: {
+          attachment: {
+            type: 'image',
+            payload: { url: imageUrl, is_reusable: true },
+          },
+        },
+      }),
+    });
+    if (!res.ok) {
+      console.error('[Bot] Messenger image send error:', await res.text());
+      return false;
+    }
+    if (caption) {
+      await sendMessengerMessage(recipientId, caption, accessToken, pageId);
+    }
+    return true;
+  } catch (err) {
+    console.error('[Bot] Messenger image exception:', err);
+    return false;
+  }
+}
+
+async function sendInstagramImage(recipientId, imageUrl, caption, accessToken, accountId) {
+  if (!recipientId || !accessToken || !accountId) return false;
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${accountId}/messages?access_token=${accessToken}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          message: {
+            attachment: {
+              type: 'image',
+              payload: { url: imageUrl },
+            },
+          },
+        }),
+      }
+    );
+    if (!res.ok) {
+      console.error('[Bot] Instagram image send error:', await res.text());
+      return false;
+    }
+    if (caption) {
+      await sendInstagramMessage(recipientId, caption, accessToken, accountId);
+    }
+    return true;
+  } catch (err) {
+    console.error('[Bot] Instagram image exception:', err);
+    return false;
+  }
+}
+
+async function sendBotImage(conversationId, recipientId, imageUrl, caption) {
+  const supabase = getSupabase();
+  const { data: conv } = await supabase
+    .from('inbox_conversations')
+    .select('channel_id, contact_id, inbox_channels(platform, access_token, platform_account_id), inbox_contacts(platform_user_id, phone)')
+    .eq('id', conversationId)
+    .single();
+
+  if (!conv?.inbox_channels) return false;
+
+  const platform = conv.inbox_channels.platform;
+  const contactId = conv.inbox_contacts?.platform_user_id || recipientId;
+  const channelToken = conv.inbox_channels.access_token;
+
+  switch (platform) {
+    case 'whatsapp':
+      return sendWhatsAppImage(conv.inbox_contacts?.phone || contactId, imageUrl, caption);
+    case 'messenger':
+      return sendMessengerImage(contactId, imageUrl, caption, channelToken, conv.inbox_channels.platform_account_id);
+    case 'instagram': {
+      const { data: messengerChannel } = await supabase
+        .from('inbox_channels')
+        .select('access_token, platform_account_id')
+        .eq('platform', 'messenger')
+        .eq('is_active', true)
+        .single();
+      if (!messengerChannel) return false;
+      return sendInstagramImage(contactId, imageUrl, caption, messengerChannel.access_token, messengerChannel.platform_account_id);
+    }
+    default:
+      return false;
+  }
+}
+
 // Route bot reply to the correct platform based on conversation's channel
 async function sendBotReply(conversationId, recipientId, text) {
   const supabase = getSupabase();
@@ -354,6 +490,7 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
       systemInstruction: GREENLAND_KNOWLEDGE + `
 
 ## FUNCIONES DISPONIBLES
+- **send_product_photos**: Cuando el cliente pida ver fotos, imágenes, colores o modelos de Lambrín (`lambrin`), Wall Cladding (`wall_cladding`), Mármol PVC (`marmol_pvc`), Piedra Flexible (`piedra_flexible`), o productos por SKU.
 - **create_checkout_link**: Cuando el cliente confirme que quiere comprar productos específicos con cantidades.
 - **transfer_to_human**: Cuando el cliente pida hablar con una persona real, quiera cotización detallada, o quiera ser distribuidor.
 
@@ -410,6 +547,24 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
                 reason: { type: 'string' },
               },
               required: ['reason'],
+            },
+          },
+          {
+            name: 'send_product_photos',
+            description: 'Envía fotografías reales de productos o sus colores disponibles directamente al chat del cliente.',
+            parameters: {
+              type: 'object',
+              properties: {
+                category: {
+                  type: 'string',
+                  description: 'Categoría de producto a mostrar: "lambrin", "wall_cladding", "marmol_pvc", "piedra_flexible", "mesas", "sillas", "toldos"',
+                },
+                skus: {
+                  type: 'array',
+                  description: 'Lista opcional de SKUs específicos para enviar foto (ej. ["GL26", "GL33"])',
+                  items: { type: 'string' },
+                },
+              },
             },
           },
         ],
@@ -480,6 +635,43 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
           } else {
             functionResult = { success: false, error: checkoutResult.error };
           }
+        } else if (functionCall.name === 'send_product_photos') {
+          const { category, skus } = functionCall.args || {};
+          const baseUrl = 'https://www.greenland-products.com.mx';
+          let matchedProducts = [];
+
+          if (Array.isArray(skus) && skus.length > 0) {
+            const skuSet = new Set(skus.map(s => String(s).toUpperCase().trim()));
+            matchedProducts = PRODUCT_CATALOG.filter(p => skuSet.has(p.sku.toUpperCase()) && p.image);
+          }
+          if (matchedProducts.length === 0 && category) {
+            const catNorm = String(category).toLowerCase().trim();
+            matchedProducts = PRODUCT_CATALOG.filter(
+              p => p.category.toLowerCase() === catNorm && p.image
+            );
+          }
+
+          const toSend = matchedProducts.slice(0, 5);
+          for (const prod of toSend) {
+            const fullImageUrl = prod.image.startsWith('http') ? prod.image : `${baseUrl}${prod.image}`;
+            const caption = prod.caption || `${prod.name} (${prod.sku})`;
+            await sendBotImage(conversationId, phoneNumber, fullImageUrl, caption);
+            await supabase.from('inbox_messages').insert({
+              conversation_id: conversationId,
+              direction: 'outbound',
+              content: caption,
+              content_type: 'image',
+              media_url: fullImageUrl,
+              status: 'sent',
+              metadata: { sent_by: 'chatbot', sku: prod.sku },
+            });
+          }
+
+          functionResult = {
+            success: toSend.length > 0,
+            sent_count: toSend.length,
+            products_sent: toSend.map(p => p.name),
+          };
         }
 
         result = await chat.sendMessage([{
