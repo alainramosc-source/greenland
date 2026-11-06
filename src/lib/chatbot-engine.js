@@ -490,7 +490,7 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
       systemInstruction: GREENLAND_KNOWLEDGE + `
 
 ## FUNCIONES DISPONIBLES
-- **send_product_photos**: Cuando el cliente pida ver fotos, imágenes, colores o modelos de Lambrín (`lambrin`), Wall Cladding (`wall_cladding`), Mármol PVC (`marmol_pvc`), Piedra Flexible (`piedra_flexible`), o productos por SKU.
+- **send_product_photos**: Cuando el cliente pida ver fotos, imágenes, colores o modelos de Lambrín ("lambrin"), Wall Cladding ("wall_cladding"), Mármol PVC ("marmol_pvc"), Piedra Flexible ("piedra_flexible"), o productos por SKU.
 - **create_checkout_link**: Cuando el cliente confirme que quiere comprar productos específicos con cantidades.
 - **transfer_to_human**: Cuando el cliente pida hablar con una persona real, quiera cotización detallada, o quiera ser distribuidor.
 
