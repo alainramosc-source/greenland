@@ -1271,7 +1271,7 @@ export default function EstadisticasPage() {
                                                                 <div className="bg-white rounded-xl p-3 border border-slate-200/80">
                                                                     <p className="text-[10px] font-bold text-slate-400 uppercase m-0">Prom. en Meses Activos</p>
                                                                     <p className="text-sm font-black text-slate-900 m-0 mt-1">{fmt(row.avgActiveMonthRev)}</p>
-                                                                    <p className="text-[10px] text-slate-400 m-0">Cuando sí mete pedido ({row.activeClosedMonths} meses)</p>
+                                                                    <p className="text-[10px] text-slate-400 m-0">Meses con compra ({row.activeClosedMonths} de {row.numClosedMonths})</p>
                                                                 </div>
                                                                 <div className="bg-white rounded-xl p-3 border border-slate-200/80">
                                                                     <p className="text-[10px] font-bold text-slate-400 uppercase m-0">Última Compra</p>
