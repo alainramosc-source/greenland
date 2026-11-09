@@ -103,11 +103,11 @@ export default function MisPagosPage() {
     });
 
     if (ordData) {
-      // Calculate paid amount per order (approved + pending)
+      // Calculate paid amount per order (approved + pending), rounded to 2 decimals to prevent IEEE-754 float drift
       ordData.forEach(o => {
-        o.total_paid = (o.order_payments || []).reduce((s, p) => s + Number(p.amount), 0);
-        o.pending_amount = pendingByOrder[o.id] || 0;
-        o.balance = Math.max(Number(o.total_amount) - o.total_paid - o.pending_amount, 0);
+        o.total_paid = Math.round((o.order_payments || []).reduce((s, p) => s + Number(p.amount), 0) * 100) / 100;
+        o.pending_amount = Math.round((pendingByOrder[o.id] || 0) * 100) / 100;
+        o.balance = Math.max(Math.round((Number(o.total_amount) - o.total_paid - o.pending_amount) * 100) / 100, 0);
       });
       setOrders(ordData);
     }
@@ -183,16 +183,18 @@ export default function MisPagosPage() {
     setAllocations(prev => prev.map(a => a.order_id === orderId ? { ...a, amount } : a));
   };
 
-  const allocTotal = Math.round(allocations.reduce((s, a) => s + (Number(a.amount) || 0), 0) * 100) / 100;
+  const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+  const allocTotal = round2(allocations.reduce((s, a) => s + round2(a.amount), 0));
 
   const handleSubmit = async () => {
-    const validAmount = validateAmount(form.amount);
-    if (!validAmount) { alert('Ingresa un monto válido (mayor a 0)'); return; }
+    const rawValidAmount = validateAmount(form.amount);
+    if (!rawValidAmount) { alert('Ingresa un monto válido (mayor a 0)'); return; }
+    const validAmount = round2(rawValidAmount);
     if (allocations.length === 0) { alert('Selecciona al menos un pedido o saldo de contenedores para aplicar el pago'); return; }
 
     // Validate each allocation has an amount
     for (const alloc of allocations) {
-      if (!alloc.amount || Number(alloc.amount) <= 0) {
+      if (!alloc.amount || round2(alloc.amount) <= 0) {
         alert('Ingresa el monto a aplicar para cada pedido seleccionado');
         return;
       }
@@ -202,27 +204,29 @@ export default function MisPagosPage() {
     for (const alloc of allocations) {
       if (alloc.order_id === '__containers__') continue;
       const order = orders.find(o => o.id === alloc.order_id);
-      if (order && Number(alloc.amount) > order.balance + 0.01) {
-        alert(`No puedes aplicar $${Number(alloc.amount).toLocaleString('es-MX', {minimumFractionDigits:2})} al pedido #${order.order_number || 'N/A'} porque su saldo pendiente es solo $${order.balance.toLocaleString('es-MX', {minimumFractionDigits:2})}`);
+      if (order && round2(alloc.amount) > round2(order.balance) + 0.01) {
+        alert(`No puedes aplicar $${round2(alloc.amount).toLocaleString('es-MX', {minimumFractionDigits:2})} al pedido #${order.order_number || 'N/A'} porque su saldo pendiente es solo $${round2(order.balance).toLocaleString('es-MX', {minimumFractionDigits:2})}`);
         return;
       }
     }
 
-    // Validate total allocations EXACTLY match payment amount — every peso must be applied
-    if (Math.round(allocTotal * 100) !== Math.round(validAmount * 100)) {
-      alert(`El total aplicado ($${allocTotal.toFixed(2)}) debe ser exactamente igual al monto del pago ($${validAmount.toFixed(2)}). Cada peso debe estar asignado a un pedido.`);
-      return;
-    }
-
-    setSubmitting(true);
     const allocsPayload = allocations
       .filter(a => a.order_id !== '__containers__')
-      .map(a => ({ order_id: a.order_id, amount: Number(a.amount) }));
+      .map(a => ({ order_id: a.order_id, amount: round2(a.amount) }));
     const containerAlloc = allocations.find(a => a.order_id === '__containers__');
     const hasOrders = allocsPayload.length > 0;
     const hasContainers = !!containerAlloc;
     const paymentType = hasContainers && hasOrders ? 'mixed' : hasContainers ? 'containers' : 'order';
-    const containerAmt = containerAlloc ? Number(containerAlloc.amount) : 0;
+    const containerAmt = containerAlloc ? round2(containerAlloc.amount) : 0;
+    const exactSum = round2(allocsPayload.reduce((s, a) => s + a.amount, 0) + containerAmt);
+
+    // Validate total allocations EXACTLY match payment amount — every peso must be applied
+    if (Math.round(exactSum * 100) !== Math.round(validAmount * 100)) {
+      alert(`El total aplicado ($${exactSum.toFixed(2)}) debe ser exactamente igual al monto del pago ($${validAmount.toFixed(2)}). Cada peso debe estar asignado a un pedido.`);
+      return;
+    }
+
+    setSubmitting(true);
 
     const { data, error } = await supabase.rpc('submit_distributor_payment', {
       p_amount: validAmount,
@@ -230,7 +234,7 @@ export default function MisPagosPage() {
       p_reference: sanitizeText(form.reference, 200) || null,
       p_payment_date: form.payment_date,
       p_receipt_url: form.receipt_url || null,
-      p_notes: sanitizeText(form.notes, 500) || (containerAlloc ? `Incluye $${Number(containerAlloc.amount).toLocaleString('es-MX', {minimumFractionDigits:2})} aplicado a saldo de contenedores` : null),
+      p_notes: sanitizeText(form.notes, 500) || (containerAlloc ? `Incluye $${containerAmt.toLocaleString('es-MX', {minimumFractionDigits:2})} aplicado a saldo de contenedores` : null),
       p_order_id: allocsPayload[0]?.order_id || null,
       p_allocations: allocsPayload.length > 0 ? allocsPayload : [{ order_id: null, amount: validAmount }],
       p_payment_type: paymentType,
@@ -585,9 +589,10 @@ export default function MisPagosPage() {
                                   value={alloc?.amount || ''}
                                   onChange={e => {
                                     const val = Number(e.target.value);
+                                    const maxBal = round2(o.balance);
                                     // Auto-cap to order balance
-                                    if (val > o.balance) {
-                                      updateAllocationAmount(o.id, String(o.balance));
+                                    if (val > maxBal + 0.001) {
+                                      updateAllocationAmount(o.id, String(maxBal));
                                     } else {
                                       updateAllocationAmount(o.id, e.target.value);
                                     }
