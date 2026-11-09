@@ -29,6 +29,7 @@ export default function EstadisticasPage() {
 
     // Monthly Distributor Performance Matrix state
     const [matrixMetric, setMatrixMetric] = useState('revenue'); // 'revenue' | 'units' | 'orders'
+    const [matrixRange, setMatrixRange] = useState(() => String(new Date().getFullYear())); // '2026', '2027', 'last6', 'last12', 'all'
     const [includeCurrentMonth, setIncludeCurrentMonth] = useState(true);
     const [distSearch, setDistSearch] = useState('');
     const [distTrendFilter, setDistTrendFilter] = useState('all'); // 'all' | 'growing' | 'stable' | 'cooling' | 'inactive'
@@ -311,16 +312,21 @@ export default function EstadisticasPage() {
         const currentMonthIdx = now.getMonth(); // 0-based (10 = Nov)
         const mNames = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 
-        // Build month columns from March 2026 (month index 2) up to current month
+        // Build all month columns from March 2026 (month index 2) up to current month
         const startYear = 2026;
         const startMonth = 2; // March (0-indexed)
-        const allMonthCols = [];
+        const fullHistoryCols = [];
+        const availableYears = [];
+        for (let yr = startYear; yr <= currentYear; yr++) {
+            availableYears.push(String(yr));
+        }
+
         let y = startYear;
         let m = startMonth;
         while (y < currentYear || (y === currentYear && m <= currentMonthIdx)) {
             const key = `${y}-${String(m + 1).padStart(2, '0')}`;
             const isCurrent = (y === currentYear && m === currentMonthIdx);
-            allMonthCols.push({
+            fullHistoryCols.push({
                 key,
                 year: y,
                 monthIdx: m,
@@ -332,9 +338,22 @@ export default function EstadisticasPage() {
             if (m > 11) { m = 0; y++; }
         }
 
+        // Filter month columns according to selected matrixRange
+        let allMonthCols = fullHistoryCols;
+        if (matrixRange === 'last6') {
+            allMonthCols = fullHistoryCols.slice(-(includeCurrentMonth ? 6 : 7));
+        } else if (matrixRange === 'last12') {
+            allMonthCols = fullHistoryCols.slice(-(includeCurrentMonth ? 12 : 13));
+        } else if (/^\d{4}$/.test(matrixRange)) {
+            const targetYr = parseInt(matrixRange, 10);
+            allMonthCols = fullHistoryCols.filter(c => c.year === targetYr);
+        }
+
+        const spansMultipleYears = new Set(allMonthCols.map(c => c.year)).size > 1;
         const closedMonthCols = allMonthCols.filter(c => !c.isCurrent);
         const visibleMonthCols = includeCurrentMonth ? allMonthCols : closedMonthCols;
-        const numClosedMonths = Math.max(closedMonthCols.length, 1);
+        const evalMonthCols = closedMonthCols.length > 0 ? closedMonthCols : visibleMonthCols;
+        const numClosedMonths = Math.max(evalMonthCols.length, 1);
 
         // Pre-aggregate units and product mix per order from orderItems
         const unitsByOrder = {};
@@ -428,14 +447,14 @@ export default function EstadisticasPage() {
                 let totalRev = 0, totalUnits = 0, totalOrders = 0;
                 let bestMonth = { label: '—', revenue: 0, units: 0, orders: 0 };
 
-                closedMonthCols.forEach(c => {
+                evalMonthCols.forEach(c => {
                     const mData = d.months[c.key] || { revenue: 0, units: 0, orders: 0 };
                     closedRev += mData.revenue;
                     closedUnits += mData.units;
                     closedOrders += mData.orders;
                     if (mData.orders > 0) activeClosedMonths++;
                     if (mData.revenue > bestMonth.revenue) {
-                        bestMonth = { label: c.label, revenue: mData.revenue, units: mData.units, orders: mData.orders };
+                        bestMonth = { label: spansMultipleYears ? c.fullLabel : c.label, revenue: mData.revenue, units: mData.units, orders: mData.orders };
                     }
                 });
 
@@ -456,9 +475,9 @@ export default function EstadisticasPage() {
                     ? Math.max(0, Math.floor((now - d.lastOrderDate) / (1000 * 60 * 60 * 24)))
                     : null;
 
-                // Momentum / Trend: compare last 2 closed months (e.g. SEP-OCT) vs earlier closed months (MAR-AGO)
-                const last2Cols = closedMonthCols.slice(-2);
-                const prevCols = closedMonthCols.slice(0, Math.max(0, closedMonthCols.length - 2));
+                // Momentum / Trend: compare last 2 closed months vs earlier closed months in selected range
+                const last2Cols = evalMonthCols.slice(-2);
+                const prevCols = evalMonthCols.slice(0, Math.max(0, evalMonthCols.length - 2));
                 const last2Avg = last2Cols.length > 0
                     ? last2Cols.reduce((s, c) => s + (d.months[c.key]?.revenue || 0), 0) / last2Cols.length
                     : 0;
@@ -540,6 +559,8 @@ export default function EstadisticasPage() {
         };
 
         return {
+            availableYears,
+            spansMultipleYears,
             allMonthCols,
             closedMonthCols,
             visibleMonthCols,
@@ -548,7 +569,7 @@ export default function EstadisticasPage() {
             monthTotals,
             grandTotals
         };
-    }, [orders, orderItems, profiles, products, includeCurrentMonth, matrixMetric]);
+    }, [orders, orderItems, profiles, products, includeCurrentMonth, matrixMetric, matrixRange]);
 
     const filteredMatrixRows = useMemo(() => {
         return distributorMatrixData.rows.filter(r => {
@@ -568,7 +589,7 @@ export default function EstadisticasPage() {
     }, [distributorMatrixData.rows, distTrendFilter, distSearch]);
 
     const handleExportDistributorMatrixXLSX = () => {
-        const { visibleMonthCols, rows, numClosedMonths } = distributorMatrixData;
+        const { visibleMonthCols, spansMultipleYears, rows, numClosedMonths } = distributorMatrixData;
         const buildSheetRows = (metricKey) => rows.map(r => {
             const rowObj = {
                 'Distribuidor': r.name,
@@ -577,13 +598,14 @@ export default function EstadisticasPage() {
             };
             visibleMonthCols.forEach(c => {
                 const val = r.months[c.key]?.[metricKey] || 0;
-                rowObj[c.isCurrent ? `${c.label} (En curso)` : c.label] = Math.round(val * 100) / 100;
+                const colHeader = spansMultipleYears ? c.fullLabel : c.label;
+                rowObj[c.isCurrent ? `${colHeader} (En curso)` : colHeader] = Math.round(val * 100) / 100;
             });
             const totalVal = metricKey === 'revenue' ? r.totalRev : metricKey === 'units' ? r.totalUnits : r.totalOrders;
             const avgClosedVal = metricKey === 'revenue' ? r.avgMonthlyRev : metricKey === 'units' ? r.avgMonthlyUnits : r.avgMonthlyOrders;
             rowObj['Total Acumulado'] = Math.round(totalVal * 100) / 100;
             rowObj[`Prom. Mensual (${numClosedMonths}m cerrados)`] = Math.round(avgClosedVal * 100) / 100;
-            rowObj['Meses Activos (Mar-Oct)'] = `${r.activeClosedMonths}/${numClosedMonths}`;
+            rowObj['Meses Activos'] = `${r.activeClosedMonths}/${numClosedMonths}`;
             rowObj['Ticket Promedio ($)'] = Math.round(r.avgTicket * 100) / 100;
             rowObj['Mejor Mes'] = `${r.bestMonth.label} ($${Math.round(r.bestMonth.revenue).toLocaleString('es-MX')})`;
             rowObj['Tendencia'] = r.trend === 'growing' ? `En crecimiento (${r.trendPct >= 0 ? '+' : ''}${r.trendPct}%)` : r.trend === 'cooling' ? `En enfriamiento (${r.trendPct}%)` : r.trend === 'stable' ? 'Estable' : 'Inactivo (+45d)';
@@ -951,16 +973,31 @@ export default function EstadisticasPage() {
                                 </span>
                                 <div>
                                     <h4 className="text-lg font-black text-slate-900 m-0">
-                                        Rendimiento Mensual de Distribuidores (Marzo – {includeCurrentMonth ? 'Noviembre' : 'Octubre'})
+                                        Rendimiento Mensual de Distribuidores
                                     </h4>
                                     <p className="text-xs text-slate-500 m-0 mt-0.5">
-                                        Evolución mes a mes desde el arranque del portal ({distributorMatrixData.numClosedMonths} meses cerrados{includeCurrentMonth ? ' + mes en curso' : ''}). Haz clic en un distribuidor para ver su mix de productos.
+                                        Evolución mes a mes ({distributorMatrixData.numClosedMonths} meses cerrados{includeCurrentMonth ? ' + mes en curso' : ''}). Haz clic en un distribuidor para ver su mix de productos.
                                     </p>
                                 </div>
                             </div>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2.5">
+                            {/* Period / Year Range Selector */}
+                            <select
+                                value={matrixRange}
+                                onChange={e => setMatrixRange(e.target.value)}
+                                className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#6a9a04]/30 cursor-pointer"
+                                title="Seleccionar rango de meses a visualizar"
+                            >
+                                {(distributorMatrixData.availableYears || ['2026']).map(yr => (
+                                    <option key={yr} value={yr}>📅 Año {yr}</option>
+                                ))}
+                                <option value="last6">⏱️ Últimos 6 meses</option>
+                                <option value="last12">📆 Últimos 12 meses</option>
+                                <option value="all">🗂️ Todo el historial</option>
+                            </select>
+
                             {/* Metric Toggle */}
                             <div className="inline-flex bg-slate-100 p-1 rounded-xl">
                                 {[
@@ -1052,18 +1089,18 @@ export default function EstadisticasPage() {
                                     <th className="py-3 pl-5 pr-3 sticky left-0 bg-slate-100 z-10 min-w-[210px]">Distribuidor</th>
                                     {distributorMatrixData.visibleMonthCols.map(c => (
                                         <th key={c.key} className={`px-2.5 py-3 text-right min-w-[88px] ${c.isCurrent ? 'bg-[#6a9a04]/10 text-[#6a9a04]' : ''}`}>
-                                            <div>{c.label}</div>
+                                            <div>{distributorMatrixData.spansMultipleYears ? c.fullLabel : c.label}</div>
                                             {c.isCurrent && <div className="text-[8px] font-semibold normal-case opacity-80">En curso</div>}
                                         </th>
                                     ))}
                                     <th className="px-3 py-3 text-right bg-slate-200/50 text-slate-800 min-w-[105px]">Total</th>
-                                    <th className="px-3 py-3 text-right min-w-[95px]" title={`Promedio sobre los ${distributorMatrixData.numClosedMonths} meses cerrados`}>
+                                    <th className="px-3 py-3 text-right min-w-[95px]" title={`Promedio sobre los ${distributorMatrixData.numClosedMonths} meses cerrados del periodo`}>
                                         Prom / Mes
                                     </th>
-                                    <th className="px-3 py-3 text-center min-w-[90px]" title="Meses con al menos 1 pedido entre Marzo y Octubre">
+                                    <th className="px-3 py-3 text-center min-w-[90px]" title="Meses con al menos 1 pedido dentro de los meses cerrados del periodo">
                                         Consistencia
                                     </th>
-                                    <th className="px-3 py-3 text-center min-w-[115px]" title="Comparativa últimos 2 meses cerrados (Sep-Oct) vs promedio previo (Mar-Ago)">
+                                    <th className="px-3 py-3 text-center min-w-[115px]" title="Comparativa últimos 2 meses cerrados vs promedio previo">
                                         Tendencia
                                     </th>
                                     <th className="px-4 py-3 text-right min-w-[90px]">Últ. Pedido</th>
@@ -1220,7 +1257,7 @@ export default function EstadisticasPage() {
                                                             {/* KPI Cards for this Distributor */}
                                                             <div className="grid grid-cols-2 gap-3">
                                                                 <div className="bg-white rounded-xl p-3 border border-slate-200/80">
-                                                                    <p className="text-[10px] font-bold text-slate-400 uppercase m-0">Mejor Mes (Mar–Oct)</p>
+                                                                    <p className="text-[10px] font-bold text-slate-400 uppercase m-0">Mejor Mes</p>
                                                                     <p className="text-sm font-black text-slate-900 m-0 mt-1">
                                                                         {row.bestMonth.label} — <span className="text-[#6a9a04]">{fmt(row.bestMonth.revenue)}</span>
                                                                     </p>
@@ -1324,7 +1361,7 @@ export default function EstadisticasPage() {
                                             : (distributorMatrixData.grandTotals[matrixMetric === 'units' ? 'closedUnits' : 'closedOrders'] / distributorMatrixData.numClosedMonths).toFixed(1)}
                                     </td>
                                     <td colSpan={3} className="px-4 py-3.5 text-right text-[10px] font-normal text-slate-400">
-                                        Promedio mensual calculado sobre {distributorMatrixData.numClosedMonths} meses cerrados (Mar–Oct)
+                                        Promedio mensual calculado sobre {distributorMatrixData.numClosedMonths} meses cerrados del periodo
                                     </td>
                                 </tr>
                             </tfoot>
