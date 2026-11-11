@@ -21,8 +21,8 @@ export default function DistributorMonthlyMatrix({
     fmt
 }) {
     return (
-        <div className="bg-white/70 backdrop-blur-md border border-white/60 shadow-sm rounded-2xl overflow-hidden mb-8">
-            <div className="p-6 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl overflow-hidden">
+            <div className="p-5 border-b border-slate-200/80 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
                     <div className="flex items-center gap-2.5">
                         <span className="p-2 bg-[#6a9a04]/10 text-[#6a9a04] rounded-xl">
@@ -416,3 +416,4 @@ export default function DistributorMonthlyMatrix({
         </div>
     );
 }
+

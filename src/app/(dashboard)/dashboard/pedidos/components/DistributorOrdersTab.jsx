@@ -3,9 +3,20 @@ import React from 'react';
 import Link from 'next/link';
 import {
   ShoppingCart, DollarSign, Clock, TrendingUp, Download,
-  ChevronLeft, ChevronRight, Eye, Plus, Trash2, Printer, AlertTriangle
+  Eye, Plus, Trash2, Printer, AlertTriangle
 } from 'lucide-react';
 import { OP_STATUS, PAY_STATUS } from '@/hooks/usePedidos';
+
+const STATUS_PILLS = [
+  { id: 'all', label: 'Todos' },
+  { id: 'pending', label: 'Pendientes' },
+  { id: 'confirmed', label: 'Confirmados' },
+  { id: 'in_fulfillment', label: 'En Surtido' },
+  { id: 'shipped', label: 'Enviados' },
+  { id: 'closed', label: 'Cerrados' },
+  { id: 'cancelled', label: 'Cancelados' },
+  { id: 'rejected', label: 'Rechazados' },
+];
 
 export default function DistributorOrdersTab({
   isAdmin,
@@ -23,143 +34,195 @@ export default function DistributorOrdersTab({
   handlePrintOrders,
 }) {
   const overdueTotal = overdueOrders.reduce((s, o) => s + Number(o.total_amount || 0), 0);
+  const inProcessCount = (counts['pending'] || 0) + (counts['confirmed'] || 0) + (counts['in_fulfillment'] || 0);
 
   return (
-    <>
+    <div className="space-y-6">
       {/* 14-day Overdue Alert Banner */}
       {isAdmin && overdueOrders.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6 flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
-            <AlertTriangle className="w-5 h-5 text-red-500" />
+        <div className="bg-red-50/90 border border-red-200/80 rounded-2xl p-4 flex items-start gap-3.5 shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
+            <AlertTriangle className="w-4 h-4 text-red-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-red-800">
-              ⚠️ {overdueOrders.length} pedido{overdueOrders.length !== 1 ? 's' : ''} con más de 14 días sin pago
-              <span className="font-normal text-red-600 ml-2">(${overdueTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })})</span>
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs sm:text-sm font-extrabold text-red-900 m-0">
+                {overdueOrders.length} pedido{overdueOrders.length !== 1 ? 's' : ''} con más de 14 días sin pago
+              </p>
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-red-600 text-white">
+                ${overdueTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
             <div className="flex flex-wrap gap-1.5 mt-2">
               {overdueOrders.slice(0, 8).map(o => (
-                <span key={o.id} className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">
+                <Link
+                  key={o.id}
+                  href={`/dashboard/pedidos/${o.id}`}
+                  className="text-[10px] bg-white hover:bg-red-100 text-red-700 border border-red-200 px-2.5 py-0.5 rounded-full font-bold transition-colors no-underline"
+                >
                   #{o.order_number} · {o.profiles?.full_name?.split(' ')[0] || '—'} · ${Number(o.total_amount).toLocaleString('es-MX')}
-                </span>
+                </Link>
               ))}
               {overdueOrders.length > 8 && (
-                <span className="text-[10px] text-red-500 font-bold">+{overdueOrders.length - 8} más</span>
+                <span className="text-[10px] text-red-600 font-bold self-center">+{overdueOrders.length - 8} más</span>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* KPI Cards */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-blue-100 rounded-2xl"><ShoppingCart className="w-6 h-6 text-blue-600" /></div>
+      {/* High-Density Executive KPI Cards */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider m-0">Total Pedidos</p>
+            <p className="text-2xl font-black text-slate-900 mt-1 m-0">{orders.length.toLocaleString('es-MX')}</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5 m-0">Órdenes registradas</p>
           </div>
-          <h3 className="text-slate-500 text-sm font-medium">Total Pedidos</h3>
-          <p className="text-2xl font-bold text-[#000000] mt-1">{orders.length.toLocaleString('es-MX')}</p>
+          <div className="p-3 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 shrink-0">
+            <ShoppingCart className="w-5 h-5" />
+          </div>
         </div>
 
-        <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-purple-100 rounded-2xl"><DollarSign className="w-6 h-6 text-purple-600" /></div>
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider m-0">
+              {isAdmin ? 'Ingresos Totales' : 'Compras Totales'}
+            </p>
+            <p className="text-2xl font-black text-slate-900 mt-1 m-0">
+              ${totalAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+            <p className="text-[11px] text-emerald-600 font-semibold mt-0.5 m-0">Pedidos activos y cerrados</p>
           </div>
-          <h3 className="text-slate-500 text-sm font-medium">{isAdmin ? 'Ingresos Totales' : 'Compras Totales'}</h3>
-          <p className="text-2xl font-bold text-[#000000] mt-1">${totalAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 shrink-0">
+            <DollarSign className="w-5 h-5" />
+          </div>
         </div>
 
-        <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-orange-100 rounded-2xl"><Clock className="w-6 h-6 text-orange-600" /></div>
-            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">Activos</span>
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider m-0">En Proceso</p>
+              <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                Activos
+              </span>
+            </div>
+            <p className="text-2xl font-black text-slate-900 mt-1 m-0">{inProcessCount}</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5 m-0">
+              {counts['pending'] || 0} pend · {counts['confirmed'] || 0} conf · {counts['in_fulfillment'] || 0} surt
+            </p>
           </div>
-          <h3 className="text-slate-500 text-sm font-medium">En Proceso</h3>
-          <p className="text-2xl font-bold text-[#000000] mt-1">{(counts['pending'] || 0) + (counts['confirmed'] || 0) + (counts['in_fulfillment'] || 0)}</p>
+          <div className="p-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100 shrink-0">
+            <Clock className="w-5 h-5" />
+          </div>
         </div>
 
-        <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-red-100 rounded-2xl"><TrendingUp className="w-6 h-6 text-red-600" /></div>
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider m-0">
+              {isAdmin ? 'Cuentas por Cobrar' : 'Mi Saldo Pendiente'}
+            </p>
+            <p className="text-2xl font-black text-rose-600 mt-1 m-0">
+              ${pendingPayment.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5 m-0">Saldo pendiente de liquidar</p>
           </div>
-          <h3 className="text-slate-500 text-sm font-medium">{isAdmin ? 'Cuentas por Cobrar' : 'Mi Saldo Pendiente'}</h3>
-          <p className="text-2xl font-bold text-[#000000] mt-1">${pendingPayment.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <div className="p-3 bg-rose-50 text-rose-600 rounded-xl border border-rose-100 shrink-0">
+            <TrendingUp className="w-5 h-5" />
+          </div>
         </div>
       </section>
 
-      {/* Orders Table Section */}
-      <section className="glass-panel rounded-[2.5rem] p-8 mt-6 border border-white/40 shadow-xl overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between mb-8 gap-4">
+      {/* Modern Enterprise Orders Table Container */}
+      <section className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        {/* Card Header & Primary Actions */}
+        <div className="p-5 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-[#000000]">Pedidos Recientes</h2>
-            <p className="text-[#747474] text-sm mt-1">Gestiona y monitorea las órdenes en tiempo real.</p>
+            <h2 className="text-base sm:text-lg font-black text-slate-900 m-0">Listado de Pedidos</h2>
+            <p className="text-xs text-slate-500 mt-0.5 m-0">
+              Mostrando <span className="font-bold text-slate-700">{filteredOrders.length}</span> de <span className="font-bold text-slate-700">{orders.length}</span> órdenes
+            </p>
           </div>
-          <div className="flex items-center space-x-3">
-            <select
-              className="glass-button px-4 py-2.5 rounded-xl text-slate-700 text-sm font-semibold cursor-pointer border border-white/80 outline-none bg-white/50 backdrop-blur-md"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="all">Todos</option>
-              <option value="pending">Pendientes</option>
-              <option value="confirmed">Confirmados</option>
-              <option value="in_fulfillment">En Surtido</option>
-              <option value="shipped">Enviados</option>
-              <option value="closed">Cerrados</option>
-              <option value="cancelled">Cancelados</option>
-              <option value="rejected">Rechazados</option>
-            </select>
-            <Link
-              href="/dashboard/pedidos/nuevo"
-              className="bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white px-6 py-2.5 rounded-xl flex items-center text-sm font-bold shadow-lg shadow-[#6a9a04]/20 transition-all no-underline"
-            >
-              <Plus className="w-5 h-5 mr-2" /> Crear Pedido
-            </Link>
+
+          <div className="flex flex-wrap items-center gap-2">
             {isAdmin && (
               <>
                 <button
                   onClick={handleExportOrders}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 bg-white/50 border border-white/80 hover:bg-white cursor-pointer transition-all backdrop-blur-md shadow-sm"
-                  title="Exportar pedidos a Excel"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm"
+                  title="Exportar pedidos a CSV/Excel"
                 >
-                  <Download className="w-4 h-4" /> Exportar
+                  <Download className="w-3.5 h-3.5 text-emerald-600" /> Exportar CSV
                 </button>
                 <button
                   onClick={handlePrintOrders}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 bg-white/50 border border-white/80 hover:bg-white cursor-pointer transition-all backdrop-blur-md shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all shadow-sm"
                   title="Imprimir hoja de revisión"
                 >
-                  <Printer className="w-4 h-4" /> Imprimir
+                  <Printer className="w-3.5 h-3.5 text-slate-500" /> Imprimir
                 </button>
               </>
             )}
+            <Link
+              href="/dashboard/pedidos/nuevo"
+              className="bg-[#6a9a04] hover:bg-[#5b8503] text-white px-4 py-2 rounded-xl inline-flex items-center gap-1.5 text-xs font-bold shadow-md shadow-[#6a9a04]/20 transition-all no-underline"
+            >
+              <Plus className="w-4 h-4" /> Crear Pedido
+            </Link>
           </div>
         </div>
 
+        {/* Status Filter Pills Bar */}
+        <div className="px-5 py-3 bg-slate-50/70 border-b border-slate-200/80 flex items-center gap-1.5 overflow-x-auto">
+          {STATUS_PILLS.map(pill => {
+            const count = pill.id === 'all' ? orders.length : (counts[pill.id] || 0);
+            const active = statusFilter === pill.id;
+            return (
+              <button
+                key={pill.id}
+                onClick={() => setStatusFilter(pill.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border whitespace-nowrap flex items-center gap-1.5 ${
+                  active
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                    : 'bg-white text-slate-600 border-slate-200/80 hover:bg-slate-100'
+                }`}
+              >
+                <span>{pill.label}</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                  active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* High-Density Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-separate border-spacing-y-4">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="text-slate-400 text-xs uppercase tracking-widest font-bold">
-                <th className="px-6 py-2">ID</th>
-                <th className="px-6 py-2">Concepto / Cliente</th>
-                <th className="px-6 py-2">Fecha</th>
-                <th className="px-6 py-2">Total</th>
-                <th className="px-6 py-2 text-center">Estado</th>
-                <th className="px-6 py-2 text-center">Pago</th>
-                <th className="px-6 py-2 text-center">Acciones</th>
+              <tr className="bg-slate-50/80 text-slate-500 text-[11px] font-bold uppercase tracking-wider border-b border-slate-200/80">
+                <th className="px-5 py-3">Folio</th>
+                <th className="px-5 py-3">Distribuidor / Ciudad</th>
+                <th className="px-5 py-3">Fecha</th>
+                <th className="px-5 py-3 text-right">Monto Total</th>
+                <th className="px-5 py-3 text-center">Estado Operativo</th>
+                <th className="px-5 py-3 text-center">Estado de Pago</th>
+                <th className="px-5 py-3 text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center text-slate-400 font-medium">
+                  <td colSpan="7" className="px-6 py-12 text-center text-slate-400 text-xs font-medium">
                     Cargando pedidos...
                   </td>
                 </tr>
               ) : filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center text-slate-400 font-medium">
-                    No se encontraron pedidos.
+                  <td colSpan="7" className="px-6 py-12 text-center text-slate-400 text-xs font-medium">
+                    No se encontraron pedidos con los filtros seleccionados.
                   </td>
                 </tr>
               ) : (
@@ -167,59 +230,80 @@ export default function DistributorOrdersTab({
                   const opSc = OP_STATUS[order.status] || OP_STATUS.pending;
                   const paySc = PAY_STATUS[order.payment_status] || PAY_STATUS.unpaid;
                   return (
-                    <tr key={order.id} className="table-row-glass transition-all rounded-2xl group">
-                      <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 rounded-l-2xl border-y border-l border-transparent group-hover:border-[#6a9a04]/10 first:rounded-l-2xl transition-colors">
-                        <span className="text-slate-800 font-bold">#{order.order_number}</span>
-                        {order.notes && order.notes.includes('⚠️ INCIDENCIA') && (
-                          <span className="ml-2 px-2 py-0.5 text-[9px] font-bold uppercase rounded-full bg-red-100 text-red-600 border border-red-200 tracking-wider" title="Incidencia reportada">
-                            ⚠️ Incidencia
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
-                        <div>
-                          <p className="font-bold text-slate-800 m-0">
-                            {isAdmin ? (order.profiles?.full_name || order.profiles?.email || 'Desconocido') : 'Mi Pedido de Reposición'}
-                          </p>
-                          <p className="text-xs text-[#747474] m-0">
-                            {isAdmin ? (order.profiles?.city || 'Sin especificar') : 'Inventario General'}
-                          </p>
+                    <tr key={order.id} className="hover:bg-slate-50/80 transition-colors group">
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/dashboard/pedidos/${order.id}`}
+                            className="font-mono font-bold text-slate-900 hover:text-[#6a9a04] no-underline text-xs sm:text-sm"
+                          >
+                            #{order.order_number}
+                          </Link>
+                          {order.notes && order.notes.includes('⚠️ INCIDENCIA') && (
+                            <span
+                              className="px-2 py-0.5 text-[9px] font-extrabold uppercase rounded-full bg-red-100 text-red-600 border border-red-200 tracking-wider"
+                              title="Incidencia reportada"
+                            >
+                              ⚠️ Incidencia
+                            </span>
+                          )}
                         </div>
                       </td>
-                      <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
-                        <span className="text-sm font-medium text-slate-600">
+
+                      <td className="px-5 py-3.5">
+                        <p className="font-bold text-slate-900 text-xs sm:text-sm m-0">
+                          {isAdmin ? (order.profiles?.full_name || order.profiles?.email || 'Desconocido') : 'Mi Pedido de Reposición'}
+                        </p>
+                        <p className="text-[11px] text-slate-400 m-0">
+                          {isAdmin ? (order.profiles?.city || 'Sin ciudad especificada') : 'Inventario General'}
+                        </p>
+                      </td>
+
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <span className="text-xs font-semibold text-slate-600">
                           {new Date(order.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </span>
                       </td>
-                      <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors">
-                        <span className="font-black text-[#000000]">
+
+                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                        <span className="font-black text-slate-900 text-xs sm:text-sm font-mono">
                           ${Number(order.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                         </span>
                       </td>
-                      <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center">
-                        <span className={`px-3 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border ${opSc.className}`}>
+
+                      <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                        <span className={`px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-full tracking-wider border ${opSc.className}`}>
                           {opSc.label}
                         </span>
                       </td>
-                      <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 border-y border-transparent group-hover:border-[#6a9a04]/10 transition-colors text-center">
-                        {!['cancelled', 'rejected'].includes(order.status) && (
-                          <span className={`px-3 py-1 text-[10px] font-bold uppercase rounded-full tracking-wider border ${paySc.className}`}>
+
+                      <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                        {!['cancelled', 'rejected'].includes(order.status) ? (
+                          <span className={`px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-full tracking-wider border ${paySc.className}`}>
                             {paySc.label}
                           </span>
+                        ) : (
+                          <span className="text-xs text-slate-300">—</span>
                         )}
                       </td>
-                      <td className="px-6 py-5 bg-white/30 group-hover:bg-[#6a9a04]/5 rounded-r-2xl border-y border-r border-transparent group-hover:border-[#6a9a04]/10 text-center transition-colors">
-                        <div className="flex items-center justify-center gap-1">
-                          <Link href={`/dashboard/pedidos/${order.id}`} className="p-2 hover:bg-white rounded-lg transition-colors inline-flex cursor-pointer border-none bg-transparent" title="Ver detalle">
-                            <Eye className="w-5 h-5 text-slate-400 hover:text-[#6a9a04]" />
+
+                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end gap-1">
+                          <Link
+                            href={`/dashboard/pedidos/${order.id}`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-[#6a9a04] hover:bg-[#6a9a04]/10 transition-colors no-underline"
+                            title="Ver detalle del pedido"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span className="hidden sm:inline">Detalle</span>
                           </Link>
                           {isAdmin && ['cancelled', 'rejected'].includes(order.status) && (
                             <button
                               onClick={() => deleteOrder(order.id, order.order_number)}
-                              className="p-2 hover:bg-red-50 rounded-lg transition-colors inline-flex cursor-pointer border-none bg-transparent"
+                              className="p-1.5 hover:bg-red-50 rounded-lg transition-colors inline-flex cursor-pointer border-none bg-transparent text-slate-400 hover:text-red-600"
                               title="Eliminar pedido"
                             >
-                              <Trash2 className="w-4 h-4 text-slate-300 hover:text-red-500" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           )}
                         </div>
@@ -232,23 +316,16 @@ export default function DistributorOrdersTab({
           </table>
         </div>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between mt-8 border-t border-slate-200/50 pt-6">
-          <p className="text-sm text-[#747474] m-0">
-            Mostrando <span className="font-bold text-slate-800">{filteredOrders.length}</span> de <span className="font-bold text-slate-800">{orders.length}</span> pedidos
-          </p>
-          <div className="flex space-x-2">
-            <button className="glass-button w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white cursor-pointer shadow-sm border-none bg-white/50 text-slate-600">
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-[#6a9a04] text-white font-bold shadow-md cursor-pointer border-none">1</button>
-            <button className="glass-button w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white cursor-pointer shadow-sm border-none bg-white/50 text-slate-600">
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+        {/* Footer Summary */}
+        <div className="px-5 py-3.5 bg-slate-50/60 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
+          <span>
+            Mostrando <strong className="text-slate-800">{filteredOrders.length}</strong> de <strong className="text-slate-800">{orders.length}</strong> pedidos
+          </span>
+          <span className="font-semibold text-slate-600">
+            Total en vista: <strong className="text-slate-900 font-mono">${filteredOrders.filter(o => !['cancelled', 'rejected'].includes(o.status)).reduce((s, o) => s + Number(o.total_amount || 0), 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong>
+          </span>
         </div>
       </section>
-    </>
+    </div>
   );
 }
-

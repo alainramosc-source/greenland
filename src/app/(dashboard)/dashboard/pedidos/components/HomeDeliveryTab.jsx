@@ -2,7 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import {
-  DollarSign, Clock, CheckCircle, Plus, ShoppingBag, Truck, RotateCcw, Copy, Check
+  DollarSign, Clock, CheckCircle, Plus, ShoppingBag, Truck, RotateCcw, Copy, Check, Eye
 } from 'lucide-react';
 import {
   getDeliveryStatus, TONE_CLASSES_LIGHT, isPendingSettlement, isInTransit, isReturned, formatMoney
@@ -37,99 +37,127 @@ export default function HomeDeliveryTab({
   });
 
   return (
-    <>
-      {/* KPI Cards — Envíos a Domicilio */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-blue-100 rounded-2xl"><Truck className="w-6 h-6 text-blue-600" /></div>
+    <div className="space-y-6">
+      {/* High-Density KPI Cards — Envíos a Domicilio */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider m-0">Total Envíos</p>
+            <p className="text-2xl font-black text-slate-900 mt-1 m-0">{enviosActive.length}</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5 m-0">Órdenes activas de última milla</p>
           </div>
-          <h3 className="text-slate-500 text-sm font-medium">Total Envíos</h3>
-          <p className="text-2xl font-bold text-[#000000] mt-1">{enviosActive.length}</p>
+          <div className="p-3 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 shrink-0">
+            <Truck className="w-5 h-5" />
+          </div>
         </div>
 
-        <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-amber-100 rounded-2xl"><Clock className="w-6 h-6 text-amber-600" /></div>
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider m-0">En Ruta / Pendientes</p>
+            <p className="text-2xl font-black text-slate-900 mt-1 m-0">{inTransitCount + pendingCount}</p>
+            <p className="text-[11px] text-amber-600 font-semibold mt-0.5 m-0">
+              {inTransitCount} en tránsito · {pendingCount} por despachar
+            </p>
           </div>
-          <h3 className="text-slate-500 text-sm font-medium">En Ruta / Pendientes</h3>
-          <p className="text-2xl font-bold text-[#000000] mt-1">{inTransitCount + pendingCount}</p>
+          <div className="p-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100 shrink-0">
+            <Clock className="w-5 h-5" />
+          </div>
         </div>
 
-        <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-emerald-100 rounded-2xl"><CheckCircle className="w-6 h-6 text-emerald-600" /></div>
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider m-0">Entregados</p>
+            <p className="text-2xl font-black text-slate-900 mt-1 m-0">{deliveredCount}</p>
+            {toSettle.length > 0 ? (
+              <p className="text-[11px] font-bold text-violet-600 mt-0.5 m-0">
+                {toSettle.length} por liquidar · {formatMoney(toSettleCash)} efvo.
+              </p>
+            ) : (
+              <p className="text-[11px] text-emerald-600 font-medium mt-0.5 m-0">Rutas al día</p>
+            )}
           </div>
-          <h3 className="text-slate-500 text-sm font-medium">Entregados</h3>
-          <p className="text-2xl font-bold text-[#000000] mt-1">{deliveredCount}</p>
-          {toSettle.length > 0 && (
-            <p className="text-[11px] font-bold text-violet-600 mt-1">{toSettle.length} por liquidar · {formatMoney(toSettleCash)} en efectivo</p>
-          )}
+          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 shrink-0">
+            <CheckCircle className="w-5 h-5" />
+          </div>
         </div>
 
-        <div className="glass-panel glass-card-hover p-6 rounded-[2rem]">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-red-100 rounded-2xl"><RotateCcw className="w-6 h-6 text-red-600" /></div>
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider m-0">Devoluciones</p>
+            <p className="text-2xl font-black text-rose-600 mt-1 m-0">{returnedCount}</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5 m-0">Retornos a bodega</p>
           </div>
-          <h3 className="text-slate-500 text-sm font-medium">Devoluciones</h3>
-          <p className="text-2xl font-bold text-[#000000] mt-1">{returnedCount}</p>
+          <div className="p-3 bg-rose-50 text-rose-600 rounded-xl border border-rose-100 shrink-0">
+            <RotateCcw className="w-5 h-5" />
+          </div>
         </div>
       </section>
 
-      {/* Table Section */}
-      <section className="glass-panel rounded-[2.5rem] p-8 mt-6 border border-white/40 shadow-xl overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between mb-8 gap-4">
+      {/* Modern Enterprise Table Section */}
+      <section className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div className="p-5 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-[#000000]">Envíos a Domicilio</h2>
-            <p className="text-[#747474] text-sm mt-1">Gestiona pedidos de entrega, ruteo y registro de devoluciones a Vito Alessio.</p>
+            <h2 className="text-base sm:text-lg font-black text-slate-900 m-0">Envíos a Domicilio (Última Milla)</h2>
+            <p className="text-xs text-slate-500 mt-0.5 m-0">
+              Gestiona pedidos de entrega, ruteo con GPS y liquidación de efectivo en Vito Alessio.
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setShowSettleModal(true)}
-              className={`px-4 py-2.5 rounded-xl flex items-center text-xs font-bold shadow-md transition-all border-none cursor-pointer ${toSettle.length > 0 ? 'bg-violet-600 hover:bg-violet-700 text-white shadow-violet-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+              className={`px-3.5 py-2 rounded-xl inline-flex items-center gap-1.5 text-xs font-bold transition-all border cursor-pointer ${
+                toSettle.length > 0
+                  ? 'bg-violet-600 hover:bg-violet-700 text-white border-violet-600 shadow-md shadow-violet-600/20'
+                  : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+              }`}
             >
-              <DollarSign className="w-4 h-4 mr-1.5" /> Liquidar ruta{toSettle.length > 0 ? ` (${toSettle.length})` : ''}
+              <DollarSign className="w-3.5 h-3.5" />
+              <span>Liquidar ruta{toSettle.length > 0 ? ` (${toSettle.length})` : ''}</span>
             </button>
+
             <button
               onClick={() => setShowNewSale(true)}
-              className="bg-white hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl flex items-center text-xs font-bold border border-slate-200 shadow-sm transition-all cursor-pointer"
+              className="bg-white hover:bg-slate-50 text-slate-700 px-3.5 py-2 rounded-xl inline-flex items-center gap-1.5 text-xs font-bold border border-slate-200 shadow-sm transition-all cursor-pointer"
             >
-              <Plus className="w-4 h-4 mr-1.5 text-[#6a9a04]" /> Nuevo Envío Manual
+              <Plus className="w-3.5 h-3.5 text-[#6a9a04]" /> Nuevo Envío Manual
             </button>
+
             <button
               onClick={() => setShowExpressModal(true)}
-              className="bg-[#6a9a04] hover:bg-[#557e03] text-white px-5 py-2.5 rounded-xl flex items-center text-sm font-bold shadow-lg shadow-[#6a9a04]/20 transition-all border-none cursor-pointer"
+              className="bg-[#6a9a04] hover:bg-[#557e03] text-white px-4 py-2 rounded-xl inline-flex items-center gap-1.5 text-xs font-bold shadow-md shadow-[#6a9a04]/20 transition-all border-none cursor-pointer"
             >
-              <ShoppingBag className="w-4 h-4 mr-2" /> 🔗 Crear Link Express
+              <ShoppingBag className="w-3.5 h-3.5" /> 🔗 Crear Link Express
             </button>
+
             <Link
               href="/chofer"
               target="_blank"
-              className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl flex items-center text-xs font-bold shadow-md no-underline"
+              className="bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl inline-flex items-center gap-1.5 text-xs font-bold shadow-sm no-underline"
             >
-              <Truck className="w-4 h-4 mr-1.5 text-[#8cc618]" /> Ver Interfaz Chófer
+              <Truck className="w-3.5 h-3.5 text-[#8cc618]" /> Interfaz Chófer
             </Link>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-separate border-spacing-y-4">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="text-[#747474] text-xs font-bold uppercase tracking-wider px-6">
-                <th className="pb-2 pl-6">No. Orden</th>
-                <th className="pb-2">Cliente / Contacto</th>
-                <th className="pb-2">Dirección de Entrega</th>
-                <th className="pb-2">Fecha</th>
-                <th className="pb-2 text-right">Total</th>
-                <th className="pb-2 text-center">Estatus Envío</th>
-                <th className="pb-2 text-right pr-6">Acciones</th>
+              <tr className="bg-slate-50/80 text-slate-500 text-[11px] font-bold uppercase tracking-wider border-b border-slate-200/80">
+                <th className="px-5 py-3">No. Orden</th>
+                <th className="px-5 py-3">Cliente / Contacto</th>
+                <th className="px-5 py-3">Dirección de Entrega</th>
+                <th className="px-5 py-3">Fecha</th>
+                <th className="px-5 py-3 text-right">Total</th>
+                <th className="px-5 py-3 text-center">Estatus Envío</th>
+                <th className="px-5 py-3 text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 text-sm">
               {filteredEnvios.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-400 font-medium bg-white/40 rounded-2xl">
-                    No se encontraron órdenes de envío a domicilio
+                  <td colSpan={7} className="text-center py-12 text-slate-400 text-xs font-medium">
+                    No se encontraron órdenes de envío a domicilio.
                   </td>
                 </tr>
               ) : (
@@ -143,58 +171,63 @@ export default function HomeDeliveryTab({
                     <tr
                       key={order.id}
                       onClick={() => setSelectedDeliveryOrder(order)}
-                      className="glass-panel table-row-glass rounded-2xl shadow-sm transition-all hover:shadow-md cursor-pointer"
+                      className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                     >
-                      <td className="py-4 pl-6 font-mono font-bold text-slate-900 rounded-l-2xl">
+                      <td className="px-5 py-3.5 font-mono font-bold text-slate-900 text-xs sm:text-sm whitespace-nowrap">
                         {order.order_number}
                       </td>
-                      <td className="py-4">
-                        <p className="font-bold text-slate-900 text-xs">{order.customer_name || 'Sin nombre'}</p>
+                      <td className="px-5 py-3.5">
+                        <p className="font-bold text-slate-900 text-xs sm:text-sm m-0">{order.customer_name || 'Sin nombre'}</p>
                         {order.customer_phone && (
-                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">{order.customer_phone}</p>
+                          <p className="text-[11px] text-slate-400 font-mono mt-0.5 m-0">{order.customer_phone}</p>
                         )}
                       </td>
-                      <td className="py-4 max-w-xs">
-                        <p className="text-xs font-medium text-slate-800 truncate">
-                          {order.address_street ? `${order.address_street} #${order.address_ext_number}` : 'Formulario pendiente'}
+                      <td className="px-5 py-3.5 max-w-xs">
+                        <p className="text-xs font-semibold text-slate-800 truncate m-0">
+                          {order.address_street ? `${order.address_street} #${order.address_ext_number}` : 'Formulario pendiente de llenado'}
                         </p>
-                        <p className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
+                        <p className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5 m-0">
                           <span>{order.address_municipality || order.city || 'Saltillo'}</span>
-                          {hasGps && <span className="text-emerald-600 font-bold">📍 GPS OK</span>}
+                          {hasGps && (
+                            <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded font-bold">
+                              📍 GPS OK
+                            </span>
+                          )}
                         </p>
                       </td>
-                      <td className="py-4 text-xs text-slate-600 font-medium">
-                        {new Date(order.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
+                      <td className="px-5 py-3.5 text-xs text-slate-600 font-semibold whitespace-nowrap">
+                        {new Date(order.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </td>
-                      <td className="py-4 text-right font-black text-slate-900 text-sm">
+                      <td className="px-5 py-3.5 text-right font-black text-slate-900 text-xs sm:text-sm font-mono whitespace-nowrap">
                         ${(order.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="py-4 text-center">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap ${TONE_CLASSES_LIGHT[st.tone]}`}>
+                      <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap ${TONE_CLASSES_LIGHT[st.tone]}`}>
                           {st.label}
                         </span>
                         {order.payment_status === 'paid' && (
-                          <p className="text-[9px] font-bold text-emerald-600 mt-1 uppercase tracking-wider">Pagado</p>
+                          <p className="text-[9px] font-bold text-emerald-600 mt-1 uppercase tracking-wider m-0">Pagado</p>
                         )}
                       </td>
-                      <td className="py-4 pr-6 text-right rounded-r-2xl" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-5 py-3.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="inline-flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(link);
                               setCopiedToken(order.checkout_token);
                               setTimeout(() => setCopiedToken(null), 2000);
                             }}
-                            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all cursor-pointer border-none"
-                            title="Copiar link de entrega"
+                            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all cursor-pointer border-none"
+                            title="Copiar link de entrega para cliente"
                           >
-                            {isCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                            {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                           </button>
                           <button
                             onClick={() => setSelectedDeliveryOrder(order)}
-                            className="px-3 py-1.5 bg-[#6a9a04]/10 hover:bg-[#6a9a04]/20 text-[#6a9a04] rounded-xl text-xs font-bold transition-all cursor-pointer border-none"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#6a9a04]/10 hover:bg-[#6a9a04]/20 text-[#6a9a04] rounded-lg text-xs font-bold transition-all cursor-pointer border-none"
                           >
-                            Ver Detalle
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Detalle</span>
                           </button>
                         </div>
                       </td>
@@ -206,7 +239,6 @@ export default function HomeDeliveryTab({
           </table>
         </div>
       </section>
-    </>
+    </div>
   );
 }
-
