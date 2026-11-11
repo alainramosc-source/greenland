@@ -354,9 +354,14 @@ async function storeInboundMessage(conversationId, content, contentType, mediaUr
   // Update conversation with last message info and increment unread
   const { data: conv } = await getAdminClient()
     .from('inbox_conversations')
-    .select('unread_count, chatbot_active, contact_id')
+    .select('unread_count, chatbot_active, bot_followup_count, contact_id')
     .eq('id', conversationId)
     .single();
+
+  // If the conversation was previously auto-paused only because it reached 2 unanswered follow-ups,
+  // automatically re-enable the bot when the customer writes back.
+  const shouldReactivateBot = !conv?.chatbot_active && (conv?.bot_followup_count || 0) >= 2;
+  const isBotActive = Boolean(conv?.chatbot_active || shouldReactivateBot);
 
   await getAdminClient()
     .from('inbox_conversations')
@@ -364,13 +369,14 @@ async function storeInboundMessage(conversationId, content, contentType, mediaUr
       last_message_at: new Date().toISOString(),
       last_message_preview: content?.substring(0, 100),
       unread_count: (conv?.unread_count || 0) + 1,
+      ...(shouldReactivateBot ? { chatbot_active: true, bot_followup_count: 0 } : {}),
     })
     .eq('id', conversationId);
 
-  console.log(`[Inbox] 📩 New message in conversation ${conversationId}`);
+  console.log(`[Inbox] 📩 New message in conversation ${conversationId}${shouldReactivateBot ? ' (Bot auto-reactivated after followup timeout)' : ''}`);
 
   // 🤖 Trigger chatbot only for text messages and when bot is active
-  if (contentType === 'text' && content && conv?.chatbot_active) {
+  if (contentType === 'text' && content && isBotActive) {
     try {
       // Get contact phone for WhatsApp reply
       let phoneNumber = null;

@@ -219,12 +219,12 @@ export async function GET(request) {
         const sent = await sendFollowupMessage(supabase, conv, messageText);
         if (sent) sentCount++;
 
-        // If this was the last followup, deactivate the bot for this conversation
+        // Note: We do NOT set chatbot_active = false here anymore.
+        // Because bot_followup_count is now 2 (and the cron query filters .lt('bot_followup_count', 2)),
+        // no more follow-ups will be sent, but if the customer writes back hours or days later,
+        // the bot will still be active to assist them and reset bot_followup_count to 0.
         if (conv.bot_followup_count === 1 && sent) {
-          await supabase.from('inbox_conversations').update({
-            chatbot_active: false,
-          }).eq('id', conv.id);
-          console.log(`[Followup] 🔚 Conversation ${conv.id} closed after 2 followups`);
+          console.log(`[Followup] 🔚 Conversation ${conv.id} reached 2 followups (bot remains active for future replies)`);
         }
       }
     }

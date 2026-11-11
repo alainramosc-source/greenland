@@ -548,6 +548,11 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
     }
 
     const FALLBACK_REPLY = '¡Hola! Disculpa la demora 😊 ¿En qué puedo ayudarte? Puedo darte información sobre nuestros productos o ponerte en contacto con un asesor.';
+    const IGNORED_BOT_MESSAGES = new Set([
+      FALLBACK_REPLY,
+      '¿Sigues por aquí? 😊 Quedo atento por si tienes alguna duda.',
+      'No hemos recibido respuesta. Si necesitas ayuda más adelante, aquí estaremos con gusto. ¡Que tengas excelente día! 🙌',
+    ]);
     const lastOutboundMsg = (msgs || []).find(m => m.direction === 'outbound');
     const lastOutboundWasFallback = lastOutboundMsg?.content === FALLBACK_REPLY;
 
@@ -572,7 +577,7 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
 
     const rawHistory = priorMsgs
       .reverse()
-      .filter(m => m.content && m.content !== FALLBACK_REPLY)
+      .filter(m => m.content && !IGNORED_BOT_MESSAGES.has(m.content) && m.metadata?.sent_by !== 'chatbot_followup')
       .map(m => ({
         role: m.direction === 'inbound' ? 'user' : 'model',
         parts: [{ text: m.content || '' }],
@@ -636,7 +641,7 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
 - **send_product_photos**: Cuando el cliente pida ver fotos, imágenes, colores o modelos de Lambrín ("lambrin"), Wall Cladding ("wall_cladding"), Mármol PVC ("marmol_pvc"), Piedra Flexible ("piedra_flexible"), la fachada de la bodega en Saltillo ("bodega"), cómo se envían las tarimas foráneas ("tarima"), o productos por SKU.
   - **IMPORTANTE**: Si en la conversación YA enviaste la foto de la bodega (${alreadySentSkus.has('BODEGA') ? 'YA ENVIADA EN ESTE CHAT — NO VOLVER A LLAMAR send_product_photos PARA BODEGA' : 'aún no enviada'}), NO vuelvas a enviarla si el cliente solo agradece o dice que nos visitará después.
 - **create_checkout_link**: Cuando el cliente confirme que quiere comprar productos específicos de mobiliario con cantidades.
-- **transfer_to_human**: SOLO cuando el cliente pida hablar con una persona real, quiera cotización de mayoreo/envío foráneo o quiera ser distribuidor. NUNCA transfieras a humano cuando el cliente solo dice "gracias" o "los visitaré la próxima semana".
+- **transfer_to_human**: SOLO cuando el cliente pida hablar con una persona real, quiera cotización de mayoreo/envío foráneo, o sea un prospecto de distribuidor QUE YA RESPONDIÓ de qué ciudad nos escribe, qué productos le interesan y cuál es su giro. Si el cliente apenas dice que le interesa ser distribuidor (ej. "Hola, me interesa ser distribuidor Greenland") sin haber dado su ciudad, productos y giro, PROHIBIDO llamar transfer_to_human: primero hazle las preguntas de evaluación. NUNCA transfieras a humano cuando el cliente solo dice "gracias" o "los visitaré la próxima semana".
 
 ## REGLAS CRÍTICAS
 - Siempre que llames a una función (como send_product_photos), escribe también tu respuesta de texto en el mismo mensaje para acompañar la acción.
@@ -690,7 +695,7 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
         },
         {
           name: 'transfer_to_human',
-          description: 'Transfiere a un humano. SOLO cuando el cliente lo pida explícitamente o requiera evaluación de distribuidor/envío foráneo.',
+          description: 'Transfiere a un humano. SOLO cuando el cliente pida hablar con un asesor, requiera cotización de envío foráneo/mayoreo, o sea un prospecto de distribuidor que YA indicó su ciudad, productos de interés y giro. PROHIBIDO llamarla en el primer mensaje de un prospecto de distribuidor antes de hacerle las preguntas de evaluación.',
           parameters: {
             type: 'object',
             properties: {
@@ -767,38 +772,57 @@ export async function processBotMessage(conversationId, message, phoneNumber) {
 
       if (functionCall) {
         if (functionCall.name === 'transfer_to_human') {
-          shouldStayActive = false;
-          await supabase
-            .from('inbox_conversations')
-            .update({ chatbot_active: false })
-            .eq('id', conversationId);
+          // Safeguard: If a user is asking to become a distributor for the first time without having answered
+          // the evaluation questions yet (no prior bot question asking for city/giro/products), do NOT transfer yet;
+          // ask the evaluation questions first and keep the bot active.
+          const isInitialDistributorInquiry =
+            /distribuidor/i.test(effectiveMessage) &&
+            !history.some(h => h.role === 'model' && /(ciudad|giro|línea de productos|qué productos)/i.test(h.parts?.[0]?.text || '')) &&
+            effectiveMessage.trim().split(/\s+/).length <= 22;
 
-          const { data: conv } = await supabase
-            .from('inbox_conversations')
-            .select('contact_id')
-            .eq('id', conversationId)
-            .single();
-          let contactName = null;
-          let contactPhone = phoneNumber;
-          if (conv?.contact_id) {
-            const { data: contact } = await supabase
-              .from('inbox_contacts')
-              .select('name, phone')
-              .eq('id', conv.contact_id)
+          if (isInitialDistributorInquiry) {
+            console.log(`[Bot] 🛡️ Intercepted premature transfer_to_human on initial distributor inquiry — asking evaluation questions first.`);
+            shouldStayActive = true;
+            botReply =
+              '¡Hola! Con mucho gusto 😊 En *Greenland Products* manejamos precios preferenciales para distribuidores con compras continuas.\n\n' +
+              'Para canalizarte con el asesor de tu zona, ¿me podrías compartir por favor estos 3 datos?\n' +
+              '1. 📍 *¿De qué ciudad y estado nos buscas?*\n' +
+              '2. 📦 *¿Qué línea de productos te interesa comercializar?* (Mobiliario plegable y toldos, o Revestimientos arquitectónicos Greenland Deco)\n' +
+              '3. 🏢 *¿Ya cuentas con negocio establecido o a qué giro te dedicas?*';
+          } else {
+            shouldStayActive = false;
+            await supabase
+              .from('inbox_conversations')
+              .update({ chatbot_active: false })
+              .eq('id', conversationId);
+
+            const { data: conv } = await supabase
+              .from('inbox_conversations')
+              .select('contact_id')
+              .eq('id', conversationId)
               .single();
-            contactName = contact?.name;
-            contactPhone = contactPhone || contact?.phone;
+            let contactName = null;
+            let contactPhone = phoneNumber;
+            if (conv?.contact_id) {
+              const { data: contact } = await supabase
+                .from('inbox_contacts')
+                .select('name, phone')
+                .eq('id', conv.contact_id)
+                .single();
+              contactName = contact?.name;
+              contactPhone = contactPhone || contact?.phone;
+            }
+
+            await sendTransferNotification(
+              contactName, contactPhone, functionCall.args.reason, conversationId
+            );
+
+            botReply = textFromModel || (
+              isOpenNow
+                ? '¡Con gusto! 😊 En este momento te estoy comunicando con un asesor de nuestro equipo para atenderte personalmente. En breve te contactamos.'
+                : '¡Con gusto! 😊 He canalizado tu solicitud con un asesor de nuestro equipo. Nuestro horario de atención es de Lunes a Viernes de 9:00 AM a 6:00 PM (comida de 1:00 PM a 2:00 PM) y Sábados de 10:00 AM a 2:00 PM; te daremos seguimiento a primera hora.'
+            );
           }
-
-          await sendTransferNotification(
-            contactName, contactPhone, functionCall.args.reason, conversationId
-          );
-
-          botReply = textFromModel || (
-            isOpenNow
-              ? '¡Con gusto! 😊 En este momento te estoy comunicando con un asesor de nuestro equipo para atenderte personalmente. En breve te contactamos.'
-              : '¡Con gusto! 😊 He canalizado tu solicitud con un asesor de nuestro equipo. Nuestro horario de atención es de Lunes a Viernes de 9:00 AM a 6:00 PM (comida de 1:00 PM a 2:00 PM) y Sábados de 10:00 AM a 2:00 PM; te daremos seguimiento a primera hora.'
-          );
         } else if (functionCall.name === 'create_checkout_link') {
           const checkoutResult = await createCheckoutLink(supabase, conversationId, functionCall.args.items);
           if (checkoutResult.success) {
