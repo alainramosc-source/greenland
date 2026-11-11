@@ -61,6 +61,14 @@ export default function InventariosPage() {
     retailSales,
     salesSearch,
     setSalesSearch,
+    salesWarehouseFilter,
+    setSalesWarehouseFilter,
+    salesPeriod,
+    setSalesPeriod,
+    salesRange,
+    setSalesRange,
+    salesLoading,
+    ensureSalesLoaded,
     subRole,
     isReadOnly,
     isSuperAdmin,
@@ -72,12 +80,13 @@ export default function InventariosPage() {
 
   const canSeeClosings = userRole === 'ADMIN' && ['super_admin', 'accountant', 'viewer'].includes(subRole);
 
-  const [activeTab, setActiveTab] = useState('matrix'); // 'matrix' | 'conteo' | 'historial'
+  const [activeTab, setActiveTab] = useState('matrix'); // 'matrix' | 'ventas' | 'conteo' | 'historial' | 'cierres'
 
-  // El historial de movimientos se consulta solo cuando se abre su pestaña
+  // El historial de movimientos y el de ventas a público se consultan bajo demanda al abrir su pestaña
   useEffect(() => {
     if (activeTab === 'historial' && !loading) ensureLogsLoaded();
-  }, [activeTab, loading, ensureLogsLoaded]);
+    if (activeTab === 'ventas' && !loading) ensureSalesLoaded();
+  }, [activeTab, loading, ensureLogsLoaded, ensureSalesLoaded]);
   const [modalState, setModalState] = useState({
     adjust: false,
     transfer: false,
@@ -407,11 +416,18 @@ export default function InventariosPage() {
       {activeTab === 'ventas' && (
         <RetailSalesHistoryView
           sales={retailSales}
+          warehouses={warehouses}
           searchFilter={salesSearch}
           setSearchFilter={setSalesSearch}
+          warehouseFilter={salesWarehouseFilter}
+          setWarehouseFilter={setSalesWarehouseFilter}
+          period={salesPeriod}
+          setPeriod={setSalesPeriod}
+          range={salesRange}
+          setRange={setSalesRange}
           onNewSale={isReadOnly ? undefined : () => openModal('proSale', selectedSkus)}
           isPro={isPro}
-          loading={loading}
+          loading={loading || salesLoading}
         />
       )}
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ShoppingBag,
   Package,
@@ -14,23 +14,47 @@ import {
   Clock,
   Plus,
   Layers,
-  ArrowUpRight
+  Download,
+  Loader2
 } from 'lucide-react';
 
 export default function RetailSalesHistoryView({
   sales = [],
+  warehouses = [],
   searchFilter = '',
   setSearchFilter,
+  warehouseFilter = 'all',
+  setWarehouseFilter,
+  period = '30d',
+  setPeriod,
+  range = { from: '', to: '' },
+  setRange,
   onNewSale,
   isPro = false,
   loading = false
 }) {
-  // Filter sales based on search term
+  const [draftFrom, setDraftFrom] = useState(range?.from || '');
+  const [draftTo, setDraftTo] = useState(range?.to || '');
+
+  // Distinct warehouse names available in loaded sales + warehouses catalog
+  const warehouseOptions = useMemo(() => {
+    const names = new Set();
+    (warehouses || []).forEach(w => { if (w?.name) names.add(w.name); });
+    (sales || []).forEach(s => { if (s?.warehouse_name) names.add(s.warehouse_name); });
+    return Array.from(names).sort();
+  }, [warehouses, sales]);
+
+  // Filter sales based on warehouse + search term
   const filteredSales = useMemo(() => {
-    if (!searchFilter.trim()) return sales;
-    const q = searchFilter.toLowerCase().trim();
+    const q = (searchFilter || '').toLowerCase().trim();
 
     return sales.filter(sale => {
+      if (warehouseFilter && warehouseFilter !== 'all') {
+        if ((sale.warehouse_name || '') !== warehouseFilter) return false;
+      }
+
+      if (!q) return true;
+
       const matchOrder = (sale.order_number || '').toLowerCase().includes(q);
       const matchNotes = (sale.notes || '').toLowerCase().includes(q);
       const matchCustomer = (sale.customer_name || '').toLowerCase().includes(q);
@@ -44,7 +68,45 @@ export default function RetailSalesHistoryView({
 
       return matchOrder || matchNotes || matchCustomer || matchWh || matchItems;
     });
-  }, [sales, searchFilter]);
+  }, [sales, searchFilter, warehouseFilter]);
+
+  const handleExportCsv = () => {
+    const rows = ['Orden,Fecha,Cliente,SKU,Producto,Cantidad,Precio Unit.,Subtotal,Total Orden,Bodega,Entrega,Método Pago,Pago,Estado,Notas'];
+    filteredSales.forEach(o => {
+      const items = Array.isArray(o.items) ? o.items : [];
+      const date = o.created_at ? new Date(o.created_at).toLocaleDateString('es-MX') : '';
+      const client = `"${(o.customer_name || '').replace(/"/g, '""')}"`;
+      const pm = o.payment_method === 'transfer' ? 'Transferencia' : o.payment_method === 'cash' ? 'Efectivo' : (o.payment_method || '');
+      const notesClean = `"${(o.notes || '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
+      if (items.length === 0) {
+        rows.push(`${o.order_number || ''},${date},${client},,,,,${o.total || 0},"${o.warehouse_name || ''}",${o.delivery_type || ''},${pm},${o.payment_status || ''},${o.status || ''},${notesClean}`);
+      } else {
+        items.forEach(item => {
+          const qty = Number(item.quantity || item.qty || 0);
+          const price = Number(item.sale_price || item.price || 0);
+          const sub = (qty * price).toFixed(2);
+          rows.push(`${o.order_number || ''},${date},${client},${item.sku || ''},"${(item.name || '').replace(/"/g, '""')}",${qty},${price},${sub},${o.total || 0},"${o.warehouse_name || ''}",${o.delivery_type || ''},${pm},${o.payment_status || ''},${o.status || ''},${notesClean}`);
+        });
+      }
+    });
+    const csvContent = '\uFEFF' + rows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ventas_publico_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const periodButtons = [
+    { key: '30d', label: 'Últimos 30 días' },
+    { key: 'month', label: 'Este Mes' },
+    { key: 'year', label: 'Año 2026' },
+    { key: 'all', label: 'Todo el historial' },
+    { key: 'custom', label: 'Rango' },
+  ];
 
   // Aggregate KPIs
   const stats = useMemo(() => {
@@ -126,13 +188,88 @@ export default function RetailSalesHistoryView({
         </div>
       </div>
 
+      {/* Period & Warehouse Filter Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5 mr-1">
+            <Calendar className="w-3.5 h-3.5 text-emerald-600" /> Período:
+          </span>
+          <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+            {periodButtons.map(b => (
+              <button
+                key={b.key}
+                type="button"
+                onClick={() => setPeriod && setPeriod(b.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border-none ${
+                  period === b.key
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-transparent text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-800'
+                }`}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+
+          {period === 'custom' && (
+            <div className="flex flex-wrap items-center gap-2 ml-1">
+              <input
+                type="date"
+                value={draftFrom}
+                onChange={(e) => setDraftFrom(e.target.value)}
+                className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
+              />
+              <span className="text-xs text-slate-400">a</span>
+              <input
+                type="date"
+                value={draftTo}
+                onChange={(e) => setDraftTo(e.target.value)}
+                className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
+              />
+              <button
+                type="button"
+                onClick={() => setRange && setRange({ from: draftFrom, to: draftTo })}
+                className="px-3 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg cursor-pointer border-none"
+              >
+                Aplicar
+              </button>
+            </div>
+          )}
+
+          {loading && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 ml-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando...
+            </span>
+          )}
+        </div>
+
+        {/* Warehouse selector (for Admin) */}
+        {!isPro && warehouseOptions.length > 1 && setWarehouseFilter && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
+              <Layers className="w-3.5 h-3.5 text-slate-400" /> Bodega:
+            </span>
+            <select
+              value={warehouseFilter}
+              onChange={(e) => setWarehouseFilter(e.target.value)}
+              className="px-3 py-1.5 text-xs font-semibold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
+            >
+              <option value="all">Todas las bodegas</option>
+              {warehouseOptions.map(wh => (
+                <option key={wh} value={wh}>{wh}</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
       {/* Action and Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="relative flex-1 max-w-lg">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Buscar por folio (#VP-...), cliente, SKU, producto o notas..."
+            placeholder="Buscar por folio (#VP-...), cliente, SKU, producto, bodega o notas..."
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
             className="w-full pl-10 pr-4 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-900 dark:text-white placeholder:text-slate-400"
@@ -148,6 +285,14 @@ export default function RetailSalesHistoryView({
         </div>
 
         <div className="flex items-center gap-2 justify-end">
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={filteredSales.length === 0}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm disabled:opacity-40 cursor-pointer"
+          >
+            <Download className="w-4 h-4 text-emerald-600" /> Exportar CSV
+          </button>
           {onNewSale && (
             <button
               onClick={onNewSale}

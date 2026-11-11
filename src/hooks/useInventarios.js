@@ -105,9 +105,101 @@ export function useInventarios() {
   const [saleSaving, setSaleSaving] = useState(false);
   const [saleNote, setSaleNote] = useState('');
 
-  // Retail Sales History (PRO)
+  // Retail Sales History (PRO & Admin) — Lazy loaded by period/range
   const [retailSales, setRetailSales] = useState([]);
   const [salesSearch, setSalesSearch] = useState('');
+  const [salesWarehouseFilter, setSalesWarehouseFilter] = useState('all');
+  const [salesPeriod, setSalesPeriodState] = useState('30d'); // '30d' | 'month' | 'year' | 'all' | 'custom'
+  const [salesRange, setSalesRangeState] = useState(() => {
+    const to = todayMX();
+    const d = new Date(`${to}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 30);
+    return { from: d.toISOString().slice(0, 10), to };
+  });
+  const salesPeriodRef = useRef('30d');
+  const salesRangeRef = useRef(salesRange);
+  const salesCtxRef = useRef({ isPro: false, isAdmin: false, userId: null });
+  const salesLoadedRef = useRef(false);
+  const [salesLoading, setSalesLoading] = useState(false);
+
+  const fetchRetailSales = useCallback(async (periodOverride, rangeOverride) => {
+    const period = periodOverride || salesPeriodRef.current;
+    const range = rangeOverride || salesRangeRef.current;
+    const { isPro: proFlag, isAdmin: adminFlag, userId: uid } = salesCtxRef.current;
+    if (!proFlag && !adminFlag) return;
+
+    const today = todayMX();
+    let fromTs = null;
+    let toTs = `${today}T23:59:59.999-06:00`;
+
+    if (period === '30d') {
+      const d = new Date(`${today}T12:00:00Z`);
+      d.setUTCDate(d.getUTCDate() - 30);
+      fromTs = `${d.toISOString().slice(0, 10)}T00:00:00-06:00`;
+    } else if (period === 'month') {
+      fromTs = `${today.slice(0, 7)}-01T00:00:00-06:00`;
+    } else if (period === 'year') {
+      fromTs = `${today.slice(0, 4)}-01-01T00:00:00-06:00`;
+    } else if (period === 'custom' && range?.from && range?.to) {
+      fromTs = `${range.from}T00:00:00-06:00`;
+      toTs = `${range.to}T23:59:59.999-06:00`;
+    } else if (period === 'all') {
+      fromTs = null;
+      toTs = null;
+    }
+
+    const PAGE = 1000;
+    const MAX_PAGES = 20;
+    setSalesLoading(true);
+    try {
+      const all = [];
+      for (let page = 0; page < MAX_PAGES; page++) {
+        let q = supabase.from('lastmile_orders').select('*');
+        if (proFlag && uid) {
+          q = q.eq('distributor_id', uid);
+        } else {
+          q = q.neq('delivery_type', 'delivery');
+        }
+        if (fromTs) q = q.gte('created_at', fromTs);
+        if (toTs) q = q.lte('created_at', toTs);
+        q = q.order('created_at', { ascending: false }).range(page * PAGE, page * PAGE + PAGE - 1);
+
+        const { data, error } = await q;
+        if (error) throw error;
+        all.push(...(data || []));
+        if (!data || data.length < PAGE) break;
+      }
+      setRetailSales(all);
+    } catch (err) {
+      console.error('Error fetching retail sales:', err);
+    } finally {
+      setSalesLoading(false);
+    }
+  }, [supabase]);
+
+  const setSalesPeriod = useCallback((newPeriod) => {
+    salesPeriodRef.current = newPeriod;
+    salesLoadedRef.current = true;
+    setSalesPeriodState(newPeriod);
+    fetchRetailSales(newPeriod, salesRangeRef.current);
+  }, [fetchRetailSales]);
+
+  const setSalesRange = useCallback((newRange) => {
+    if (!newRange?.from || !newRange?.to) return;
+    const fixed = newRange.from > newRange.to ? { from: newRange.to, to: newRange.from } : newRange;
+    salesRangeRef.current = fixed;
+    salesPeriodRef.current = 'custom';
+    salesLoadedRef.current = true;
+    setSalesRangeState(fixed);
+    setSalesPeriodState('custom');
+    fetchRetailSales('custom', fixed);
+  }, [fetchRetailSales]);
+
+  const ensureSalesLoaded = useCallback(() => {
+    if (salesLoadedRef.current) return;
+    salesLoadedRef.current = true;
+    fetchRetailSales();
+  }, [fetchRetailSales]);
 
   // Movement logs by date range (fechas en hora de México, sin tope de 200)
   const fetchMovementLogs = useCallback(async (range) => {
@@ -312,28 +404,9 @@ export function useInventarios() {
       logsCtxRef.current = { prodList: productsData || [], whList: whData || [] };
       if (logsLoadedRef.current) await fetchMovementLogs();
 
-      // 9. Fetch retail sales for PRO users (from lastmile_orders)
-      if (isPro) {
-        const { data: salesData, error: salesErr } = await supabase
-          .from('lastmile_orders')
-          .select('*')
-          .eq('distributor_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(500);
-        if (!salesErr && salesData) {
-          setRetailSales(salesData);
-        }
-      } else if (profile?.role === 'admin') {
-        const { data: salesData, error: salesErr } = await supabase
-          .from('lastmile_orders')
-          .select('*')
-          .eq('delivery_type', 'pickup')
-          .order('created_at', { ascending: false })
-          .limit(500);
-        if (!salesErr && salesData) {
-          setRetailSales(salesData);
-        }
-      }
+      // 9. Retail sales: solo si ya se abrió la pestaña Ventas a Público (carga bajo demanda)
+      salesCtxRef.current = { isPro: !!isPro, isAdmin: profile?.role === 'admin', userId: user.id };
+      if (salesLoadedRef.current) await fetchRetailSales();
 
       setUserId(user.id);
     } catch (err) {
@@ -341,7 +414,7 @@ export function useInventarios() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, router, fetchMovementLogs]);
+  }, [supabase, router, fetchMovementLogs, fetchRetailSales]);
 
   useEffect(() => {
     fetchData();
@@ -1138,6 +1211,7 @@ export function useInventarios() {
         }).eq('id', data.order_id);
       }
 
+      salesLoadedRef.current = true;
       await fetchData();
       return true;
     } catch (err) {
@@ -1280,6 +1354,14 @@ export function useInventarios() {
     setRetailSales,
     salesSearch,
     setSalesSearch,
+    salesWarehouseFilter,
+    setSalesWarehouseFilter,
+    salesPeriod,
+    setSalesPeriod,
+    salesRange,
+    setSalesRange,
+    salesLoading,
+    ensureSalesLoaded,
 
     // Legacy helpers
     filteredProducts,

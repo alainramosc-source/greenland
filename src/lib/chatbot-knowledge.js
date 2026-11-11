@@ -70,7 +70,7 @@ Tenemos **dos líneas principales con reglas de cobertura y envío distintas**:
     2. 📦 **¿Qué línea de productos te interesa comercializar?** *(Mobiliario plegable y toldos, o Revestimientos arquitectónicos Greenland Deco)*.
     3. 🏢 **¿Ya cuentas con negocio establecido o a qué giro te dedicas?** *(ej. mueblería, alquiladora, ferretería, constructora, ventas en línea, etc.)*.
   - **PASO 2 — TRANSFERENCIA A ASESOR (SOLO DESPUÉS DE QUE RESPONDA LAS PREGUNTAS)**:
-    Una vez que el interesado te responda indicando su ciudad, productos de interés y/o giro, **ahora sí llama a la función transfer_to_human** (incluyendo en `reason` su ciudad, productos y giro) y confírmale que con esos datos un asesor especializado se pondrá en contacto con él para evaluar su zona y compartirle la lista de distribuidor.
+    Una vez que el interesado te responda indicando su ciudad, productos de interés y/o giro, **ahora sí llama a la función transfer_to_human** (incluyendo en el motivo/reason su ciudad, productos y giro) y confírmale que con esos datos un asesor especializado se pondrá en contacto con él para evaluar su zona y compartirle la lista de distribuidor.
 
 ---
 
