@@ -1,1297 +1,394 @@
 'use client';
-import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
-import { createClient } from '@/utils/supabase/client';
-import { middleEllipsis } from '@/utils/formatters';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { Suspense } from 'react';
 import {
-    ShieldCheck, MapPin, Package, Upload, Edit3, X, Save,
-    RefreshCw, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Warehouse, FileSpreadsheet, History,
-    Clock, Truck, Calendar, ArrowRight, Plus, Trash2, Ship, Loader2, ChevronRight, Eye, ArrowLeft
+  ShieldCheck, Upload, RefreshCw, AlertTriangle, CheckCircle,
+  TrendingDown, TrendingUp, Warehouse, FileSpreadsheet, History,
+  Truck, Calendar, Ship, Eye, ArrowLeft, Package
 } from 'lucide-react';
+import { useCobertura } from '@/hooks/useCobertura';
+import CoverageHeatmapTable from './components/CoverageHeatmapTable';
+import ReorderSuggestionsPanel from './components/ReorderSuggestionsPanel';
+import TransitSlideOverPanel from './components/TransitSlideOverPanel';
 
 export default function CoberturaPageWrapper() {
-    return <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]"><div className="w-10 h-10 border-3 border-slate-300 border-l-[#6a9a04] rounded-full animate-spin" /></div>}><CoberturaPage /></Suspense>;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[60vh] text-slate-400 gap-2 text-xs font-bold">
+          <div className="w-6 h-6 border-2 border-slate-300 border-l-[#6a9a04] rounded-full animate-spin" />
+          <span>Cargando Cobertura...</span>
+        </div>
+      }
+    >
+      <CoberturaPage />
+    </Suspense>
+  );
 }
 
 function CoberturaPage() {
-    const supabase = createClient();
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const fileInputRef = useRef(null);
-
-    // Simulation mode
-    const [simulationData, setSimulationData] = useState(null);
-
-    const [loading, setLoading] = useState(true);
-    const [isAdmin, setIsAdmin] = useState(false);
-    const [warehouses, setWarehouses] = useState([]);
-    const [saltilloWarehouseIds, setSaltilloWarehouseIds] = useState([]);
-    const [selectedWarehouse, setSelectedWarehouse] = useState(null);
-    const [products, setProducts] = useState([]);
-    const [coverageData, setCoverageData] = useState([]);
-    const [transitShipments, setTransitShipments] = useState([]);
-    const [editingRow, setEditingRow] = useState(null);
-    const [editForm, setEditForm] = useState({ stock_bodega: 0, stock_transito: 0, weekly_demand: 0 });
-    const [saving, setSaving] = useState(false);
-    const [csvImporting, setCsvImporting] = useState(false);
-    const [toast, setToast] = useState(null);
-    const [skuFilter, setSkuFilter] = useState('');
-
-    // Smart coverage state
-    const [transitPanel, setTransitPanel] = useState(null); // product_id of open panel
-    const [transitForm, setTransitForm] = useState({ quantity: '', estimated_arrival: '', origin: '' });
-    const [editingTransitId, setEditingTransitId] = useState(null);
-    const [editingTransitForm, setEditingTransitForm] = useState({ quantity: '', estimated_arrival: '', origin: '' });
-    const [showTransitCsvModal, setShowTransitCsvModal] = useState(false);
-    const [transitCsvText, setTransitCsvText] = useState('');
-    const [transitCsvImporting, setTransitCsvImporting] = useState(false);
-
-    // Manufacturer lead time configs — loaded from DB
-    const [manufacturers, setManufacturers] = useState([]);
-    const [selectedManufacturer, setSelectedManufacturer] = useState(null);
-
-    // Compute lead time dynamically based on manufacturer + warehouse transit override
-    const getLeadTimeWeeks = () => {
-        if (!selectedManufacturer) return 9;
-        const production = selectedManufacturer.production_lead_weeks || 4;
-        // Use warehouse transit override if available, otherwise manufacturer's default
-        const transit = selectedWarehouse?.transit_lead_weeks || selectedManufacturer.transit_lead_weeks || 5;
-        return production + transit;
-    };
-    const LEAD_TIME_WEEKS = getLeadTimeWeeks();
-
-    // Dynamic horizon: configurable rolling vision (default 26 weeks ~ 6 months into 2027)
-    const [horizonWeeks, setHorizonWeeks] = useState(26);
-    const NUM_WEEKS = horizonWeeks;
-    const ORDER_CYCLE_WEEKS = 4; // Pedido nuevo cada 4 semanas (mensual)
-    const REORDER_TARGET_WEEKS = LEAD_TIME_WEEKS + ORDER_CYCLE_WEEKS;
-    const SAFETY_STOCK_WEEKS = 0; // Desactivado por ahora — se activará por SKU después
-
-    useEffect(() => { checkAdminAndFetch(); }, []);
-
-    // Load simulation data from sessionStorage
-    useEffect(() => {
-        if (searchParams.get('simulate') === 'true') {
-            try {
-                const raw = sessionStorage.getItem('po_simulation');
-                if (raw) setSimulationData(JSON.parse(raw));
-            } catch (e) { console.warn('Failed to parse simulation data'); }
-        }
-    }, [searchParams]);
-
-    const showToast = (message, type = 'success') => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), 3000);
-    };
-
-    const checkAdminAndFetch = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { router.push('/login'); return; }
-        const { data: profile } = await supabase.from('profiles').select('role, sub_role, assigned_warehouse_id').eq('id', user.id).single();
-        const isAdminUser = profile?.role === 'admin';
-        const isProUser = profile?.role === 'distributor' && profile?.sub_role === 'distributor_pro' && profile?.assigned_warehouse_id;
-        if (!isAdminUser && !isProUser) { router.push('/dashboard'); return; }
-        setIsAdmin(isAdminUser);
-        await fetchBaseData(isProUser ? profile.assigned_warehouse_id : null);
-    };
-
-    const fetchBaseData = async (proWarehouseId = null) => {
-        setLoading(true);
-        const [whRes, prodRes, mfgRes] = await Promise.all([
-            supabase.from('warehouses').select('*').eq('is_active', true).order('sort_order'),
-            supabase.from('products').select('id, name, sku, container_capacity').eq('is_active', true).order('sku'),
-            supabase.from('suppliers').select('id, short_name, production_lead_weeks, transit_lead_weeks').eq('type', 'manufacturer').eq('is_active', true).order('short_name'),
-        ]);
-        const mfgs = mfgRes.data || [];
-        setManufacturers(mfgs);
-        if (mfgs.length > 0 && !selectedManufacturer) setSelectedManufacturer(mfgs[0]);
-        const SALTILLO_BODEGAS = ['Bodega Vito Alessio', 'Bodega Echeverría'];
-        const allWarehouses = whRes.data || [];
-        const saltilloIds = allWarehouses.filter(w => SALTILLO_BODEGAS.includes(w.name)).map(w => w.id);
-        setSaltilloWarehouseIds(saltilloIds);
-
-        let finalWarehouses;
-        if (proWarehouseId) {
-            // PRO user: show only their assigned warehouse
-            const proWh = allWarehouses.find(w => w.id === proWarehouseId);
-            if (saltilloIds.includes(proWarehouseId)) {
-                // Assigned to a Saltillo warehouse → show combined Saltillo tab
-                finalWarehouses = [{ id: 'saltillo-combined', name: 'Saltillo', isCombined: true }];
-            } else if (proWh) {
-                finalWarehouses = [proWh];
-            } else {
-                finalWarehouses = [];
-            }
-        } else {
-            // Admin: show all warehouses
-            const wh = allWarehouses.filter(w => !SALTILLO_BODEGAS.includes(w.name));
-            const saltilloTab = saltilloIds.length > 0 ? [{ id: 'saltillo-combined', name: 'Saltillo', isCombined: true }] : [];
-            finalWarehouses = [...saltilloTab, ...wh];
-        }
-
-        setWarehouses(finalWarehouses);
-        setProducts(prodRes.data || []);
-        if (finalWarehouses.length > 0) {
-            // If simulation mode, auto-select the simulated warehouse
-            let simRaw = null;
-            try { simRaw = sessionStorage.getItem('po_simulation'); } catch(e) {}
-            const simParsed = simRaw ? JSON.parse(simRaw) : null;
-            const simWarehouseId = simParsed?.warehouse_id;
-            let defaultWh = finalWarehouses[0];
-            if (simWarehouseId) {
-                // Check if it matches a Saltillo warehouse
-                if (saltilloIds.includes(simWarehouseId)) {
-                    const saltilloTab = finalWarehouses.find(w => w.isCombined);
-                    if (saltilloTab) defaultWh = saltilloTab;
-                } else {
-                    const match = finalWarehouses.find(w => w.id === simWarehouseId);
-                    if (match) defaultWh = match;
-                }
-            }
-            setSelectedWarehouse(defaultWh);
-            await Promise.all([
-                fetchCoverage(defaultWh, saltilloIds),
-                fetchTransits(defaultWh, saltilloIds),
-            ]);
-        }
-        setLoading(false);
-    };
-
-    const fetchCoverage = async (warehouse, saltilloIds = saltilloWarehouseIds) => {
-        if (warehouse?.isCombined) {
-            // Fetch actual stock from warehouse_stock for both Saltillo bodegas
-            const [wsRes, covRes] = await Promise.all([
-                supabase.from('warehouse_stock').select('*').in('warehouse_id', saltilloIds),
-                supabase.from('coverage_inventory').select('*').in('warehouse_id', saltilloIds),
-            ]);
-            const merged = {};
-            // First, load stock data from warehouse_stock
-            for (const row of (wsRes.data || [])) {
-                if (!merged[row.product_id]) {
-                    merged[row.product_id] = {
-                        product_id: row.product_id,
-                        warehouse_id: 'saltillo-combined',
-                        stock_bodega: row.stock_quantity || 0,
-                        stock_transito: 0,
-                        weekly_demand: 0,
-                    };
-                } else {
-                    merged[row.product_id].stock_bodega += (row.stock_quantity || 0);
-                }
-            }
-            // Then, overlay weekly_demand and stock_transito from coverage_inventory if available
-            for (const row of (covRes.data || [])) {
-                if (merged[row.product_id]) {
-                    merged[row.product_id].stock_transito += (row.stock_transito || 0);
-                    merged[row.product_id].weekly_demand += (row.weekly_demand || 0);
-                } else {
-                    merged[row.product_id] = {
-                        product_id: row.product_id,
-                        warehouse_id: 'saltillo-combined',
-                        stock_bodega: row.stock_bodega || 0,
-                        stock_transito: row.stock_transito || 0,
-                        weekly_demand: row.weekly_demand || 0,
-                    };
-                }
-            }
-            setCoverageData(Object.values(merged));
-        } else {
-            // Fetch real stock from warehouse_stock (source of truth) + demand/transit from coverage_inventory
-            const [wsRes, covRes] = await Promise.all([
-                supabase.from('warehouse_stock').select('product_id, stock_quantity').eq('warehouse_id', warehouse.id),
-                supabase.from('coverage_inventory').select('*').eq('warehouse_id', warehouse.id),
-            ]);
-            const merged = {};
-            // First, load real stock from warehouse_stock
-            for (const row of (wsRes.data || [])) {
-                merged[row.product_id] = {
-                    product_id: row.product_id,
-                    warehouse_id: warehouse.id,
-                    stock_bodega: row.stock_quantity || 0,
-                    stock_transito: 0,
-                    weekly_demand: 0,
-                };
-            }
-            // Then, overlay weekly_demand and stock_transito from coverage_inventory
-            for (const row of (covRes.data || [])) {
-                if (merged[row.product_id]) {
-                    merged[row.product_id].stock_transito = row.stock_transito || 0;
-                    merged[row.product_id].weekly_demand = row.weekly_demand || 0;
-                    if (row.id) merged[row.product_id].id = row.id;
-                } else {
-                    merged[row.product_id] = {
-                        product_id: row.product_id,
-                        warehouse_id: warehouse.id,
-                        stock_bodega: 0,
-                        stock_transito: row.stock_transito || 0,
-                        weekly_demand: row.weekly_demand || 0,
-                        id: row.id,
-                    };
-                }
-            }
-            setCoverageData(Object.values(merged));
-        }
-    };
-
-    // Fetch transit shipments for current warehouse context
-    const fetchTransits = async (warehouse, saltIds) => {
-        const ids = saltIds || saltilloWarehouseIds;
-        let query = supabase.from('transit_shipments').select('*').eq('status', 'in_transit');
-        if (warehouse?.isCombined) {
-            query = query.in('warehouse_id', ids);
-        } else if (warehouse?.id) {
-            query = query.eq('warehouse_id', warehouse.id);
-        }
-        const { data } = await query.order('estimated_arrival', { ascending: true });
-        setTransitShipments(data || []);
-    };
-
-    const handleWarehouseChange = async (wh) => {
-        setSelectedWarehouse(wh);
-        setEditingRow(null);
-        setTransitPanel(null);
-        await Promise.all([fetchCoverage(wh), fetchTransits(wh)]);
-    };
-
-    const handleRefresh = async () => {
-        if (selectedWarehouse) {
-            await Promise.all([fetchCoverage(selectedWarehouse), fetchTransits(selectedWarehouse)]);
-            showToast('Datos actualizados');
-        }
-    };
-
-    const isCombinedView = selectedWarehouse?.isCombined === true;
-
-    // Build heatmap data with SMART reorder intelligence
-    const heatmapData = useMemo(() => {
-        const now = new Date();
-        return products.map(product => {
-            const coverage = coverageData.find(c => c.product_id === product.id);
-            const stockBodega = coverage?.stock_bodega || 0;
-            const weeklyDemand = coverage?.weekly_demand || 0;
-
-            // Get transit shipments for this product (real + simulated)
-            const productTransits = transitShipments.filter(t => t.product_id === product.id);
-            // Inject simulated transits
-            const simTransits = simulationData?.items?.filter(t => t.product_id === product.id) || [];
-            const allTransits = [...productTransits, ...simTransits.map(s => ({ ...s, isSimulated: true }))];
-            const totalTransitQty = allTransits.reduce((s, t) => s + t.quantity, 0);
-
-            // Calculate which week each transit arrives
-            const getTransitWeek = (arrivalDate) => {
-                // Normalize both dates to noon to avoid UTC vs local timezone mismatch
-                const parts = arrivalDate.toString().split(/[-T]/);
-                const arrival = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
-                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
-                const diffMs = arrival - today;
-                const diffWeeks = Math.max(0, Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)));
-                return diffWeeks;
-            };
-
-            // SMART projection: week-by-week simulation
-            const weeks = [];
-            let running = stockBodega; // Start with bodega only, NOT transit
-            for (let i = 0; i < NUM_WEEKS; i++) {
-                // Inject transits arriving this week
-                for (const t of allTransits) {
-                    if (getTransitWeek(t.estimated_arrival) === i) {
-                        running += t.quantity;
-                    }
-                }
-                // Dead demand: only subtract if stock > 0
-                if (running > 0 && weeklyDemand > 0) {
-                    running = Math.max(0, running - weeklyDemand);
-                }
-                weeks.push(running);
-            }
-
-            // Coverage weeks: when does stock first hit 0?
-            const totalStock = stockBodega; // For display, just bodega (transit shown separately)
-            const coverageWeeks = weeklyDemand > 0 ? (() => {
-                for (let i = 0; i < NUM_WEEKS; i++) { if (weeks[i] <= 0) return i; }
-                return NUM_WEEKS;
-            })() : 999;
-
-            // Reorder intelligence
-            let stockoutWeek = null;
-            let stockoutDate = null;
-            let reorderStatus = 'no_demand';
-            let reorderMargin = 999;
-            let suggestedQty = 0;
-
-            if (weeklyDemand > 0) {
-                stockoutWeek = coverageWeeks;
-                const stockoutDateObj = new Date(now);
-                stockoutDateObj.setDate(now.getDate() + (coverageWeeks * 7));
-                stockoutDate = stockoutDateObj;
-
-                reorderMargin = coverageWeeks - LEAD_TIME_WEEKS;
-
-                if (reorderMargin > 4) reorderStatus = 'ok';
-                else if (reorderMargin > 0) reorderStatus = 'plan';
-                else if (reorderMargin > -4) reorderStatus = 'order_now';
-                else reorderStatus = 'late';
-
-                // SMART suggested qty: target stock for (lead_time + cycle + safety) weeks
-                // minus what we already have (current stock + incoming transits)
-                const neededForTarget = weeklyDemand * (REORDER_TARGET_WEEKS + SAFETY_STOCK_WEEKS);
-                const totalOnHand = stockBodega + totalTransitQty;
-                suggestedQty = Math.max(0, Math.ceil(neededForTarget - totalOnHand));
-            }
-
-            return {
-                product, stockBodega, stockTransito: totalTransitQty, weeklyDemand, totalStock,
-                coverageWeeks, weeks, coverageId: coverage?.id || null,
-                stockoutWeek, stockoutDate, reorderStatus, reorderMargin, suggestedQty,
-                transitCount: productTransits.length,
-                nextArrival: productTransits[0]?.estimated_arrival || null
-            };
-        });
-    }, [products, coverageData, transitShipments, simulationData, LEAD_TIME_WEEKS, NUM_WEEKS]);
-
-    // KPIs
-    const kpis = useMemo(() => {
-        const withDemand = heatmapData.filter(r => r.weeklyDemand > 0);
-        const green = withDemand.filter(r => r.coverageWeeks >= 8).length;
-        const yellow = withDemand.filter(r => r.coverageWeeks >= 4 && r.coverageWeeks < 8).length;
-        const red = withDemand.filter(r => r.coverageWeeks < 4).length;
-        const noDemand = heatmapData.filter(r => r.weeklyDemand === 0).length;
-        const avgCoverage = withDemand.length > 0
-            ? withDemand.reduce((sum, r) => sum + Math.min(r.coverageWeeks, NUM_WEEKS), 0) / withDemand.length : 0;
-        const needReorder = withDemand.filter(r => r.reorderStatus === 'order_now' || r.reorderStatus === 'late').length;
-        return { green, yellow, red, noDemand, avgCoverage, total: heatmapData.length, needReorder };
-    }, [heatmapData, NUM_WEEKS]);
-
-    // Products that need urgent reorder
-    const reorderAlerts = useMemo(() => {
-        return heatmapData
-            .filter(r => r.weeklyDemand > 0 && (r.reorderStatus === 'order_now' || r.reorderStatus === 'late' || r.reorderStatus === 'plan'))
-            .sort((a, b) => a.reorderMargin - b.reorderMargin);
-    }, [heatmapData]);
-
-    // Cell color
-    const getCellColor = (remaining, weeklyDemand) => {
-        if (weeklyDemand === 0) return 'bg-slate-100 text-slate-400';
-        if (remaining <= 0) return 'bg-red-100 text-red-700 font-black';
-        const ratio = remaining / (weeklyDemand * 4);
-        if (ratio >= 2) return 'bg-green-100 text-green-800';
-        if (ratio >= 1) return 'bg-green-50 text-green-700';
-        if (ratio >= 0.5) return 'bg-yellow-100 text-yellow-800';
-        if (ratio > 0) return 'bg-orange-100 text-orange-800';
-        return 'bg-red-100 text-red-700 font-black';
-    };
-
-    // Reorder badge
-    const getReorderBadge = (row) => {
-        const configs = {
-            no_demand: { label: '—', bg: 'bg-slate-100', text: 'text-slate-400', icon: null },
-            ok: { label: 'OK', bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200', icon: <CheckCircle size={10} /> },
-            plan: { label: 'Planear', bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200', icon: <Clock size={10} /> },
-            order_now: { label: '¡Pedir!', bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200', icon: <Truck size={10} /> },
-            late: { label: 'TARDE', bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200', icon: <AlertTriangle size={10} /> },
-        };
-        const c = configs[row.reorderStatus] || configs.no_demand;
-        if (row.reorderStatus === 'no_demand') {
-            return <span className="text-slate-400 text-[10px]">—</span>;
-        }
-
-        const nowYear = new Date().getFullYear();
-        const dateStr = row.stockoutDate
-            ? row.stockoutDate.toLocaleDateString('es-MX', {
-                day: 'numeric',
-                month: 'short',
-                year: row.stockoutDate.getFullYear() !== nowYear ? 'numeric' : undefined
-            })
-            : '';
-
-        return (
-            <div className="flex flex-col items-center gap-0.5" title={`Quiebre: ${dateStr}\nMargen: ${row.reorderMargin.toFixed(1)} sem\nSugerido: ${row.suggestedQty} uds`}>
-                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black ${c.bg} ${c.text} border ${c.border}`}>
-                    {c.icon} {c.label}
-                </span>
-                {row.stockoutDate && (
-                    <span className={`text-[8px] font-bold ${row.reorderStatus === 'late' ? 'text-red-500' : row.reorderStatus === 'order_now' ? 'text-orange-500' : 'text-slate-400'}`}>
-                        ⚡ {dateStr}
-                    </span>
-                )}
-            </div>
-        );
-    };
-
-    function getWeekNumber(d) {
-        const date = new Date(d);
-        date.setHours(0, 0, 0, 0);
-        date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
-        const week1 = new Date(date.getFullYear(), 0, 4);
-        return 1 + Math.round(((date - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
-    }
-
-    // Week labels & rich metadata (supports cross-year 2026 -> 2027 vision)
-    const weekMetadata = useMemo(() => {
-        const now = new Date();
-        const metadata = [];
-        const currentYear = now.getFullYear();
-        let lastYear = null;
-
-        for (let i = 0; i < NUM_WEEKS; i++) {
-            const weekDate = new Date(now);
-            weekDate.setDate(now.getDate() + (i * 7));
-
-            // Thursday of the week determines the ISO year
-            const target = new Date(weekDate);
-            target.setHours(0, 0, 0, 0);
-            target.setDate(target.getDate() + 3 - (target.getDay() + 6) % 7);
-            const weekNum = getWeekNumber(weekDate);
-            const year = target.getFullYear();
-
-            // Detect year transition (e.g. 2026 -> 2027)
-            const isYearTransition = lastYear !== null && year !== lastYear;
-            lastYear = year;
-
-            // Date range calculation (Monday to Sunday)
-            const monday = new Date(weekDate);
-            monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7);
-            const sunday = new Date(monday);
-            sunday.setDate(sunday.getDate() + 6);
-
-            const yearSuffix = year !== currentYear ? `'${String(year).slice(-2)}` : '';
-            const label = `WK${weekNum.toString().padStart(2, '0')}${yearSuffix ? ' ' + yearSuffix : ''}`;
-
-            // Chinese New Year 2027 (~Feb 2027, weeks 5-7)
-            const isCNY = (year === 2027 && (weekNum >= 5 && weekNum <= 7));
-
-            const dateRangeStr = `${monday.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${sunday.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: year !== currentYear ? 'numeric' : undefined })}`;
-
-            metadata.push({
-                index: i,
-                weekNum,
-                year,
-                label,
-                isYearTransition,
-                isCNY,
-                dateRangeStr,
-            });
-        }
-        return metadata;
-    }, [NUM_WEEKS]);
-
-    const weekLabels = useMemo(() => weekMetadata.map(w => w.label), [weekMetadata]);
-
-    // Edit handlers
-    const startEdit = (row) => {
-        setEditingRow(row.product.id);
-        setEditForm({ stock_bodega: row.stockBodega, stock_transito: row.stockTransito, weekly_demand: row.weeklyDemand });
-    };
-    const cancelEdit = () => { setEditingRow(null); setEditForm({ stock_bodega: 0, stock_transito: 0, weekly_demand: 0 }); };
-
-    const saveEdit = async (productId) => {
-        if (!selectedWarehouse) return;
-        setSaving(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        const newStock = parseInt(editForm.stock_bodega) || 0;
-        const newTransito = parseInt(editForm.stock_transito) || 0;
-        const newDemand = parseInt(editForm.weekly_demand) || 0;
-
-        // For combined Saltillo view, save transit/demand to the first Saltillo bodega
-        const targetWarehouseId = isCombinedView ? saltilloWarehouseIds[0] : selectedWarehouse.id;
-
-        const payload = {
-            warehouse_id: targetWarehouseId, product_id: productId,
-            stock_bodega: isCombinedView ? 0 : newStock,
-            stock_transito: newTransito, weekly_demand: newDemand,
-            updated_at: new Date().toISOString(), updated_by: user.id,
-        };
-
-        // For combined view, also zero out the second bodega's transit/demand to avoid double-counting
-        if (isCombinedView && saltilloWarehouseIds.length > 1) {
-            await supabase.from('coverage_inventory').upsert({
-                warehouse_id: saltilloWarehouseIds[1], product_id: productId,
-                stock_bodega: 0, stock_transito: 0, weekly_demand: 0,
-                updated_at: new Date().toISOString(), updated_by: user.id,
-            }, { onConflict: 'warehouse_id,product_id' });
-        }
-
-        const { error } = await supabase.from('coverage_inventory').upsert(payload, { onConflict: 'warehouse_id,product_id' });
-        if (error) { showToast('Error: ' + error.message, 'error'); }
-        else {
-            // Optimistic update — update local state immediately
-            setCoverageData(prev => {
-                const exists = prev.find(c => c.product_id === productId);
-                if (exists) {
-                    return prev.map(c => c.product_id === productId
-                        ? { ...c, stock_transito: newTransito, weekly_demand: newDemand, ...(isCombinedView ? {} : { stock_bodega: newStock }) }
-                        : c);
-                }
-                return [...prev, { product_id: productId, warehouse_id: targetWarehouseId, stock_bodega: isCombinedView ? 0 : newStock, stock_transito: newTransito, weekly_demand: newDemand }];
-            });
-            setEditingRow(null);
-            showToast('Datos guardados');
-        }
-        setSaving(false);
-    };
-
-    // Auto-detect CSV separator (comma, semicolon, or tab)
-    const detectSeparator = (text) => {
-        const firstLine = text.split('\n')[0] || '';
-        if (firstLine.includes('\t')) return '\t';
-        if (firstLine.includes(';')) return ';';
-        return ',';
-    };
-
-    // Normalize date string to YYYY-MM-DD, handles: YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY
-    const normalizeDate = (raw) => {
-        if (!raw) return null;
-        const s = raw.trim();
-        // Already YYYY-MM-DD
-        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-        // DD/MM/YYYY or MM/DD/YYYY
-        const slash = s.split('/');
-        if (slash.length === 3) {
-            const [a, b, c] = slash.map(Number);
-            if (c > 1000) { // a/b/YYYY
-                // If a > 12, it must be DD/MM/YYYY
-                if (a > 12) return `${c}-${String(b).padStart(2,'0')}-${String(a).padStart(2,'0')}`;
-                // If b > 12, it must be MM/DD/YYYY
-                if (b > 12) return `${c}-${String(a).padStart(2,'0')}-${String(b).padStart(2,'0')}`;
-                // Ambiguous — assume DD/MM/YYYY (Mexican locale)
-                return `${c}-${String(b).padStart(2,'0')}-${String(a).padStart(2,'0')}`;
-            }
-        }
-        // Fallback: try native parse
-        const d = new Date(s);
-        if (!isNaN(d.getTime())) {
-            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        }
-        return null;
-    };
-
-    // CSV Import — format: sku, weekly_demand, transit_qty, transit_date, transit_origin
-    const handleCsvImport = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file || !selectedWarehouse) return;
-        setCsvImporting(true);
-        const text = await file.text();
-        const lines = text.split('\n').filter(l => l.trim());
-        const header = lines[0].toLowerCase();
-        const hasHeader = header.includes('sku') || header.includes('demand') || header.includes('demanda');
-        const dataLines = hasHeader ? lines.slice(1) : lines;
-        const { data: { user } } = await supabase.auth.getUser();
-        const targetWarehouseId = isCombinedView ? saltilloWarehouseIds[0] : selectedWarehouse?.id;
-        let demandUpdated = 0, transitsCreated = 0, errors = 0;
-        const sep = detectSeparator(text);
-        for (const line of dataLines) {
-            const cols = line.split(sep).map(c => c.trim().replace(/"/g, ''));
-            if (cols.length < 2) { errors++; continue; }
-            const [sku, demanda, transitQty, transitDate, transitOrigin] = cols;
-            const product = products.find(p => p.sku === sku);
-            if (!product) { errors++; continue; }
-
-            // Always update weekly_demand
-            const { error: demandErr } = await supabase.from('coverage_inventory').upsert({
-                warehouse_id: targetWarehouseId, product_id: product.id,
-                weekly_demand: parseInt(demanda) || 0,
-                updated_at: new Date().toISOString(), updated_by: user.id,
-            }, { onConflict: 'warehouse_id,product_id' });
-            if (demandErr) { errors++; } else { demandUpdated++; }
-
-            // Optionally create transit shipment if qty + date provided
-            if (transitQty && parseInt(transitQty) > 0 && transitDate) {
-                const normDate = normalizeDate(transitDate);
-                if (normDate) {
-                    const { error: transitErr } = await supabase.from('transit_shipments').insert({
-                        product_id: product.id,
-                        warehouse_id: targetWarehouseId,
-                        quantity: parseInt(transitQty),
-                        estimated_arrival: normDate,
-                        origin: transitOrigin || null,
-                        created_by: user.id,
-                    });
-                    if (transitErr) errors++; else transitsCreated++;
-                }
-            }
-        }
-        await Promise.all([fetchCoverage(selectedWarehouse), fetchTransits(selectedWarehouse)]);
-        setCsvImporting(false);
-        e.target.value = '';
-        showToast(`${demandUpdated} demandas actualizadas${transitsCreated > 0 ? `, ${transitsCreated} tránsitos creados` : ''}.${errors > 0 ? ` ${errors} errores.` : ''}`, errors > 0 ? 'warning' : 'success');
-    };
-
-    // --- Transit Shipment Management ---
-    const addTransit = async (productId) => {
-        if (!transitForm.quantity || !transitForm.estimated_arrival) {
-            showToast('Cantidad y fecha de llegada son obligatorios', 'error');
-            return;
-        }
-        const { data: { user } } = await supabase.auth.getUser();
-        const targetWarehouseId = isCombinedView ? saltilloWarehouseIds[0] : selectedWarehouse?.id;
-        const { error } = await supabase.from('transit_shipments').insert({
-            product_id: productId,
-            warehouse_id: targetWarehouseId,
-            quantity: parseInt(transitForm.quantity),
-            estimated_arrival: transitForm.estimated_arrival,
-            origin: transitForm.origin || null,
-            created_by: user.id,
-        });
-        if (error) { showToast('Error: ' + error.message, 'error'); }
-        else {
-            setTransitForm({ quantity: '', estimated_arrival: '', origin: '' });
-            await fetchTransits(selectedWarehouse);
-            showToast('Embarque registrado');
-        }
-    };
-
-    const deleteTransit = async (transitId) => {
-        if (!confirm('¿Eliminar este embarque?')) return;
-        const { error } = await supabase.from('transit_shipments').delete().eq('id', transitId);
-        if (error) showToast('Error: ' + error.message, 'error');
-        else { await fetchTransits(selectedWarehouse); showToast('Embarque eliminado'); }
-    };
-
-    const markTransitArrived = async (transitId) => {
-        const { error } = await supabase.from('transit_shipments')
-            .update({ status: 'arrived' }).eq('id', transitId);
-        if (error) showToast('Error: ' + error.message, 'error');
-        else { await fetchTransits(selectedWarehouse); showToast('Embarque marcado como llegado'); }
-    };
-
-    const startEditTransit = (t) => {
-        setEditingTransitId(t.id);
-        const dateStr = t.estimated_arrival ? t.estimated_arrival.toString().split('T')[0] : '';
-        setEditingTransitForm({
-            quantity: t.quantity || '',
-            estimated_arrival: dateStr,
-            origin: t.origin || ''
-        });
-    };
-
-    const cancelEditTransit = () => {
-        setEditingTransitId(null);
-        setEditingTransitForm({ quantity: '', estimated_arrival: '', origin: '' });
-    };
-
-    const saveEditTransit = async (transitId) => {
-        if (!editingTransitForm.estimated_arrival || !editingTransitForm.quantity) {
-            showToast('Cantidad y fecha de llegada son obligatorios', 'error');
-            return;
-        }
-        const { error } = await supabase
-            .from('transit_shipments')
-            .update({
-                quantity: parseInt(editingTransitForm.quantity) || 0,
-                estimated_arrival: editingTransitForm.estimated_arrival,
-                origin: editingTransitForm.origin || null,
-            })
-            .eq('id', transitId);
-
-        if (error) {
-            showToast('Error: ' + error.message, 'error');
-        } else {
-            await fetchTransits(selectedWarehouse);
-            setEditingTransitId(null);
-            showToast('Embarque actualizado con éxito');
-        }
-    };
-
-    // Bulk CSV transit import (file-based)
-    const transitFileRef = useRef(null);
-    const handleTransitCsvImport = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setTransitCsvImporting(true);
-        const text = await file.text();
-        const { data: { user } } = await supabase.auth.getUser();
-        const targetWarehouseId = isCombinedView ? saltilloWarehouseIds[0] : selectedWarehouse?.id;
-        const lines = text.split('\n').filter(l => l.trim());
-        const header = lines[0].toLowerCase();
-        const hasHeader = header.includes('sku') || header.includes('fecha') || header.includes('cantidad');
-        const dataLines = hasHeader ? lines.slice(1) : lines;
-        let imported = 0, errors = 0;
-        const sep = detectSeparator(text);
-        for (const line of dataLines) {
-            const cols = line.split(sep).map(c => c.trim().replace(/"/g, ''));
-            if (cols.length < 3) { errors++; continue; }
-            const [sku, qty, fecha, origen] = cols;
-            const product = products.find(p => p.sku === sku);
-            if (!product) { errors++; continue; }
-            const normDate = normalizeDate(fecha);
-            if (!normDate) { errors++; continue; }
-            const { error } = await supabase.from('transit_shipments').insert({
-                product_id: product.id,
-                warehouse_id: targetWarehouseId,
-                quantity: parseInt(qty) || 0,
-                estimated_arrival: normDate,
-                origin: origen || null,
-                created_by: user.id,
-            });
-            if (error) errors++; else imported++;
-        }
-        await fetchTransits(selectedWarehouse);
-        setTransitCsvImporting(false);
-        e.target.value = '';
-        showToast(`${imported} tránsitos importados.${errors > 0 ? ` ${errors} errores.` : ''}`, errors > 0 ? 'warning' : 'success');
-    };
-
-    if (loading) return (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500 gap-4">
-            <div className="w-10 h-10 border-3 border-slate-300 border-l-[#6a9a04] rounded-full animate-spin" />
-            <p>Cargando cobertura...</p>
-        </div>
-    );
-
-
+  const {
+    router,
+    fileInputRef,
+    transitFileRef,
+    simulationData,
+    loading,
+    warehouses,
+    selectedWarehouse,
+    products,
+    transitShipments,
+    editingRow,
+    editForm,
+    setEditForm,
+    saving,
+    csvImporting,
+    toast,
+    skuFilter,
+    setSkuFilter,
+    transitPanel,
+    setTransitPanel,
+    transitForm,
+    setTransitForm,
+    editingTransitId,
+    editingTransitForm,
+    setEditingTransitForm,
+    transitCsvImporting,
+    manufacturers,
+    selectedManufacturer,
+    setSelectedManufacturer,
+    LEAD_TIME_WEEKS,
+    horizonWeeks,
+    setHorizonWeeks,
+    ORDER_CYCLE_WEEKS,
+    REORDER_TARGET_WEEKS,
+    isCombinedView,
+    heatmapData,
+    kpis,
+    reorderAlerts,
+    weekMetadata,
+    handleWarehouseChange,
+    handleRefresh,
+    startEdit,
+    cancelEdit,
+    saveEdit,
+    handleCsvImport,
+    handleTransitCsvImport,
+    addTransit,
+    deleteTransit,
+    markTransitArrived,
+    startEditTransit,
+    cancelEditTransit,
+    saveEditTransit,
+  } = useCobertura();
+
+  if (loading) {
     return (
-        <>
-        {/* Simulation Banner */}
-        {simulationData && (
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 flex items-center justify-between gap-4 shadow-lg">
-                <div className="flex items-center gap-3">
-                    <Eye size={20} className="shrink-0" />
-                    <div>
-                        <span className="font-black text-sm">🔮 MODO SIMULACIÓN</span>
-                        <span className="ml-3 text-purple-200 text-xs font-medium">
-                            {simulationData.supplier} → {simulationData.destination} · {simulationData.items?.length || 0} productos · Llegada estimada en {simulationData.lead_weeks} semanas
-                        </span>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => router.push('/dashboard/cobertura/nuevo-pedido')}
-                        className="flex items-center gap-1.5 px-4 py-1.5 bg-white text-purple-700 rounded-lg text-xs font-bold transition-all cursor-pointer border-none hover:bg-purple-50 shadow-sm"
-                    >
-                        <ArrowLeft size={14} /> Volver al Pedido
-                    </button>
-                </div>
-            </div>
-        )}
-        <div className="relative p-4 md:p-6">
-            {/* Toast */}
-            {toast && (
-                <div className={`fixed top-20 right-6 z-50 px-5 py-3 rounded-xl flex items-center gap-2 text-sm font-bold shadow-xl animate-in slide-in-from-right backdrop-blur-md border ${toast.type === 'success' ? 'bg-green-50 text-green-700 border-green-200' :
-                    toast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' :
-                        'bg-yellow-50 text-yellow-700 border-yellow-200'
-                    }`}>
-                    {toast.type === 'success' ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
-                    {toast.message}
-                </div>
-            )}
-
-            <div className="relative z-10 max-w-full mx-auto">
-                {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
-                    <div>
-                        <h1 className="text-3xl font-black tracking-tight text-slate-900 m-0 flex items-center gap-2">
-                            <ShieldCheck className="w-7 h-7 text-[#6a9a04]" /> Cobertura de Producto
-                        </h1>
-                        <p className="text-slate-500 mt-1 font-medium m-0">Seguimiento de inventario y cobertura semanal por localidad · <span className="text-orange-500 font-bold">Lead time: {LEAD_TIME_WEEKS} semanas</span></p>
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                        {/* Manufacturer toggle */}
-                        <div className="flex items-center bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                            {manufacturers.map(m => {
-                                const transit = selectedWarehouse?.transit_lead_weeks || m.transit_lead_weeks || 5;
-                                const total = (m.production_lead_weeks || 4) + transit;
-                                return (
-                                    <button key={m.id} onClick={() => setSelectedManufacturer(m)}
-                                        className={`px-3 py-2.5 text-xs font-bold transition-all border-none cursor-pointer ${selectedManufacturer?.id === m.id
-                                            ? 'bg-orange-500 text-white' : 'bg-transparent text-slate-500 hover:bg-slate-50'}`}>
-                                        {m.short_name} ({total}s)
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        {/* Horizon vision selector */}
-                        <div className="flex items-center bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden text-xs font-bold">
-                            <span className="px-2.5 py-2.5 text-slate-400 text-[11px] font-bold border-r border-slate-100 flex items-center gap-1 bg-slate-50/50">
-                                <Calendar size={13} className="text-slate-400" /> Visión:
-                            </span>
-                            {[
-                                { weeks: 20, label: '20 sem' },
-                                { weeks: 26, label: '26 sem (6m)' },
-                                { weeks: 32, label: '32 sem' },
-                                { weeks: 52, label: '52 sem (1 año)' }
-                            ].map(opt => (
-                                <button
-                                    key={opt.weeks}
-                                    onClick={() => setHorizonWeeks(opt.weeks)}
-                                    className={`px-3 py-2.5 text-xs font-bold border-none cursor-pointer transition-all ${
-                                        horizonWeeks === opt.weeks
-                                            ? 'bg-[#6a9a04] text-white shadow-xs'
-                                            : 'bg-transparent text-slate-500 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    {opt.label}
-                                </button>
-                            ))}
-                        </div>
-                        <button onClick={() => transitFileRef.current?.click()} disabled={transitCsvImporting}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-orange-200 bg-orange-50 text-orange-700 font-bold text-sm hover:bg-orange-100 cursor-pointer transition-all shadow-sm disabled:opacity-50">
-                            <Ship size={16} /> {transitCsvImporting ? 'Importando...' : 'Importar Tránsitos'}
-                        </button>
-                        <input ref={transitFileRef} type="file" accept=".csv" className="hidden" onChange={handleTransitCsvImport} />
-                        <button onClick={() => fileInputRef.current?.click()} disabled={csvImporting}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 cursor-pointer transition-all shadow-sm disabled:opacity-50">
-                            <Upload size={16} /> {csvImporting ? 'Importando...' : 'CSV Cobertura'}
-                        </button>
-                        <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleCsvImport} />
-                        <button onClick={handleRefresh}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 cursor-pointer transition-all shadow-sm">
-                            <RefreshCw size={16} />
-                        </button>
-                        <button onClick={() => router.push('/dashboard/cobertura/historial')}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 font-bold text-sm hover:bg-blue-100 cursor-pointer transition-all shadow-sm">
-                            <History size={16} /> Historial PO
-                        </button>
-                        <button onClick={() => router.push('/dashboard/planeacion-demanda')}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 font-bold text-sm hover:bg-emerald-100 cursor-pointer transition-all shadow-sm">
-                            <TrendingUp size={16} /> Planeación Demanda
-                        </button>
-                        <button onClick={() => router.push('/dashboard/cobertura/nuevo-pedido')}
-                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#6a9a04] text-white font-bold text-sm hover:bg-[#6a9a04]/90 cursor-pointer transition-all shadow-lg shadow-[#6a9a04]/20 border-none">
-                            <FileSpreadsheet size={16} /> Crear Pedido
-                        </button>
-                    </div>
-                </div>
-
-                {/* Warehouse Tabs */}
-                <div className="flex items-center gap-2 mb-5 bg-white/60 backdrop-blur-md rounded-xl p-1.5 border border-white/50 shadow-sm w-fit">
-                    <Warehouse size={16} className="text-slate-400 ml-2" />
-                    {warehouses.map(wh => (
-                        <button key={wh.id} onClick={() => handleWarehouseChange(wh)}
-                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all border-none cursor-pointer whitespace-nowrap ${selectedWarehouse?.id === wh.id
-                                ? 'bg-[#6a9a04] text-white shadow-md'
-                                : 'bg-transparent text-slate-500 hover:text-slate-700 hover:bg-white/50'
-                                }`}>
-                            {wh.name}
-                        </button>
-                    ))}
-                </div>
-
-                {/* KPI Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
-                    <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-lg p-4 rounded-2xl flex items-center gap-3 hover:bg-white/80 transition-all">
-                        <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-500"><CheckCircle className="w-5 h-5" /></div>
-                        <div><p className="text-xl font-black text-slate-900 m-0">{kpis.green}</p><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 m-0">OK (8+ sem)</p></div>
-                    </div>
-                    <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-lg p-4 rounded-2xl flex items-center gap-3 hover:bg-white/80 transition-all">
-                        <div className="w-10 h-10 rounded-xl bg-yellow-50 flex items-center justify-center text-yellow-500"><AlertTriangle className="w-5 h-5" /></div>
-                        <div><p className="text-xl font-black text-slate-900 m-0">{kpis.yellow}</p><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 m-0">Precaución (4-8)</p></div>
-                    </div>
-                    <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-lg p-4 rounded-2xl flex items-center gap-3 hover:bg-white/80 transition-all">
-                        <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500"><TrendingDown className="w-5 h-5" /></div>
-                        <div><p className="text-xl font-black text-slate-900 m-0">{kpis.red}</p><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 m-0">Crítico (&lt;4)</p></div>
-                    </div>
-                    <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-lg p-4 rounded-2xl flex items-center gap-3 hover:bg-white/80 transition-all">
-                        <div className="w-10 h-10 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center text-[#6a9a04]"><Package className="w-5 h-5" /></div>
-                        <div><p className="text-xl font-black text-slate-900 m-0">{kpis.avgCoverage.toFixed(1)}</p><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 m-0">Promedio Sem</p></div>
-                    </div>
-                    <div className={`backdrop-blur-md border shadow-lg p-4 rounded-2xl flex items-center gap-3 hover:bg-white/80 transition-all ${kpis.needReorder > 0 ? 'bg-orange-50/80 border-orange-200' : 'bg-white/60 border-white/50'}`}>
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${kpis.needReorder > 0 ? 'bg-orange-100 text-orange-500' : 'bg-slate-100 text-slate-400'}`}>
-                            <Truck className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <p className={`text-xl font-black m-0 ${kpis.needReorder > 0 ? 'text-orange-600' : 'text-slate-900'}`}>{kpis.needReorder}</p>
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 m-0">Pedir Ahora</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* CSV Help */}
-                <div className="bg-white/60 backdrop-blur-md border border-white/50 rounded-xl px-4 py-2.5 mb-4 text-xs text-slate-500 flex items-center gap-3 flex-wrap">
-                    <strong>Formato CSV:</strong>
-                    <code className="bg-slate-100 px-2 py-0.5 rounded text-[#6a9a04] font-bold text-[11px]">sku, stock_bodega, stock_transito, weekly_demand</code>
-                    <span className="text-slate-400">Ejemplo: <code className="bg-slate-100 px-2 py-0.5 rounded text-[11px]">GL01, 500, 100, 80</code></span>
-                </div>
-
-                {/* SKU Filter */}
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="relative flex-1 max-w-md">
-                        <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                            type="text"
-                            value={skuFilter}
-                            onChange={e => setSkuFilter(e.target.value)}
-                            placeholder="Filtrar SKUs... Ej: GL01, GL15, GL19"
-                            className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#6a9a04]/20 shadow-sm placeholder:text-slate-400"
-                        />
-                        {skuFilter && (
-                            <button onClick={() => setSkuFilter('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-100 rounded-full transition-colors cursor-pointer bg-transparent border-none">
-                                <X size={14} className="text-slate-400" />
-                            </button>
-                        )}
-                    </div>
-                    {skuFilter && (
-                        <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
-                            {(() => {
-                                const skus = skuFilter.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-                                const matched = heatmapData.filter(r => skus.some(f => r.product.sku.toUpperCase().includes(f) || r.product.name.toUpperCase().includes(f)));
-                                return `${matched.length} de ${heatmapData.length} productos`;
-                            })()}
-                        </span>
-                    )}
-                </div>
-
-                {/* Heatmap Table */}
-                <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-xl rounded-2xl overflow-hidden mb-4">
-                    <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '70vh' }}>
-                        <table className="w-max min-w-full border-collapse text-xs">
-                            <thead className="sticky top-0 z-10">
-                                <tr className="bg-slate-50/95 backdrop-blur-sm border-b border-slate-200">
-                                    <th className="sticky left-0 z-20 bg-slate-50/95 px-3 py-3 text-left text-[10px] font-black uppercase tracking-wider text-slate-500 min-w-[70px]">PN</th>
-                                    <th className="sticky left-[70px] z-20 bg-slate-50/95 px-3 py-3 text-left text-[10px] font-black uppercase tracking-wider text-slate-500 min-w-[160px]">Descripción</th>
-                                    <th className="px-3 py-3 text-center text-[10px] font-black uppercase tracking-wider text-slate-500 min-w-[70px]">Bodega</th>
-                                    <th className="px-3 py-3 text-center text-[10px] font-black uppercase tracking-wider text-slate-500 min-w-[70px]">Tránsito</th>
-                                    <th className="px-3 py-3 text-center text-[10px] font-black uppercase tracking-wider text-slate-500 min-w-[70px]">Dem/Sem</th>
-                                    <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-wider text-orange-500 min-w-[65px] bg-orange-50/50">Reorden</th>
-                                    <th className="px-3 py-3 text-center text-[10px] font-black uppercase tracking-wider text-slate-500 min-w-[55px]">Editar</th>
-                                    {weekMetadata.map((w, i) => {
-                                        const isLeadTimeCutoff = i === LEAD_TIME_WEEKS - 1;
-                                        return (
-                                            <th key={i} className={`px-1.5 py-3 text-center text-[10px] font-black uppercase tracking-wider min-w-[56px] relative ${
-                                                w.isYearTransition ? 'border-l-2 border-indigo-500 bg-indigo-50/70 text-indigo-700' : ''
-                                            } ${isLeadTimeCutoff ? 'text-orange-500 border-r-2 border-orange-300' : w.year > new Date().getFullYear() ? 'text-indigo-600' : 'text-slate-400'}`}
-                                            title={`${w.label} (${w.dateRangeStr})`}>
-                                                {w.isYearTransition && (
-                                                    <div className="absolute -top-1 left-0 bg-indigo-600 text-white text-[7px] font-bold px-1 rounded-r shadow-xs">
-                                                        {w.year} ↗
-                                                    </div>
-                                                )}
-                                                <div>{w.label}</div>
-                                                {isLeadTimeCutoff && <div className="text-[7px] text-orange-500 font-bold">🚢 LLEGA</div>}
-                                                {w.isCNY && <div className="text-[7px] text-red-500 font-bold" title="Año Nuevo Chino 2027 (Fábricas cerradas)">🏮 CNY</div>}
-                                            </th>
-                                        );
-                                    })}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {(skuFilter
-                                    ? heatmapData.filter(r => {
-                                        const skus = skuFilter.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-                                        if (skus.length === 0) return true;
-                                        return skus.some(f => r.product.sku.toUpperCase().includes(f) || r.product.name.toUpperCase().includes(f));
-                                    })
-                                    : heatmapData
-                                ).map(row => {
-                                    const isEditing = editingRow === row.product.id;
-                                    return (
-                                        <tr key={row.product.id} className={`hover:bg-white/50 transition-colors ${isEditing ? 'bg-[#6a9a04]/5' : ''}`}>
-                                            <td className="sticky left-0 z-5 bg-white/95 px-3 py-2 font-mono text-[11px] font-black text-[#6a9a04]">{row.product.sku}</td>
-                                            <td className="sticky left-[70px] z-5 bg-white/95 px-3 py-2 text-xs text-slate-700 truncate max-w-[200px]" title={row.product.name}>{middleEllipsis(row.product.name, 28)}</td>
-                                            <td className="px-3 py-2 text-center">
-                                                {isEditing && !isCombinedView ? (
-                                                    <input type="number" value={editForm.stock_bodega}
-                                                        onChange={e => setEditForm(f => ({ ...f, stock_bodega: e.target.value }))}
-                                                        className="w-16 px-2 py-1 border border-[#6a9a04]/30 rounded-lg text-center text-xs outline-none focus:ring-2 focus:ring-[#6a9a04]/20 bg-white shadow-sm" />
-                                                ) : <span className="text-xs tabular-nums text-slate-700">{row.stockBodega.toLocaleString()}</span>}
-                                            </td>
-                            <td className="px-3 py-2 text-center">
-                                {isEditing ? (
-                                    <input type="number" value={editForm.stock_transito}
-                                        onChange={e => setEditForm(f => ({ ...f, stock_transito: e.target.value }))}
-                                        className="w-16 px-2 py-1 border border-[#6a9a04]/30 rounded-lg text-center text-xs outline-none focus:ring-2 focus:ring-[#6a9a04]/20 bg-white shadow-sm" />
-                                ) : (
-                                    <button onClick={() => setTransitPanel(row.product.id)}
-                                        className="text-xs tabular-nums cursor-pointer bg-transparent border-none hover:bg-orange-50 px-2 py-1 rounded-lg transition-all"
-                                        title="Click para gestionar tránsitos">
-                                        <span className={row.transitCount > 0 ? 'text-orange-600 font-bold' : 'text-slate-400'}>
-                                            {row.stockTransito > 0 ? row.stockTransito.toLocaleString() : '—'}
-                                        </span>
-                                        {row.transitCount > 0 && (
-                                            <span className="ml-1 text-[9px] text-orange-400">({row.transitCount})</span>
-                                        )}
-                                    </button>
-                                )}
-                            </td>
-                                            <td className="px-3 py-2 text-center">
-                                                {isEditing ? (
-                                                    <input type="number" value={editForm.weekly_demand}
-                                                        onChange={e => setEditForm(f => ({ ...f, weekly_demand: e.target.value }))}
-                                                        className="w-16 px-2 py-1 border border-[#6a9a04]/30 rounded-lg text-center text-xs outline-none focus:ring-2 focus:ring-[#6a9a04]/20 bg-white shadow-sm" />
-                                                ) : <span className="text-xs tabular-nums text-slate-700">{row.weeklyDemand.toLocaleString()}</span>}
-                                            </td>
-                                            <td className="px-2 py-2 text-center bg-orange-50/20">
-                                                {getReorderBadge(row)}
-                                            </td>
-                                            <td className="px-3 py-2 text-center">
-                                                {isEditing ? (
-                                                    <div className="flex gap-1 justify-center">
-                                                        <button onClick={() => saveEdit(row.product.id)} disabled={saving}
-                                                            className="p-1.5 rounded-lg border border-green-200 text-green-600 hover:bg-green-50 cursor-pointer bg-transparent transition-all">
-                                                            <Save size={12} />
-                                                        </button>
-                                                        <button onClick={cancelEdit}
-                                                            className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 cursor-pointer bg-transparent transition-all">
-                                                            <X size={12} />
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <button onClick={() => startEdit(row)}
-                                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-white hover:text-[#6a9a04] cursor-pointer bg-transparent transition-all"
-                                                        title={isCombinedView ? 'Editar tránsito y demanda' : 'Editar'}>
-                                                        <Edit3 size={12} />
-                                                    </button>
-                                                )}
-                                            </td>
-                                            {row.weeks.map((remaining, i) => {
-                                                const w = weekMetadata[i];
-                                                const isLeadTimeCutoff = i === LEAD_TIME_WEEKS - 1;
-                                                return (
-                                                    <td key={i} className={`px-1 py-2 text-center text-[11px] tabular-nums font-bold transition-colors ${
-                                                        getCellColor(remaining, row.weeklyDemand)
-                                                    } ${w?.isYearTransition ? 'border-l-2 border-indigo-400' : ''} ${
-                                                        isLeadTimeCutoff ? 'border-r-2 border-orange-300' : ''
-                                                    }`}
-                                                    title={`${w?.label || `WK${i+1}`} (${w?.dateRangeStr}): ${remaining.toLocaleString()} unidades`}>
-                                                        {row.weeklyDemand > 0 ? remaining.toLocaleString() : '—'}
-                                                    </td>
-                                                );
-                                            })}
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Reorder Suggestion Panel */}
-                {reorderAlerts.length > 0 && (
-                    <div className="bg-gradient-to-br from-orange-50/80 to-amber-50/80 backdrop-blur-md border border-orange-200 shadow-xl rounded-2xl overflow-hidden mb-4">
-                        <div className="px-5 py-4 border-b border-orange-200/50 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center text-orange-500">
-                                    <Truck className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-black text-slate-900 m-0">Sugerencia de Reorden</h3>
-                                    <p className="text-[11px] text-slate-500 m-0">Basado en lead time de {LEAD_TIME_WEEKS} semanas · Objetivo: cubrir {REORDER_TARGET_WEEKS} semanas</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
-                                <thead>
-                                    <tr className="bg-orange-100/30 border-b border-orange-200/50">
-                                        <th className="px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-wider text-slate-500">SKU</th>
-                                        <th className="px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-wider text-slate-500">Producto</th>
-                                        <th className="px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-wider text-slate-500">Stock Actual</th>
-                                        <th className="px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-wider text-slate-500">Dem/Sem</th>
-                                        <th className="px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-wider text-slate-500">Sem Restantes</th>
-                                        <th className="px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-wider text-orange-500">Quiebre Est.</th>
-                                        <th className="px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-wider text-slate-500">Status</th>
-                                        <th className="px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-wider text-[#6a9a04]">Qty Sugerida</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-orange-100/50">
-                                    {reorderAlerts.map(row => (
-                                        <tr key={row.product.id} className="hover:bg-orange-50/50 transition-colors">
-                                            <td className="px-4 py-2.5 font-mono text-[11px] font-black text-[#6a9a04]">{row.product.sku}</td>
-                                            <td className="px-4 py-2.5 text-xs text-slate-700">{row.product.name}</td>
-                                            <td className="px-4 py-2.5 text-center text-xs tabular-nums font-bold text-slate-700">{row.totalStock.toLocaleString()}</td>
-                                            <td className="px-4 py-2.5 text-center text-xs tabular-nums text-slate-600">{row.weeklyDemand.toLocaleString()}</td>
-                                            <td className="px-4 py-2.5 text-center text-xs tabular-nums font-bold text-slate-700">{row.coverageWeeks.toFixed(1)}</td>
-                                            <td className="px-4 py-2.5 text-center">
-                                                <span className={`text-xs font-bold ${row.reorderStatus === 'late' ? 'text-red-600' : row.reorderStatus === 'order_now' ? 'text-orange-600' : 'text-blue-600'}`}>
-                                                    <Calendar size={10} className="inline mr-1" />
-                                                    {row.stockoutDate?.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-2.5 text-center">{getReorderBadge(row)}</td>
-                                            <td className="px-4 py-2.5 text-center">
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#6a9a04]/10 text-[#6a9a04] text-xs font-black">
-                                                    {row.suggestedQty.toLocaleString()} uds
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
-                {/* Legend */}
-                <div className="bg-white/60 backdrop-blur-md border border-white/50 rounded-xl px-4 py-3 flex items-center gap-5 flex-wrap text-xs text-slate-500">
-                    <span className="font-bold text-slate-600">Leyenda:</span>
-                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-green-200 inline-block" /> Stock holgado</span>
-                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-yellow-200 inline-block" /> Precaución</span>
-                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-orange-200 inline-block" /> Bajo</span>
-                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-200 inline-block" /> Sin stock</span>
-                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-200 inline-block" /> Sin demanda</span>
-                    <span className="text-slate-300">|</span>
-                    <span className="flex items-center gap-1.5 text-indigo-600 font-bold">
-                        <span className="w-1.5 h-3 bg-indigo-500 rounded-full inline-block" /> Inicio 2027
-                    </span>
-                    <span className="flex items-center gap-1.5 text-red-600 font-bold" title="Cierre de fábricas en China por Año Nuevo Chino">
-                        <span>🏮 CNY</span> Año Nuevo Chino (Feb 2027)
-                    </span>
-                    <span className="text-slate-300">|</span>
-                    <span className="flex items-center gap-1.5 text-orange-500 font-bold">
-                        <span className="w-3 h-3 rounded border-2 border-orange-300 inline-block" />
-                        🚢 {selectedManufacturer?.short_name || '—'}: {selectedManufacturer?.production_lead_weeks || 4}p + {(selectedWarehouse?.transit_lead_weeks || selectedManufacturer?.transit_lead_weeks || 5)}t = {LEAD_TIME_WEEKS}sem · Ciclo: {ORDER_CYCLE_WEEKS}sem
-                    </span>
-                </div>
-            </div>
-        </div>
-
-        {/* ============ Transit Slide-Over Panel ============ */}
-        {transitPanel && (() => {
-            const product = products.find(p => p.id === transitPanel);
-            const productTransits = transitShipments.filter(t => t.product_id === transitPanel);
-            const totalQty = productTransits.reduce((s, t) => s + t.quantity, 0);
-            return (
-                <div className="fixed inset-0 z-50 flex justify-end">
-                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setTransitPanel(null)} />
-                    <div className="relative w-full max-w-md bg-white shadow-2xl flex flex-col animate-in slide-in-from-right" style={{animationDuration:'200ms'}}>
-                        {/* Header */}
-                        <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-orange-50 to-amber-50">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                    <Ship className="w-5 h-5 text-orange-500" />
-                                    <h2 className="text-lg font-black text-slate-900 m-0">Tránsitos</h2>
-                                </div>
-                                <button onClick={() => setTransitPanel(null)} className="p-2 rounded-lg hover:bg-white/80 cursor-pointer bg-transparent border-none text-slate-400 hover:text-slate-600 transition-all">
-                                    <X size={18} />
-                                </button>
-                            </div>
-                            <p className="text-sm font-bold text-[#6a9a04] m-0">{product?.sku} — {product?.name}</p>
-                            <p className="text-xs text-slate-500 m-0 mt-1">Total en tránsito: <span className="font-black text-orange-600">{totalQty.toLocaleString()} uds</span> en {productTransits.length} embarque(s)</p>
-                        </div>
-
-                        {/* Shipments list */}
-                        <div className="flex-1 overflow-y-auto px-6 py-4">
-                            {productTransits.length === 0 ? (
-                                <div className="text-center py-10 text-slate-400">
-                                    <Ship className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                                    <p className="font-bold text-sm">Sin embarques en tránsito</p>
-                                    <p className="text-xs">Agrega un embarque abajo</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {productTransits.map(t => {
-                                        const arrParts = t.estimated_arrival.toString().split(/[-T]/);
-                                        const arrDate = new Date(parseInt(arrParts[0]), parseInt(arrParts[1]) - 1, parseInt(arrParts[2]), 12, 0, 0);
-                                        const todayNoon = new Date(); todayNoon.setHours(12, 0, 0, 0);
-                                        const daysUntil = Math.ceil((arrDate - todayNoon) / (1000 * 60 * 60 * 24));
-                                        const weeksUntil = Math.ceil(daysUntil / 7);
-                                        const isEditing = editingTransitId === t.id;
-
-                                        return (
-                                            <div key={t.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100 hover:border-orange-200 transition-all space-y-2">
-                                                {isEditing ? (
-                                                    <div className="space-y-3">
-                                                        <div className="text-xs font-black text-slate-700 uppercase tracking-wider">Editar Embarque / Fecha de Llegada</div>
-                                                        <div className="grid grid-cols-3 gap-2">
-                                                            <div>
-                                                                <label className="text-[9px] font-bold text-slate-400 uppercase">Cantidad</label>
-                                                                <input type="number" value={editingTransitForm.quantity}
-                                                                    onChange={e => setEditingTransitForm(f => ({ ...f, quantity: e.target.value }))}
-                                                                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white font-bold" />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[9px] font-bold text-slate-400 uppercase">Fecha llegada</label>
-                                                                <input type="date" value={editingTransitForm.estimated_arrival}
-                                                                    onChange={e => setEditingTransitForm(f => ({ ...f, estimated_arrival: e.target.value }))}
-                                                                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white font-bold" />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[9px] font-bold text-slate-400 uppercase">Origen</label>
-                                                                <select value={editingTransitForm.origin}
-                                                                    onChange={e => setEditingTransitForm(f => ({ ...f, origin: e.target.value }))}
-                                                                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white font-bold">
-                                                                    <option value="">—</option>
-                                                                    {manufacturers.map(m => <option key={m.id} value={m.short_name}>{m.short_name}</option>)}
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex justify-end gap-2 pt-1">
-                                                            <button onClick={cancelEditTransit}
-                                                                className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-bold cursor-pointer">
-                                                                Cancelar
-                                                            </button>
-                                                            <button onClick={() => saveEditTransit(t.id)}
-                                                                className="px-3 py-1.5 rounded-lg bg-orange-500 text-white hover:bg-orange-600 text-xs font-black cursor-pointer border-none shadow-sm flex items-center gap-1">
-                                                                <Save size={12} /> Guardar
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <div className="flex items-start justify-between mb-1">
-                                                            <div>
-                                                                <span className="text-lg font-black text-slate-900">{t.quantity.toLocaleString()}</span>
-                                                                <span className="text-xs text-slate-400 ml-1">uds</span>
-                                                            </div>
-                                                            <div className="flex gap-1">
-                                                                <button onClick={() => startEditTransit(t)} title="Editar fecha de llegada / tránsito"
-                                                                    className="p-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 cursor-pointer bg-transparent transition-all text-xs">
-                                                                    <Edit3 size={14} />
-                                                                </button>
-                                                                <button onClick={() => markTransitArrived(t.id)} title="Marcar como llegado"
-                                                                    className="p-1.5 rounded-lg border border-green-200 text-green-600 hover:bg-green-50 cursor-pointer bg-transparent transition-all text-xs">
-                                                                    <CheckCircle size={14} />
-                                                                </button>
-                                                                <button onClick={() => deleteTransit(t.id)} title="Eliminar"
-                                                                    className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 cursor-pointer bg-transparent transition-all text-xs">
-                                                                    <Trash2 size={14} />
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-3 text-xs">
-                                                            <span className="flex items-center gap-1 text-slate-600 font-medium">
-                                                                <Calendar size={12} />
-                                                                {arrDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                                            </span>
-                                                            <span className={`font-bold ${daysUntil <= 0 ? 'text-green-600' : daysUntil <= 14 ? 'text-orange-600' : 'text-slate-500'}`}>
-                                                                {daysUntil <= 0 ? '🟢 Llegando' : `${weeksUntil} sem (${daysUntil}d)`}
-                                                            </span>
-                                                        </div>
-                                                        {t.origin && <span className="inline-block mt-1 text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{t.origin}</span>}
-                                                    </>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Add new transit form */}
-                        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50">
-                            <p className="text-xs font-black text-slate-600 uppercase tracking-wider mb-3 m-0">Agregar embarque</p>
-                            <div className="grid grid-cols-3 gap-2 mb-3">
-                                <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Cantidad</label>
-                                    <input type="number" placeholder="500" value={transitForm.quantity}
-                                        onChange={e => setTransitForm(f => ({ ...f, quantity: e.target.value }))}
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-200 bg-white" />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Fecha llegada</label>
-                                    <input type="date" value={transitForm.estimated_arrival}
-                                        onChange={e => setTransitForm(f => ({ ...f, estimated_arrival: e.target.value }))}
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-200 bg-white" />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Origen</label>
-                                    <select value={transitForm.origin} onChange={e => setTransitForm(f => ({ ...f, origin: e.target.value }))}
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-200 bg-white">
-                                        <option value="">—</option>
-                                        {manufacturers.map(m => <option key={m.id} value={m.short_name}>{m.short_name}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            <button onClick={() => addTransit(transitPanel)} disabled={!transitForm.quantity || !transitForm.estimated_arrival}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 cursor-pointer transition-all border-none disabled:opacity-40 disabled:cursor-not-allowed shadow-md">
-                                <Plus size={16} /> Agregar Embarque
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            );
-        })()}
-
-        {/* Transit CSV import is now file-based — no modal needed */}
-        </>
+      <div className="flex items-center justify-center min-h-[60vh] text-slate-400 gap-2 text-xs font-bold">
+        <div className="w-6 h-6 border-2 border-slate-300 border-l-[#6a9a04] rounded-full animate-spin" />
+        <span>Cargando Cobertura de Producto...</span>
+      </div>
     );
+  }
+
+  return (
+    <>
+      {/* Simulation Banner */}
+      {simulationData && (
+        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 flex items-center justify-between gap-4 shadow-md">
+          <div className="flex items-center gap-3">
+            <Eye size={18} className="shrink-0" />
+            <div>
+              <span className="font-black text-xs sm:text-sm">🔮 MODO SIMULACIÓN</span>
+              <span className="ml-3 text-purple-100 text-xs font-medium">
+                {simulationData.supplier} → {simulationData.destination} · {simulationData.items?.length || 0} productos · Llegada estimada en {simulationData.lead_weeks} semanas
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push('/dashboard/cobertura/nuevo-pedido')}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white text-purple-700 rounded-xl text-xs font-bold transition-all cursor-pointer border-none hover:bg-purple-50 shadow-2xs"
+            >
+              <ArrowLeft size={14} /> Volver al Pedido
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-[1600px] mx-auto p-4 sm:p-6 space-y-5">
+        {/* Toast Notification */}
+        {toast && (
+          <div
+            className={`fixed top-20 right-6 z-50 px-4 py-3 rounded-xl flex items-center gap-2 text-xs font-bold shadow-xl animate-in slide-in-from-right backdrop-blur-md border ${
+              toast.type === 'success'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : toast.type === 'error'
+                ? 'bg-red-50 text-red-700 border-red-200'
+                : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}
+          >
+            {toast.type === 'success' ? <CheckCircle size={15} /> : <AlertTriangle size={15} />}
+            {toast.message}
+          </div>
+        )}
+
+        {/* Executive Top Header Card */}
+        <header className="bg-white/90 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm flex flex-col gap-4">
+          {/* Top Row: Title & Global Action Buttons */}
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-[#6a9a04]/10 border border-[#6a9a04]/20 flex items-center justify-center text-[#6a9a04] shadow-2xs shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 m-0 flex items-center gap-2.5 flex-wrap">
+                  Cobertura de Producto
+                  <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-[#6a9a04]/10 text-[#6a9a04] border border-[#6a9a04]/20">
+                    Supply Chain & S&OP
+                  </span>
+                </h1>
+                <p className="text-xs text-slate-500 mt-0.5 font-medium m-0">
+                  Seguimiento de inventario y cobertura semanal por localidad ·{' '}
+                  <span className="text-orange-600 font-bold">Lead time activo: {LEAD_TIME_WEEKS} semanas</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Action Toolbar */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => transitFileRef.current?.click()}
+                disabled={transitCsvImporting}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-orange-200 bg-orange-50/80 text-orange-700 font-bold text-xs hover:bg-orange-100 cursor-pointer transition-all shadow-2xs disabled:opacity-50"
+              >
+                <Ship size={14} /> {transitCsvImporting ? 'Importando...' : 'Importar Tránsitos'}
+              </button>
+              <input ref={transitFileRef} type="file" accept=".csv" className="hidden" onChange={handleTransitCsvImport} />
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={csvImporting}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer transition-all shadow-2xs disabled:opacity-50"
+              >
+                <Upload size={14} /> {csvImporting ? 'Importando...' : 'CSV Cobertura'}
+              </button>
+              <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleCsvImport} />
+
+              <button
+                onClick={handleRefresh}
+                className="p-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer transition-all shadow-2xs"
+                title="Actualizar Datos"
+              >
+                <RefreshCw size={15} />
+              </button>
+
+              <button
+                onClick={() => router.push('/dashboard/cobertura/historial')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-blue-200 bg-blue-50/80 text-blue-700 font-bold text-xs hover:bg-blue-100 cursor-pointer transition-all shadow-2xs"
+              >
+                <History size={14} /> Historial PO
+              </button>
+
+              <button
+                onClick={() => router.push('/dashboard/planeacion-demanda')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-800 font-bold text-xs hover:bg-emerald-100 cursor-pointer transition-all shadow-2xs"
+              >
+                <TrendingUp size={14} /> Planeación Demanda
+              </button>
+
+              <button
+                onClick={() => router.push('/dashboard/cobertura/nuevo-pedido')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#6a9a04] text-white font-bold text-xs hover:bg-[#5b8503] cursor-pointer transition-all shadow-md shadow-[#6a9a04]/20 border-none"
+              >
+                <FileSpreadsheet size={14} /> Crear Pedido
+              </button>
+            </div>
+          </div>
+
+          {/* Second Row: Warehouse Switcher + Manufacturer Lead Time + Horizon Vision */}
+          <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+            {/* Warehouse Segmented Switcher */}
+            <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 flex-wrap">
+              <span className="px-2.5 py-1 text-slate-400 flex items-center gap-1 text-xs font-bold">
+                <Warehouse size={14} className="text-[#6a9a04]" />
+              </span>
+              {warehouses.map(wh => (
+                <button
+                  key={wh.id}
+                  onClick={() => handleWarehouseChange(wh)}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap border ${
+                    selectedWarehouse?.id === wh.id
+                      ? 'bg-[#6a9a04] text-white border-[#6a9a04] shadow-2xs'
+                      : 'bg-transparent border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  {wh.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Manufacturer & Vision Controls */}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {/* Manufacturer Lead Time Toggle */}
+              <div className="flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 flex-wrap">
+                {manufacturers.map(m => {
+                  const transit = selectedWarehouse?.transit_lead_weeks || m.transit_lead_weeks || 5;
+                  const total = (m.production_lead_weeks || 4) + transit;
+                  const active = selectedManufacturer?.id === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => setSelectedManufacturer(m)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                        active
+                          ? 'bg-orange-500 text-white border-orange-500 shadow-2xs'
+                          : 'bg-transparent border-transparent text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      {m.short_name} ({total}s)
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Horizon Vision Selector */}
+              <div className="flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 text-xs font-bold flex-wrap">
+                <span className="px-2.5 py-1 text-slate-500 text-[11px] font-bold flex items-center gap-1">
+                  <Calendar size={13} className="text-[#6a9a04]" /> Visión:
+                </span>
+                {[
+                  { weeks: 20, label: '20 sem' },
+                  { weeks: 26, label: '26 sem (6m)' },
+                  { weeks: 32, label: '32 sem' },
+                  { weeks: 52, label: '52 sem (1 año)' },
+                ].map(opt => (
+                  <button
+                    key={opt.weeks}
+                    onClick={() => setHorizonWeeks(opt.weeks)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all border ${
+                      horizonWeeks === opt.weeks
+                        ? 'bg-white text-[#6a9a04] border-slate-200/60 shadow-2xs'
+                        : 'bg-transparent border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* 5 High-Density Executive KPI Cards */}
+        <section className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
+          <div className="bg-white border border-slate-200/80 shadow-sm p-4 rounded-2xl flex items-center justify-between hover:shadow-md transition-shadow">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 m-0">OK (8+ Sem)</p>
+              <p className="text-2xl font-black text-slate-900 mt-0.5 m-0">{kpis.green}</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+              <CheckCircle className="w-5 h-5" />
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200/80 shadow-sm p-4 rounded-2xl flex items-center justify-between hover:shadow-md transition-shadow">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 m-0">Precaución (4-8)</p>
+              <p className="text-2xl font-black text-slate-900 mt-0.5 m-0">{kpis.yellow}</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-500 shrink-0">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200/80 shadow-sm p-4 rounded-2xl flex items-center justify-between hover:shadow-md transition-shadow">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 m-0">Crítico (&lt;4)</p>
+              <p className="text-2xl font-black text-red-600 mt-0.5 m-0">{kpis.red}</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center text-red-500 shrink-0">
+              <TrendingDown className="w-5 h-5" />
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200/80 shadow-sm p-4 rounded-2xl flex items-center justify-between hover:shadow-md transition-shadow">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 m-0">Promedio Sem</p>
+              <p className="text-2xl font-black text-slate-900 mt-0.5 m-0">{kpis.avgCoverage.toFixed(1)}</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-[#6a9a04]/10 border border-[#6a9a04]/20 flex items-center justify-center text-[#6a9a04] shrink-0">
+              <Package className="w-5 h-5" />
+            </div>
+          </div>
+
+          <div
+            className={`border shadow-sm p-4 rounded-2xl flex items-center justify-between hover:shadow-md transition-shadow col-span-2 lg:col-span-1 ${
+              kpis.needReorder > 0 ? 'bg-orange-50/70 border-orange-200' : 'bg-white border-slate-200/80'
+            }`}
+          >
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 m-0">Pedir Ahora</p>
+              <p className={`text-2xl font-black mt-0.5 m-0 ${kpis.needReorder > 0 ? 'text-orange-600' : 'text-slate-900'}`}>
+                {kpis.needReorder}
+              </p>
+            </div>
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                kpis.needReorder > 0 ? 'bg-orange-100 text-orange-600 border border-orange-200' : 'bg-slate-100 text-slate-400'
+              }`}
+            >
+              <Truck className="w-5 h-5" />
+            </div>
+          </div>
+        </section>
+
+        {/* Heatmap Matrix Table */}
+        <CoverageHeatmapTable
+          heatmapData={heatmapData}
+          skuFilter={skuFilter}
+          setSkuFilter={setSkuFilter}
+          weekMetadata={weekMetadata}
+          LEAD_TIME_WEEKS={LEAD_TIME_WEEKS}
+          editingRow={editingRow}
+          editForm={editForm}
+          setEditForm={setEditForm}
+          saving={saving}
+          isCombinedView={isCombinedView}
+          startEdit={startEdit}
+          cancelEdit={cancelEdit}
+          saveEdit={saveEdit}
+          setTransitPanel={setTransitPanel}
+        />
+
+        {/* Reorder Suggestion Table & Legend */}
+        <ReorderSuggestionsPanel
+          reorderAlerts={reorderAlerts}
+          LEAD_TIME_WEEKS={LEAD_TIME_WEEKS}
+          REORDER_TARGET_WEEKS={REORDER_TARGET_WEEKS}
+          ORDER_CYCLE_WEEKS={ORDER_CYCLE_WEEKS}
+          selectedManufacturer={selectedManufacturer}
+          selectedWarehouse={selectedWarehouse}
+        />
+      </div>
+
+      {/* Transit Slide-Over Panel */}
+      <TransitSlideOverPanel
+        transitPanel={transitPanel}
+        setTransitPanel={setTransitPanel}
+        products={products}
+        transitShipments={transitShipments}
+        manufacturers={manufacturers}
+        transitForm={transitForm}
+        setTransitForm={setTransitForm}
+        editingTransitId={editingTransitId}
+        editingTransitForm={editingTransitForm}
+        setEditingTransitForm={setEditingTransitForm}
+        addTransit={addTransit}
+        deleteTransit={deleteTransit}
+        markTransitArrived={markTransitArrived}
+        startEditTransit={startEditTransit}
+        cancelEditTransit={cancelEditTransit}
+        saveEditTransit={saveEditTransit}
+      />
+    </>
+  );
 }
