@@ -114,7 +114,7 @@ function CoberturaPage() {
         </div>
       )}
 
-      <div className="max-w-[1600px] mx-auto p-4 sm:p-6 space-y-5">
+      <div className="w-full max-w-full mx-auto p-3 sm:p-5 space-y-4">
         {/* Toast Notification */}
         {toast && (
           <div

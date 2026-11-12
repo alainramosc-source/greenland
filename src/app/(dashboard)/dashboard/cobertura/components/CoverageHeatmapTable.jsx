@@ -155,7 +155,7 @@ export default function CoverageHeatmapTable({
                 return (
                   <th
                     key={i}
-                    className={`px-1.5 py-3 text-center text-[10px] font-black uppercase tracking-wider min-w-[58px] relative ${
+                    className={`px-1.5 py-3 text-center text-[10px] font-black uppercase tracking-wider min-w-[56px] relative ${
                       w.isYearTransition ? 'border-l-2 border-indigo-500 bg-indigo-50/70 text-indigo-700' : ''
                     } ${
                       isLeadTimeCutoff
