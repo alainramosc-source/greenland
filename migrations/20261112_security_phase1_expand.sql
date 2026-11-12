@@ -418,15 +418,15 @@ GRANT EXECUTE ON FUNCTION public.verify_staff_credential(TEXT, TEXT) TO authenti
 -- 3. HALLAZGO #3 Y #9: ENDURECIMIENTO DE RPCs PRIVILEGIADAS Y CONCURRENCIA
 -- ============================================================================
 
--- 3.1 adjust_warehouse_stock (conserva el contrato exacto de producción: firma con p_created_by y RETURNS VOID + bloqueo FOR UPDATE + rechazo de stock negativo)
-CREATE OR REPLACE FUNCTION public.adjust_warehouse_stock(
+-- 3.1 adjust_warehouse_stock_atomic (nueva RPC atómica que devuelve JSONB para Mostrador y Recepciones, con bloqueo FOR UPDATE, rechazo de stock negativo y autorización explícita por rol; adjust_warehouse_stock se conserva sin cambios para revisión independiente junto con Inbox / Última Milla)
+CREATE OR REPLACE FUNCTION public.adjust_warehouse_stock_atomic(
   p_product_id UUID,
   p_warehouse_id UUID,
   p_quantity_change INTEGER,
   p_reason TEXT DEFAULT 'Manual adjustment'::TEXT,
   p_created_by UUID DEFAULT NULL::UUID
 )
-RETURNS VOID
+RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
@@ -438,39 +438,15 @@ DECLARE
   v_wh_name TEXT;
   v_old_stock INT;
   v_new_stock INT;
-  v_ctx TEXT;
-  v_outer TEXT;
 BEGIN
-  IF v_caller_id IS NOT NULL THEN
-    GET DIAGNOSTICS v_ctx = PG_CONTEXT;
-    v_outer := (regexp_match(v_ctx, '.*function ([[:alnum:]_."]+)\('))[1];
-
-    IF v_outer IS NULL OR v_outer LIKE '%adjust_warehouse_stock%' THEN
-      -- Llamada directa al RPC: solo administradores operativos activos (super_admin, admin, warehouse_admin)
-      IF NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'warehouse_admin']) THEN
-        RAISE EXCEPTION 'No tienes permisos para ajustar existencias de bodega.' USING ERRCODE = '42501';
-      END IF;
-    ELSE
-      -- Llamada interna desde otra RPC (ej. dispatch_lastmile_order, return_lastmile_order, create_retail_sale, create_counter_sale_atomic):
-      -- permitir administradores operativos activos o distributor_pro activos
-      IF NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'warehouse_admin'])
-         AND NOT EXISTS (
-           SELECT 1 FROM public.profiles
-           WHERE id = v_caller_id
-             AND role = 'distributor'
-             AND sub_role = 'distributor_pro'
-             AND COALESCE(is_active, true) = true
-         )
-      THEN
-        RAISE EXCEPTION 'No tienes permisos para ajustar existencias de bodega.' USING ERRCODE = '42501';
-      END IF;
-    END IF;
+  IF v_caller_id IS NULL OR NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'warehouse_admin']) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'No tienes permisos para ajustar existencias de bodega.');
   END IF;
 
   IF current_setting('app.trusted_stock_caller', true) = 'true' AND p_created_by IS NOT NULL THEN
     v_user_id := p_created_by;
   ELSE
-    v_user_id := COALESCE(v_caller_id, p_created_by);
+    v_user_id := v_caller_id;
   END IF;
 
   INSERT INTO public.warehouse_stock (warehouse_id, product_id, stock_quantity, reserved_quantity)
@@ -486,8 +462,10 @@ BEGIN
   FOR UPDATE;
 
   IF (v_old_stock + p_quantity_change) < 0 THEN
-    RAISE EXCEPTION 'Stock insuficiente en bodega (actual: %, cambio solicitado: %).', v_old_stock, p_quantity_change
-      USING ERRCODE = 'P0001';
+    RETURN jsonb_build_object(
+      'success', false,
+      'error', format('Stock insuficiente en bodega (actual: %s, cambio solicitado: %s).', v_old_stock, p_quantity_change)
+    );
   END IF;
 
   v_new_stock := v_old_stock + p_quantity_change;
@@ -524,62 +502,11 @@ BEGIN
       'reason', p_reason
     )
   );
-END;
-$$;
-
-REVOKE EXECUTE ON FUNCTION public.adjust_warehouse_stock(UUID, UUID, INTEGER, TEXT, UUID) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.adjust_warehouse_stock(UUID, UUID, INTEGER, TEXT, UUID) TO authenticated;
-
--- 3.1b adjust_warehouse_stock_atomic (nueva RPC que devuelve JSONB para consumidores nuevos sin alterar el contrato VOID de adjust_warehouse_stock)
-CREATE OR REPLACE FUNCTION public.adjust_warehouse_stock_atomic(
-  p_product_id UUID,
-  p_warehouse_id UUID,
-  p_quantity_change INTEGER,
-  p_reason TEXT DEFAULT 'Manual adjustment'::TEXT,
-  p_created_by UUID DEFAULT NULL::UUID
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_old_stock INT;
-  v_new_stock INT;
-BEGIN
-  IF NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'warehouse_admin']) THEN
-    RETURN jsonb_build_object('success', false, 'error', 'No tienes permisos para ajustar existencias de bodega.');
-  END IF;
-
-  SELECT COALESCE(stock_quantity, 0)
-  INTO v_old_stock
-  FROM public.warehouse_stock
-  WHERE warehouse_id = p_warehouse_id
-    AND product_id = p_product_id;
-  v_old_stock := COALESCE(v_old_stock, 0);
-
-  BEGIN
-    PERFORM public.adjust_warehouse_stock(
-      p_product_id := p_product_id,
-      p_warehouse_id := p_warehouse_id,
-      p_quantity_change := p_quantity_change,
-      p_reason := p_reason,
-      p_created_by := p_created_by
-    );
-  EXCEPTION WHEN OTHERS THEN
-    RETURN jsonb_build_object('success', false, 'error', SQLERRM);
-  END;
-
-  SELECT COALESCE(stock_quantity, 0)
-  INTO v_new_stock
-  FROM public.warehouse_stock
-  WHERE warehouse_id = p_warehouse_id
-    AND product_id = p_product_id;
 
   RETURN jsonb_build_object(
     'success', true,
     'before', v_old_stock,
-    'after', COALESCE(v_new_stock, 0)
+    'after', v_new_stock
   );
 END;
 $$;
@@ -2496,12 +2423,12 @@ REVOKE EXECUTE ON FUNCTION public.return_counter_sale_atomic(UUID, TEXT, TEXT) F
 GRANT EXECUTE ON FUNCTION public.return_counter_sale_atomic(UUID, TEXT, TEXT) TO authenticated;
 
 -- ============================================================================
--- 7. BARRIDO DE SEGURIDAD SOBRE pg_proc (SIN ALTERAR RPCs DE INBOX / ÚLTIMA MILLA)
+-- 7. BARRIDO DE SEGURIDAD SOBRE pg_proc (SIN ALTERAR adjust_warehouse_stock NI RPCs DE INBOX / ÚLTIMA MILLA)
 -- ============================================================================
--- Nota: create_retail_sale, register_lastmile_prepayment, settle_lastmile_orders,
--- dispatch_lastmile_order, mark_lastmile_delivered, return_lastmile_order,
--- get_lastmile_checkout y submit_lastmile_checkout conservan su comportamiento
--- y permisos efectivos actuales en esta fase.
+-- Nota: adjust_warehouse_stock, create_retail_sale, register_lastmile_prepayment,
+-- settle_lastmile_orders, dispatch_lastmile_order, mark_lastmile_delivered,
+-- return_lastmile_order, get_lastmile_checkout y submit_lastmile_checkout
+-- conservan su comportamiento y permisos efectivos actuales en esta fase.
 DO $$
 DECLARE
   v_fn RECORD;
@@ -2519,7 +2446,6 @@ BEGIN
         'upsert_staff_credentials',
         'get_staff_credentials_metadata',
         'verify_staff_credential',
-        'adjust_warehouse_stock',
         'adjust_warehouse_stock_atomic',
         'transfer_stock',
         'confirm_order',
