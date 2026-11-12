@@ -4,23 +4,23 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  FileText, Plus, Loader2, Search, Filter, Eye, Copy, Pencil,
+  FileText, Plus, Loader2, Search, Copy, Pencil,
   CheckCircle, Clock, XCircle, Send, AlertTriangle, Download,
-  ChevronDown, Trash2
+  ChevronDown, Trash2, DollarSign
 } from 'lucide-react';
 
 const STATUS_MAP = {
-  draft: { label: 'Borrador', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', icon: FileText },
-  sent: { label: 'Enviada', color: '#3b82f6', bg: 'rgba(59,130,246,0.12)', icon: Send },
-  accepted: { label: 'Aceptada', color: '#22c55e', bg: 'rgba(34,197,94,0.12)', icon: CheckCircle },
-  expired: { label: 'Vencida', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: Clock },
-  rejected: { label: 'Rechazada', color: '#ef4444', bg: 'rgba(239,68,68,0.12)', icon: XCircle },
+  draft: { label: 'Borrador', color: '#64748b', bg: 'rgba(100,116,139,0.12)', icon: FileText },
+  sent: { label: 'Enviada', color: '#2563eb', bg: 'rgba(37,99,235,0.12)', icon: Send },
+  accepted: { label: 'Aceptada', color: '#16a34a', bg: 'rgba(22,163,74,0.12)', icon: CheckCircle },
+  expired: { label: 'Vencida', color: '#d97706', bg: 'rgba(217,119,6,0.12)', icon: Clock },
+  rejected: { label: 'Rechazada', color: '#dc2626', bg: 'rgba(220,38,38,0.12)', icon: XCircle },
 };
 
 const BRAND_MAP = {
-  spaces: { label: 'Spaces', color: '#2d7d46', bg: 'rgba(45,125,70,0.1)' },
-  products: { label: 'Products', color: '#6a9a04', bg: 'rgba(106,154,4,0.1)' },
-  deco: { label: 'Deco', color: '#5a8a3c', bg: 'rgba(90,138,60,0.1)' },
+  spaces: { label: 'Greenland Spaces', short: 'Spaces', color: '#2d7d46', bg: 'rgba(45,125,70,0.1)' },
+  products: { label: 'Greenland Products', short: 'Products', color: '#6a9a04', bg: 'rgba(106,154,4,0.1)' },
+  deco: { label: 'Greenland Deco', short: 'Deco', color: '#5a8a3c', bg: 'rgba(90,138,60,0.1)' },
 };
 
 export default function CotizacionesPage() {
@@ -34,8 +34,6 @@ export default function CotizacionesPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
 
-  useEffect(() => { fetchData(); }, []);
-
   const fetchData = async () => {
     setLoading(true);
     const { data } = await supabase
@@ -46,9 +44,10 @@ export default function CotizacionesPage() {
     setLoading(false);
   };
 
+  useEffect(() => { fetchData(); }, []);
+
   const handleDuplicate = async (q) => {
     const { data: folio } = await supabase.rpc('generate_quotation_folio');
-    // Get items from original
     const { data: origItems } = await supabase
       .from('quotation_items')
       .select('*')
@@ -57,7 +56,6 @@ export default function CotizacionesPage() {
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Create new quotation
     const { data: newQ, error } = await supabase.from('quotations').insert({
       folio,
       brand: q.brand,
@@ -83,7 +81,6 @@ export default function CotizacionesPage() {
 
     if (error) { alert('Error al duplicar: ' + error.message); return; }
 
-    // Copy items
     if (origItems?.length && newQ) {
       await supabase.from('quotation_items').insert(
         origItems.map(i => ({
@@ -139,7 +136,6 @@ export default function CotizacionesPage() {
         }
       }
 
-      // Fallback: Generate PDF on the fly if pdf_url is missing or failed
       const { data: items } = await supabase
         .from('quotation_items')
         .select('*')
@@ -152,7 +148,6 @@ export default function CotizacionesPage() {
       const folio = q.folio || 'cotizacion';
       doc.save(`${folio}.pdf`);
 
-      // Cache PDF to storage in background if possible
       try {
         const pdfBlob = doc.output('blob');
         const pdfPath = `${q.id}/${folio}.pdf`;
@@ -206,110 +201,154 @@ export default function CotizacionesPage() {
   );
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900">Cotizaciones</h1>
-          <p className="text-sm text-slate-500 mt-1">Genera y gestiona cotizaciones profesionales.</p>
-        </div>
-        <button
-          onClick={() => router.push('/dashboard/cotizaciones/nueva')}
-          className="flex items-center gap-2 bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-lg shadow-[#6a9a04]/20 transition-all border-none cursor-pointer"
-        >
-          <Plus size={18} /> Nueva Cotización
-        </button>
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-              <FileText size={20} className="text-blue-500" />
+    <div className="w-full max-w-full space-y-4">
+      {/* ============================================================ */}
+      {/* ENTERPRISE HEADER CARD */}
+      {/* ============================================================ */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-[#6a9a04]/10 border border-[#6a9a04]/20 flex items-center justify-center shrink-0">
+              <FileText className="w-5 h-5 text-[#6a9a04]" />
             </div>
-            <span className="text-sm text-slate-500 font-medium">Este Mes</span>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{monthQuotes.length}</p>
-        </div>
-        <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center">
-              <CheckCircle size={20} className="text-[#6a9a04]" />
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900 m-0">
+                  Gestión de Cotizaciones
+                </h1>
+                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#6a9a04]/10 text-[#6a9a04]">
+                  COMERCIAL & B2B
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5 m-0">
+                Genera propuestas ejecutivas en PDF, duplica cotizaciones y da seguimiento al embudo comercial
+              </p>
             </div>
-            <span className="text-sm text-slate-500 font-medium">Aceptadas</span>
           </div>
-          <p className="text-2xl font-black text-slate-900">{acceptedCount}</p>
-        </div>
-        <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
-              <Clock size={20} className="text-amber-500" />
-            </div>
-            <span className="text-sm text-slate-500 font-medium">Pendientes</span>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{pendingCount}</p>
-        </div>
-        <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-5">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
-              <span className="text-emerald-500 font-black text-sm">$</span>
-            </div>
-            <span className="text-sm text-slate-500 font-medium">Monto Mes</span>
-          </div>
-          <p className="text-xl font-black text-slate-900">${totalMonth.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+          <button
+            onClick={() => router.push('/dashboard/cotizaciones/nueva')}
+            className="flex items-center justify-center gap-2 bg-[#6a9a04] hover:bg-[#6a9a04]/90 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-[#6a9a04]/20 transition-all border-none cursor-pointer whitespace-nowrap"
+          >
+            <Plus size={16} /> Nueva Cotización
+          </button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Buscar por folio, cliente..."
-            className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none w-64 shadow-sm focus:ring-2 focus:ring-[#6a9a04]/20"
-          />
+      {/* ============================================================ */}
+      {/* COMPACT KPI STRIP */}
+      {/* ============================================================ */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="bg-white border border-slate-200/80 shadow-xs rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 m-0">Cotizaciones (Mes)</p>
+            <p className="text-2xl font-black text-slate-900 mt-1 m-0">{monthQuotes.length}</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+            <FileText size={18} className="text-blue-600" />
+          </div>
         </div>
-        <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}
-          className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none shadow-sm cursor-pointer">
-          <option value="all">Todas las marcas</option>
-          <option value="spaces">Greenland Spaces</option>
-          <option value="products">Greenland Products</option>
-          <option value="deco">Greenland Deco</option>
-        </select>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none shadow-sm cursor-pointer">
-          <option value="all">Todos los estados</option>
-          <option value="draft">Borrador</option>
-          <option value="sent">Enviada</option>
-          <option value="accepted">Aceptada</option>
-          <option value="expired">Vencida</option>
-          <option value="rejected">Rechazada</option>
-        </select>
-        <span className="text-sm text-slate-400 ml-auto">{filtered.length} cotizaciones</span>
+
+        <div className="bg-white border border-slate-200/80 shadow-xs rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 m-0">Aceptadas</p>
+            <p className="text-2xl font-black text-emerald-600 mt-1 m-0">{acceptedCount}</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+            <CheckCircle size={18} className="text-emerald-600" />
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200/80 shadow-xs rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 m-0">En Seguimiento</p>
+            <p className="text-2xl font-black text-amber-600 mt-1 m-0">{pendingCount}</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+            <Clock size={18} className="text-amber-600" />
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200/80 shadow-xs rounded-2xl p-4 flex items-center justify-between">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 m-0">Monto Cotizado (Mes)</p>
+            <p className="text-xl font-black text-slate-900 mt-1 m-0 truncate">
+              ${totalMonth.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-[#6a9a04]/10 flex items-center justify-center shrink-0">
+            <DollarSign size={18} className="text-[#6a9a04]" />
+          </div>
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white/60 backdrop-blur-md border border-white/50 shadow-xl rounded-2xl overflow-hidden">
+      {/* ============================================================ */}
+      {/* FILTER TOOLBAR + TABLE CARD */}
+      {/* ============================================================ */}
+      <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl overflow-hidden">
+        {/* Toolbar */}
+        <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 flex-1">
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Buscar por folio, cliente o empresa..."
+                className="w-full pl-9 pr-4 py-2 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:bg-white focus:border-[#6a9a04] focus:ring-2 focus:ring-[#6a9a04]/20 transition-all"
+              />
+            </div>
+
+            <select
+              value={filterBrand}
+              onChange={e => setFilterBrand(e.target.value)}
+              className="px-3.5 py-2 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer hover:border-slate-300 transition-all"
+            >
+              <option value="all">Todas las marcas</option>
+              <option value="spaces">Greenland Spaces</option>
+              <option value="products">Greenland Products</option>
+              <option value="deco">Greenland Deco</option>
+            </select>
+
+            <select
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+              className="px-3.5 py-2 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer hover:border-slate-300 transition-all"
+            >
+              <option value="all">Todos los estados</option>
+              <option value="draft">Borrador</option>
+              <option value="sent">Enviada</option>
+              <option value="accepted">Aceptada</option>
+              <option value="expired">Vencida</option>
+              <option value="rejected">Rechazada</option>
+            </select>
+          </div>
+
+          <span className="text-xs font-bold text-slate-400 whitespace-nowrap">
+            {filtered.length} {filtered.length === 1 ? 'cotización' : 'cotizaciones'}
+          </span>
+        </div>
+
+        {/* Table */}
         {filtered.length === 0 ? (
-          <div className="p-16 text-center text-slate-400">
-            <FileText size={48} className="mx-auto mb-4 text-slate-300" />
-            <p className="text-lg font-bold">Sin cotizaciones</p>
-            <p className="text-sm mt-1">Crea tu primera cotización con el botón de arriba.</p>
+          <div className="p-14 text-center text-slate-400">
+            <FileText size={40} className="mx-auto mb-3 text-slate-300" />
+            <p className="text-base font-bold text-slate-600 m-0">Sin cotizaciones encontradas</p>
+            <p className="text-xs text-slate-400 mt-1 m-0">Ajusta los filtros o crea una nueva cotización.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/50">
-                  <th className="text-left px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Folio</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Marca</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
-                  <th className="text-right px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Total</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="text-right px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Acciones</th>
+                <tr className="border-b border-slate-200 bg-slate-50/60">
+                  <th className="text-left px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Folio</th>
+                  <th className="text-left px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Marca</th>
+                  <th className="text-left px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Cliente / Empresa</th>
+                  <th className="text-left px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Ciudad</th>
+                  <th className="text-right px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Importe Total</th>
+                  <th className="text-left px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Fecha</th>
+                  <th className="text-left px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Estado</th>
+                  <th className="text-right px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -318,67 +357,96 @@ export default function CotizacionesPage() {
                   const brand = BRAND_MAP[q.brand] || BRAND_MAP.products;
                   const StIcon = st.icon;
                   return (
-                    <tr key={q.id} className="hover:bg-white/50 transition-colors">
-                      <td className="px-5 py-4">
-                        <span className="font-mono font-bold text-sm text-slate-900">{q.folio}</span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ color: brand.color, background: brand.bg }}>
-                          {brand.label}
+                    <tr key={q.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <span className="font-mono font-bold text-xs text-slate-900 bg-slate-100 px-2 py-1 rounded-md">
+                          {q.folio}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
-                        <p className="text-sm font-bold text-slate-800 m-0">{q.client_name}</p>
-                        {q.client_company && <p className="text-xs text-slate-400 m-0">{q.client_company}</p>}
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <span
+                          className="text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap inline-block"
+                          style={{ color: brand.color, background: brand.bg }}
+                        >
+                          {brand.short}
+                        </span>
                       </td>
-                      <td className="px-5 py-4 text-right">
-                        <span className="font-bold text-sm text-slate-900">
+                      <td className="px-5 py-3.5">
+                        <p className="text-xs font-bold text-slate-800 m-0">{q.client_name}</p>
+                        {q.client_company && <p className="text-[11px] text-slate-400 m-0">{q.client_company}</p>}
+                      </td>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <span className="text-xs text-slate-500">{q.city || '—'}</span>
+                      </td>
+                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                        <span className="font-black text-xs text-slate-900">
                           {q.currency === 'USD' ? 'US' : ''}${Number(q.total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                         </span>
-                        <span className="text-[10px] text-slate-400 ml-1">{q.currency}</span>
+                        <span className="text-[10px] font-bold text-slate-400 ml-1">{q.currency}</span>
                       </td>
-                      <td className="px-5 py-4">
-                        <span className="text-sm text-slate-500">
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <span className="text-xs text-slate-500">
                           {new Date(q.quote_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-3.5 whitespace-nowrap">
                         <div className="relative group inline-block">
-                          <span className="text-xs font-bold px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1 w-fit" style={{ color: st.color, background: st.bg }}>
+                          <span
+                            className="text-xs font-bold px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 w-fit whitespace-nowrap"
+                            style={{ color: st.color, background: st.bg }}
+                          >
                             <StIcon size={12} /> {st.label}
                             <ChevronDown size={10} className="ml-0.5" />
                           </span>
                           <div className="absolute left-0 top-full mt-1 bg-white shadow-xl rounded-xl border border-slate-200 py-1 z-20 hidden group-hover:block min-w-[140px]">
                             {Object.entries(STATUS_MAP).map(([key, val]) => (
-                              <button key={key} onClick={() => handleStatusChange(q.id, key)}
-                                className={`w-full text-left px-3 py-2 text-xs font-bold hover:bg-slate-50 flex items-center gap-2 border-none bg-transparent cursor-pointer ${q.status === key ? 'text-[#6a9a04]' : 'text-slate-600'}`}>
+                              <button
+                                key={key}
+                                onClick={() => handleStatusChange(q.id, key)}
+                                className={`w-full text-left px-3 py-2 text-xs font-bold hover:bg-slate-50 flex items-center gap-2 border-none bg-transparent cursor-pointer whitespace-nowrap ${
+                                  q.status === key ? 'text-[#6a9a04]' : 'text-slate-600'
+                                }`}
+                              >
                                 <val.icon size={12} style={{ color: val.color }} /> {val.label}
                               </button>
                             ))}
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => handleDownloadPdf(q)} disabled={downloadingId === q.id} title="Descargar PDF"
-                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center border-none cursor-pointer transition-colors disabled:opacity-50">
+                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleDownloadPdf(q)}
+                            disabled={downloadingId === q.id}
+                            title="Descargar PDF"
+                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center border-none cursor-pointer transition-colors disabled:opacity-50"
+                          >
                             {downloadingId === q.id ? (
                               <Loader2 size={14} className="animate-spin text-[#6a9a04]" />
                             ) : (
-                              <Download size={14} className="text-slate-500" />
+                              <Download size={14} className="text-slate-600" />
                             )}
                           </button>
-                          <button onClick={() => router.push(`/dashboard/cotizaciones/nueva?edit=${q.id}`)} title="Editar"
-                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center border-none cursor-pointer transition-colors">
-                            <Pencil size={14} className="text-slate-500" />
+                          <button
+                            onClick={() => router.push(`/dashboard/cotizaciones/nueva?edit=${q.id}`)}
+                            title="Editar"
+                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center border-none cursor-pointer transition-colors"
+                          >
+                            <Pencil size={14} className="text-slate-600" />
                           </button>
-                          <button onClick={() => handleDuplicate(q)} title="Duplicar"
-                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center border-none cursor-pointer transition-colors">
-                            <Copy size={14} className="text-slate-500" />
+                          <button
+                            onClick={() => handleDuplicate(q)}
+                            title="Duplicar"
+                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center border-none cursor-pointer transition-colors"
+                          >
+                            <Copy size={14} className="text-slate-600" />
                           </button>
-                          <button onClick={() => setDeleteConfirm(q.id)} title="Eliminar"
-                            className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center border-none cursor-pointer transition-colors">
-                            <Trash2 size={14} className="text-red-400" />
+                          <button
+                            onClick={() => setDeleteConfirm(q.id)}
+                            title="Eliminar"
+                            className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center border-none cursor-pointer transition-colors"
+                          >
+                            <Trash2 size={14} className="text-red-500" />
                           </button>
                         </div>
                       </td>
@@ -393,7 +461,11 @@ export default function CotizacionesPage() {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: 9999 }} onClick={() => setDeleteConfirm(null)}>
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          style={{ zIndex: 9999 }}
+          onClick={() => setDeleteConfirm(null)}
+        >
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center">
@@ -405,12 +477,16 @@ export default function CotizacionesPage() {
               </div>
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 cursor-pointer bg-white">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 cursor-pointer bg-white"
+              >
                 Cancelar
               </button>
-              <button onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 border-none cursor-pointer">
+              <button
+                onClick={() => handleDelete(deleteConfirm)}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 border-none cursor-pointer"
+              >
                 Eliminar
               </button>
             </div>
