@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
+import { createClient as createAuthClient } from '@/utils/supabase/server';
 
 let _resend;
 function getResend() {
@@ -198,8 +199,31 @@ function buildReactivationEmailHtml({ distributorName, contactWhatsApp }) {
 
 export async function POST(request) {
   try {
+    // Exigir sesión autenticada activa para evitar envío de correos no autorizados
+    const supabaseAuth = await createAuthClient();
+    const { data: { user: caller }, error: authErr } = await supabaseAuth.auth.getUser();
+    if (authErr || !caller) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
+
+    const { data: callerProfile } = await supabaseAuth
+      .from('profiles')
+      .select('role, sub_role, is_active')
+      .eq('id', caller.id)
+      .single();
+
+    if (!callerProfile || callerProfile.is_active === false) {
+      return NextResponse.json({ error: 'Cuenta inactiva o no autorizada' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { type, orderNumber, orderId, status, distributorName, distributorEmail, items, total } = body;
+
+    // Validar que notificaciones administrativas solo las dispare un admin activo
+    const adminOnlyTypes = ['status_change', 'purchase_order', 'reactivation'];
+    if (adminOnlyTypes.includes(type) && callerProfile.role !== 'admin') {
+      return NextResponse.json({ error: 'Solo administradores pueden enviar este tipo de notificación' }, { status: 403 });
+    }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://greenland-app.vercel.app';
     const orderUrl = `${appUrl}/dashboard/pedidos/${orderId}`;

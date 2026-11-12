@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createClient as createAuthClient } from '@/utils/supabase/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GREENLAND_KNOWLEDGE } from '@/lib/chatbot-knowledge';
 
@@ -15,6 +16,22 @@ function getSupabaseAdmin() {
 export async function GET(request) {
   try {
     const supabase = getSupabaseAdmin();
+
+    // Exigir sesión activa de administrador antes de leer mensajes o invocar Gemini
+    const supabaseAuth = await createAuthClient();
+    const { data: { user: caller }, error: authErr } = await supabaseAuth.auth.getUser();
+    if (authErr || !caller) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
+    const { data: callerProfile } = await supabase
+      .from('profiles')
+      .select('role, is_active')
+      .eq('id', caller.id)
+      .single();
+    if (!callerProfile || callerProfile.is_active === false || callerProfile.role !== 'admin') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const analyzeWithAI = searchParams.get('ai') !== 'false';
 

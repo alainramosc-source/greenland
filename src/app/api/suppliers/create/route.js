@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { createClient as createAuthClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
 
 export async function POST(request) {
@@ -11,6 +12,32 @@ export async function POST(request) {
   );
 
   try {
+    // 0. Comprobar sesión activa y facultad específica (solo Super Admin; Contabilidad es solo lectura)
+    const supabaseAuth = await createAuthClient();
+    const { data: { user: caller }, error: callerErr } = await supabaseAuth.auth.getUser();
+    if (callerErr || !caller) {
+      return NextResponse.json({ error: 'No autenticado.' }, { status: 401 });
+    }
+
+    const { data: callerProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('role, sub_role, is_active')
+      .eq('id', caller.id)
+      .single();
+
+    const allowedSubRoles = ['super_admin', 'admin'];
+    if (
+      !callerProfile ||
+      callerProfile.is_active === false ||
+      callerProfile.role !== 'admin' ||
+      !allowedSubRoles.includes(callerProfile.sub_role || 'super_admin')
+    ) {
+      return NextResponse.json(
+        { error: 'No tienes permisos para dar de alta proveedores o cuentas de portal.' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { company_name, contact_name, email, phone, rfc, address, service_types, notes, portal_access = true } = body;
 

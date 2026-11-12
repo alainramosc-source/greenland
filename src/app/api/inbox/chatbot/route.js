@@ -6,6 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createClient as createAuthClient } from '@/utils/supabase/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GREENLAND_KNOWLEDGE, PRODUCT_CATALOG } from '@/lib/chatbot-knowledge';
 
@@ -203,6 +204,27 @@ async function createCheckoutLink(conversationId, items) {
 
 export async function POST(request) {
   try {
+    // Exigir secreto interno o sesión autenticada de administrador activo
+    const internalSecret = request.headers.get('x-internal-secret');
+    const validInternalSecret =
+      process.env.CRON_SECRET && internalSecret === process.env.CRON_SECRET;
+
+    if (!validInternalSecret) {
+      const supabaseAuth = await createAuthClient();
+      const { data: { user: caller }, error: authErr } = await supabaseAuth.auth.getUser();
+      if (authErr || !caller) {
+        return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+      }
+      const { data: callerProfile } = await getSupabaseAdmin()
+        .from('profiles')
+        .select('role, is_active')
+        .eq('id', caller.id)
+        .single();
+      if (!callerProfile || callerProfile.is_active === false || callerProfile.role !== 'admin') {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+    }
+
     const { conversation_id, message, phone_number } = await request.json();
     
     if (!conversation_id || !message) {

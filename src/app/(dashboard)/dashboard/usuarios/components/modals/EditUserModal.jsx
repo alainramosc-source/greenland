@@ -178,13 +178,18 @@ export default function EditUserModal({
               {/* PIN & Barcode Grid */}
               <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">🔢 PIN Autorización Signer</label>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    🔢 PIN Autorización Signer
+                    {selectedUser.has_pin && (
+                      <span className="ml-1.5 text-[10px] font-bold text-emerald-600">● Configurado</span>
+                    )}
+                  </label>
                   <input
-                    type="text"
+                    type="password"
                     maxLength={6}
-                    placeholder="Ej. 1928"
-                    value={selectedUser.authorization_pin || ''}
-                    onChange={(e) => setSelectedUser({ ...selectedUser, authorization_pin: e.target.value })}
+                    placeholder={selectedUser.has_pin ? '•••• (Escribe para cambiar)' : 'Ej. 1928'}
+                    value={selectedUser.new_authorization_pin || ''}
+                    onChange={(e) => setSelectedUser({ ...selectedUser, new_authorization_pin: e.target.value })}
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-mono text-center outline-none focus:ring-2 focus:ring-[#6a9a04]/20"
                   />
                 </div>

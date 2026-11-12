@@ -944,31 +944,73 @@ export function useReceptionForm() {
 
     setConfirming(true);
 
-    // 1. Save header + items, and only then mark as completed
+    // 1. Save draft header + items first (do NOT mark 'completed' until stock, cost, and transits finish)
     const id = await saveDraft();
     if (!id) {
       setConfirming(false);
       return;
     }
-    const { error: statusErr } = await supabase.from('container_receptions').update({ status: 'completed' }).eq('id', id);
-    if (statusErr) {
-      alert('Error al confirmar: ' + statusErr.message);
+
+    // Verify reception is not already completed to prevent duplicate stock on double-click / retry
+    const { data: currentRec, error: recCheckErr } = await supabase
+      .from('container_receptions')
+      .select('status')
+      .eq('id', id)
+      .single();
+
+    if (recCheckErr) {
+      alert('Error verificando estado de la recepción: ' + recCheckErr.message);
       setConfirming(false);
       return;
     }
+    if (currentRec?.status === 'completed') {
+      alert('Esta recepción ya fue confirmada anteriormente.');
+      setConfirming(false);
+      router.push('/dashboard/recepciones');
+      return;
+    }
+
+    // Check which items already had stock applied in a previous partial attempt (idempotency on retry)
+    const receptionTag = `[REC:${id}]`;
+    const { data: existingLogs } = await supabase
+      .from('inventory_logs')
+      .select('product_id, reason')
+      .ilike('reason', `%${receptionTag}%`);
+    const alreadyAppliedKeys = new Set(
+      (existingLogs || []).map(l => `${l.product_id}`)
+    );
 
     // 2. Add stock to each item's destination warehouse
     const stockErrors = [];
     for (const item of items) {
       const targetWarehouse = warehouseOf(item);
       const targetName = warehouseName(targetWarehouse) || targetWarehouse;
-      const { error } = await supabase.rpc('adjust_warehouse_stock', {
+      const itemKey = `${item.product_id}`;
+
+      if (alreadyAppliedKeys.has(itemKey)) {
+        continue;
+      }
+
+      const { data: stockRes, error } = await supabase.rpc('adjust_warehouse_stock', {
         p_product_id: item.product_id,
         p_warehouse_id: targetWarehouse,
         p_quantity_change: Number(item.quantity),
-        p_reason: `Recepción contenedor: ${form.container_label || id} (${targetName})`,
+        p_reason: `Recepción contenedor: ${form.container_label || id} (${targetName}) ${receptionTag}`,
       });
-      if (error) stockErrors.push(`${item.sku} en ${targetName}: ${error.message}`);
+      if (error || stockRes?.success === false) {
+        stockErrors.push(`${item.sku} en ${targetName}: ${error?.message || stockRes?.error || 'Error de stock'}`);
+      } else {
+        alreadyAppliedKeys.add(itemKey);
+      }
+    }
+
+    // Abort before marking completed if any stock adjustment failed (safe to retry thanks to receptionTag idempotency)
+    if (stockErrors.length > 0) {
+      alert(
+        `No se pudo completar la recepción por errores al registrar inventario (la recepción permanece en borrador para reintentar sin duplicar):\n${stockErrors.join('\n')}`
+      );
+      setConfirming(false);
+      return;
     }
 
     // 2b. Weighted average cost against current total stock
@@ -1030,10 +1072,19 @@ export function useReceptionForm() {
     // 4. Inland freight service order (se omite si el flete es con transportista externo)
     const soResult = await syncFreightServiceOrder(id);
 
+    // 5. Mark reception as completed ONLY after all stock, cost, and transit operations succeeded
+    const { error: statusErr } = await supabase
+      .from('container_receptions')
+      .update({ status: 'completed' })
+      .eq('id', id);
+    if (statusErr) {
+      alert('Error al finalizar estado de recepción: ' + statusErr.message);
+      setConfirming(false);
+      return;
+    }
+
     alert(
-      (stockErrors.length
-        ? `Recepción confirmada con algunos errores de stock:\n${stockErrors.join('\n')}`
-        : '✅ Recepción confirmada exitosamente') +
+      '✅ Recepción confirmada exitosamente' +
       (soResult?.warning ? `\n\n⚠️ ${soResult.warning}` : '')
     );
     setConfirming(false);

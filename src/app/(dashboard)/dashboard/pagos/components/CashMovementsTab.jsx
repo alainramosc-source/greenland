@@ -83,8 +83,10 @@ export default function CashMovementsTab({
     return count;
   };
 
+  const isReadOnlySubRole = ['lectura', 'viewer', 'accountant'].includes(userSubRole);
+
   const canSign = (m) => {
-    if (userSubRole === 'lectura') return false;
+    if (isReadOnlySubRole) return false;
     if (!isAuthorizedSigner(currentUserName, currentUserEmail)) return false;
     if (m.approved_by_1 && m.approved_by_2) return false;
     if (currentUserId && (m.approved_by_1 === currentUserId || m.approved_by_2 === currentUserId)) return false;
@@ -179,7 +181,7 @@ export default function CashMovementsTab({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {userSubRole !== 'lectura' && (
+          {!isReadOnlySubRole && (
             <>
               <button
                 onClick={() => setShowEntryModal(true)}
@@ -360,29 +362,33 @@ export default function CashMovementsTab({
                     <div className="flex items-center gap-2 justify-end flex-wrap">
                       {isPendingSig ? (
                         <>
-                          <button
-                            onClick={() => {
-                              setEditModal(m);
-                              setEditForm({
-                                amount: m.amount,
-                                concept: m.concept || '',
-                                responsible: m.responsible || '',
-                                notes: m.notes || '',
-                                movement_date: (m.movement_date || m.created_at || '').split('T')[0]
-                              });
-                            }}
-                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-blue-100 flex items-center justify-center border-none cursor-pointer transition-colors"
-                            title="Editar movimiento"
-                          >
-                            <Edit3 size={14} className="text-slate-500 hover:text-blue-600" />
-                          </button>
-                          <button
-                            onClick={() => onDeleteMovement(m.id)}
-                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-red-100 flex items-center justify-center border-none cursor-pointer transition-colors"
-                            title="Eliminar movimiento"
-                          >
-                            <Trash2 size={14} className="text-slate-500 hover:text-red-600" />
-                          </button>
+                          {!isReadOnlySubRole && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setEditModal(m);
+                                  setEditForm({
+                                    amount: m.amount,
+                                    concept: m.concept || '',
+                                    responsible: m.responsible || '',
+                                    notes: m.notes || '',
+                                    movement_date: (m.movement_date || m.created_at || '').split('T')[0]
+                                  });
+                                }}
+                                className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-blue-100 flex items-center justify-center border-none cursor-pointer transition-colors"
+                                title="Editar movimiento"
+                              >
+                                <Edit3 size={14} className="text-slate-500 hover:text-blue-600" />
+                              </button>
+                              <button
+                                onClick={() => onDeleteMovement(m.id)}
+                                className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-red-100 flex items-center justify-center border-none cursor-pointer transition-colors"
+                                title="Eliminar movimiento"
+                              >
+                                <Trash2 size={14} className="text-slate-500 hover:text-red-600" />
+                              </button>
+                            </>
+                          )}
 
                           <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
                             sigCount === 0 ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-blue-100 text-blue-700 border border-blue-200'
@@ -514,7 +520,7 @@ export default function CashMovementsTab({
                       </span>
                     </div>
 
-                    {!audit.applied && onApplyAudit && userSubRole !== 'lectura' && (
+                    {!audit.applied && onApplyAudit && !isReadOnlySubRole && (
                       <button
                         onClick={() => onApplyAudit(audit)}
                         disabled={actionLoading === audit.id}

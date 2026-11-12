@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { createClient as createAuthClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
@@ -75,12 +76,41 @@ export async function POST(request) {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: 'Falta SUPABASE_SERVICE_ROLE_KEY en el servidor.' }, { status: 500 });
   }
+  if (!process.env.RESEND_API_KEY) {
+    return NextResponse.json({ error: 'Servicio de correo no configurado (RESEND_API_KEY). No se modificaron credenciales.' }, { status: 503 });
+  }
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
   try {
+    // 0. Comprobar sesión activa y facultad específica (solo Super Admin; Contabilidad es solo lectura)
+    const supabaseAuth = await createAuthClient();
+    const { data: { user: caller }, error: callerErr } = await supabaseAuth.auth.getUser();
+    if (callerErr || !caller) {
+      return NextResponse.json({ error: 'No autenticado.' }, { status: 401 });
+    }
+
+    const { data: callerProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('role, sub_role, is_active')
+      .eq('id', caller.id)
+      .single();
+
+    const allowedSubRoles = ['super_admin', 'admin'];
+    if (
+      !callerProfile ||
+      callerProfile.is_active === false ||
+      callerProfile.role !== 'admin' ||
+      !allowedSubRoles.includes(callerProfile.sub_role || 'super_admin')
+    ) {
+      return NextResponse.json(
+        { error: 'No tienes permisos para administrar accesos del portal de proveedores.' },
+        { status: 403 }
+      );
+    }
+
     const { supplier_id } = await request.json();
     if (!supplier_id) return NextResponse.json({ error: 'supplier_id requerido' }, { status: 400 });
 
@@ -90,32 +120,9 @@ export async function POST(request) {
     if (!supplier.email) return NextResponse.json({ error: 'El proveedor no tiene email' }, { status: 400 });
 
     const tempPassword = 'GL-' + crypto.randomUUID().slice(0, 8).toUpperCase();
-
-    if (supplier.user_id) {
-      // Ya tiene cuenta: solo renovar contraseña temporal
-      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(supplier.user_id, {
-        password: tempPassword,
-      });
-      if (updateErr) return NextResponse.json({ error: 'Error actualizando contraseña: ' + updateErr.message }, { status: 500 });
-    } else {
-      // Dado de alta sin acceso al portal: crear la cuenta ahora
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: supplier.email,
-        password: tempPassword,
-        email_confirm: true,
-        user_metadata: { full_name: supplier.contact_name || supplier.company_name, role: 'supplier' },
-      });
-      if (authError) return NextResponse.json({ error: 'Error al crear cuenta: ' + authError.message }, { status: 400 });
-      await supabaseAdmin
-        .from('profiles')
-        .update({ role: 'supplier', full_name: supplier.contact_name || supplier.company_name, is_active: true })
-        .eq('id', authData.user.id);
-      await supabaseAdmin.from('suppliers').update({ user_id: authData.user.id }).eq('id', supplier.id);
-    }
-
     const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://greenland-products.com.mx'}/portal-proveedores`;
 
-    // Build and send email
+    // Build email first
     const html = buildSupplierWelcomeEmail({
       companyName: supplier.company_name,
       contactName: supplier.contact_name,
@@ -124,6 +131,21 @@ export async function POST(request) {
       portalUrl,
     });
 
+    let createdUserId = null;
+
+    if (!supplier.user_id) {
+      // Dado de alta sin acceso al portal: crear la cuenta antes de enviar correo, con rollback si el envío falla
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: supplier.email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: { full_name: supplier.contact_name || supplier.company_name, role: 'supplier' },
+      });
+      if (authError) return NextResponse.json({ error: 'Error al crear cuenta: ' + authError.message }, { status: 400 });
+      createdUserId = authData.user.id;
+    }
+
+    // Enviar el correo ANTES de sobrescribir la contraseña de una cuenta ya existente
     const { error: emailError } = await getResend().emails.send({
       from: 'Greenland Products <portal@greenland-products.com.mx>',
       to: supplier.email,
@@ -131,7 +153,29 @@ export async function POST(request) {
       html,
     });
 
-    if (emailError) return NextResponse.json({ error: 'Error enviando email: ' + emailError.message }, { status: 500 });
+    if (emailError) {
+      if (createdUserId) {
+        await supabaseAdmin.auth.admin.deleteUser(createdUserId);
+      }
+      return NextResponse.json(
+        { error: 'Error enviando email (' + emailError.message + '). No se modificó la contraseña previa del proveedor.' },
+        { status: 502 }
+      );
+    }
+
+    if (supplier.user_id) {
+      // Correo enviado con éxito: actualizar contraseña temporal de la cuenta existente
+      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(supplier.user_id, {
+        password: tempPassword,
+      });
+      if (updateErr) return NextResponse.json({ error: 'Error actualizando contraseña: ' + updateErr.message }, { status: 500 });
+    } else if (createdUserId) {
+      await supabaseAdmin
+        .from('profiles')
+        .update({ role: 'supplier', full_name: supplier.contact_name || supplier.company_name, is_active: true })
+        .eq('id', createdUserId);
+      await supabaseAdmin.from('suppliers').update({ user_id: createdUserId }).eq('id', supplier.id);
+    }
 
     return NextResponse.json({ success: true, message: 'Email de bienvenida enviado a ' + supplier.email });
   } catch (err) {
