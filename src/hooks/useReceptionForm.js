@@ -970,24 +970,30 @@ export function useReceptionForm() {
       return;
     }
 
-    // Check which items already had stock applied in a previous partial attempt (idempotency on retry)
-    const receptionTag = `[REC:${id}]`;
+    // Check which items already had stock applied in a previous partial attempt (idempotency on retry per SKU + destination warehouse + line occurrence)
+    const receptionTagPrefix = `[REC:${id}:`;
     const { data: existingLogs } = await supabase
       .from('inventory_logs')
       .select('product_id, reason')
-      .ilike('reason', `%${receptionTag}%`);
+      .ilike('reason', `%${receptionTagPrefix}%`);
     const alreadyAppliedKeys = new Set(
-      (existingLogs || []).map(l => `${l.product_id}`)
+      (existingLogs || [])
+        .map(l => l.reason?.match(/\[REC:[^\]]+\]/)?.[0])
+        .filter(Boolean)
     );
 
     // 2. Add stock to each item's destination warehouse
     const stockErrors = [];
+    const itemOccurrenceCounts = new Map();
     for (const item of items) {
       const targetWarehouse = warehouseOf(item);
       const targetName = warehouseName(targetWarehouse) || targetWarehouse;
-      const itemKey = `${item.product_id}`;
+      const whKey = `${item.product_id}:${targetWarehouse}`;
+      const occ = (itemOccurrenceCounts.get(whKey) || 0) + 1;
+      itemOccurrenceCounts.set(whKey, occ);
+      const itemTag = `[REC:${id}:P:${item.product_id}:W:${targetWarehouse}:N:${occ}]`;
 
-      if (alreadyAppliedKeys.has(itemKey)) {
+      if (alreadyAppliedKeys.has(itemTag)) {
         continue;
       }
 
@@ -995,12 +1001,12 @@ export function useReceptionForm() {
         p_product_id: item.product_id,
         p_warehouse_id: targetWarehouse,
         p_quantity_change: Number(item.quantity),
-        p_reason: `Recepción contenedor: ${form.container_label || id} (${targetName}) ${receptionTag}`,
+        p_reason: `Recepción contenedor: ${form.container_label || id} (${targetName}) ${itemTag}`,
       });
       if (error || stockRes?.success === false) {
         stockErrors.push(`${item.sku} en ${targetName}: ${error?.message || stockRes?.error || 'Error de stock'}`);
       } else {
-        alreadyAppliedKeys.add(itemKey);
+        alreadyAppliedKeys.add(itemTag);
       }
     }
 
