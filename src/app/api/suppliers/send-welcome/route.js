@@ -98,12 +98,11 @@ export async function POST(request) {
       .eq('id', caller.id)
       .single();
 
-    const allowedSubRoles = ['super_admin', 'admin'];
     if (
       !callerProfile ||
-      callerProfile.is_active === false ||
+      callerProfile.is_active !== true ||
       callerProfile.role !== 'admin' ||
-      !allowedSubRoles.includes(callerProfile.sub_role || 'super_admin')
+      callerProfile.sub_role !== 'super_admin'
     ) {
       return NextResponse.json(
         { error: 'No tienes permisos para administrar accesos del portal de proveedores.' },

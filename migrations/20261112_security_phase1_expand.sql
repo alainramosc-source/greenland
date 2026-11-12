@@ -77,6 +77,35 @@ AS $$
   );
 $$;
 
+CREATE OR REPLACE FUNCTION public.is_explicit_super_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid()
+      AND role = 'admin'
+      AND is_active IS TRUE
+      AND sub_role = 'super_admin'
+  );
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.is_active_admin() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_active_admin() TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.has_admin_sub_role(TEXT[]) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.has_admin_sub_role(TEXT[]) TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.is_authorized_signer_user(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_authorized_signer_user(UUID) TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.is_explicit_super_admin() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_explicit_super_admin() TO authenticated;
+
 -- ============================================================================
 -- 1. HALLAZGO #1: PROTECCIÓN DE CAMPOS PRIVILEGIADOS EN PROFILES
 -- ============================================================================
@@ -389,15 +418,15 @@ GRANT EXECUTE ON FUNCTION public.verify_staff_credential(TEXT, TEXT) TO authenti
 -- 3. HALLAZGO #3 Y #9: ENDURECIMIENTO DE RPCs PRIVILEGIADAS Y CONCURRENCIA
 -- ============================================================================
 
--- 3.1 adjust_warehouse_stock (mantiene firma exacta de producción + bloqueo FOR UPDATE + rechazo de stock negativo)
+-- 3.1 adjust_warehouse_stock (conserva el contrato exacto de producción: firma con p_created_by y RETURNS VOID + bloqueo FOR UPDATE + rechazo de stock negativo)
 CREATE OR REPLACE FUNCTION public.adjust_warehouse_stock(
   p_product_id UUID,
   p_warehouse_id UUID,
-  p_quantity_change INT,
-  p_reason TEXT DEFAULT 'Manual adjustment',
-  p_user_id UUID DEFAULT NULL
+  p_quantity_change INTEGER,
+  p_reason TEXT DEFAULT 'Manual adjustment'::TEXT,
+  p_created_by UUID DEFAULT NULL::UUID
 )
-RETURNS JSONB
+RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
@@ -410,13 +439,15 @@ DECLARE
   v_old_stock INT;
   v_new_stock INT;
 BEGIN
-  IF v_caller_id IS NOT NULL THEN
-    IF NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'warehouse_admin']) THEN
-      RETURN jsonb_build_object('success', false, 'error', 'No tienes permisos para ajustar existencias de bodega.');
-    END IF;
+  IF NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'warehouse_admin']) THEN
+    RAISE EXCEPTION 'No tienes permisos para ajustar existencias de bodega.' USING ERRCODE = '42501';
   END IF;
 
-  v_user_id := COALESCE(v_caller_id, p_user_id);
+  IF current_setting('app.trusted_stock_caller', true) = 'true' AND p_created_by IS NOT NULL THEN
+    v_user_id := p_created_by;
+  ELSE
+    v_user_id := COALESCE(v_caller_id, p_created_by);
+  END IF;
 
   INSERT INTO public.warehouse_stock (warehouse_id, product_id, stock_quantity, reserved_quantity)
   VALUES (p_warehouse_id, p_product_id, 0, 0)
@@ -431,10 +462,8 @@ BEGIN
   FOR UPDATE;
 
   IF (v_old_stock + p_quantity_change) < 0 THEN
-    RETURN jsonb_build_object(
-      'success', false,
-      'error', format('Stock insuficiente en bodega (actual: %s, cambio solicitado: %s).', v_old_stock, p_quantity_change)
-    );
+    RAISE EXCEPTION 'Stock insuficiente en bodega (actual: %, cambio solicitado: %).', v_old_stock, p_quantity_change
+      USING ERRCODE = 'P0001';
   END IF;
 
   v_new_stock := v_old_stock + p_quantity_change;
@@ -471,13 +500,68 @@ BEGIN
       'reason', p_reason
     )
   );
-
-  RETURN jsonb_build_object('success', true, 'before', v_old_stock, 'after', v_new_stock);
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.adjust_warehouse_stock(UUID, UUID, INT, TEXT, UUID) FROM anon, public;
-GRANT EXECUTE ON FUNCTION public.adjust_warehouse_stock(UUID, UUID, INT, TEXT, UUID) TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.adjust_warehouse_stock(UUID, UUID, INTEGER, TEXT, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.adjust_warehouse_stock(UUID, UUID, INTEGER, TEXT, UUID) TO authenticated;
+
+-- 3.1b adjust_warehouse_stock_atomic (nueva RPC que devuelve JSONB para consumidores nuevos sin alterar el contrato VOID de adjust_warehouse_stock)
+CREATE OR REPLACE FUNCTION public.adjust_warehouse_stock_atomic(
+  p_product_id UUID,
+  p_warehouse_id UUID,
+  p_quantity_change INTEGER,
+  p_reason TEXT DEFAULT 'Manual adjustment'::TEXT,
+  p_created_by UUID DEFAULT NULL::UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_old_stock INT;
+  v_new_stock INT;
+BEGIN
+  IF NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'warehouse_admin']) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'No tienes permisos para ajustar existencias de bodega.');
+  END IF;
+
+  SELECT COALESCE(stock_quantity, 0)
+  INTO v_old_stock
+  FROM public.warehouse_stock
+  WHERE warehouse_id = p_warehouse_id
+    AND product_id = p_product_id;
+  v_old_stock := COALESCE(v_old_stock, 0);
+
+  BEGIN
+    PERFORM public.adjust_warehouse_stock(
+      p_product_id := p_product_id,
+      p_warehouse_id := p_warehouse_id,
+      p_quantity_change := p_quantity_change,
+      p_reason := p_reason,
+      p_created_by := p_created_by
+    );
+  EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object('success', false, 'error', SQLERRM);
+  END;
+
+  SELECT COALESCE(stock_quantity, 0)
+  INTO v_new_stock
+  FROM public.warehouse_stock
+  WHERE warehouse_id = p_warehouse_id
+    AND product_id = p_product_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'before', v_old_stock,
+    'after', COALESCE(v_new_stock, 0)
+  );
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.adjust_warehouse_stock_atomic(UUID, UUID, INTEGER, TEXT, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.adjust_warehouse_stock_atomic(UUID, UUID, INTEGER, TEXT, UUID) TO authenticated;
 
 -- 3.2 transfer_stock (mantiene firma exacta de producción + validación de rol/bodega + bloqueo FOR UPDATE)
 CREATE OR REPLACE FUNCTION public.transfer_stock(
@@ -1322,8 +1406,27 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.remove_item_from_order(UUID, UUID) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.remove_item_from_order(UUID, UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.remove_item_from_order(UUID, UUID) TO authenticated;
+
+-- 3.8b Cerrar y retirar las RPCs legadas sin consumidores (add_order_item / remove_order_item)
+-- Confirmado en código: ningún archivo en src/ invoca add_order_item ni remove_order_item;
+-- todo el portal utiliza add_item_to_order y remove_item_from_order.
+DO $$
+DECLARE
+  v_fn RECORD;
+BEGIN
+  FOR v_fn IN
+    SELECT p.proname, pg_get_function_identity_arguments(p.oid) AS args
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname IN ('add_order_item', 'remove_order_item')
+  LOOP
+    EXECUTE format('REVOKE ALL ON FUNCTION public.%I(%s) FROM PUBLIC, anon, authenticated', v_fn.proname, v_fn.args);
+    EXECUTE format('DROP FUNCTION IF EXISTS public.%I(%s)', v_fn.proname, v_fn.args);
+  END LOOP;
+END $$;
 
 -- 3.9 delete_user y delete_users (restringidos estrictamente a super_admin, compatibles con user_id/target_user_id y revocados de anon/public)
 DROP FUNCTION IF EXISTS public.delete_user(UUID);
@@ -2183,14 +2286,15 @@ BEGIN
   END IF;
 
   -- 1. Descontar stock primero con bloqueo FOR UPDATE (si algún SKU no tiene stock suficiente, aborta toda la transacción)
+  PERFORM set_config('app.trusted_stock_caller', 'true', true);
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
   LOOP
-    v_stock_res := public.adjust_warehouse_stock(
+    v_stock_res := public.adjust_warehouse_stock_atomic(
       p_product_id := (v_item->>'product_id')::UUID,
       p_warehouse_id := p_warehouse_id,
       p_quantity_change := -((v_item->>'quantity')::INT),
       p_reason := 'Venta en mostrador ' || p_sale_number,
-      p_user_id := v_actor_id
+      p_created_by := v_actor_id
     );
 
     IF COALESCE((v_stock_res->>'success')::boolean, false) IS NOT TRUE THEN
@@ -2304,6 +2408,7 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Esta venta ya fue cancelada/devuelta anteriormente.');
   END IF;
 
+  PERFORM set_config('app.trusted_stock_caller', 'true', true);
   FOR v_item IN SELECT * FROM jsonb_array_elements(COALESCE(v_sale.items, '[]'::jsonb))
   LOOP
     v_pid := NULLIF(v_item->>'product_id', '')::UUID;
@@ -2312,12 +2417,12 @@ BEGIN
     END IF;
 
     IF v_pid IS NOT NULL AND v_sale.warehouse_id IS NOT NULL THEN
-      v_stock_res := public.adjust_warehouse_stock(
+      v_stock_res := public.adjust_warehouse_stock_atomic(
         p_product_id := v_pid,
         p_warehouse_id := v_sale.warehouse_id,
         p_quantity_change := COALESCE((v_item->>'quantity')::INT, 0),
         p_reason := 'ENTRADA_DEVOLUCION — Venta Mostrador #' || v_sale.sale_number || ' — Motivo: ' || btrim(p_reason),
-        p_user_id := v_approver_id
+        p_created_by := v_approver_id
       );
 
       IF COALESCE((v_stock_res->>'success')::boolean, false) IS NOT TRUE THEN
@@ -2728,7 +2833,61 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.settle_lastmile_orders(JSONB) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.settle_lastmile_orders(JSONB) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.settle_lastmile_orders(JSONB) TO authenticated;
+
+-- 7.4 Barrido de seguridad sobre pg_proc: revocar permisos heredados de PUBLIC y anon en cualquier sobrecarga de RPCs privilegiadas
+DO $$
+DECLARE
+  v_fn RECORD;
+BEGIN
+  FOR v_fn IN
+    SELECT p.proname, pg_get_function_identity_arguments(p.oid) AS args
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname IN (
+        'is_active_admin',
+        'has_admin_sub_role',
+        'is_authorized_signer_user',
+        'is_explicit_super_admin',
+        'upsert_staff_credentials',
+        'get_staff_credentials_metadata',
+        'verify_staff_credential',
+        'adjust_warehouse_stock',
+        'adjust_warehouse_stock_atomic',
+        'transfer_stock',
+        'confirm_order',
+        'cancel_order',
+        'reject_order',
+        'ship_order',
+        'receive_order',
+        'register_payment',
+        'update_order_item_quantity',
+        'add_item_to_order',
+        'remove_item_from_order',
+        'delete_user',
+        'delete_users',
+        'update_user_sub_role',
+        'update_order_payment_status',
+        'approve_distributor_payment_atomic',
+        'review_distributor_payment',
+        'approve_matched_payments',
+        'get_user_email',
+        'sign_cash_movement_exit',
+        'create_counter_sale_atomic',
+        'return_counter_sale_atomic',
+        'create_retail_sale',
+        'register_lastmile_prepayment',
+        'settle_lastmile_orders',
+        'dispatch_lastmile_order',
+        'mark_lastmile_delivered',
+        'return_lastmile_order'
+      )
+  LOOP
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION public.%I(%s) FROM PUBLIC, anon', v_fn.proname, v_fn.args);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION public.%I(%s) TO authenticated', v_fn.proname, v_fn.args);
+  END LOOP;
+END $$;
 
 COMMIT;

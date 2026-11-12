@@ -991,7 +991,7 @@ export function useReceptionForm() {
         continue;
       }
 
-      const { data: stockRes, error } = await supabase.rpc('adjust_warehouse_stock', {
+      const { data: stockRes, error } = await supabase.rpc('adjust_warehouse_stock_atomic', {
         p_product_id: item.product_id,
         p_warehouse_id: targetWarehouse,
         p_quantity_change: Number(item.quantity),

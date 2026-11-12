@@ -282,7 +282,7 @@ BEGIN
       );
 
       EXECUTE format(
-        'CREATE POLICY %I ON public.%I FOR ALL TO authenticated USING (public.has_admin_sub_role(ARRAY[''super_admin'', ''admin''])) WITH CHECK (public.has_admin_sub_role(ARRAY[''super_admin'', ''admin'']))',
+        'CREATE POLICY %I ON public.%I FOR ALL TO authenticated USING (public.is_explicit_super_admin()) WITH CHECK (public.is_explicit_super_admin())',
         v_table || '_write_super_admin', v_table
       );
     END IF;
