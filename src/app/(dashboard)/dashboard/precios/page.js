@@ -80,7 +80,7 @@ export default function PreciosPage() {
   }
 
   return (
-    <div className="w-full max-w-full mx-auto p-3 sm:p-5 space-y-5">
+    <div className="w-full max-w-full mx-auto space-y-5">
       {/* Executive Header & Distributor / Address Control Bar */}
       <header className="bg-white/90 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm flex flex-col gap-4">
         {/* Top Row: Title + Action Toolbar */}

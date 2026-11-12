@@ -111,15 +111,15 @@ export default function DashboardLayout({ children }) {
           userRole={userRole}
           userName={userName}
         />
-        <main className="dashboard-main flex-1 p-4 md:p-8 overflow-y-auto relative z-0">
+        <main className="dashboard-main flex-1 p-3 md:p-5 overflow-y-auto relative z-0">
           <div className="absolute top-[-10%] right-[-10%] w-[40rem] h-[40rem] bg-[#dee24b]/10 blur-[120px] rounded-full -z-10 pointer-events-none"></div>
           <div className="absolute bottom-[-10%] left-[20%] w-[30rem] h-[30rem] bg-[#6a9a04]/10 blur-[100px] rounded-full -z-10 pointer-events-none"></div>
 
-          <div className="relative z-10 max-w-7xl mx-auto">
+          <div className="relative z-10 w-full max-w-[1650px] mx-auto">
             {children}
           </div>
 
-          <div className="relative z-0 max-w-7xl mx-auto mt-12 pt-4 border-t border-slate-200/50 flex flex-wrap justify-center gap-3 text-xs text-slate-400 pb-4">
+          <div className="relative z-0 w-full max-w-[1650px] mx-auto mt-12 pt-4 border-t border-slate-200/50 flex flex-wrap justify-center gap-3 text-xs text-slate-400 pb-4">
             <span>© {new Date().getFullYear()} GreenLand Products</span>
             <span>·</span>
             <a href="/aviso-de-privacidad" target="_blank" className="hover:text-[#6a9a04] transition-colors no-underline text-slate-400">Aviso de Privacidad</a>

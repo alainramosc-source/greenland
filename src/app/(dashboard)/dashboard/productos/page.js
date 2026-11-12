@@ -78,10 +78,24 @@ export default function ProductCatalogPage() {
       return;
     }
     setSaving(true);
+    const catMap = {
+      Mesas: '03af3c00-4ea8-4002-87c5-49d982357086',
+      'Mesas Plegables': '03af3c00-4ea8-4002-87c5-49d982357086',
+      Sillas: '0b8b416e-24f8-4d18-a140-45835bc2a9ef',
+      'Sillas de Evento': '0b8b416e-24f8-4d18-a140-45835bc2a9ef',
+      Toldos: '7850f1ba-6516-4c2a-8b1e-2303b3779065',
+      'Toldos Profesionales': '7850f1ba-6516-4c2a-8b1e-2303b3779065',
+      Bancas: 'bb2b29c6-12a5-4645-b3bc-047d5cde5983',
+      Cobertizos: 'bb2b29c6-12a5-4645-b3bc-047d5cde5983',
+      'Bancas & Mobiliario': 'bb2b29c6-12a5-4645-b3bc-047d5cde5983',
+      Deco: '288e382e-eaaa-4675-b96f-d576d59e1337',
+    };
+    const catTrim = form.category.trim();
     const payload = {
       sku: form.sku.trim().toUpperCase(),
       name: form.name.trim(),
-      category: form.category.trim() || null,
+      category: catTrim || null,
+      ...(catMap[catTrim] ? { category_id: catMap[catTrim] } : {}),
       container_capacity: parseInt(form.container_capacity) || 0,
       weight_kg: parseFloat(form.weight_kg) || 0,
       is_active: form.is_active,

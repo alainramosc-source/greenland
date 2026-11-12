@@ -4,6 +4,30 @@ import { createClient } from '@/utils/supabase/client';
 import { validatePrice } from '@/utils/sanitize';
 import { useRouter } from 'next/navigation';
 
+const CATEGORY_LABEL_MAP = {
+  Mesas: 'Mesas Plegables',
+  Sillas: 'Sillas de Evento',
+  Toldos: 'Toldos Profesionales',
+  Bancas: 'Bancas & Mobiliario',
+  Cobertizos: 'Bancas & Mobiliario',
+  Deco: 'Deco',
+  Spaces: 'Spaces',
+};
+
+const CATEGORY_ID_MAP = {
+  'Mesas Plegables': '03af3c00-4ea8-4002-87c5-49d982357086',
+  'Sillas de Evento': '0b8b416e-24f8-4d18-a140-45835bc2a9ef',
+  'Toldos Profesionales': '7850f1ba-6516-4c2a-8b1e-2303b3779065',
+  'Bancas & Mobiliario': 'bb2b29c6-12a5-4645-b3bc-047d5cde5983',
+  'Deco': '288e382e-eaaa-4675-b96f-d576d59e1337',
+};
+
+export function getProductCategoryName(p) {
+  if (p?.categories?.name) return p.categories.name;
+  if (p?.category) return CATEGORY_LABEL_MAP[p.category] || p.category;
+  return '';
+}
+
 export function usePrecios() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +91,7 @@ export function usePrecios() {
     const [productsRes, historyRes, distributorsRes] = await Promise.all([
       supabase
         .from('products')
-        .select('id, name, sku, price, avg_cost, category_id, categories:category_id(name)')
+        .select('id, name, sku, price, avg_cost, category, category_id, categories:category_id(name)')
         .eq('is_active', true)
         .order('name'),
       supabase
@@ -87,8 +111,21 @@ export function usePrecios() {
     setProducts(data);
     setPriceHistory(historyRes.data || []);
     setDistributors(distributorsRes.data || []);
-    const cats = [...new Set(data.map(p => p.categories?.name).filter(Boolean))];
+    const cats = [...new Set(data.map(p => getProductCategoryName(p)).filter(Boolean))];
     setCategories(cats);
+
+    // Auto-heal missing category_id in DB for products that only have text category (e.g. GL31..GL56)
+    const missingCatId = data.filter(p => !p.category_id && p.category);
+    if (missingCatId.length > 0) {
+      Promise.all(
+        missingCatId.map(p => {
+          const resolvedName = getProductCategoryName(p);
+          const targetCatId = CATEGORY_ID_MAP[resolvedName];
+          if (!targetCatId) return Promise.resolve();
+          return supabase.from('products').update({ category_id: targetCatId }).eq('id', p.id);
+        })
+      ).catch(() => {});
+    }
 
     // Fetch all addresses for bulk upload
     const { data: allAddr } = await supabase
@@ -266,7 +303,7 @@ export function usePrecios() {
 
     const targetProducts = percentTarget === 'all'
       ? products
-      : products.filter(p => p.categories?.name === percentTarget);
+      : products.filter(p => getProductCategoryName(p) === percentTarget);
 
     const newEdits = { ...editedPrices };
     targetProducts.forEach(p => {
@@ -539,7 +576,7 @@ export function usePrecios() {
     .filter(p => {
       const s = searchTerm.toLowerCase();
       const matchSearch = !s || p.name?.toLowerCase().includes(s) || p.sku?.toLowerCase().includes(s);
-      const matchCat = selectedCategory === 'all' || p.categories?.name === selectedCategory;
+      const matchCat = selectedCategory === 'all' || getProductCategoryName(p) === selectedCategory;
       return matchSearch && matchCat;
     })
     .sort((a, b) => {
@@ -619,3 +656,4 @@ export function usePrecios() {
     handleCopyBasePrices,
   };
 }
+

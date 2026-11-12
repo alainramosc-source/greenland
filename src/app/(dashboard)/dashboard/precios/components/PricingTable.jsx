@@ -3,6 +3,7 @@ import React from 'react';
 import {
   Search, AlertTriangle, Package, ArrowUpDown, X, Save
 } from 'lucide-react';
+import { getProductCategoryName } from '@/hooks/usePrecios';
 
 export default function PricingTable({
   filteredProducts,
@@ -171,7 +172,7 @@ export default function PricingTable({
                       key={product.id}
                       className={`transition-colors ${hasEdit ? 'bg-amber-50/50' : 'hover:bg-slate-50/80'}`}
                     >
-                      <td className="px-5 py-3">
+                      <td className="px-5 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-2.5">
                           <div className="w-7 h-7 rounded-lg bg-slate-100/80 border border-slate-200/60 flex items-center justify-center shrink-0">
                             <Package className="w-3.5 h-3.5 text-slate-400" />
@@ -180,21 +181,21 @@ export default function PricingTable({
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 font-mono text-xs font-bold text-[#6a9a04]">{product.sku || '—'}</td>
+                      <td className="px-4 py-3 font-mono text-xs font-bold text-[#6a9a04] whitespace-nowrap">{product.sku || '—'}</td>
 
-                      <td className="px-4 py-3">
-                        <span className="text-[11px] font-semibold text-slate-500 bg-slate-100/80 px-2.5 py-0.5 rounded-full">
-                          {product.categories?.name || '—'}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="inline-block whitespace-nowrap text-[11px] font-semibold text-slate-600 bg-slate-100/90 border border-slate-200/60 px-2.5 py-0.5 rounded-full">
+                          {getProductCategoryName(product) || '—'}
                         </span>
                       </td>
 
                       {isDistributorMode && (
-                        <td className="px-4 py-3 font-mono text-xs text-slate-400">
+                        <td className="px-4 py-3 font-mono text-xs text-slate-400 whitespace-nowrap">
                           ${Number(product.price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                         </td>
                       )}
 
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
                           <span className={`text-xs sm:text-sm font-black font-mono ${
                             hasEdit ? 'text-slate-400 line-through' : isCustom ? 'text-blue-600' : 'text-slate-900'
@@ -308,3 +309,4 @@ export default function PricingTable({
     </div>
   );
 }
+
