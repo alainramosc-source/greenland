@@ -1,15 +1,12 @@
-'use client';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
-import WhatsAppButton from '@/components/WhatsAppButton';
+import SiteDocument from '@/components/layout/SiteDocument';
+import PublicShell from './PublicShell';
 
-export default function PublicLayout({ children }) {
-    return (
-        <div className="public-layout">
-            <Header />
-            <main>{children}</main>
-            <Footer />
-            <WhatsAppButton />
-        </div>
-    );
+export { metadata } from '@/components/layout/SiteDocument';
+
+export default function Layout({ children }) {
+  return (
+    <SiteDocument analytics>
+      <PublicShell>{children}</PublicShell>
+    </SiteDocument>
+  );
 }

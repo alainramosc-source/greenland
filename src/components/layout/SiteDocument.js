@@ -1,4 +1,4 @@
-import './globals.css';
+import '@/app/globals.css';
 import Script from 'next/script';
 
 export const metadata = {
@@ -35,23 +35,26 @@ export const metadata = {
   },
 };
 
-export default function RootLayout({ children }) {
+export default function SiteDocument({ children, analytics = false }) {
   return (
     <html lang="es">
       <body>
-        {/* Google Analytics 4 */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-KPY2MXDXGN"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-KPY2MXDXGN');
-          `}
-        </Script>
+        {analytics && (
+          <>
+            <Script
+              src="https://www.googletagmanager.com/gtag/js?id=G-KPY2MXDXGN"
+              strategy="afterInteractive"
+            />
+            <Script id="google-analytics" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', 'G-KPY2MXDXGN');
+              `}
+            </Script>
+          </>
+        )}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

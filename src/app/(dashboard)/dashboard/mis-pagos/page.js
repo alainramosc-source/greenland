@@ -1,4 +1,5 @@
 'use client';
+import { trackDistributorEvent } from '@/lib/distributor-analytics';
 import { createClient } from '@/utils/supabase/client';
 import { validateAmount, sanitizeText } from '@/utils/sanitize';
 import { useEffect, useState } from 'react';
@@ -243,6 +244,10 @@ export default function MisPagosPage() {
     setSubmitting(false);
     if (error) { alert('Error: ' + error.message); return; }
     if (data && !data.success) { alert(data.error || 'Error al registrar el pago. Contacta al administrador.'); return; }
+
+    if (data?.success && form.receipt_url) {
+      void trackDistributorEvent('distributor_payment_receipt_submitted').catch(() => {});
+    }
 
     setShowModal(false);
     setForm({ amount: '', payment_method: 'transferencia', reference: '', payment_date: todayMX(), notes: '', receipt_url: '' });

@@ -1,4 +1,5 @@
 'use client';
+import { trackDistributorEvent } from '@/lib/distributor-analytics';
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { validateQuantity, validatePrice, sanitizeText } from '@/utils/sanitize';
@@ -361,6 +362,10 @@ export default function NuevoPedidoPage() {
         .insert(orderItems);
 
       if (itemsError) throw itemsError;
+
+      if (profile?.role === 'distributor') {
+        void trackDistributorEvent('distributor_order_submitted').catch(() => {});
+      }
 
       // Note: Inventory is NOT reserved at this stage.
       // It will be reserved when Admin confirms the order.
