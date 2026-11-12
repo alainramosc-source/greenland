@@ -11,8 +11,8 @@
 --   Hallazgo #7: Unificación de conciliación bancaria (approve_matched_payments -> approve_distributor_payment_atomic)
 --   Hallazgo #8: Atomicidad e idempotencia en mostrador (create_counter_sale_atomic, return_counter_sale_atomic)
 --   Hallazgo #9: Concurrencia y bloqueo FOR UPDATE en inventarios y reservas (sin doble conteo con trg_sync_product_stock)
---   Hallazgo #10: Validación estricta de stock en create_retail_sale y estados paid/partial en última milla
---   Hallazgo #11: Creación alineada de add_item_to_order y remove_item_from_order
+--   Hallazgo #11: Creación alineada de add_item_to_order y remove_item_from_order (y cierre de add_order_item)
+--   Nota: Las rutas y RPCs del Inbox / Última Milla (create_retail_sale, register_lastmile_prepayment, settle_lastmile_orders, /api/inbox/*) se mantienen sin cambios en esta entrega para revisión independiente.
 -- ============================================================================
 
 BEGIN;
@@ -438,9 +438,33 @@ DECLARE
   v_wh_name TEXT;
   v_old_stock INT;
   v_new_stock INT;
+  v_ctx TEXT;
+  v_outer TEXT;
 BEGIN
-  IF NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'warehouse_admin']) THEN
-    RAISE EXCEPTION 'No tienes permisos para ajustar existencias de bodega.' USING ERRCODE = '42501';
+  IF v_caller_id IS NOT NULL THEN
+    GET DIAGNOSTICS v_ctx = PG_CONTEXT;
+    v_outer := (regexp_match(v_ctx, '.*function ([[:alnum:]_."]+)\('))[1];
+
+    IF v_outer IS NULL OR v_outer LIKE '%adjust_warehouse_stock%' THEN
+      -- Llamada directa al RPC: solo administradores operativos activos (super_admin, admin, warehouse_admin)
+      IF NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'warehouse_admin']) THEN
+        RAISE EXCEPTION 'No tienes permisos para ajustar existencias de bodega.' USING ERRCODE = '42501';
+      END IF;
+    ELSE
+      -- Llamada interna desde otra RPC (ej. dispatch_lastmile_order, return_lastmile_order, create_retail_sale, create_counter_sale_atomic):
+      -- permitir administradores operativos activos o distributor_pro activos
+      IF NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'warehouse_admin'])
+         AND NOT EXISTS (
+           SELECT 1 FROM public.profiles
+           WHERE id = v_caller_id
+             AND role = 'distributor'
+             AND sub_role = 'distributor_pro'
+             AND COALESCE(is_active, true) = true
+         )
+      THEN
+        RAISE EXCEPTION 'No tienes permisos para ajustar existencias de bodega.' USING ERRCODE = '42501';
+      END IF;
+    END IF;
   END IF;
 
   IF current_setting('app.trusted_stock_caller', true) = 'true' AND p_created_by IS NOT NULL THEN
@@ -2468,375 +2492,16 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.return_counter_sale_atomic(UUID, TEXT, TEXT) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.return_counter_sale_atomic(UUID, TEXT, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.return_counter_sale_atomic(UUID, TEXT, TEXT) TO authenticated;
 
 -- ============================================================================
--- 7. HALLAZGO #10: VENTAS DE RECOLECCIÓN (PICKUP) Y PAGOS DE ÚLTIMA MILLA
+-- 7. BARRIDO DE SEGURIDAD SOBRE pg_proc (SIN ALTERAR RPCs DE INBOX / ÚLTIMA MILLA)
 -- ============================================================================
-
--- 7.1 create_retail_sale (mantiene firma exacta de producción, valida caller admin o distributor_pro en su bodega, soporta FLETE-ENVIO en delivery, y descuenta stock directamente con bloqueo FOR UPDATE en pickup)
-CREATE OR REPLACE FUNCTION public.create_retail_sale(
-  p_conversation_id UUID DEFAULT NULL::UUID,
-  p_warehouse_id UUID DEFAULT NULL::UUID,
-  p_delivery_type TEXT DEFAULT 'delivery'::TEXT,
-  p_items JSONB DEFAULT '[]'::JSONB,
-  p_notes TEXT DEFAULT NULL::TEXT
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public', 'extensions'
-AS $function$
-DECLARE
-  v_caller_id UUID := auth.uid();
-  v_caller_profile RECORD;
-  v_order_id UUID;
-  v_token TEXT;
-  v_order_number TEXT;
-  v_item JSONB;
-  v_subtotal NUMERIC := 0;
-  v_stock INT;
-  v_old_stock INT;
-  v_new_stock INT;
-  v_qty INT;
-  v_sku TEXT;
-  v_pid UUID;
-  v_wh_name TEXT;
-  v_is_freight_item BOOLEAN;
-BEGIN
-  IF v_caller_id IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'No autenticado.');
-  END IF;
-
-  SELECT id, role, sub_role, is_active, assigned_warehouse_id
-  INTO v_caller_profile
-  FROM public.profiles
-  WHERE id = v_caller_id;
-
-  IF NOT FOUND OR NOT COALESCE(v_caller_profile.is_active, true) THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Perfil inactivo o no encontrado.');
-  END IF;
-
-  IF p_warehouse_id IS NULL THEN
-    IF v_caller_profile.role = 'distributor' AND v_caller_profile.sub_role = 'distributor_pro' AND v_caller_profile.assigned_warehouse_id IS NOT NULL THEN
-      p_warehouse_id := v_caller_profile.assigned_warehouse_id;
-    ELSE
-      SELECT id INTO p_warehouse_id FROM public.warehouses WHERE code = 'vito-alessio';
-    END IF;
-  END IF;
-
-  IF v_caller_profile.role = 'admin' THEN
-    IF COALESCE(v_caller_profile.sub_role, 'super_admin') NOT IN ('super_admin', 'admin', 'warehouse_admin') THEN
-      RETURN jsonb_build_object('success', false, 'error', 'Tu sub-rol no tiene permisos para crear ventas a público.');
-    END IF;
-  ELSIF v_caller_profile.role = 'distributor' AND v_caller_profile.sub_role = 'distributor_pro' THEN
-    IF v_caller_profile.assigned_warehouse_id IS NULL OR v_caller_profile.assigned_warehouse_id IS DISTINCT FROM p_warehouse_id THEN
-      RETURN jsonb_build_object('success', false, 'error', 'Solo puedes crear ventas a público desde tu almacén asignado.');
-    END IF;
-  ELSE
-    RETURN jsonb_build_object('success', false, 'error', 'No tienes permisos para crear ventas a público.');
-  END IF;
-
-  SELECT name INTO v_wh_name FROM public.warehouses WHERE id = p_warehouse_id;
-  IF v_wh_name IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Bodega no válida.');
-  END IF;
-
-  IF p_items IS NULL OR jsonb_array_length(p_items) = 0 THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Debe incluir al menos un producto.');
-  END IF;
-
-  -- Validar todas las partidas (y bloquear stock FOR UPDATE si es pickup)
-  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
-  LOOP
-    v_qty := COALESCE((v_item->>'quantity')::INT, 0);
-    v_sku := COALESCE(v_item->>'sku', '');
-    v_pid := NULLIF(btrim(COALESCE(v_item->>'product_id', '')), '')::UUID;
-    v_is_freight_item := (v_pid IS NULL AND UPPER(btrim(v_sku)) = 'FLETE-ENVIO' AND p_delivery_type = 'delivery');
-
-    IF v_qty <= 0 OR (v_pid IS NULL AND NOT v_is_freight_item) THEN
-      RETURN jsonb_build_object('success', false, 'error', 'Partida inválida: falta product_id o cantidad mayor a 0.');
-    END IF;
-
-    v_subtotal := v_subtotal + (v_qty * COALESCE((v_item->>'sale_price')::NUMERIC, 0));
-
-    IF p_delivery_type = 'pickup' AND v_pid IS NOT NULL THEN
-      INSERT INTO public.warehouse_stock (warehouse_id, product_id, stock_quantity, reserved_quantity)
-      VALUES (p_warehouse_id, v_pid, 0, 0)
-      ON CONFLICT (warehouse_id, product_id) DO NOTHING;
-
-      SELECT COALESCE(stock_quantity, 0) - COALESCE(reserved_quantity, 0)
-      INTO v_stock
-      FROM public.warehouse_stock
-      WHERE warehouse_id = p_warehouse_id
-        AND product_id = v_pid
-      FOR UPDATE;
-
-      v_stock := COALESCE(v_stock, 0);
-      IF v_stock < v_qty THEN
-        v_sku := COALESCE(NULLIF(v_sku, ''), v_item->>'name', 'producto');
-        RETURN jsonb_build_object(
-          'success', false,
-          'error', format('Stock insuficiente de %s en %s: disponible %s, solicitado %s.', v_sku, v_wh_name, GREATEST(0, v_stock), v_qty)
-        );
-      END IF;
-    END IF;
-  END LOOP;
-
-  v_token := encode(extensions.gen_random_bytes(8), 'hex');
-  v_order_number := 'VP-' || to_char(now(), 'YYMMDD') || '-' || upper(substr(v_token, 1, 4));
-
-  INSERT INTO public.lastmile_orders (
-    distributor_id, conversation_id, checkout_token, order_number,
-    delivery_type, items, subtotal, total, notes, status, warehouse_name, warehouse_id
-  ) VALUES (
-    v_caller_id, p_conversation_id, v_token, v_order_number,
-    p_delivery_type, p_items, v_subtotal, v_subtotal, p_notes,
-    CASE WHEN p_delivery_type = 'pickup' THEN 'confirmed' ELSE 'pending' END,
-    v_wh_name, p_warehouse_id
-  )
-  RETURNING id INTO v_order_id;
-
-  IF p_delivery_type = 'pickup' THEN
-    FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
-    LOOP
-      v_pid := NULLIF(btrim(COALESCE(v_item->>'product_id', '')), '')::UUID;
-      v_qty := (v_item->>'quantity')::INT;
-
-      IF v_pid IS NOT NULL THEN
-        SELECT COALESCE(stock_quantity, 0)
-        INTO v_old_stock
-        FROM public.warehouse_stock
-        WHERE warehouse_id = p_warehouse_id
-          AND product_id = v_pid
-        FOR UPDATE;
-
-        IF (v_old_stock - v_qty) < 0 THEN
-          RAISE EXCEPTION 'Stock insuficiente en bodega al descontar recolección.';
-        END IF;
-
-        v_new_stock := v_old_stock - v_qty;
-
-        UPDATE public.warehouse_stock
-        SET stock_quantity = v_new_stock,
-            updated_at = now()
-        WHERE warehouse_id = p_warehouse_id
-          AND product_id = v_pid;
-
-        SELECT sku INTO v_sku FROM public.products WHERE id = v_pid;
-
-        INSERT INTO public.inventory_logs (user_id, product_id, quantity_change, reason)
-        VALUES (
-          v_caller_id,
-          v_pid,
-          -v_qty,
-          'Venta a público - Orden ' || v_order_number || ' [Bodega: ' || COALESCE(v_wh_name, 'Desconocida') || ']'
-        );
-
-        INSERT INTO public.audit_log (user_id, action, entity_type, entity_id, details)
-        VALUES (
-          v_caller_id,
-          'stock_decrease',
-          'warehouse_stock',
-          v_pid,
-          jsonb_build_object(
-            'sku', COALESCE(v_sku, ''),
-            'warehouse', COALESCE(v_wh_name, ''),
-            'before', v_old_stock,
-            'after', v_new_stock,
-            'change', -v_qty,
-            'reason', 'Venta a público - Orden ' || v_order_number
-          )
-        );
-      END IF;
-    END LOOP;
-
-    -- Solo marcar stock_deducted_at después de haber descontado todas las partidas sin omisiones
-    UPDATE public.lastmile_orders
-    SET stock_deducted_at = now()
-    WHERE id = v_order_id;
-  END IF;
-
-  RETURN jsonb_build_object(
-    'success', true,
-    'order_id', v_order_id,
-    'checkout_token', v_token,
-    'order_number', v_order_number,
-    'delivery_type', p_delivery_type,
-    'total', v_subtotal,
-    'warehouse', v_wh_name
-  );
-END;
-$function$;
-
-REVOKE EXECUTE ON FUNCTION public.create_retail_sale(UUID, UUID, TEXT, JSONB, TEXT) FROM anon, public;
-GRANT EXECUTE ON FUNCTION public.create_retail_sale(UUID, UUID, TEXT, JSONB, TEXT) TO authenticated;
-
--- 7.2 register_lastmile_prepayment (mantiene firma exacta de producción, restringe a super_admin/admin/warehouse_admin, exige cubrir el total para marcar 'paid' o marca 'partial')
-CREATE OR REPLACE FUNCTION public.register_lastmile_prepayment(
-  p_order_id UUID,
-  p_method TEXT,
-  p_amount NUMERIC DEFAULT NULL,
-  p_notes TEXT DEFAULT NULL
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-DECLARE
-  v_order lastmile_orders%ROWTYPE;
-  v_amount NUMERIC;
-  v_new_payment_status TEXT;
-BEGIN
-  IF NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'warehouse_admin']) THEN
-    RAISE EXCEPTION 'Solo un administrador operativo autorizado puede registrar pagos anticipados';
-  END IF;
-
-  SELECT * INTO v_order FROM public.lastmile_orders WHERE id = p_order_id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Pedido no encontrado'; END IF;
-
-  IF v_order.payment_status = 'paid' THEN
-    RAISE EXCEPTION 'Este pedido ya está pagado';
-  END IF;
-  IF v_order.status NOT IN ('pending', 'confirmed', 'in_transit', 'in_delivery') THEN
-    RAISE EXCEPTION 'El pago anticipado solo aplica antes de la entrega; usa Liquidar ruta';
-  END IF;
-  IF p_method NOT IN ('cash', 'transfer', 'card') THEN
-    RAISE EXCEPTION 'Forma de pago no válida';
-  END IF;
-
-  v_amount := COALESCE(p_amount, v_order.total);
-  IF v_amount <= 0 THEN RAISE EXCEPTION 'Monto no válido'; END IF;
-
-  IF v_amount >= COALESCE(v_order.total, 0) - 0.01 THEN
-    v_new_payment_status := 'paid';
-  ELSE
-    v_new_payment_status := 'partial';
-  END IF;
-
-  IF p_method = 'cash' THEN
-    INSERT INTO public.cash_movements (type, amount, concept, responsible, reference_id, reference_type, movement_date, created_by, notes)
-    VALUES (
-      'entry', v_amount,
-      'Envío a domicilio (pago anticipado): ' || v_order.order_number || COALESCE(' — ' || v_order.customer_name, ''),
-      COALESCE((SELECT full_name FROM public.profiles WHERE id = auth.uid()), 'Admin'),
-      v_order.id, 'retail_sale',
-      (now() AT TIME ZONE 'America/Mexico_City')::date,
-      auth.uid(),
-      NULLIF(btrim(p_notes), '')
-    );
-  END IF;
-
-  UPDATE public.lastmile_orders SET
-    payment_status   = v_new_payment_status,
-    payment_method   = p_method,
-    collected_amount = COALESCE(collected_amount, 0) + v_amount,
-    prepaid_at       = now(),
-    prepaid_by       = auth.uid(),
-    updated_at       = now()
-  WHERE id = p_order_id;
-
-  RETURN jsonb_build_object(
-    'success', true,
-    'cash_entry', p_method = 'cash',
-    'amount', v_amount,
-    'payment_status', v_new_payment_status
-  );
-END;
-$$;
-
-REVOKE EXECUTE ON FUNCTION public.register_lastmile_prepayment(UUID, TEXT, NUMERIC, TEXT) FROM anon, public;
-GRANT EXECUTE ON FUNCTION public.register_lastmile_prepayment(UUID, TEXT, NUMERIC, TEXT) TO authenticated;
-
--- 7.3 settle_lastmile_orders (mantiene firma exacta settle_lastmile_orders(p_orders JSONB), restringe a super_admin/admin/warehouse_admin y valida paid vs partial)
-CREATE OR REPLACE FUNCTION public.settle_lastmile_orders(p_orders JSONB)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-DECLARE
-  v_entry JSONB;
-  v_order lastmile_orders%ROWTYPE;
-  v_amount NUMERIC;
-  v_driver TEXT;
-  v_cash NUMERIC := 0;
-  v_other NUMERIC := 0;
-  v_count INT := 0;
-  v_new_payment_status TEXT;
-BEGIN
-  IF NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'warehouse_admin']) THEN
-    RAISE EXCEPTION 'Solo un administrador operativo autorizado puede liquidar rutas';
-  END IF;
-
-  IF p_orders IS NULL OR jsonb_array_length(p_orders) = 0 THEN
-    RAISE EXCEPTION 'Selecciona al menos un envío';
-  END IF;
-
-  FOR v_entry IN SELECT * FROM jsonb_array_elements(p_orders)
-  LOOP
-    SELECT * INTO v_order FROM public.lastmile_orders WHERE id = (v_entry->>'id')::UUID FOR UPDATE;
-    IF NOT FOUND THEN RAISE EXCEPTION 'Pedido no encontrado: %', v_entry->>'id'; END IF;
-
-    IF v_order.settled_at IS NOT NULL THEN
-      RAISE EXCEPTION 'El envío % ya estaba liquidado', v_order.order_number;
-    END IF;
-    IF v_order.status NOT IN ('delivered', 'partially_returned', 'returned') THEN
-      RAISE EXCEPTION 'El envío % todavía no se entrega (estatus: %)', v_order.order_number, v_order.status;
-    END IF;
-
-    v_amount := COALESCE((v_entry->>'amount')::NUMERIC, v_order.collected_amount, 0);
-    IF v_amount < 0 THEN RAISE EXCEPTION 'Monto no válido en %', v_order.order_number; END IF;
-
-    SELECT full_name INTO v_driver FROM public.profiles WHERE id = COALESCE(v_order.delivered_by, v_order.assigned_driver_id);
-
-    IF v_order.collected_method = 'cash' AND v_amount > 0 THEN
-      INSERT INTO public.cash_movements (type, amount, concept, responsible, reference_id, reference_type, movement_date, created_by)
-      VALUES (
-        'entry', v_amount,
-        'Envío a domicilio: ' || v_order.order_number || COALESCE(' — ' || v_order.customer_name, ''),
-        COALESCE(v_driver, 'Chofer'),
-        v_order.id, 'retail_sale',
-        (now() AT TIME ZONE 'America/Mexico_City')::date,
-        auth.uid()
-      );
-      v_cash := v_cash + v_amount;
-    ELSIF v_order.collected_method IN ('transfer', 'card') THEN
-      v_other := v_other + v_amount;
-    END IF;
-
-    IF v_order.payment_status = 'paid' THEN
-      v_new_payment_status := 'paid';
-    ELSIF v_order.collected_method IN ('cash', 'transfer', 'card') AND v_amount >= COALESCE(v_order.total, 0) - 0.01 THEN
-      v_new_payment_status := 'paid';
-    ELSIF v_order.collected_method IN ('cash', 'transfer', 'card') AND v_amount > 0 THEN
-      v_new_payment_status := 'partial';
-    ELSE
-      v_new_payment_status := v_order.payment_status;
-    END IF;
-
-    UPDATE public.lastmile_orders SET
-      collected_amount = CASE WHEN collected_method IN ('cash', 'transfer', 'card') THEN v_amount ELSE collected_amount END,
-      payment_status   = v_new_payment_status,
-      payment_method   = CASE WHEN collected_method IN ('cash', 'transfer', 'card') THEN collected_method ELSE payment_method END,
-      settled_at       = now(),
-      settled_by       = auth.uid(),
-      updated_at       = now()
-    WHERE id = v_order.id;
-
-    v_count := v_count + 1;
-  END LOOP;
-
-  RETURN jsonb_build_object('success', true, 'settled', v_count, 'cash_total', v_cash, 'non_cash_total', v_other);
-END;
-$$;
-
-REVOKE EXECUTE ON FUNCTION public.settle_lastmile_orders(JSONB) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.settle_lastmile_orders(JSONB) TO authenticated;
-
--- 7.4 Barrido de seguridad sobre pg_proc: revocar permisos heredados de PUBLIC y anon en cualquier sobrecarga de RPCs privilegiadas
+-- Nota: create_retail_sale, register_lastmile_prepayment, settle_lastmile_orders,
+-- dispatch_lastmile_order, mark_lastmile_delivered, return_lastmile_order,
+-- get_lastmile_checkout y submit_lastmile_checkout conservan su comportamiento
+-- y permisos efectivos actuales en esta fase.
 DO $$
 DECLARE
   v_fn RECORD;
@@ -2876,13 +2541,7 @@ BEGIN
         'get_user_email',
         'sign_cash_movement_exit',
         'create_counter_sale_atomic',
-        'return_counter_sale_atomic',
-        'create_retail_sale',
-        'register_lastmile_prepayment',
-        'settle_lastmile_orders',
-        'dispatch_lastmile_order',
-        'mark_lastmile_delivered',
-        'return_lastmile_order'
+        'return_counter_sale_atomic'
       )
   LOOP
     EXECUTE format('REVOKE EXECUTE ON FUNCTION public.%I(%s) FROM PUBLIC, anon', v_fn.proname, v_fn.args);
