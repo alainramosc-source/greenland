@@ -109,7 +109,32 @@ export function useUsersAndCxc() {
     if (error) {
       console.error('Error fetching users:', error);
     } else {
-      setUsers(data || []);
+      let mergedUsers = (data || []).map(u => ({
+        ...u,
+        has_pin: Boolean(u.authorization_pin),
+        authorization_pin: undefined, // Jamás mantener el PIN en estado del navegador
+      }));
+
+      // Consultar metadatos de bóveda (has_pin, employee_barcode) sin exponer authorization_pin
+      try {
+        const { data: credMeta } = await supabase.rpc('get_staff_credentials_metadata');
+        if (Array.isArray(credMeta)) {
+          const metaMap = new Map(credMeta.map(m => [m.user_id, m]));
+          mergedUsers = mergedUsers.map(u => {
+            const meta = metaMap.get(u.id);
+            if (!meta) return u;
+            return {
+              ...u,
+              has_pin: Boolean(meta.has_pin || u.has_pin),
+              employee_barcode: meta.employee_barcode || u.employee_barcode || null,
+            };
+          });
+        }
+      } catch (_) {
+        // Fallback silencioso durante ventana de despliegue antes de correr migración Expand
+      }
+
+      setUsers(mergedUsers);
     }
     setLoading(false);
   };
@@ -140,7 +165,10 @@ export function useUsersAndCxc() {
   };
 
   const handleEditClick = (user) => {
-    setSelectedUser({ ...user });
+    setSelectedUser({
+      ...user,
+      new_authorization_pin: '',
+    });
     setIsModalOpen(true);
   };
 
@@ -158,8 +186,6 @@ export function useUsersAndCxc() {
       client_number: selectedUser.client_number,
       address: selectedUser.address || null,
       job_title: selectedUser.job_title || null,
-      authorization_pin: selectedUser.authorization_pin || null,
-      employee_barcode: selectedUser.employee_barcode || null,
     };
 
     if (selectedUser.role === 'distributor') {
@@ -181,10 +207,38 @@ export function useUsersAndCxc() {
 
     if (error) {
       alert('Error al actualizar usuario: ' + error.message);
-    } else {
-      setUsers(users.map(u => (u.id === selectedUser.id ? { ...u, ...updateData } : u)));
-      setIsModalOpen(false);
+      setUpdating(false);
+      return;
     }
+
+    let updatedHasPin = Boolean(selectedUser.has_pin);
+    if (selectedUser.role === 'admin') {
+      const cleanNewPin = (selectedUser.new_authorization_pin || '').trim();
+      const cleanBarcode = (selectedUser.employee_barcode || '').trim();
+      const { data: credRes, error: credErr } = await supabase.rpc('upsert_staff_credentials', {
+        p_target_user_id: selectedUser.id,
+        p_pin: cleanNewPin || null,
+        p_barcode: cleanBarcode || null,
+        p_clear_pin: false,
+      });
+      if (credErr) {
+        alert('Perfil guardado, pero hubo un error al guardar PIN/código de barras: ' + credErr.message);
+      } else if (credRes) {
+        updatedHasPin = Boolean(credRes.has_pin);
+      }
+    }
+
+    setUsers(users.map(u => (
+      u.id === selectedUser.id
+        ? {
+            ...u,
+            ...updateData,
+            has_pin: updatedHasPin,
+            employee_barcode: selectedUser.role === 'admin' ? (selectedUser.employee_barcode || null) : null,
+          }
+        : u
+    )));
+    setIsModalOpen(false);
     setUpdating(false);
   };
 

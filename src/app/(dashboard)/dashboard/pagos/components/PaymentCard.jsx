@@ -149,7 +149,7 @@ export default function PaymentCard({
               </button>
             )}
 
-            {p.status === 'pending' && userSubRole !== 'lectura' && (
+            {p.status === 'pending' && !['lectura', 'viewer', 'accountant'].includes(userSubRole) && (
               <>
                 {(p.payment_method?.toLowerCase() === 'efectivo' || p.payment_method?.toLowerCase() === 'cash') && (
                   <input

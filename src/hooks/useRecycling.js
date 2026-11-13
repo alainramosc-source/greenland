@@ -369,20 +369,20 @@ export function useRecycling() {
     setBuyerModalError('');
 
     try {
-      const { data: matchedProfiles, error } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .or(`authorization_pin.eq.${cleanInput},employee_barcode.eq.${cleanInput}`);
+      const { data: verifyRes, error } = await supabase.rpc('verify_staff_credential', {
+        p_code: cleanInput,
+        p_purpose: 'recycling_buy'
+      });
 
-      if (error || !matchedProfiles || matchedProfiles.length === 0) {
-        setBuyerModalError('PIN o Código de Barras no reconocido. Asigna un PIN al usuario desde el módulo de Usuarios.');
+      if (error || !verifyRes?.valid) {
+        setBuyerModalError(verifyRes?.error || 'PIN o Código de Barras no reconocido. Asigna un PIN al usuario desde el módulo de Usuarios.');
         setVerifyingBuyer(false);
         return;
       }
 
       const foundBuyer = {
-        id: matchedProfiles[0].id,
-        name: matchedProfiles[0].full_name || 'Comprador',
+        id: verifyRes.user_id,
+        name: verifyRes.full_name || 'Comprador',
       };
 
       if (rememberBuyer) {

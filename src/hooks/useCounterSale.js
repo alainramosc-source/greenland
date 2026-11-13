@@ -497,20 +497,21 @@ export function useCounterSale() {
     setSellerModalError('');
 
     try {
-      const { data: matchedProfiles, error } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .or(`authorization_pin.eq.${cleanInput},employee_barcode.eq.${cleanInput}`);
+      const { data: verifyRes, error } = await supabase.rpc('verify_staff_credential', {
+        p_code: cleanInput,
+        p_purpose: 'counter_sale'
+      });
 
-      if (error || !matchedProfiles || matchedProfiles.length === 0) {
-        setSellerModalError('PIN o Código de Barras no reconocido.');
+      if (error || !verifyRes?.valid) {
+        setSellerModalError(verifyRes?.error || 'PIN o Código de Barras no reconocido.');
         setVerifyingSeller(false);
         return;
       }
 
       const foundSeller = {
-        id: matchedProfiles[0].id,
-        name: matchedProfiles[0].full_name || 'Vendedor'
+        id: verifyRes.user_id,
+        name: verifyRes.full_name || 'Vendedor',
+        code: cleanInput,
       };
 
       if (rememberSeller) {
@@ -565,42 +566,32 @@ export function useCounterSale() {
       const subtotal = Math.round(saleTotal * 100) / 100;
       const sellerId = sellerObj?.id || userId;
       const sellerName = sellerObj?.name || userName;
+      const receivedVal = paymentMethod === 'Efectivo' && amountReceived ? parseFloat(amountReceived) : null;
 
-      const { data: saleRecord, error: insertError } = await supabase
-        .from('counter_sales')
-        .insert({
-          sale_number: saleNumber,
-          warehouse_id: selectedWarehouse,
-          sold_by: sellerId,
-          customer_name: customerFinal,
-          payment_method: paymentMethod,
-          subtotal: subtotal,
-          total: subtotal,
-          amount_received: paymentMethod === 'Efectivo' && amountReceived ? parseFloat(amountReceived) : null,
-          notes: notesFinal || null,
-          items: itemsJson,
-          status: 'completed',
-        })
-        .select()
-        .single();
+      // Ejecutar venta, descuento de stock y registro en caja como unidad atómica en base de datos
+      // La atribución del vendedor se verifica en servidor mediante p_seller_code
+      const { data: atomicRes, error: atomicErr } = await supabase.rpc('create_counter_sale_atomic', {
+        p_sale_number: saleNumber,
+        p_warehouse_id: selectedWarehouse,
+        p_sold_by: sellerId,
+        p_seller_name: sellerName,
+        p_customer_name: customerFinal,
+        p_payment_method: paymentMethod,
+        p_subtotal: subtotal,
+        p_total: subtotal,
+        p_amount_received: receivedVal,
+        p_notes: notesFinal || null,
+        p_items: itemsJson,
+        p_seller_code: sellerObj?.code || null,
+      });
 
-      if (insertError) {
-        alert('Error al registrar la venta: ' + insertError.message);
+      if (atomicErr || !atomicRes?.success) {
+        alert('Error al registrar la venta: ' + (atomicErr?.message || atomicRes?.error || 'Error desconocido'));
         setSubmitting(false);
         return;
       }
 
-      for (const item of saleItems) {
-        const { error } = await supabase.rpc('adjust_warehouse_stock', {
-          p_product_id: item.product_id,
-          p_warehouse_id: selectedWarehouse,
-          p_quantity_change: -item.quantity,
-          p_reason: `Venta en mostrador ${saleNumber}`
-        });
-        if (error) {
-          console.error(`Error al descontar stock de ${item.name}: ${error.message}`);
-        }
-      }
+      const saleRecord = atomicRes.sale || {};
 
       const { data: wsData } = await supabase.from('warehouse_stock').select('*');
       if (wsData) {
@@ -610,20 +601,6 @@ export function useCounterSale() {
           stockMap[ws.product_id][ws.warehouse_id] = ws;
         });
         setWarehouseStock(stockMap);
-      }
-
-      if (paymentMethod === 'Efectivo') {
-        const { error: cashErr } = await supabase.from('cash_movements').insert({
-          type: 'entry',
-          amount: subtotal,
-          concept: `Venta mostrador #${saleNumber}`,
-          responsible: sellerName,
-          reference_type: 'counter_sale',
-          movement_date: new Date().toLocaleDateString('en-CA'),
-          created_by: sellerId,
-          approval_status: 'approved'
-        });
-        if (cashErr) console.error('Error insertando en caja:', cashErr);
       }
 
       const warehouseName = warehouses.find(w => w.id === selectedWarehouse)?.name || '';
@@ -729,109 +706,18 @@ export function useCounterSale() {
     setProcessingReturn(true);
     try {
       const authInput = signerAuthInput.trim();
-      let approverId = null;
-      let approverName = userName;
 
-      const isAdmin = actualRole === 'admin' || subRole === 'super_admin';
+      // Procesar verificación de Signer, reintegro de stock, egreso de caja y cancelación en una sola transacción atómica
+      const { data: returnRes, error: returnErr } = await supabase.rpc('return_counter_sale_atomic', {
+        p_sale_id: selectedSaleToReturn.id,
+        p_auth_code: authInput,
+        p_reason: reason
+      });
 
-      if (authInput) {
-        const { data: matchedSigners } = await supabase
-          .from('profiles')
-          .select('id, full_name, role, sub_role')
-          .or(`authorization_pin.eq.${authInput},employee_barcode.eq.${authInput}`);
-
-        if (matchedSigners && matchedSigners.length > 0) {
-          approverId = matchedSigners[0].id;
-          approverName = matchedSigners[0].full_name;
-        } else if (isAdmin) {
-          approverId = userId;
-        } else {
-          alert('Código de autorización / PIN / Credencial de Signer no válido.');
-          setProcessingReturn(false);
-          return;
-        }
-      } else if (isAdmin) {
-        approverId = userId;
-      } else {
-        alert('Se requiere el PIN de Autorización o Escaneo de Credencial de un Signer/Admin.');
+      if (returnErr || !returnRes?.success) {
+        alert(returnErr?.message || returnRes?.error || 'No se pudo autorizar ni procesar la devolución.');
         setProcessingReturn(false);
         return;
-      }
-
-      const items = selectedSaleToReturn.items || [];
-      for (const item of items) {
-        let pid = item.product_id || item.id;
-        if (!pid && item.sku) {
-          const found = products.find(p => p.sku && p.sku.toLowerCase().trim() === item.sku.toLowerCase().trim());
-          if (found) pid = found.id;
-        }
-        if (!pid && item.name) {
-          const found = products.find(p => p.name && p.name.toLowerCase().trim() === item.name.toLowerCase().trim());
-          if (found) pid = found.id;
-        }
-        if (pid && selectedSaleToReturn.warehouse_id) {
-          await supabase.rpc('adjust_warehouse_stock', {
-            p_product_id: pid,
-            p_warehouse_id: selectedSaleToReturn.warehouse_id,
-            p_quantity_change: item.quantity,
-            p_reason: `ENTRADA_DEVOLUCION — Venta Mostrador #${selectedSaleToReturn.sale_number} — Motivo: ${reason}`,
-            p_user_id: userId
-          });
-        }
-      }
-
-      if (selectedSaleToReturn.payment_method === 'Efectivo') {
-        const { error: cashErr } = await supabase.from('cash_movements').insert({
-          type: 'exit',
-          amount: Number(selectedSaleToReturn.total),
-          concept: `Egreso por Devolución Venta Mostrador #${selectedSaleToReturn.sale_number}`,
-          responsible: approverName || userName,
-          reference_type: 'counter_sale',
-          notes: `Motivo devolución: ${reason}`,
-          movement_date: new Date().toLocaleDateString('en-CA'),
-          created_by: userId,
-          approval_status: 'approved'
-        });
-        if (cashErr) console.error('Error insertando egreso en caja:', cashErr);
-      }
-
-      const { error: updateErr } = await supabase
-        .from('counter_sales')
-        .update({
-          status: 'cancelled',
-          cancel_reason: reason,
-          cancelled_by: userId,
-          approved_by: approverId,
-          cancelled_at: new Date().toISOString(),
-        })
-        .eq('id', selectedSaleToReturn.id);
-
-      if (updateErr) throw updateErr;
-
-      try {
-        const whName = selectedSaleToReturn.warehouse?.name || 'Bodega Vito Alessio';
-        for (const item of (selectedSaleToReturn.items || [])) {
-          let pid = item.product_id || item.id;
-          if (!pid && item.sku) {
-            const found = products.find(p => p.sku && p.sku.toLowerCase().trim() === item.sku.toLowerCase().trim());
-            if (found) pid = found.id;
-          }
-          await supabase.from('audit_log').insert({
-            user_id: userId,
-            action: 'stock_increase',
-            entity_type: 'counter_sale_return',
-            entity_id: pid || selectedSaleToReturn.id,
-            details: {
-              sku: item.sku || '',
-              warehouse: whName,
-              change: item.quantity,
-              reason: `ENTRADA_DEVOLUCION — Venta Mostrador #${selectedSaleToReturn.sale_number} — Motivo: ${reason}`,
-              approved_by: approverName || userName,
-            }
-          });
-        }
-      } catch (auditErr) {
-        console.error('Error logging to audit_log:', auditErr);
       }
 
       await fetchHistorial();

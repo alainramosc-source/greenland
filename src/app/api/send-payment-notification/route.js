@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
+import { createClient as createAuthClient } from '@/utils/supabase/server';
 
 let _resend;
 function getResend() {
@@ -89,6 +90,29 @@ function buildPaymentEmailHtml({ title, subtitle, amount, paymentDate, paymentMe
 
 export async function POST(request) {
     try {
+        // Exigir sesión activa de administrador (solo Super Admin; Contabilidad es solo lectura)
+        const supabaseAuth = await createAuthClient();
+        const { data: { user: caller }, error: authErr } = await supabaseAuth.auth.getUser();
+        if (authErr || !caller) {
+            return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+        }
+
+        const { data: callerProfile } = await supabaseAuth
+            .from('profiles')
+            .select('role, sub_role, is_active')
+            .eq('id', caller.id)
+            .single();
+
+        const allowedSubRoles = ['super_admin', 'admin'];
+        if (
+            !callerProfile ||
+            callerProfile.is_active === false ||
+            callerProfile.role !== 'admin' ||
+            !allowedSubRoles.includes(callerProfile.sub_role || 'super_admin')
+        ) {
+            return NextResponse.json({ error: 'No autorizado para enviar notificaciones de pago' }, { status: 403 });
+        }
+
         const body = await request.json();
         const { distributorEmail, distributorName, amount, paymentDate, paymentMethod, reference, status, rejectionReason } = body;
 

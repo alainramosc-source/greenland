@@ -100,28 +100,6 @@ export function usePayments() {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-    // Get current user info for dual signature
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setCurrentUserId(user.id);
-        setCurrentUserEmail(user.email || '');
-        const { data: profile } = await supabase.from('profiles').select('full_name, email, sub_role').eq('id', user.id).single();
-        if (profile?.full_name) setCurrentUserName(profile.full_name);
-        if (profile?.email) setCurrentUserEmail(profile.email);
-        if (profile?.sub_role) {
-          setUserSubRole(profile.sub_role);
-          if (profile.sub_role === 'warehouse_admin') {
-            setActiveTab('caja');
-          }
-        }
-      }
-    };
-    getUser();
-  }, []);
-
   const fetchData = async () => {
     setLoading(true);
     const { data: payData } = await supabase
@@ -190,6 +168,27 @@ export function usePayments() {
 
     setLoading(false);
   };
+
+  useEffect(() => {
+    const init = async () => {
+      await fetchData();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+        setCurrentUserEmail(user.email || '');
+        const { data: profile } = await supabase.from('profiles').select('full_name, email, sub_role').eq('id', user.id).single();
+        if (profile?.full_name) setCurrentUserName(profile.full_name);
+        if (profile?.email) setCurrentUserEmail(profile.email);
+        if (profile?.sub_role) {
+          setUserSubRole(profile.sub_role);
+          if (profile.sub_role === 'warehouse_admin') {
+            setActiveTab('caja');
+          }
+        }
+      }
+    };
+    init();
+  }, []);
 
   // Send payment status notification email
   const sendPaymentNotification = async (payment, status, rejectionReason) => {
@@ -360,39 +359,14 @@ export function usePayments() {
       return;
     }
 
-    // Fetch fresh data from DB to avoid race conditions
-    const { data: movement, error: fetchErr } = await supabase
-      .from('cash_movements')
-      .select('id, approved_by_1, approved_by_2')
-      .eq('id', movementId)
-      .single();
+    // Ejecutar firma mancomunada en servidor con bloqueo FOR UPDATE y validación de firmante autorizado
+    const { data: signRes, error: signErr } = await supabase.rpc('sign_cash_movement_exit', {
+      p_movement_id: movementId
+    });
 
-    if (fetchErr || !movement) { setActionLoading(null); return; }
-
-    if (movement.approved_by_1 === userId || movement.approved_by_2 === userId) {
-      setActionLoading(null);
-      alert('Ya has firmado esta salida de caja anteriormente.');
-      return;
-    }
-
-    const updateData = {};
-    if (!movement.approved_by_1) {
-      updateData.approved_by_1 = userId;
-      updateData.approved_at_1 = new Date().toISOString();
-      updateData.approval_status = movement.approved_by_2 ? 'approved' : 'partially_signed';
-    } else if (!movement.approved_by_2) {
-      updateData.approved_by_2 = userId;
-      updateData.approved_at_2 = new Date().toISOString();
-      updateData.approval_status = 'approved';
-    } else {
-      setActionLoading(null);
-      return; // Already has 2 signatures
-    }
-
-    const { error: updateErr } = await supabase.from('cash_movements').update(updateData).eq('id', movementId);
     setActionLoading(null);
-    if (updateErr) {
-      alert('Error al firmar salida de caja: ' + updateErr.message);
+    if (signErr || !signRes?.success) {
+      alert('Error al firmar salida de caja: ' + (signErr?.message || signRes?.error || 'No autorizado'));
     } else {
       await fetchData();
     }
@@ -750,6 +724,7 @@ export function usePayments() {
         concept: `Ajuste por arqueo de caja — ${tipo}`,
         responsible: audit.performed_by,
         notes: `Arqueo ${new Date(audit.created_at).toLocaleDateString('es-MX')}. Esperado: $${fmt(audit.expected_balance)} / Contado: $${fmt(audit.counted_balance)}`,
+        reference_id: audit.id,
         reference_type: 'manual',
         movement_date: audit.audit_date,
         created_by: userId,
