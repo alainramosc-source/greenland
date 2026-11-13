@@ -418,7 +418,7 @@ GRANT EXECUTE ON FUNCTION public.verify_staff_credential(TEXT, TEXT) TO authenti
 -- 3. HALLAZGO #3 Y #9: ENDURECIMIENTO DE RPCs PRIVILEGIADAS Y CONCURRENCIA
 -- ============================================================================
 
--- 3.1 adjust_warehouse_stock_atomic (nueva RPC atómica que devuelve JSONB para Mostrador y Recepciones, con bloqueo FOR UPDATE, rechazo de stock negativo y autorización explícita por rol; adjust_warehouse_stock se conserva sin cambios para revisión independiente junto con Inbox / Última Milla)
+-- 3.1 adjust_warehouse_stock_atomic (RPC atómica interna que devuelve JSONB para Mostrador, con bloqueo FOR UPDATE, rechazo de stock negativo y autorización explícita por rol; adjust_warehouse_stock, Recepciones e Inbox / Última Milla se conservan sin cambios para sus entregas respectivas)
 CREATE OR REPLACE FUNCTION public.adjust_warehouse_stock_atomic(
   p_product_id UUID,
   p_warehouse_id UUID,
