@@ -649,7 +649,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.transfer_stock(UUID, UUID, UUID, INT, UUID) FROM anon, public;
 GRANT EXECUTE ON FUNCTION public.transfer_stock(UUID, UUID, UUID, INT, UUID) TO authenticated;
 
--- 3.3 confirm_order (valida rol admin o distributor_pro padre, bloquea pedido y stock FOR UPDATE, valida disponibilidad y evita doble conteo con trg_sync_product_stock)
+-- 3.3 confirm_order (valida rol admin o distributor_pro padre, usa order_items.warehouse_id, bloquea pedido y stock FOR UPDATE, valida bodega y disponibilidad antes de mover inventario y evita doble conteo con trg_sync_product_stock)
 CREATE OR REPLACE FUNCTION public.confirm_order(p_order_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -659,8 +659,8 @@ AS $$
 DECLARE
   v_caller_id UUID := auth.uid();
   v_order RECORD;
+  v_missing_item RECORD;
   v_item RECORD;
-  v_wh_id UUID;
   v_wh_stock RECORD;
   v_has_sync_trigger BOOLEAN;
   v_is_authorized_pro BOOLEAN := FALSE;
@@ -695,84 +695,86 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Solo se pueden confirmar pedidos en estado Pendiente');
   END IF;
 
+  IF NOT EXISTS (SELECT 1 FROM public.order_items WHERE order_id = p_order_id) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'El pedido no contiene partidas para confirmar.');
+  END IF;
+
+  -- Validar que todas las partidas tengan bodega asignada ANTES de tocar inventario
+  SELECT oi.id, p.sku, p.name AS product_name
+  INTO v_missing_item
+  FROM public.order_items oi
+  JOIN public.products p ON p.id = oi.product_id
+  WHERE oi.order_id = p_order_id
+    AND oi.warehouse_id IS NULL
+  ORDER BY oi.id
+  LIMIT 1;
+
+  IF FOUND THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'error', format(
+        'La partida %s (%s) no tiene bodega asignada. Asigna una bodega a todas las partidas antes de confirmar el pedido.',
+        v_missing_item.sku, v_missing_item.product_name
+      )
+    );
+  END IF;
+
   SELECT EXISTS (
     SELECT 1 FROM pg_trigger
     WHERE tgname = 'trg_sync_product_stock'
       AND NOT tgisinternal
   ) INTO v_has_sync_trigger;
 
-  -- 1. Validar disponibilidad con bloqueo FOR UPDATE antes de reservar
+  -- 1. Validar disponibilidad por (bodega, producto) con bloqueo FOR UPDATE antes de reservar
   FOR v_item IN
-    SELECT oi.*, p.name AS product_name, p.sku
+    SELECT
+      oi.warehouse_id,
+      oi.product_id,
+      SUM(oi.quantity)::INT AS required_qty,
+      p.name AS product_name,
+      p.sku
     FROM public.order_items oi
     JOIN public.products p ON p.id = oi.product_id
     WHERE oi.order_id = p_order_id
-    ORDER BY oi.product_id
+    GROUP BY oi.warehouse_id, oi.product_id, p.name, p.sku
+    ORDER BY oi.product_id, oi.warehouse_id
   LOOP
-    v_wh_id := COALESCE(v_item.warehouse_id, v_order.warehouse_id);
+    SELECT stock_quantity, reserved_quantity
+    INTO v_wh_stock
+    FROM public.warehouse_stock
+    WHERE warehouse_id = v_item.warehouse_id AND product_id = v_item.product_id
+    FOR UPDATE;
 
-    IF v_wh_id IS NOT NULL THEN
-      SELECT stock_quantity, reserved_quantity
-      INTO v_wh_stock
-      FROM public.warehouse_stock
-      WHERE warehouse_id = v_wh_id AND product_id = v_item.product_id
-      FOR UPDATE;
-
-      IF NOT FOUND OR (COALESCE(v_wh_stock.stock_quantity, 0) - COALESCE(v_wh_stock.reserved_quantity, 0)) < v_item.quantity THEN
-        RETURN jsonb_build_object(
-          'success', false,
-          'error', format('Stock disponible insuficiente en bodega para %s (%s). Disponible: %s, solicitado: %s.',
-            v_item.sku, v_item.product_name,
-            GREATEST(0, COALESCE(v_wh_stock.stock_quantity, 0) - COALESCE(v_wh_stock.reserved_quantity, 0)),
-            v_item.quantity
-          )
-        );
-      END IF;
-    ELSE
-      SELECT stock_quantity, reserved_quantity
-      INTO v_wh_stock
-      FROM public.products
-      WHERE id = v_item.product_id
-      FOR UPDATE;
-
-      IF (COALESCE(v_wh_stock.stock_quantity, 0) - COALESCE(v_wh_stock.reserved_quantity, 0)) < v_item.quantity THEN
-        RETURN jsonb_build_object(
-          'success', false,
-          'error', format('Stock global insuficiente para %s (%s). Disponible: %s, solicitado: %s.',
-            v_item.sku, v_item.product_name,
-            GREATEST(0, COALESCE(v_wh_stock.stock_quantity, 0) - COALESCE(v_wh_stock.reserved_quantity, 0)),
-            v_item.quantity
-          )
-        );
-      END IF;
+    IF NOT FOUND OR (COALESCE(v_wh_stock.stock_quantity, 0) - COALESCE(v_wh_stock.reserved_quantity, 0)) < v_item.required_qty THEN
+      RETURN jsonb_build_object(
+        'success', false,
+        'error', format(
+          'Stock disponible insuficiente en bodega para %s (%s). Disponible: %s, solicitado: %s.',
+          v_item.sku, v_item.product_name,
+          GREATEST(0, COALESCE(v_wh_stock.stock_quantity, 0) - COALESCE(v_wh_stock.reserved_quantity, 0)),
+          v_item.required_qty
+        )
+      );
     END IF;
   END LOOP;
 
-  -- Recalcular total basado en items actuales
+  -- Recalcular total basado en partidas actuales
   UPDATE public.orders
   SET total_amount = (
     SELECT COALESCE(SUM(quantity * unit_price), 0) FROM public.order_items WHERE order_id = p_order_id
   )
   WHERE id = p_order_id;
 
-  -- 2. Reservar inventario sin doble conteo
+  -- 2. Reservar inventario en la bodega de cada partida sin doble conteo
   FOR v_item IN
-    SELECT * FROM public.order_items WHERE order_id = p_order_id
+    SELECT * FROM public.order_items WHERE order_id = p_order_id ORDER BY id
   LOOP
-    v_wh_id := COALESCE(v_item.warehouse_id, v_order.warehouse_id);
+    UPDATE public.warehouse_stock
+    SET reserved_quantity = COALESCE(reserved_quantity, 0) + v_item.quantity,
+        updated_at = now()
+    WHERE warehouse_id = v_item.warehouse_id AND product_id = v_item.product_id;
 
-    IF v_wh_id IS NOT NULL THEN
-      UPDATE public.warehouse_stock
-      SET reserved_quantity = COALESCE(reserved_quantity, 0) + v_item.quantity,
-          updated_at = now()
-      WHERE warehouse_id = v_wh_id AND product_id = v_item.product_id;
-
-      IF NOT v_has_sync_trigger THEN
-        UPDATE public.products
-        SET reserved_quantity = COALESCE(reserved_quantity, 0) + v_item.quantity
-        WHERE id = v_item.product_id;
-      END IF;
-    ELSE
+    IF NOT v_has_sync_trigger THEN
       UPDATE public.products
       SET reserved_quantity = COALESCE(reserved_quantity, 0) + v_item.quantity
       WHERE id = v_item.product_id;
@@ -850,7 +852,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.assign_item_warehouse(UUID, UUID) FROM anon, public;
 GRANT EXECUTE ON FUNCTION public.assign_item_warehouse(UUID, UUID) TO authenticated;
 
--- 3.5 cancel_order (mantiene firma de producción, valida admin o dueño en pending, bloquea FOR UPDATE y evita doble conteo)
+-- 3.5 cancel_order (mantiene firma de producción, usa order_items.warehouse_id, valida admin o dueño en pending, bloquea FOR UPDATE y evita doble conteo)
 CREATE OR REPLACE FUNCTION public.cancel_order(
   p_order_id UUID,
   p_reason TEXT DEFAULT 'Cancelado por administrador'
@@ -863,8 +865,8 @@ AS $$
 DECLARE
   v_caller_id UUID := auth.uid();
   v_order RECORD;
+  v_missing_item RECORD;
   v_item RECORD;
-  v_wh_id UUID;
   v_is_admin BOOLEAN;
   v_has_sync_trigger BOOLEAN;
 BEGIN
@@ -900,24 +902,36 @@ BEGIN
   ) INTO v_has_sync_trigger;
 
   IF v_order.status IN ('confirmed', 'in_fulfillment') THEN
+    -- Validar que todas las partidas tengan bodega asignada antes de liberar reserva
+    SELECT oi.id, p.sku, p.name AS product_name
+    INTO v_missing_item
+    FROM public.order_items oi
+    JOIN public.products p ON p.id = oi.product_id
+    WHERE oi.order_id = p_order_id
+      AND oi.warehouse_id IS NULL
+    ORDER BY oi.id
+    LIMIT 1;
+
+    IF FOUND THEN
+      RETURN jsonb_build_object(
+        'success', false,
+        'error', format(
+          'La partida %s (%s) no tiene bodega asignada. Asigna su bodega antes de cancelar para liberar el inventario reservado.',
+          v_missing_item.sku, v_missing_item.product_name
+        )
+      );
+    END IF;
+
     FOR v_item IN
-      SELECT * FROM public.order_items WHERE order_id = p_order_id
+      SELECT * FROM public.order_items WHERE order_id = p_order_id ORDER BY id
     LOOP
-      v_wh_id := COALESCE(v_item.warehouse_id, v_order.warehouse_id);
+      UPDATE public.warehouse_stock
+      SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) - v_item.quantity),
+          updated_at = now()
+      WHERE warehouse_id = v_item.warehouse_id
+        AND product_id = v_item.product_id;
 
-      IF v_wh_id IS NOT NULL THEN
-        UPDATE public.warehouse_stock
-        SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) - v_item.quantity),
-            updated_at = now()
-        WHERE warehouse_id = v_wh_id
-          AND product_id = v_item.product_id;
-
-        IF NOT v_has_sync_trigger THEN
-          UPDATE public.products
-          SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) - v_item.quantity)
-          WHERE id = v_item.product_id;
-        END IF;
-      ELSE
+      IF NOT v_has_sync_trigger THEN
         UPDATE public.products
         SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) - v_item.quantity)
         WHERE id = v_item.product_id;
@@ -938,7 +952,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.cancel_order(UUID, TEXT) FROM anon, public;
 GRANT EXECUTE ON FUNCTION public.cancel_order(UUID, TEXT) TO authenticated;
 
--- 3.6 update_order_status (mantiene firma exacta de producción, valida admin o distributor_pro padre, delega confirmed a confirm_order, bloquea FOR UPDATE y evita doble conteo)
+-- 3.6 update_order_status (mantiene firma exacta de producción, usa order_items.warehouse_id, valida admin o distributor_pro padre, delega confirmed a confirm_order, bloquea FOR UPDATE y evita doble conteo)
 CREATE OR REPLACE FUNCTION public.update_order_status(
   p_order_id UUID,
   p_new_status TEXT,
@@ -952,8 +966,9 @@ AS $$
 DECLARE
   v_caller_id UUID := auth.uid();
   v_order RECORD;
+  v_missing_item RECORD;
   v_item RECORD;
-  v_wh_id UUID;
+  v_wh_stock RECORD;
   v_has_sync_trigger BOOLEAN;
   v_is_authorized_pro BOOLEAN := FALSE;
 BEGIN
@@ -999,34 +1014,82 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Solo pedidos enviados pueden cerrarse');
   END IF;
 
+  -- Validar que todas las partidas tengan bodega asignada cuando sea necesaria ANTES de mover inventario
+  IF p_new_status = 'in_fulfillment'
+     OR (p_new_status = 'shipped' AND v_order.status = 'in_fulfillment')
+     OR (p_new_status IN ('cancelled', 'rejected') AND v_order.status IN ('confirmed', 'in_fulfillment'))
+  THEN
+    SELECT oi.id, p.sku, p.name AS product_name
+    INTO v_missing_item
+    FROM public.order_items oi
+    JOIN public.products p ON p.id = oi.product_id
+    WHERE oi.order_id = p_order_id
+      AND oi.warehouse_id IS NULL
+    ORDER BY oi.id
+    LIMIT 1;
+
+    IF FOUND THEN
+      RETURN jsonb_build_object(
+        'success', false,
+        'error', format(
+          'La partida %s (%s) no tiene bodega asignada. Asigna una bodega a todas las partidas antes de continuar.',
+          v_missing_item.sku, v_missing_item.product_name
+        )
+      );
+    END IF;
+  END IF;
+
   SELECT EXISTS (
     SELECT 1 FROM pg_trigger
     WHERE tgname = 'trg_sync_product_stock'
       AND NOT tgisinternal
   ) INTO v_has_sync_trigger;
 
-  -- SHIPPED: liberar reserva y descontar stock sin doble conteo
+  -- SHIPPED: validar existencias con bloqueo FOR UPDATE, luego liberar reserva y descontar stock sin doble conteo
   IF p_new_status = 'shipped' AND v_order.status = 'in_fulfillment' THEN
     FOR v_item IN
-      SELECT * FROM public.order_items WHERE order_id = p_order_id
+      SELECT
+        oi.warehouse_id,
+        oi.product_id,
+        SUM(oi.quantity)::INT AS required_qty,
+        p.name AS product_name,
+        p.sku
+      FROM public.order_items oi
+      JOIN public.products p ON p.id = oi.product_id
+      WHERE oi.order_id = p_order_id
+      GROUP BY oi.warehouse_id, oi.product_id, p.name, p.sku
+      ORDER BY oi.product_id, oi.warehouse_id
     LOOP
-      v_wh_id := COALESCE(v_item.warehouse_id, v_order.warehouse_id);
+      SELECT stock_quantity, reserved_quantity
+      INTO v_wh_stock
+      FROM public.warehouse_stock
+      WHERE warehouse_id = v_item.warehouse_id AND product_id = v_item.product_id
+      FOR UPDATE;
 
-      IF v_wh_id IS NOT NULL THEN
-        UPDATE public.warehouse_stock
-        SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) - v_item.quantity),
-            stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - v_item.quantity),
-            updated_at = now()
-        WHERE product_id = v_item.product_id
-          AND warehouse_id = v_wh_id;
+      IF NOT FOUND OR COALESCE(v_wh_stock.stock_quantity, 0) < v_item.required_qty THEN
+        RETURN jsonb_build_object(
+          'success', false,
+          'error', format(
+            'Stock físico insuficiente en bodega para enviar %s (%s). En existencia: %s, requerido: %s.',
+            v_item.sku, v_item.product_name,
+            COALESCE(v_wh_stock.stock_quantity, 0),
+            v_item.required_qty
+          )
+        );
+      END IF;
+    END LOOP;
 
-        IF NOT v_has_sync_trigger THEN
-          UPDATE public.products
-          SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) - v_item.quantity),
-              stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - v_item.quantity)
-          WHERE id = v_item.product_id;
-        END IF;
-      ELSE
+    FOR v_item IN
+      SELECT * FROM public.order_items WHERE order_id = p_order_id ORDER BY id
+    LOOP
+      UPDATE public.warehouse_stock
+      SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) - v_item.quantity),
+          stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - v_item.quantity),
+          updated_at = now()
+      WHERE product_id = v_item.product_id
+        AND warehouse_id = v_item.warehouse_id;
+
+      IF NOT v_has_sync_trigger THEN
         UPDATE public.products
         SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) - v_item.quantity),
             stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - v_item.quantity)
@@ -1035,26 +1098,18 @@ BEGIN
     END LOOP;
   END IF;
 
-  -- CANCELLED/REJECTED: liberar reserva únicamente
+  -- CANCELLED/REJECTED: liberar reserva de la bodega de cada partida
   IF p_new_status IN ('cancelled', 'rejected') AND v_order.status IN ('confirmed', 'in_fulfillment') THEN
     FOR v_item IN
-      SELECT * FROM public.order_items WHERE order_id = p_order_id
+      SELECT * FROM public.order_items WHERE order_id = p_order_id ORDER BY id
     LOOP
-      v_wh_id := COALESCE(v_item.warehouse_id, v_order.warehouse_id);
+      UPDATE public.warehouse_stock
+      SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) - v_item.quantity),
+          updated_at = now()
+      WHERE product_id = v_item.product_id
+        AND warehouse_id = v_item.warehouse_id;
 
-      IF v_wh_id IS NOT NULL THEN
-        UPDATE public.warehouse_stock
-        SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) - v_item.quantity),
-            updated_at = now()
-        WHERE product_id = v_item.product_id
-          AND warehouse_id = v_wh_id;
-
-        IF NOT v_has_sync_trigger THEN
-          UPDATE public.products
-          SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) - v_item.quantity)
-          WHERE id = v_item.product_id;
-        END IF;
-      ELSE
+      IF NOT v_has_sync_trigger THEN
         UPDATE public.products
         SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) - v_item.quantity)
         WHERE id = v_item.product_id;
@@ -1137,7 +1192,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.register_payment(UUID, NUMERIC, TEXT, TEXT, DATE, TEXT) FROM anon, public;
 GRANT EXECUTE ON FUNCTION public.register_payment(UUID, NUMERIC, TEXT, TEXT, DATE, TEXT) TO authenticated;
 
--- 3.8 update_order_item_quantity, add_item_to_order y remove_item_from_order (con validación de autorización y sin doble conteo)
+-- 3.8 update_order_item_quantity, add_item_to_order y remove_item_from_order (con validación de autorización, order_items.warehouse_id y sin doble conteo)
 CREATE OR REPLACE FUNCTION public.update_order_item_quantity(
   p_order_id UUID,
   p_item_id UUID,
@@ -1152,6 +1207,7 @@ DECLARE
   v_caller_id UUID := auth.uid();
   v_order RECORD;
   v_item RECORD;
+  v_wh_stock RECORD;
   v_diff INTEGER;
   v_wh_id UUID;
   v_is_admin BOOLEAN;
@@ -1177,62 +1233,113 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'No se puede editar un pedido cancelado o rechazado');
   END IF;
 
+  SELECT oi.*, p.sku, p.name AS product_name
+  INTO v_item
+  FROM public.order_items oi
+  JOIN public.products p ON p.id = oi.product_id
+  WHERE oi.id = p_item_id AND oi.order_id = p_order_id
+  FOR UPDATE OF oi;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Item no encontrado');
+  END IF;
+
+  v_wh_id := v_item.warehouse_id;
+
+  IF p_new_quantity <= 0 THEN
+    v_diff := -v_item.quantity;
+  ELSE
+    v_diff := p_new_quantity - v_item.quantity;
+  END IF;
+
+  -- Si el estado del pedido implica ajustar reserva o stock y hay cambio de cantidad, exigir bodega en la partida antes de mover inventario
+  IF v_order.status IN ('confirmed', 'in_fulfillment', 'shipped', 'closed') AND v_diff != 0 THEN
+    IF v_wh_id IS NULL THEN
+      RETURN jsonb_build_object(
+        'success', false,
+        'error', format(
+          'La partida %s (%s) no tiene bodega asignada. Asigna una bodega a la partida antes de modificar su cantidad.',
+          v_item.sku, v_item.product_name
+        )
+      );
+    END IF;
+
+    SELECT stock_quantity, reserved_quantity
+    INTO v_wh_stock
+    FROM public.warehouse_stock
+    WHERE warehouse_id = v_wh_id AND product_id = v_item.product_id
+    FOR UPDATE;
+
+    IF v_diff > 0 THEN
+      IF NOT FOUND OR (COALESCE(v_wh_stock.stock_quantity, 0) - COALESCE(v_wh_stock.reserved_quantity, 0)) < v_diff THEN
+        RETURN jsonb_build_object(
+          'success', false,
+          'error', format(
+            'Stock disponible insuficiente en bodega para incrementar %s (%s). Disponible: %s, adicional solicitado: %s.',
+            v_item.sku, v_item.product_name,
+            GREATEST(0, COALESCE(v_wh_stock.stock_quantity, 0) - COALESCE(v_wh_stock.reserved_quantity, 0)),
+            v_diff
+          )
+        );
+      END IF;
+    END IF;
+  END IF;
+
   SELECT EXISTS (
     SELECT 1 FROM pg_trigger
     WHERE tgname = 'trg_sync_product_stock'
       AND NOT tgisinternal
   ) INTO v_has_sync_trigger;
 
-  SELECT * INTO v_item FROM public.order_items WHERE id = p_item_id AND order_id = p_order_id FOR UPDATE;
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Item no encontrado');
-  END IF;
-
-  v_wh_id := COALESCE(v_item.warehouse_id, v_order.warehouse_id);
-
   IF p_new_quantity <= 0 THEN
-    v_diff := -v_item.quantity;
     IF v_order.status IN ('shipped', 'closed') THEN
-      IF v_wh_id IS NOT NULL THEN
-        UPDATE public.warehouse_stock SET stock_quantity = COALESCE(stock_quantity, 0) - v_diff WHERE product_id = v_item.product_id AND warehouse_id = v_wh_id;
-        IF NOT v_has_sync_trigger THEN
-          UPDATE public.products SET stock_quantity = COALESCE(stock_quantity, 0) - v_diff WHERE id = v_item.product_id;
-        END IF;
-      ELSE
-        UPDATE public.products SET stock_quantity = COALESCE(stock_quantity, 0) - v_diff WHERE id = v_item.product_id;
+      UPDATE public.warehouse_stock
+      SET stock_quantity = COALESCE(stock_quantity, 0) - v_diff,
+          updated_at = now()
+      WHERE product_id = v_item.product_id AND warehouse_id = v_wh_id;
+
+      IF NOT v_has_sync_trigger THEN
+        UPDATE public.products
+        SET stock_quantity = COALESCE(stock_quantity, 0) - v_diff
+        WHERE id = v_item.product_id;
       END IF;
     ELSIF v_order.status IN ('confirmed', 'in_fulfillment') THEN
-      IF v_wh_id IS NOT NULL THEN
-        UPDATE public.warehouse_stock SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) + v_diff) WHERE product_id = v_item.product_id AND warehouse_id = v_wh_id;
-        IF NOT v_has_sync_trigger THEN
-          UPDATE public.products SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) + v_diff) WHERE id = v_item.product_id;
-        END IF;
-      ELSE
-        UPDATE public.products SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) + v_diff) WHERE id = v_item.product_id;
+      UPDATE public.warehouse_stock
+      SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) + v_diff),
+          updated_at = now()
+      WHERE product_id = v_item.product_id AND warehouse_id = v_wh_id;
+
+      IF NOT v_has_sync_trigger THEN
+        UPDATE public.products
+        SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) + v_diff)
+        WHERE id = v_item.product_id;
       END IF;
     END IF;
 
     DELETE FROM public.order_items WHERE id = p_item_id AND order_id = p_order_id;
   ELSE
-    v_diff := p_new_quantity - v_item.quantity;
     IF v_diff != 0 THEN
       IF v_order.status IN ('shipped', 'closed') THEN
-        IF v_wh_id IS NOT NULL THEN
-          UPDATE public.warehouse_stock SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - v_diff) WHERE product_id = v_item.product_id AND warehouse_id = v_wh_id;
-          IF NOT v_has_sync_trigger THEN
-            UPDATE public.products SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - v_diff) WHERE id = v_item.product_id;
-          END IF;
-        ELSE
-          UPDATE public.products SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - v_diff) WHERE id = v_item.product_id;
+        UPDATE public.warehouse_stock
+        SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - v_diff),
+            updated_at = now()
+        WHERE product_id = v_item.product_id AND warehouse_id = v_wh_id;
+
+        IF NOT v_has_sync_trigger THEN
+          UPDATE public.products
+          SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - v_diff)
+          WHERE id = v_item.product_id;
         END IF;
       ELSIF v_order.status IN ('confirmed', 'in_fulfillment') THEN
-        IF v_wh_id IS NOT NULL THEN
-          UPDATE public.warehouse_stock SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) + v_diff) WHERE product_id = v_item.product_id AND warehouse_id = v_wh_id;
-          IF NOT v_has_sync_trigger THEN
-            UPDATE public.products SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) + v_diff) WHERE id = v_item.product_id;
-          END IF;
-        ELSE
-          UPDATE public.products SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) + v_diff) WHERE id = v_item.product_id;
+        UPDATE public.warehouse_stock
+        SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) + v_diff),
+            updated_at = now()
+        WHERE product_id = v_item.product_id AND warehouse_id = v_wh_id;
+
+        IF NOT v_has_sync_trigger THEN
+          UPDATE public.products
+          SET reserved_quantity = GREATEST(0, COALESCE(reserved_quantity, 0) + v_diff)
+          WHERE id = v_item.product_id;
         END IF;
       END IF;
     END IF;
