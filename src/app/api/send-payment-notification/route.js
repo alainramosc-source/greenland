@@ -90,7 +90,7 @@ function buildPaymentEmailHtml({ title, subtitle, amount, paymentDate, paymentMe
 
 export async function POST(request) {
     try {
-        // Exigir sesión activa de administrador (solo Super Admin; Contabilidad es solo lectura)
+        // Super Admin y Contabilidad pueden notificar la revisión de pagos.
         const supabaseAuth = await createAuthClient();
         const { data: { user: caller }, error: authErr } = await supabaseAuth.auth.getUser();
         if (authErr || !caller) {
@@ -103,7 +103,7 @@ export async function POST(request) {
             .eq('id', caller.id)
             .single();
 
-        const allowedSubRoles = ['super_admin', 'admin'];
+        const allowedSubRoles = ['super_admin', 'admin', 'accountant'];
         if (
             !callerProfile ||
             callerProfile.is_active === false ||

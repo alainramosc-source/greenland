@@ -390,21 +390,19 @@ export function usePayments() {
     if (!rejectModal) return;
     setActionLoading(rejectModal);
     const reason = rejectReason || 'Sin motivo especificado';
-    const { error } = await supabase
-      .from('distributor_payments')
-      .update({
-        status: 'rejected',
-        reviewed_by: (await supabase.auth.getUser()).data.user.id,
-        reviewed_at: new Date().toISOString(),
-        rejection_reason: reason
-      })
-      .eq('id', rejectModal)
-      .eq('status', 'pending');
+    const { data: result, error } = await supabase.rpc('review_distributor_payment', {
+      p_payment_id: rejectModal,
+      p_action: 'reject',
+      p_rejection_reason: reason,
+    });
     const rejectedPayment = payments.find(p => p.id === rejectModal);
     setActionLoading(null);
     setRejectModal(null);
     setRejectReason('');
-    if (error) { alert('Error: ' + error.message); return; }
+    if (error || !result?.success) {
+      alert('Error: ' + (error?.message || result?.error || 'No se pudo rechazar el pago.'));
+      return;
+    }
     if (rejectedPayment) sendPaymentNotification(rejectedPayment, 'rejected', reason);
     fetchData();
   };
