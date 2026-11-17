@@ -7,12 +7,18 @@
 --   1. Retiro definitivo de authorization_pin y employee_barcode de las lecturas
 --      generales de public.profiles (los datos viven en public.staff_credentials
 --      y se verifican exclusivamente vía RPC verify_staff_credential).
---   2. Endurecimiento de políticas RLS por sub-rol administrativo en:
---      - cash_movements (lectura para admins activos; inserción para super_admin, admin y warehouse_admin;
---        actualización de campos no firmados o firma vía RPC; contabilidad y viewer solo lectura)
---      - cash_audits (lectura para admins activos; inserción/aplicación solo para super_admin, admin y warehouse_admin)
---      - recycling_purchases, recycling_sales, recycling_material_types, recycling_suppliers (contabilidad y viewer solo lectura)
---      - suppliers y tablas de portal de proveedores (contabilidad y viewer solo lectura; super_admin/admin administran)
+--   2. Endurecimiento de políticas RLS por sub-rol administrativo y triggers:
+--      - cash_movements: lectura para admins activos; inserción manual para super_admin,
+--        admin y warehouse_admin, más entradas automáticas de distributor_payment cuando
+--        Contabilidad (accountant) aprueba un pago en efectivo vía approve_distributor_payment_atomic;
+--        bloqueo en servidor (trg_enforce_cash_movement_signatures) de escrituras directas a firmas/estado
+--        fuera de sign_cash_movement_exit.
+--      - Revisión de pagos (approve_distributor_payment_atomic, review_distributor_payment y
+--        approve_matched_payments): preserva los permisos de Contabilidad (accountant) junto con
+--        Super Admin para aprobar y rechazar pagos de distribuidores.
+--      - cash_audits: lectura para admins activos; inserción/aplicación solo para super_admin, admin y warehouse_admin.
+--      - recycling_purchases, recycling_sales, recycling_material_types, recycling_suppliers: contabilidad y viewer solo lectura.
+--      - suppliers y tablas de portal de proveedores: contabilidad y viewer solo lectura; solo super_admin explícito escribe.
 --   3. Consulta de diagnóstico de solo lectura para auditar la diferencia de $60 en ORD-555493.
 -- ============================================================================
 
@@ -91,7 +97,7 @@ WHERE authorization_pin IS NOT NULL
    OR employee_barcode IS NOT NULL;
 
 -- ============================================================================
--- 2. ENDURECIMIENTO DE POLÍTICAS RLS POR SUB-ROL (HALLAZGO #5 - CONTRACT)
+-- 2. ENDURECIMIENTO DE POLÍTICAS RLS POR SUB-ROL Y PERMISOS DE CONTABILIDAD EN PAGOS
 -- ============================================================================
 
 -- 2.1 cash_movements y cash_audits: eliminar TODAS las políticas permisivas previas (incluyendo
@@ -124,12 +130,22 @@ CREATE POLICY "Admins can read cash_movements"
   TO authenticated
   USING (public.is_active_admin());
 
+-- Permite inserciones operativas a super_admin, admin y warehouse_admin; y a Contabilidad (accountant)
+-- exclusivamente para la entrada automática generada al aprobar un pago de distribuidor en efectivo
+-- mediante approve_distributor_payment_atomic (no permite a Contabilidad insertar entradas/salidas manuales en Caja).
 CREATE POLICY "Admins can insert cash_movements"
   ON public.cash_movements
   FOR INSERT
   TO authenticated
   WITH CHECK (
     public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'warehouse_admin'])
+    OR (
+      public.has_admin_sub_role(ARRAY['accountant'])
+      AND type = 'entry'
+      AND reference_type = 'distributor_payment'
+      AND reference_id IS NOT NULL
+      AND current_setting('app.payment_approval_rpc', true) = 'true'
+    )
   );
 
 CREATE POLICY "Admins can update cash_movements"
@@ -283,6 +299,329 @@ CREATE TRIGGER trg_enforce_cash_movement_signatures
   BEFORE INSERT OR UPDATE ON public.cash_movements
   FOR EACH ROW
   EXECUTE FUNCTION public.enforce_cash_movement_signatures();
+
+-- 2.1c Preservar permisos actuales de Contabilidad (accountant) para aprobar y rechazar pagos de distribuidores
+CREATE OR REPLACE FUNCTION public.approve_distributor_payment_atomic(
+  p_payment_id UUID,
+  p_received_by TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_payment RECORD;
+  v_reviewer_id UUID := auth.uid();
+  v_alloc JSONB;
+  v_alloc_order_id UUID;
+  v_alloc_amount NUMERIC;
+  v_order RECORD;
+  v_already_paid NUMERIC;
+  v_remaining NUMERIC;
+  v_total_allocated NUMERIC := 0;
+  v_dist_name TEXT;
+  v_seen_order_ids UUID[] := '{}';
+BEGIN
+  IF v_reviewer_id IS NULL OR NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'accountant']) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Solo Super Admin o Contabilidad activos pueden aprobar pagos.');
+  END IF;
+
+  SELECT * INTO v_payment FROM public.distributor_payments
+  WHERE id = p_payment_id AND status = 'pending'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Pago no encontrado o ya fue revisado');
+  END IF;
+
+  IF v_payment.payment_method = 'efectivo' AND (p_received_by IS NULL OR TRIM(p_received_by) = '') THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Para pagos en efectivo, se requiere el campo "Recibido por"');
+  END IF;
+
+  IF v_payment.allocations IS NOT NULL AND jsonb_array_length(v_payment.allocations) > 0 THEN
+    IF COALESCE(v_payment.container_amount, 0) > 0
+       AND NOT EXISTS (
+         SELECT 1 FROM jsonb_array_elements(v_payment.allocations) a
+         WHERE a->>'order_id' IS NULL OR TRIM(a->>'order_id') = ''
+       ) THEN
+      v_payment.allocations := v_payment.allocations || jsonb_build_array(
+        jsonb_build_object('order_id', NULL, 'amount', v_payment.container_amount)
+      );
+    END IF;
+  ELSIF v_payment.order_id IS NOT NULL THEN
+    v_payment.allocations := jsonb_build_array(
+      jsonb_build_object('order_id', v_payment.order_id, 'amount', v_payment.amount)
+    );
+  ELSIF v_payment.payment_type = 'containers' OR v_payment.container_amount > 0 THEN
+    v_payment.allocations := jsonb_build_array(
+      jsonb_build_object('order_id', NULL, 'amount', v_payment.amount)
+    );
+  ELSE
+    RETURN jsonb_build_object('success', false, 'error', 'El pago no tiene pedidos ni contenedores asignados');
+  END IF;
+
+  FOR v_alloc IN SELECT value FROM jsonb_array_elements(v_payment.allocations)
+  LOOP
+    IF v_alloc->>'order_id' IS NULL OR TRIM(v_alloc->>'order_id') = '' THEN
+      BEGIN
+        v_alloc_amount := (v_alloc->>'amount')::NUMERIC;
+      EXCEPTION WHEN OTHERS THEN
+        RETURN jsonb_build_object('success', false, 'error',
+          FORMAT('Monto inválido en asignación de contenedor: "%s"', COALESCE(v_alloc->>'amount', 'NULL')));
+      END;
+
+      IF v_alloc_amount IS NULL OR v_alloc_amount <= 0 THEN
+        RETURN jsonb_build_object('success', false, 'error',
+          FORMAT('Monto de contenedor inválido ($%s)', v_alloc_amount));
+      END IF;
+
+      v_total_allocated := v_total_allocated + v_alloc_amount;
+      CONTINUE;
+    END IF;
+
+    BEGIN
+      v_alloc_order_id := (v_alloc->>'order_id')::UUID;
+    EXCEPTION WHEN OTHERS THEN
+      RETURN jsonb_build_object('success', false, 'error',
+        FORMAT('order_id inválido: "%s". Se esperaba un UUID válido.',
+          COALESCE(v_alloc->>'order_id', 'NULL')));
+    END;
+
+    BEGIN
+      v_alloc_amount := (v_alloc->>'amount')::NUMERIC;
+    EXCEPTION WHEN OTHERS THEN
+      RETURN jsonb_build_object('success', false, 'error',
+        FORMAT('Monto inválido: "%s" en asignación para pedido %s.',
+          COALESCE(v_alloc->>'amount', 'NULL'), v_alloc_order_id));
+    END;
+
+    IF v_alloc_amount IS NULL OR v_alloc_amount <= 0 THEN
+      RETURN jsonb_build_object('success', false, 'error',
+        FORMAT('Monto inválido ($%s) en asignación para pedido %s',
+          v_alloc_amount, v_alloc_order_id));
+    END IF;
+
+    IF v_alloc_order_id = ANY(v_seen_order_ids) THEN
+      RETURN jsonb_build_object('success', false, 'error',
+        FORMAT('El pedido %s aparece más de una vez en las asignaciones.', v_alloc_order_id));
+    END IF;
+    v_seen_order_ids := array_append(v_seen_order_ids, v_alloc_order_id);
+
+    v_total_allocated := v_total_allocated + v_alloc_amount;
+  END LOOP;
+
+  IF ROUND(v_total_allocated, 2) <> ROUND(v_payment.amount, 2) THEN
+    RETURN jsonb_build_object('success', false, 'error',
+      FORMAT('La suma de asignaciones ($%s) no coincide con el monto del pago ($%s)',
+        TO_CHAR(v_total_allocated, 'FM999,999.00'),
+        TO_CHAR(v_payment.amount, 'FM999,999.00')));
+  END IF;
+
+  FOR v_alloc IN
+    SELECT value FROM jsonb_array_elements(v_payment.allocations)
+    ORDER BY value->>'order_id'
+  LOOP
+    IF v_alloc->>'order_id' IS NULL OR TRIM(v_alloc->>'order_id') = '' THEN
+      CONTINUE;
+    END IF;
+
+    v_alloc_order_id := (v_alloc->>'order_id')::UUID;
+    v_alloc_amount := (v_alloc->>'amount')::NUMERIC;
+
+    SELECT * INTO v_order FROM public.orders
+    WHERE id = v_alloc_order_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+      RETURN jsonb_build_object('success', false, 'error',
+        FORMAT('Pedido %s no existe', v_alloc_order_id));
+    END IF;
+
+    IF v_order.distributor_id IS DISTINCT FROM v_payment.distributor_id THEN
+      RETURN jsonb_build_object('success', false, 'error',
+        FORMAT('El pedido %s no pertenece al distribuidor que registró el pago', v_alloc_order_id));
+    END IF;
+
+    SELECT COALESCE(SUM(amount), 0) INTO v_already_paid
+    FROM public.order_payments WHERE order_id = v_alloc_order_id;
+
+    v_remaining := v_order.total_amount - v_already_paid;
+
+    IF ROUND(v_alloc_amount, 2) > ROUND(v_remaining, 2) + 0.01 THEN
+      RETURN jsonb_build_object('success', false, 'error',
+        FORMAT('La asignación de $%s excede el saldo pendiente de $%s en el pedido %s',
+          TO_CHAR(v_alloc_amount, 'FM999,999.00'),
+          TO_CHAR(v_remaining, 'FM999,999.00'),
+          v_alloc_order_id));
+    END IF;
+  END LOOP;
+
+  UPDATE public.distributor_payments SET
+    status = 'approved',
+    reviewed_by = v_reviewer_id,
+    reviewed_at = now(),
+    received_by = CASE WHEN v_payment.payment_method = 'efectivo'
+                  THEN TRIM(p_received_by) ELSE received_by END
+  WHERE id = p_payment_id;
+
+  FOR v_alloc IN
+    SELECT value FROM jsonb_array_elements(v_payment.allocations)
+    ORDER BY value->>'order_id'
+  LOOP
+    IF v_alloc->>'order_id' IS NULL OR TRIM(v_alloc->>'order_id') = '' THEN
+      CONTINUE;
+    END IF;
+
+    v_alloc_order_id := (v_alloc->>'order_id')::UUID;
+    v_alloc_amount := (v_alloc->>'amount')::NUMERIC;
+
+    INSERT INTO public.order_payments (order_id, amount, payment_method, reference, payment_date, notes, registered_by)
+    VALUES (
+      v_alloc_order_id, ROUND(v_alloc_amount, 2), v_payment.payment_method,
+      v_payment.reference, v_payment.payment_date,
+      'Aprobado desde pagos distribuidor', v_reviewer_id
+    );
+
+    PERFORM public.update_order_payment_status(v_alloc_order_id);
+  END LOOP;
+
+  IF v_payment.payment_method = 'efectivo' THEN
+    SELECT full_name INTO v_dist_name
+    FROM public.profiles WHERE id = v_payment.distributor_id;
+
+    v_dist_name := COALESCE(v_dist_name, 'Distribuidor (sin perfil)');
+
+    PERFORM set_config('app.payment_approval_rpc', 'true', true);
+    INSERT INTO public.cash_movements (type, amount, concept, responsible, reference_id, reference_type, movement_date, created_by)
+    VALUES (
+      'entry', v_payment.amount,
+      'Pago distribuidor: ' || v_dist_name,
+      TRIM(p_received_by),
+      p_payment_id, 'distributor_payment',
+      COALESCE(v_payment.payment_date, CURRENT_DATE),
+      v_reviewer_id
+    );
+  END IF;
+
+  RETURN jsonb_build_object('success', true, 'message', 'Pago aprobado correctamente');
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.approve_distributor_payment_atomic(UUID, TEXT) FROM anon, public;
+GRANT EXECUTE ON FUNCTION public.approve_distributor_payment_atomic(UUID, TEXT) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.review_distributor_payment(
+  p_payment_id UUID,
+  p_action TEXT,
+  p_rejection_reason TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_payment RECORD;
+BEGIN
+  IF NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'accountant']) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Solo Super Admin o Contabilidad activos pueden revisar pagos.');
+  END IF;
+
+  IF p_action = 'approve' THEN
+    RETURN public.approve_distributor_payment_atomic(p_payment_id, NULL);
+  ELSIF p_action = 'reject' THEN
+    SELECT * INTO v_payment
+    FROM public.distributor_payments
+    WHERE id = p_payment_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+      RETURN jsonb_build_object('success', false, 'error', 'Pago no encontrado.');
+    END IF;
+
+    IF v_payment.status != 'pending' THEN
+      RETURN jsonb_build_object('success', false, 'error', 'Este pago ya fue procesado.');
+    END IF;
+
+    UPDATE public.distributor_payments
+    SET status = 'rejected',
+        rejection_reason = COALESCE(p_rejection_reason, 'Rechazado por administración'),
+        reviewed_by = auth.uid(),
+        reviewed_at = now()
+    WHERE id = p_payment_id;
+
+    RETURN jsonb_build_object('success', true, 'status', 'rejected');
+  ELSE
+    RETURN jsonb_build_object('success', false, 'error', 'Acción inválida (use approve o reject).');
+  END IF;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.review_distributor_payment(UUID, TEXT, TEXT) FROM anon, public;
+GRANT EXECUTE ON FUNCTION public.review_distributor_payment(UUID, TEXT, TEXT) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.approve_matched_payments(p_batch_id TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_caller_id UUID := auth.uid();
+  v_movement RECORD;
+  v_result JSONB;
+  v_approved_count INTEGER := 0;
+  v_skipped_count INTEGER := 0;
+  v_errors JSONB := '[]'::jsonb;
+BEGIN
+  IF v_caller_id IS NULL OR NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'accountant']) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Solo Super Admin o Contabilidad activos pueden aprobar lotes de conciliación bancaria.');
+  END IF;
+
+  FOR v_movement IN
+    SELECT bm.id AS movement_id, bm.matched_payment_id
+    FROM public.bank_movements bm
+    WHERE bm.batch_id = p_batch_id
+      AND bm.match_status = 'matched'
+      AND bm.matched_payment_id IS NOT NULL
+    ORDER BY bm.id
+    FOR UPDATE
+  LOOP
+    v_result := public.approve_distributor_payment_atomic(
+      v_movement.matched_payment_id,
+      'Conciliación Bancaria'
+    );
+
+    IF COALESCE((v_result->>'success')::boolean, false) = true THEN
+      UPDATE public.distributor_payments
+      SET bank_movement_id = v_movement.movement_id
+      WHERE id = v_movement.matched_payment_id;
+
+      v_approved_count := v_approved_count + 1;
+    ELSE
+      v_skipped_count := v_skipped_count + 1;
+      v_errors := v_errors || jsonb_build_array(
+        jsonb_build_object(
+          'movement_id', v_movement.movement_id,
+          'payment_id', v_movement.matched_payment_id,
+          'error', COALESCE(v_result->>'error', 'Error desconocido')
+        )
+      );
+    END IF;
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'approved_count', v_approved_count,
+    'skipped_count', v_skipped_count,
+    'errors', v_errors
+  );
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.approve_matched_payments(TEXT) FROM anon, public;
+GRANT EXECUTE ON FUNCTION public.approve_matched_payments(TEXT) TO authenticated;
 
 -- 2.2 cash_audits: lectura para admins activos (incluyendo contabilidad y viewer);
 -- inserción y aplicación restringidas a super_admin, admin y warehouse_admin
@@ -448,4 +787,3 @@ SELECT
 FROM public.orders o
 WHERE o.order_number = 'ORD-555493';
 */
-

@@ -1687,8 +1687,8 @@ DECLARE
   v_dist_name TEXT;
   v_seen_order_ids UUID[] := '{}';
 BEGIN
-  IF v_reviewer_id IS NULL OR NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin']) THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Solo un Super Admin activo puede aprobar pagos.');
+  IF v_reviewer_id IS NULL OR NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'accountant']) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Solo Super Admin o Contabilidad activos pueden aprobar pagos.');
   END IF;
 
   SELECT * INTO v_payment FROM public.distributor_payments
@@ -1856,6 +1856,7 @@ BEGIN
 
     v_dist_name := COALESCE(v_dist_name, 'Distribuidor (sin perfil)');
 
+    PERFORM set_config('app.payment_approval_rpc', 'true', true);
     INSERT INTO public.cash_movements (type, amount, concept, responsible, reference_id, reference_type, movement_date, created_by)
     VALUES (
       'entry', v_payment.amount,
@@ -1887,8 +1888,8 @@ AS $$
 DECLARE
   v_payment RECORD;
 BEGIN
-  IF NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin']) THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Solo un Super Admin activo puede revisar pagos.');
+  IF NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'accountant']) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Solo Super Admin o Contabilidad activos pueden revisar pagos.');
   END IF;
 
   IF p_action = 'approve' THEN
@@ -2109,8 +2110,8 @@ DECLARE
   v_skipped_count INTEGER := 0;
   v_errors JSONB := '[]'::jsonb;
 BEGIN
-  IF v_caller_id IS NULL OR NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin']) THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Solo un Super Admin activo puede aprobar lotes de conciliación bancaria.');
+  IF v_caller_id IS NULL OR NOT public.has_admin_sub_role(ARRAY['super_admin', 'admin', 'accountant']) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Solo Super Admin o Contabilidad activos pueden aprobar lotes de conciliación bancaria.');
   END IF;
 
   FOR v_movement IN
