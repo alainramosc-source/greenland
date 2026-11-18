@@ -110,6 +110,8 @@ export function useReceptionForm() {
   const [productSearch, setProductSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [receptionId, setReceptionId] = useState(editId);
+  const pendingReceptionIdRef = useRef(editId);
+  const receptionWriteRef = useRef(false);
   const [documents, setDocuments] = useState([]);
   const [uploadingDoc, setUploadingDoc] = useState(false);
 
@@ -215,6 +217,19 @@ export function useReceptionForm() {
           if (matchedPo) setLinkedPOs([toLinkedPO(matchedPo)]);
         }
 
+        if (reception.linked_purchase_orders?.length) {
+          const { data: savedPOs, error: savedPOError } = await supabase.from('purchase_orders')
+            .select('id, po_number, status, supplier_id, destination_code')
+            .in('id', reception.linked_purchase_orders.map(po => po.id));
+          if (savedPOError) throw savedPOError;
+          const enriched = (savedPOs || []).map(enrichPO);
+          enriched.forEach(po => { if (!posList.some(p => p.id === po.id)) posList.push(po); });
+          setLinkedPOs(reception.linked_purchase_orders.map(link => ({
+            ...toLinkedPO(enriched.find(po => po.id === link.id) || link),
+            is_final: !!link.is_final,
+          })));
+        }
+
         setForm({
           supplier_id: reception.supplier_id || '',
           purchase_order_id: reception.purchase_order_id || '',
@@ -253,7 +268,7 @@ export function useReceptionForm() {
           sku: i.product?.sku,
           quantity: i.quantity,
           warehouse_id: i.warehouse_id || reception.warehouse_id || '',
-          purchase_order_id: reception.purchase_order_id || null,
+          purchase_order_id: i.purchase_order_id || reception.purchase_order_id || null,
           unit_origin_cost: i.unit_origin_cost || '',
           unit_pro_price: i.unit_pro_price || '',
         })));
@@ -283,17 +298,27 @@ export function useReceptionForm() {
 
     const receivedMap = {};
     if (po.status === 'partially_received') {
-      const { data: pastReceptions } = await supabase
-        .from('container_receptions')
-        .select('id')
+      // Explicit line links include secondary POs in Full receptions.
+      const { data: linkedItems, error: linkedError } = await supabase
+        .from('container_reception_items')
+        .select('product_id, quantity, reception:container_receptions!inner(status)')
         .eq('purchase_order_id', poId)
-        .eq('status', 'completed');
+        .eq('reception.status', 'completed');
+      if (linkedError) throw linkedError;
+      for (const ri of linkedItems || []) {
+        receivedMap[ri.product_id] = (receivedMap[ri.product_id] || 0) + Number(ri.quantity);
+      }
+      // Older receptions have only the header link.
+      const { data: pastReceptions, error: pastError } = await supabase
+        .from('container_receptions').select('id')
+        .eq('purchase_order_id', poId).eq('status', 'completed');
+      if (pastError) throw pastError;
       if (pastReceptions?.length) {
-        const { data: receivedItems } = await supabase
-          .from('container_reception_items')
-          .select('product_id, quantity')
-          .in('reception_id', pastReceptions.map(r => r.id));
-        for (const ri of receivedItems || []) {
+        const { data: legacyItems, error: legacyError } = await supabase
+          .from('container_reception_items').select('product_id, quantity')
+          .in('reception_id', pastReceptions.map(rec => rec.id)).is('purchase_order_id', null);
+        if (legacyError) throw legacyError;
+        for (const ri of legacyItems || []) {
           receivedMap[ri.product_id] = (receivedMap[ri.product_id] || 0) + Number(ri.quantity);
         }
       }
@@ -673,59 +698,53 @@ export function useReceptionForm() {
     return true;
   };
 
-  // Saves header + items as a draft. Returns the reception id, or null on error.
-  // New items are inserted BEFORE the old ones are deleted, so a failure
-  // never leaves the reception without products.
-  const saveDraft = async () => {
-    const payload = {
-      supplier_id: form.supplier_id || linkedPOs[0]?.supplier_id || null,
-      purchase_order_id: linkedPOs[0]?.id || form.purchase_order_id || null,
-      warehouse_id: form.warehouse_id,
-      distributor_id: form.distributor_id || null,
-      ...buildEditableFields(),
-      charge_amount: chargeAmount,
-      status: 'draft',
-      created_by: userId,
-    };
-
-    let id = receptionId;
-    if (id) {
-      const { error } = await supabase.from('container_receptions').update(payload).eq('id', id);
-      if (error) {
-        alert('Error: ' + error.message);
+  // One stable ID survives retries (including a lost response on the first save).
+  const saveReception = async (confirmReception = false) => {
+    if (receptionWriteRef.current) return null;
+    receptionWriteRef.current = true;
+    const id = receptionId || pendingReceptionIdRef.current || crypto.randomUUID();
+    pendingReceptionIdRef.current = id;
+    try {
+      const activePOs = linkedPOs.length > 0
+        ? linkedPOs
+        : form.purchase_order_id
+          ? [{ id: form.purchase_order_id, is_final: isFinalReception }]
+          : [];
+      const { data, error } = await supabase.rpc('save_container_reception_atomic', {
+        p_reception_id: id,
+        p_header: {
+          ...buildEditableFields(),
+          supplier_id: form.supplier_id || linkedPOs[0]?.supplier_id || null,
+          purchase_order_id: linkedPOs[0]?.id || form.purchase_order_id || null,
+          warehouse_id: form.warehouse_id,
+          distributor_id: form.distributor_id || null,
+        },
+        p_items: items.map(i => ({
+          product_id: i.product_id,
+          quantity: toNum(i.quantity),
+          unit_origin_cost: toNum(i.unit_origin_cost),
+          unit_pro_price: form.distributor_id ? (Number(i.unit_pro_price) || null) : null,
+          warehouse_id: warehouseOf(i) || null,
+          purchase_order_id: i.purchase_order_id || null,
+        })),
+        p_linked_pos: activePOs.map(po => ({ id: po.id, is_final: !!po.is_final })),
+        p_confirm: confirmReception,
+      });
+      if (error || !data?.success) {
+        alert('No se guardó la recepción: ' + (error?.message || data?.error || 'Error desconocido. Puedes reintentar.'));
         return null;
       }
-    } else {
-      const { data, error } = await supabase.from('container_receptions').insert(payload).select('id').single();
-      if (error) {
-        alert('Error: ' + error.message);
-        return null;
-      }
-      id = data.id;
-      setReceptionId(id);
-    }
-
-    const { data: oldItems } = await supabase.from('container_reception_items').select('id').eq('reception_id', id);
-    const { error: itemsError } = await supabase.from('container_reception_items').insert(
-      items.map(i => ({
-        reception_id: id,
-        product_id: i.product_id,
-        quantity: toNum(i.quantity),
-        unit_origin_cost: toNum(i.unit_origin_cost),
-        unit_landed_cost: getLandedPerUnit(i),
-        unit_pro_price: form.distributor_id ? (Number(i.unit_pro_price) || null) : null,
-        warehouse_id: warehouseOf(i) || null,
-      }))
-    );
-    if (itemsError) {
-      alert('Error guardando productos: ' + itemsError.message);
+      setReceptionId(data.id);
+      return data;
+    } catch (error) {
+      alert('No se guardó la recepción: ' + (error?.message || 'Error de conexión. Puedes reintentar.'));
       return null;
+    } finally {
+      receptionWriteRef.current = false;
     }
-    const oldIds = (oldItems || []).map(o => o.id);
-    if (oldIds.length) await supabase.from('container_reception_items').delete().in('id', oldIds);
-
-    return id;
   };
+
+  const saveDraft = async () => (await saveReception(false))?.id || null;
 
   // Creates or updates the inland freight service order linked to this reception
   const syncFreightServiceOrder = async (id, { matchByOperation = false } = {}) => {
@@ -793,21 +812,6 @@ export function useReceptionForm() {
     }
   };
 
-  // In-transit rows for a PO product: exact warehouse first, then header warehouse, then any
-  const findTransits = async (poId, productId, warehouseIds) => {
-    for (const wh of [...new Set(warehouseIds.filter(Boolean)), null]) {
-      let q = supabase
-        .from('transit_shipments')
-        .select('id, quantity')
-        .eq('purchase_order_id', poId)
-        .eq('product_id', productId)
-        .eq('status', 'in_transit');
-      if (wh) q = q.eq('warehouse_id', wh);
-      const { data } = await q.order('created_at', { ascending: true });
-      if (data?.length) return data;
-    }
-    return [];
-  };
 
   // ─── Actions ────────────────────────────────────────────────────────────
 
@@ -944,100 +948,19 @@ export function useReceptionForm() {
 
     setConfirming(true);
 
-    // 1. Save header + items, and only then mark as completed
-    const id = await saveDraft();
-    if (!id) {
+    try {
+      const result = await saveReception(true);
+      if (!result) return;
+      alert(
+        (result.already_completed ? 'Esta recepción ya estaba confirmada. No se duplicó inventario.' : '✅ Recepción confirmada exitosamente') +
+        (result.warning ? '\n\n⚠️ ' + result.warning : '')
+      );
+      router.push('/dashboard/recepciones');
+    } catch (error) {
+      alert('No se confirmó la recepción: ' + (error?.message || 'Error de conexión. Puedes reintentar.'));
+    } finally {
       setConfirming(false);
-      return;
     }
-    const { error: statusErr } = await supabase.from('container_receptions').update({ status: 'completed' }).eq('id', id);
-    if (statusErr) {
-      alert('Error al confirmar: ' + statusErr.message);
-      setConfirming(false);
-      return;
-    }
-
-    // 2. Add stock to each item's destination warehouse
-    const stockErrors = [];
-    for (const item of items) {
-      const targetWarehouse = warehouseOf(item);
-      const targetName = warehouseName(targetWarehouse) || targetWarehouse;
-      const { error } = await supabase.rpc('adjust_warehouse_stock', {
-        p_product_id: item.product_id,
-        p_warehouse_id: targetWarehouse,
-        p_quantity_change: Number(item.quantity),
-        p_reason: `Recepción contenedor: ${form.container_label || id} (${targetName})`,
-      });
-      if (error) stockErrors.push(`${item.sku} en ${targetName}: ${error.message}`);
-    }
-
-    // 2b. Weighted average cost against current total stock
-    for (const item of items) {
-      const landedCost = getLandedPerUnit(item);
-      const qtyReceived = toNum(item.quantity);
-      if (landedCost <= 0 || qtyReceived <= 0) continue;
-
-      const [{ data: stockRows }, { data: prod }] = await Promise.all([
-        supabase.from('warehouse_stock').select('stock_quantity').eq('product_id', item.product_id),
-        supabase.from('products').select('avg_cost').eq('id', item.product_id).single(),
-      ]);
-      const totalStockNow = (stockRows || []).reduce((s, r) => s + (r.stock_quantity || 0), 0);
-      const oldAvg = Number(prod?.avg_cost) || 0;
-      const stockBefore = totalStockNow - qtyReceived;
-      const newAvg = stockBefore <= 0 || oldAvg <= 0
-        ? landedCost
-        : ((stockBefore * oldAvg) + (qtyReceived * landedCost)) / totalStockNow;
-
-      await supabase.from('products').update({ avg_cost: Math.round(newAvg * 100) / 100 }).eq('id', item.product_id);
-    }
-
-    // 3. Resolve transits and update status for ALL linked POs
-    const activePOs = linkedPOs.length > 0
-      ? linkedPOs
-      : form.purchase_order_id
-      ? [{ id: form.purchase_order_id, is_final: isFinalReception }]
-      : [];
-
-    for (const lpo of activePOs) {
-      await supabase
-        .from('purchase_orders')
-        .update({ status: lpo.is_final ? 'received' : 'partially_received' })
-        .eq('id', lpo.id);
-
-      const poItems = items.filter(i => !i.purchase_order_id || i.purchase_order_id === lpo.id);
-      for (const item of poItems) {
-        let remaining = toNum(item.quantity);
-        if (remaining <= 0) continue;
-
-        const transits = await findTransits(lpo.id, item.product_id, [warehouseOf(item), form.warehouse_id]);
-        for (const t of transits) {
-          if (remaining <= 0) break;
-          if (remaining >= t.quantity) {
-            await supabase.from('transit_shipments').delete().eq('id', t.id);
-            remaining -= t.quantity;
-          } else {
-            await supabase.from('transit_shipments').update({ quantity: t.quantity - remaining }).eq('id', t.id);
-            remaining = 0;
-          }
-        }
-      }
-
-      if (lpo.is_final) {
-        await supabase.from('transit_shipments').delete().eq('purchase_order_id', lpo.id);
-      }
-    }
-
-    // 4. Inland freight service order (se omite si el flete es con transportista externo)
-    const soResult = await syncFreightServiceOrder(id);
-
-    alert(
-      (stockErrors.length
-        ? `Recepción confirmada con algunos errores de stock:\n${stockErrors.join('\n')}`
-        : '✅ Recepción confirmada exitosamente') +
-      (soResult?.warning ? `\n\n⚠️ ${soResult.warning}` : '')
-    );
-    setConfirming(false);
-    router.push('/dashboard/recepciones');
   };
 
   return {
