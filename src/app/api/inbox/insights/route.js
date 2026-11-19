@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GREENLAND_KNOWLEDGE } from '@/lib/chatbot-knowledge';
+import { createClient as createAuthClient } from '@/utils/supabase/server';
+import { checkInboxSession } from '@/lib/inbox-access';
 
 export const maxDuration = 30;
 
@@ -14,6 +16,8 @@ function getSupabaseAdmin() {
 
 export async function GET(request) {
   try {
+    const access = await checkInboxSession(await createAuthClient());
+    if (access.status) return NextResponse.json({ error: access.error }, { status: access.status });
     const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
     const analyzeWithAI = searchParams.get('ai') !== 'false';
@@ -120,7 +124,7 @@ Responde en formato Markdown claro, estructurado y directo al grano.`;
       substantive_count: substantiveCustomerMessages.length,
       substantive_messages: substantiveCustomerMessages.slice(-250),
       ai_report: aiReport,
-    });
+    }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

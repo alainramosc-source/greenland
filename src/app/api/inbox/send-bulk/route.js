@@ -1,3 +1,4 @@
+import { checkInboxSession } from '@/lib/inbox-access';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createAuthClient } from '@/utils/supabase/server';
@@ -17,7 +18,9 @@ const GRAPH_API = 'https://graph.facebook.com/v21.0';
 export async function POST(request) {
   try {
     const supabase = await createAuthClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const access = await checkInboxSession(supabase);
+    if (access.status) return NextResponse.json({ error: access.error }, { status: access.status });
+    const { user } = access;
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { contact_ids, content, content_type = 'text', tag_filter, platform_filter } = await request.json();

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createAuthClient } from '@/utils/supabase/server';
+import { checkInboxSession } from '@/lib/inbox-access';
 
 function getAdminClient() {
   return createClient(
@@ -15,7 +16,9 @@ function getAdminClient() {
 export async function GET(request) {
   try {
     const supabase = await createAuthClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const access = await checkInboxSession(supabase);
+    if (access.status) return NextResponse.json({ error: access.error }, { status: access.status });
+    const { user } = access;
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { data, error } = await getAdminClient()
@@ -38,7 +41,9 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const supabase = await createAuthClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const access = await checkInboxSession(supabase);
+    if (access.status) return NextResponse.json({ error: access.error }, { status: access.status });
+    const { user } = access;
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { platform, platform_account_id, display_name, access_token } = await request.json();
@@ -66,7 +71,7 @@ export async function POST(request) {
         .from('inbox_channels')
         .update({ access_token, display_name, is_active: true })
         .eq('id', existing.id)
-        .select()
+        .select('id, platform, platform_account_id, display_name, is_active, connected_at')
         .single();
 
       if (error) throw error;
@@ -83,7 +88,7 @@ export async function POST(request) {
         display_name: display_name || platform,
         access_token,
       })
-      .select()
+      .select('id, platform, platform_account_id, display_name, is_active, connected_at')
       .single();
 
     if (error) throw error;
@@ -100,7 +105,9 @@ export async function POST(request) {
 export async function DELETE(request) {
   try {
     const supabase = await createAuthClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const access = await checkInboxSession(supabase);
+    if (access.status) return NextResponse.json({ error: access.error }, { status: access.status });
+    const { user } = access;
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { searchParams } = new URL(request.url);

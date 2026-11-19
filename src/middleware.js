@@ -39,12 +39,13 @@ export async function middleware(request) {
     // Protect /dashboard and the driver route
     const path = request.nextUrl.pathname
     if ((path.startsWith('/dashboard') || path.startsWith('/chofer')) && !user) {
-        return NextResponse.redirect(new URL('/login', request.url))
+        return NextResponse.redirect(new URL(path.startsWith('/dashboard/inbox') ? '/login?next=%2Fdashboard%2Finbox' : '/login', request.url))
     }
 
     // Redirect /login to /dashboard if already logged in
     if (request.nextUrl.pathname.startsWith('/login') && user) {
-        return NextResponse.redirect(new URL('/dashboard', request.url))
+        const next = request.nextUrl.searchParams.get('next')
+        return NextResponse.redirect(new URL(next === '/dashboard/inbox' ? next : '/dashboard', request.url))
     }
 
     return response

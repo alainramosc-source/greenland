@@ -1,3 +1,5 @@
+import { checkInboxSession } from '@/lib/inbox-access';
+import { attachmentPath, signInboxAttachment } from '@/lib/inbox-attachments';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createAuthClient } from '@/utils/supabase/server';
@@ -18,7 +20,9 @@ export async function POST(request) {
   try {
     // Verify authenticated user
     const supabase = await createAuthClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const access = await checkInboxSession(supabase);
+    if (access.status) return NextResponse.json({ error: access.error }, { status: access.status });
+    const { user } = access;
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -54,6 +58,14 @@ export async function POST(request) {
 
     const channel = conversation.inbox_channels;
     const contact = conversation.inbox_contacts;
+    let deliveryContent = content;
+    if (content_type !== 'text') {
+      const path = attachmentPath(content);
+      if (content.startsWith('/api/inbox/attachments') && (!path || path.split('/')[0] !== conversation_id)) {
+        return NextResponse.json({ error: 'Adjunto inválido para esta conversación.' }, { status: 400 });
+      }
+      if (path) deliveryContent = await signInboxAttachment(getAdminClient(), path, 3600);
+    }
 
     // Send via the appropriate platform
     let platformMessageId = null;
@@ -62,10 +74,10 @@ export async function POST(request) {
     try {
       switch (channel.platform) {
         case 'whatsapp':
-          platformMessageId = await sendWhatsApp(channel, contact, content, content_type);
+          platformMessageId = await sendWhatsApp(channel, contact, deliveryContent, content_type);
           break;
         case 'messenger':
-          platformMessageId = await sendMessenger(channel, contact, content, content_type);
+          platformMessageId = await sendMessenger(channel, contact, deliveryContent, content_type);
           break;
         case 'instagram': {
           // Instagram Send API uses the Facebook Page endpoint + Page token
@@ -76,7 +88,7 @@ export async function POST(request) {
             .eq('is_active', true)
             .single();
           if (!msgChannel) throw new Error('No messenger channel found for Instagram send');
-          platformMessageId = await sendInstagram(channel, contact, content, content_type, msgChannel.access_token, msgChannel.platform_account_id);
+          platformMessageId = await sendInstagram(channel, contact, deliveryContent, content_type, msgChannel.access_token, msgChannel.platform_account_id);
           break;
         }
         default:

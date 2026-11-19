@@ -16,6 +16,7 @@ function getAdminClient() {
 
 // Verify cron secret to prevent unauthorized access
 function verifyCron(request) {
+  if (!process.env.CRON_SECRET) return false;
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return false;

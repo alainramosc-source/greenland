@@ -1,0 +1,15 @@
+{
+  "id": "/dashboard/inbox",
+  "name": "Inbox Greenland",
+  "short_name": "Inbox",
+  "lang": "es-MX",
+  "start_url": "/dashboard/inbox",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#6a9a04",
+  "icons": [
+    { "src": "/inbox-icon?size=192", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "/inbox-icon?size=512", "type": "image/png", "sizes": "512x512", "purpose": "any" }
+  ]
+}

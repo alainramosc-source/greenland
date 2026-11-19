@@ -1,0 +1,1494 @@
+{
+  "policies": [
+    {
+      "schemaname": "public",
+      "tablename": "inbox_channels",
+      "policyname": "admin_channels",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inbox_channels",
+      "policyname": "distributor_channels",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(distributor_id = auth.uid())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inbox_contact_tags",
+      "policyname": "admin_contact_tags",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inbox_contact_tags",
+      "policyname": "distributor_contact_tags",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(contact_id IN ( SELECT inbox_contacts.id\n   FROM inbox_contacts\n  WHERE (inbox_contacts.distributor_id = auth.uid())))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inbox_contacts",
+      "policyname": "admin_contacts",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inbox_contacts",
+      "policyname": "distributor_contacts",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(distributor_id = auth.uid())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inbox_conversations",
+      "policyname": "admin_conversations",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inbox_conversations",
+      "policyname": "distributor_conversations",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(distributor_id = auth.uid())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inbox_funnels",
+      "policyname": "admin_funnels",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inbox_funnels",
+      "policyname": "distributor_funnels",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(distributor_id = auth.uid())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inbox_messages",
+      "policyname": "admin_messages",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inbox_messages",
+      "policyname": "distributor_messages",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(conversation_id IN ( SELECT inbox_conversations.id\n   FROM inbox_conversations\n  WHERE (inbox_conversations.distributor_id = auth.uid())))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inbox_tags",
+      "policyname": "admin_tags",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inbox_tags",
+      "policyname": "distributor_tags",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(distributor_id = auth.uid())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inbox_templates",
+      "policyname": "admin_templates",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inbox_templates",
+      "policyname": "distributor_templates",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(distributor_id = auth.uid())",
+      "with_check": null
+    }
+  ],
+  "grants": [
+    {
+      "table_name": "inbox_channels",
+      "grantee": "anon",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_channels",
+      "grantee": "anon",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_channels",
+      "grantee": "anon",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_channels",
+      "grantee": "anon",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_channels",
+      "grantee": "anon",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_channels",
+      "grantee": "anon",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_channels",
+      "grantee": "anon",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "inbox_channels",
+      "grantee": "authenticated",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_channels",
+      "grantee": "authenticated",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_channels",
+      "grantee": "authenticated",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_channels",
+      "grantee": "authenticated",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_channels",
+      "grantee": "authenticated",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_channels",
+      "grantee": "authenticated",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_channels",
+      "grantee": "authenticated",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "inbox_contact_tags",
+      "grantee": "anon",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_contact_tags",
+      "grantee": "anon",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_contact_tags",
+      "grantee": "anon",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_contact_tags",
+      "grantee": "anon",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_contact_tags",
+      "grantee": "anon",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_contact_tags",
+      "grantee": "anon",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_contact_tags",
+      "grantee": "anon",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "inbox_contact_tags",
+      "grantee": "authenticated",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_contact_tags",
+      "grantee": "authenticated",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_contact_tags",
+      "grantee": "authenticated",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_contact_tags",
+      "grantee": "authenticated",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_contact_tags",
+      "grantee": "authenticated",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_contact_tags",
+      "grantee": "authenticated",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_contact_tags",
+      "grantee": "authenticated",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "inbox_contacts",
+      "grantee": "anon",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_contacts",
+      "grantee": "anon",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_contacts",
+      "grantee": "anon",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_contacts",
+      "grantee": "anon",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_contacts",
+      "grantee": "anon",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_contacts",
+      "grantee": "anon",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_contacts",
+      "grantee": "anon",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "inbox_contacts",
+      "grantee": "authenticated",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_contacts",
+      "grantee": "authenticated",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_contacts",
+      "grantee": "authenticated",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_contacts",
+      "grantee": "authenticated",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_contacts",
+      "grantee": "authenticated",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_contacts",
+      "grantee": "authenticated",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_contacts",
+      "grantee": "authenticated",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "inbox_conversations",
+      "grantee": "anon",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_conversations",
+      "grantee": "anon",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_conversations",
+      "grantee": "anon",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_conversations",
+      "grantee": "anon",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_conversations",
+      "grantee": "anon",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_conversations",
+      "grantee": "anon",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_conversations",
+      "grantee": "anon",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "inbox_conversations",
+      "grantee": "authenticated",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_conversations",
+      "grantee": "authenticated",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_conversations",
+      "grantee": "authenticated",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_conversations",
+      "grantee": "authenticated",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_conversations",
+      "grantee": "authenticated",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_conversations",
+      "grantee": "authenticated",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_conversations",
+      "grantee": "authenticated",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "inbox_funnels",
+      "grantee": "anon",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_funnels",
+      "grantee": "anon",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_funnels",
+      "grantee": "anon",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_funnels",
+      "grantee": "anon",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_funnels",
+      "grantee": "anon",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_funnels",
+      "grantee": "anon",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_funnels",
+      "grantee": "anon",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "inbox_funnels",
+      "grantee": "authenticated",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_funnels",
+      "grantee": "authenticated",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_funnels",
+      "grantee": "authenticated",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_funnels",
+      "grantee": "authenticated",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_funnels",
+      "grantee": "authenticated",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_funnels",
+      "grantee": "authenticated",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_funnels",
+      "grantee": "authenticated",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "inbox_messages",
+      "grantee": "anon",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_messages",
+      "grantee": "anon",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_messages",
+      "grantee": "anon",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_messages",
+      "grantee": "anon",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_messages",
+      "grantee": "anon",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_messages",
+      "grantee": "anon",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_messages",
+      "grantee": "anon",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "inbox_messages",
+      "grantee": "authenticated",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_messages",
+      "grantee": "authenticated",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_messages",
+      "grantee": "authenticated",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_messages",
+      "grantee": "authenticated",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_messages",
+      "grantee": "authenticated",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_messages",
+      "grantee": "authenticated",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_messages",
+      "grantee": "authenticated",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "inbox_tags",
+      "grantee": "anon",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_tags",
+      "grantee": "anon",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_tags",
+      "grantee": "anon",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_tags",
+      "grantee": "anon",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_tags",
+      "grantee": "anon",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_tags",
+      "grantee": "anon",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_tags",
+      "grantee": "anon",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "inbox_tags",
+      "grantee": "authenticated",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_tags",
+      "grantee": "authenticated",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_tags",
+      "grantee": "authenticated",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_tags",
+      "grantee": "authenticated",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_tags",
+      "grantee": "authenticated",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_tags",
+      "grantee": "authenticated",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_tags",
+      "grantee": "authenticated",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "inbox_templates",
+      "grantee": "anon",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_templates",
+      "grantee": "anon",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_templates",
+      "grantee": "anon",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_templates",
+      "grantee": "anon",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_templates",
+      "grantee": "anon",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_templates",
+      "grantee": "anon",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_templates",
+      "grantee": "anon",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "inbox_templates",
+      "grantee": "authenticated",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "inbox_templates",
+      "grantee": "authenticated",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "inbox_templates",
+      "grantee": "authenticated",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "inbox_templates",
+      "grantee": "authenticated",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "inbox_templates",
+      "grantee": "authenticated",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "inbox_templates",
+      "grantee": "authenticated",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "inbox_templates",
+      "grantee": "authenticated",
+      "privilege_type": "TRIGGER"
+    }
+  ],
+  "column_grants": [
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "access_token",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "access_token",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "access_token",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "access_token",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "connected_at",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "connected_at",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "connected_at",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "connected_at",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "display_name",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "display_name",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "display_name",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "display_name",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "distributor_id",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "distributor_id",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "distributor_id",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "distributor_id",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "id",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "id",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "id",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "id",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "is_active",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "is_active",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "is_active",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "is_active",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "metadata",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "metadata",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "metadata",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "metadata",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform_account_id",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform_account_id",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform_account_id",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "anon",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform_account_id",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "access_token",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "access_token",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "access_token",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "access_token",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "connected_at",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "connected_at",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "connected_at",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "connected_at",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "display_name",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "display_name",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "display_name",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "display_name",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "distributor_id",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "distributor_id",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "distributor_id",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "distributor_id",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "id",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "id",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "id",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "id",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "is_active",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "is_active",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "is_active",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "is_active",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "metadata",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "metadata",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "metadata",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "metadata",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform_account_id",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform_account_id",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform_account_id",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantor": "postgres",
+      "grantee": "authenticated",
+      "table_catalog": "postgres",
+      "table_schema": "public",
+      "table_name": "inbox_channels",
+      "column_name": "platform_account_id",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    }
+  ],
+  "storage_policy": [
+    {
+      "schemaname": "storage",
+      "tablename": "objects",
+      "policyname": "Allow authenticated update inbox",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(bucket_id = 'inbox-media'::text)",
+      "with_check": null
+    }
+  ]
+}

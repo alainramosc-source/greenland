@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient as createAuthClient } from '@/utils/supabase/server';
+import { checkInboxSession } from '@/lib/inbox-access';
 
 const GRAPH_API = 'https://graph.facebook.com/v21.0';
 
@@ -12,7 +13,9 @@ export async function GET(request) {
   try {
     // Verify authenticated user
     const supabase = await createAuthClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const access = await checkInboxSession(supabase);
+    if (access.status) return NextResponse.json({ error: access.error }, { status: access.status });
+    const { user } = access;
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -23,6 +26,11 @@ export async function GET(request) {
     if (!mediaId) {
       return NextResponse.json({ error: 'Media id is required' }, { status: 400 });
     }
+
+    if (!/^[0-9]+$/.test(mediaId)) return NextResponse.json({ error: 'Media id inválido' }, { status: 400 });
+    const { data: message, error: messageError } = await supabase.from('inbox_messages')
+      .select('id').eq('media_url', `/api/inbox/media?id=${mediaId}`).limit(1).maybeSingle();
+    if (messageError || !message) return NextResponse.json({ error: 'Media not found' }, { status: 404 });
 
     const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN;
     if (!accessToken) {

@@ -107,7 +107,7 @@ export default function ChatView({
       formData.append('file', fileToUpload);
       formData.append('conversation_id', conversation.id);
 
-      const res = await fetch('/api/inbox/upload', {
+      const res = await fetch('/api/inbox/attachments', {
         method: 'POST',
         body: formData,
       });

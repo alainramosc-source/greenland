@@ -64,7 +64,9 @@ export default function LoginPage() {
         sessionStorage.removeItem('test_view_role');
         sessionStorage.removeItem('test_view_distributor_id');
         sessionStorage.removeItem('test_distributor_name');
-        router.push('/dashboard');
+        // Same-origin allowlist: preserve the Inbox shortcut after sign-in.
+        const next = new URLSearchParams(window.location.search).get('next');
+        router.push(next === '/dashboard/inbox' ? next : '/dashboard');
         router.refresh();
       }
     } else if (viewState === 'recover') {
