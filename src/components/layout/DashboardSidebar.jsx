@@ -1,4 +1,5 @@
 'use client';
+import { disableInboxPush } from '@/lib/inbox-push-browser';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
@@ -66,6 +67,7 @@ const DashboardSidebar = ({ isOpen, onClose, userRole, actualRole, subRole }) =>
     sessionStorage.removeItem('test_view_role');
     sessionStorage.removeItem('test_view_distributor_id');
     sessionStorage.removeItem('test_distributor_name');
+    await disableInboxPush().catch(() => {});
     await supabase.auth.signOut();
     router.push('/login');
     router.refresh();

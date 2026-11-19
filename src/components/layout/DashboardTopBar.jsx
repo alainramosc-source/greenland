@@ -1,4 +1,5 @@
 'use client';
+import { disableInboxPush } from '@/lib/inbox-push-browser';
 import { useState, useEffect, useRef } from 'react';
 import { Menu, Bell, X, ExternalLink, LogOut, Settings } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
@@ -80,6 +81,7 @@ const DashboardTopBar = ({ onMenuClick, userRole, userName }) => {
   };
 
   const handleLogout = async () => {
+    await disableInboxPush().catch(() => {});
     await supabase.auth.signOut();
     router.push('/login');
   };

@@ -13,15 +13,14 @@ export default function InboxShell({ children, userName }) {
   return (
     <div style={{
       display: 'flex',
-      height: '100vh',
+      height: '100dvh',
+      minWidth: 0,
       overflow: 'hidden',
       background: '#f8f6f6',
       backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')",
     }}>
       {/* Mini sidebar */}
-      <div style={{
-        width: 56,
-        minWidth: 56,
+      <div className="w-11 min-w-11 sm:w-14 sm:min-w-14" style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -132,7 +131,7 @@ export default function InboxShell({ children, userName }) {
       </div>
 
       {/* Main content area — fullscreen */}
-      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
         {children}
       </div>
     </div>

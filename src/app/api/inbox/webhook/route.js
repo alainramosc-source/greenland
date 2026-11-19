@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { processBotMessage } from '@/lib/chatbot-engine';
+import { dispatchInboxPush } from '@/lib/inbox-push-server';
 
 export const maxDuration = 60;
 
@@ -351,6 +352,12 @@ async function storeInboundMessage(conversationId, content, contentType, mediaUr
     console.error('[Inbox] Insert error:', insertError);
   }
 
+  // Run notifications concurrently with existing processing. Never wait for the
+  // push provider before starting the bot; failed deliveries remain queued.
+  const pushDelivery = insertError ? Promise.resolve() : dispatchInboxPush().catch(() => {
+    console.warn('[Inbox] Push delivery deferred to retry queue');
+  });
+
   // Update conversation with last message info and increment unread
   const { data: conv } = await getAdminClient()
     .from('inbox_conversations')
@@ -400,6 +407,7 @@ async function storeInboundMessage(conversationId, content, contentType, mediaUr
   } else if (!conv?.chatbot_active) {
     console.log(`[Inbox] 🙅 Bot disabled for conversation ${conversationId} — human takeover`);
   }
+  await pushDelivery;
 }
 
 async function updateMessageStatus(platformMessageId, status) {

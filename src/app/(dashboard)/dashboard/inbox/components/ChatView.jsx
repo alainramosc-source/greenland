@@ -187,10 +187,10 @@ export default function ChatView({
     : [];
 
   return (
-    <div className="flex flex-col h-full bg-slate-950/40 relative">
+    <div className="flex flex-col min-w-0 min-h-0 h-full bg-slate-950/40 relative">
       {/* Header */}
-      <div className="px-6 py-3.5 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md flex items-center justify-between shadow-md">
-        <div className="flex items-center gap-3">
+      <div className="shrink-0 min-w-0 px-3 sm:px-6 py-2.5 sm:py-3.5 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md flex flex-wrap gap-2 items-center justify-between shadow-md">
+        <div className="flex min-w-0 max-w-full items-center gap-3">
           <div className="relative">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-600 flex items-center justify-center text-white font-black text-sm">
               {conversation.contact_name?.[0]?.toUpperCase() || '?'}
@@ -200,9 +200,9 @@ export default function ChatView({
               style={{ backgroundColor: platform.color }}
             />
           </div>
-          <div>
-            <p className="font-bold text-slate-100 text-sm">{conversation.contact_name || 'Sin nombre'}</p>
-            <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+          <div className="min-w-0 [overflow-wrap:anywhere]">
+            <p className="font-bold text-slate-100 text-sm break-words">{conversation.contact_name || 'Sin nombre'}</p>
+            <p className="text-[10px] font-bold text-slate-400 flex flex-wrap items-center gap-1">
               <span>{platform.icon}</span> {platform.label}
               {conversation.contact_phone && <> · <span className="font-mono text-slate-300">{conversation.contact_phone}</span></>}
             </p>
@@ -210,11 +210,11 @@ export default function ChatView({
         </div>
 
         {/* Header Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {/* Bot Toggle */}
           <button
             onClick={() => onToggleBot && onToggleBot()}
-            className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-[11px] font-black border shadow-sm ${
+            className={`px-2 sm:px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-[11px] font-black border shadow-sm ${
               conversation.chatbot_active
                 ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30'
                 : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
@@ -222,23 +222,25 @@ export default function ChatView({
             title={conversation.chatbot_active ? 'Bot IA activo — click para pausar' : 'Bot IA inactivo — click para activar'}
           >
             <Bot className="w-4 h-4" />
-            {conversation.chatbot_active ? '🟢 Bot Activo' : '⚪ Bot Pausado'}
+            <span className="sm:hidden">{conversation.chatbot_active ? 'Bot activo' : 'Bot pausado'}</span>
+            <span className="hidden sm:inline">{conversation.chatbot_active ? '🟢 Bot Activo' : '⚪ Bot Pausado'}</span>
           </button>
 
           {/* Create Order Button */}
           <button
             onClick={onCreateOrder}
-            className="px-3 py-1.5 rounded-xl bg-[#6a9a04]/20 hover:bg-[#6a9a04]/30 border border-[#6a9a04]/40 text-[#8cc618] text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+            className="px-2 sm:px-3 py-1.5 rounded-xl bg-[#6a9a04]/20 hover:bg-[#6a9a04]/30 border border-[#6a9a04]/40 text-[#8cc618] text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
             title="Confirmar venta POS"
           >
             <ShoppingBag className="w-3.5 h-3.5" />
-            <span>Confirmar Venta</span>
+            <span className="sm:hidden">Venta</span><span className="hidden sm:inline">Confirmar Venta</span>
           </button>
 
           {/* More Options Menu */}
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}
+              aria-label="Más opciones del chat"
               className="p-2 hover:bg-slate-800 rounded-xl transition-colors cursor-pointer text-slate-400 hover:text-white"
             >
               <MoreVertical className="w-4 h-4" />
@@ -264,7 +266,7 @@ export default function ChatView({
 
       {/* Messages area with high-tech background pattern */}
       <div
-        className="flex-1 overflow-y-auto p-6 space-y-3.5 custom-scrollbar"
+        className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-6 space-y-3.5 custom-scrollbar"
         style={{
           backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)',
           backgroundSize: '20px 20px'
@@ -280,9 +282,9 @@ export default function ChatView({
           messages.map((msg) => {
             const isOutbound = msg.direction === 'outbound';
             return (
-              <div key={msg.id} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
+              <div key={msg.id} className={`flex min-w-0 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
                 <div
-                  className={`max-w-[70%] px-4 py-3 rounded-2xl shadow-lg border transition-all ${
+                  className={`min-w-0 max-w-[94%] sm:max-w-[80%] lg:max-w-[70%] [overflow-wrap:anywhere] px-3 sm:px-4 py-3 rounded-2xl shadow-lg border transition-all ${
                     isOutbound
                       ? 'bg-gradient-to-r from-[#6a9a04] to-[#557e03] text-white border-[#6a9a04]/40 rounded-br-none'
                       : 'bg-white text-slate-900 border-slate-200/80 rounded-bl-none shadow-md'
@@ -292,8 +294,8 @@ export default function ChatView({
                     <img src={msg.media_url} alt="" className="rounded-xl mb-2 max-w-full border border-black/10" />
                   )}
                   {msg.content_type === 'audio' && msg.media_url ? (
-                    <div className="flex items-center gap-2 min-w-[220px]">
-                      <audio controls preload="none" className="w-full h-8" style={{ filter: isOutbound ? 'invert(1) brightness(2)' : 'none' }}>
+                    <div className="flex min-w-0 max-w-full items-center gap-2 w-56">
+                      <audio controls preload="none" className="min-w-0 max-w-full w-full h-8" style={{ filter: isOutbound ? 'invert(1) brightness(2)' : 'none' }}>
                         <source src={msg.media_url} />
                       </audio>
                     </div>
@@ -316,10 +318,10 @@ export default function ChatView({
                         isOutbound ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
                       }`}
                     >
-                      📄 {msg.content || 'Ver documento adjunto'}
+                      📄 {msg.content && !msg.content.startsWith('/api/inbox/') && !msg.content.startsWith('http') ? msg.content : 'Ver documento adjunto'}
                     </a>
                   )}
-                  {(msg.content_type === 'text' || (msg.content_type === 'image' && msg.content && msg.content !== '[Imagen]' && !msg.content.startsWith('http')) || (msg.content && !['audio', 'image', 'document', 'video'].includes(msg.content_type))) && (
+                  {(msg.content_type === 'text' || (msg.content_type === 'image' && msg.content && msg.content !== '[Imagen]' && !msg.content.startsWith('http') && !msg.content.startsWith('/api/inbox/')) || (msg.content && !['audio', 'image', 'document', 'video'].includes(msg.content_type))) && (
                     <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed font-normal">{msg.content}</p>
                   )}
                   <div className={`flex items-center justify-end gap-1.5 mt-1.5 ${isOutbound ? 'text-white/70' : 'text-slate-400'}`}>
@@ -361,11 +363,11 @@ export default function ChatView({
       )}
 
       {/* Bottom Input Area */}
-      <div className="px-5 py-3.5 border-t border-slate-800 bg-slate-900/90 backdrop-blur-md">
+      <div className="shrink-0 min-w-0 px-2 sm:px-5 py-2 sm:py-3.5 border-t border-slate-800 bg-slate-900/90 backdrop-blur-md pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelect(e, 'image')} />
         <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip" className="hidden" onChange={(e) => handleFileSelect(e, 'document')} />
 
-        <div className="flex items-end gap-2.5">
+        <div className="flex min-w-0 items-end gap-1 sm:gap-2.5">
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
@@ -383,22 +385,23 @@ export default function ChatView({
             <ImageIcon className="w-5 h-5" />
           </button>
 
-          <div className="flex-1 relative">
+          <div className="flex-1 min-w-0 relative">
             <textarea
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Escribe un mensaje... (usa / para respuestas rápidas)"
               rows={1}
-              className="w-full px-4 py-2.5 bg-slate-800/90 border border-slate-700/80 rounded-2xl text-xs text-slate-100 outline-none focus:border-[#6a9a04] focus:ring-2 focus:ring-[#6a9a04]/20 resize-none placeholder:text-slate-500 transition-all"
+              className="w-full min-w-0 px-3 sm:px-4 py-2.5 bg-slate-800/90 border border-slate-700/80 rounded-2xl text-sm sm:text-xs text-slate-100 outline-none focus:border-[#6a9a04] focus:ring-2 focus:ring-[#6a9a04]/20 resize-none placeholder:text-slate-500 transition-all"
               style={{ minHeight: '42px', maxHeight: '120px' }}
             />
           </div>
 
           <button
             onClick={handleSend}
+            aria-label="Enviar mensaje"
             disabled={!inputValue.trim()}
-            className="p-3 bg-gradient-to-r from-[#6a9a04] to-[#588403] text-white rounded-2xl transition-all hover:brightness-110 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-lg shadow-[#6a9a04]/20 flex items-center justify-center"
+            className="shrink-0 p-3 bg-gradient-to-r from-[#6a9a04] to-[#588403] text-white rounded-2xl transition-all hover:brightness-110 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-lg shadow-[#6a9a04]/20 flex items-center justify-center"
           >
             <Send className="w-4 h-4" />
           </button>

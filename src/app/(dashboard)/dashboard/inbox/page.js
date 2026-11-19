@@ -7,12 +7,14 @@ import ChatView from './components/ChatView';
 import ContactPanel from './components/ContactPanel';
 import ConfirmSalePanel from './components/ConfirmSalePanel';
 import FunnelView from './components/FunnelView';
+import InboxPushControl from './components/InboxPushControl';
 
 export default function InboxPage() {
   const inbox = useInbox();
   const [showInsightsModal, setShowInsightsModal] = React.useState(false);
   const [insightsLoading, setInsightsLoading] = React.useState(false);
   const [insightsData, setInsightsData] = React.useState(null);
+  const [showContactPanel, setShowContactPanel] = React.useState(false);
 
   const handleAnalyzeQuestions = async () => {
     setShowInsightsModal(true);
@@ -40,17 +42,18 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-950 select-none overflow-hidden">
+    <div className="h-full min-h-0 min-w-0 w-full flex flex-col bg-slate-950 select-none overflow-hidden">
+      <InboxPushControl />
       {/* High-Tech Corporate Top Navigation Bar */}
-      <div className="px-5 py-2.5 bg-slate-900/90 backdrop-blur-xl border-b border-slate-800 flex items-center justify-between shrink-0 shadow-lg z-20">
-        <div className="flex items-center gap-3">
+      <div className="px-3 sm:px-5 py-2.5 bg-slate-900/90 backdrop-blur-xl border-b border-slate-800 flex flex-wrap gap-2 items-center justify-between shrink-0 shadow-lg z-20">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
             </span>
             <span className="text-xs font-extrabold text-slate-200 tracking-wider uppercase">
-              Omnichannel CRM
+              <span className="sm:hidden">Inbox</span><span className="hidden sm:inline">Omnichannel CRM</span>
             </span>
           </div>
 
@@ -71,7 +74,7 @@ export default function InboxPage() {
             return (
               <button
                 onClick={() => inbox.setShowUnreadOnly(!inbox.showUnreadOnly)}
-                className={`text-[10px] font-black px-2.5 py-1 rounded-full cursor-pointer transition-all flex items-center gap-1 border ${
+                className={`text-[10px] font-black px-2.5 py-1 rounded-full cursor-pointer transition-all flex items-center gap-1 border whitespace-nowrap ${
                   inbox.showUnreadOnly
                     ? 'bg-[#6a9a04] text-white border-[#6a9a04] shadow-md shadow-[#6a9a04]/40 animate-pulse'
                     : unreadTotal > 0
@@ -80,66 +83,80 @@ export default function InboxPage() {
                 }`}
                 title="Haz clic para ver sólo las conversaciones con mensajes no leídos"
               >
-                {inbox.showUnreadOnly
+                <span className="sm:hidden">{unreadTotal} sin leer</span>
+                <span className="hidden sm:inline">{inbox.showUnreadOnly
                   ? '⚡ Viendo No Leídos (Click para quitar filtro)'
-                  : `${unreadTotal} ${unreadTotal === 1 ? 'mensaje sin leer' : 'mensajes sin leer'}`}
+                  : `${unreadTotal} ${unreadTotal === 1 ? 'mensaje sin leer' : 'mensajes sin leer'}`}</span>
               </button>
             );
           })()}
         </div>
 
         {/* View Mode Switcher + Express Link Generator + AI Insights */}
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 w-full sm:w-auto flex-wrap items-center gap-2">
           <button
             onClick={handleAnalyzeQuestions}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-200 bg-indigo-950/70 hover:bg-indigo-900/80 transition-all cursor-pointer border border-indigo-500/40"
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-200 bg-indigo-950/70 hover:bg-indigo-900/80 transition-all cursor-pointer border border-indigo-500/40"
             title="Analizar automáticamente todas las preguntas reales de clientes y detectar qué más enseñarle al bot"
           >
             <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            <span>🧠 Analizar Dudas (IA)</span>
+            <span className="sm:hidden">IA</span><span className="hidden sm:inline">🧠 Analizar Dudas (IA)</span>
           </button>
 
           <button
             onClick={() => inbox.setShowSalePanel(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#6a9a04] to-[#557e03] hover:brightness-110 transition-all cursor-pointer shadow-md shadow-[#6a9a04]/20 border border-[#6a9a04]/40"
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#6a9a04] to-[#557e03] hover:brightness-110 transition-all cursor-pointer shadow-md shadow-[#6a9a04]/20 border border-[#6a9a04]/40"
             title="Generar link de entrega para Facebook Marketplace, WhatsApp o ventas externas"
           >
             <ShoppingBag className="w-3.5 h-3.5" />
-            <span>🔗 Link Express (FB Marketplace)</span>
+            <span className="sm:hidden">Venta</span><span className="hidden sm:inline">🔗 Link Express (FB Marketplace)</span>
           </button>
 
           <div className="flex items-center gap-1 bg-slate-950/80 p-1 rounded-2xl border border-slate-800/80">
             <button
               onClick={() => inbox.setViewMode('list')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 inbox.viewMode === 'list'
                   ? 'bg-gradient-to-r from-[#6a9a04] to-[#557e03] text-white shadow-md'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
               }`}
             >
               <List className="w-3.5 h-3.5" />
-              <span>Vista Lista</span>
+              <span className="sm:hidden">Lista</span><span className="hidden sm:inline">Vista Lista</span>
             </button>
             <button
               onClick={() => inbox.setViewMode('funnel')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 inbox.viewMode === 'funnel'
                   ? 'bg-gradient-to-r from-[#6a9a04] to-[#557e03] text-white shadow-md'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
               }`}
             >
               <GitBranch className="w-3.5 h-3.5" />
-              <span>Embudo Kanban</span>
+              <span className="sm:hidden">Embudo</span><span className="hidden sm:inline">Embudo Kanban</span>
             </button>
           </div>
         </div>
       </div>
 
+      {((inbox.viewMode === 'list' && inbox.showMobileChat) || (inbox.viewMode === 'funnel' && inbox.activeConversation)) && (
+        <div className="md:hidden shrink-0 flex min-w-0 items-center justify-between gap-2 border-b border-slate-700 bg-slate-900 px-2">
+          <button type="button" onClick={() => {
+            if (inbox.viewMode === 'funnel') inbox.setActiveConversation(null);
+            inbox.setViewMode('list');
+            inbox.setShowMobileChat(false);
+          }} className="flex min-h-11 items-center gap-2 px-2 text-sm font-bold text-white cursor-pointer">
+            <ArrowLeft className="h-5 w-5" /> Chats
+          </button>
+          <button type="button" onClick={() => setShowContactPanel(true)} className="min-h-11 px-2 text-xs font-bold text-slate-200 cursor-pointer">Contacto</button>
+        </div>
+      )}
+
       {/* === LISTA MODE: 3-column Layout === */}
       {inbox.viewMode === 'list' && (
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
           {/* Left Column — Conversation List */}
-          <div className={`w-full md:w-80 lg:w-96 shrink-0 ${inbox.showMobileChat ? 'hidden md:flex' : 'flex'} flex-col`}>
+          <div className={`w-full min-h-0 min-w-0 md:w-80 lg:w-96 shrink-0 ${inbox.showMobileChat ? 'hidden md:flex' : 'flex'} flex-col`}>
             <ConversationList
               conversations={inbox.filteredConversations}
               activeConversation={inbox.activeConversation}
@@ -152,15 +169,7 @@ export default function InboxPage() {
           </div>
 
           {/* Center Column — Main Chat View */}
-          <div className={`flex-1 ${inbox.showMobileChat ? 'flex' : 'hidden md:flex'} flex-col bg-slate-900/40`}>
-            {inbox.showMobileChat && (
-              <button
-                onClick={() => inbox.setShowMobileChat(false)}
-                className="md:hidden flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-slate-300 border-b border-slate-800 bg-slate-900 cursor-pointer"
-              >
-                <ArrowLeft className="w-4 h-4" /> Volver a chats
-              </button>
-            )}
+          <div className={`flex-1 min-h-0 min-w-0 ${inbox.showMobileChat ? 'flex' : 'hidden md:flex'} flex-col bg-slate-900/40`}>
             <ChatView
               conversation={inbox.activeConversation}
               messages={inbox.messages}
@@ -196,8 +205,8 @@ export default function InboxPage() {
 
       {/* === EMBUDO MODE: Full-width Kanban + Slide-over Chat === */}
       {inbox.viewMode === 'funnel' && (
-        <div className="flex-1 flex overflow-hidden relative">
-          <div className={`flex-1 overflow-hidden transition-all ${inbox.activeConversation ? 'mr-0' : ''}`}>
+        <div className="flex-1 min-h-0 min-w-0 flex overflow-hidden relative">
+          <div className={`flex-1 min-w-0 overflow-hidden transition-all ${inbox.activeConversation ? 'hidden md:flex' : 'flex'}`}>
             <FunnelView
               stages={inbox.funnelStages}
               conversations={inbox.filteredConversations}
@@ -214,7 +223,7 @@ export default function InboxPage() {
 
           {/* Slide-Over Active Chat Panel */}
           {inbox.activeConversation && (
-            <div className="w-[500px] shrink-0 flex flex-col border-l border-slate-800 bg-slate-900/95 backdrop-blur-xl shadow-2xl z-30">
+            <div className="w-full min-w-0 min-h-0 md:w-[min(500px,55%)] shrink-0 flex flex-col border-l border-slate-800 bg-slate-900/95 backdrop-blur-xl shadow-2xl z-30">
               <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-800 bg-slate-950/60">
                 <button
                   onClick={() => inbox.setActiveConversation(null)}
@@ -231,7 +240,7 @@ export default function InboxPage() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
                 <ChatView
                   conversation={inbox.activeConversation}
                   messages={inbox.messages}
@@ -245,6 +254,19 @@ export default function InboxPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {(inbox.showSalePanel || showContactPanel) && (
+        <div className="xl:hidden fixed inset-0 z-50 bg-black/60 flex justify-end" role="dialog" aria-modal="true" aria-label={inbox.showSalePanel ? 'Confirmar venta' : 'Contacto'}>
+          <div className="flex min-w-0 w-full max-w-sm h-full flex-col bg-slate-900">
+            <button type="button" className="shrink-0 min-h-11 flex items-center gap-2 px-4 text-white border-b border-slate-700 cursor-pointer"
+              onClick={() => { inbox.setShowSalePanel(false); setShowContactPanel(false); }}><X className="h-5 w-5" /> Volver al chat</button>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {inbox.showSalePanel ? <ConfirmSalePanel conversation={inbox.activeConversation} supabase={inbox.supabase} onClose={() => inbox.setShowSalePanel(false)} onSaleCreated={() => {}} />
+                : <ContactPanel conversation={inbox.activeConversation} onUpdateNotes={inbox.handleUpdateNotes} onUpdateTags={inbox.handleUpdateTags} onCreateOrder={() => inbox.setShowSalePanel(true)} />}
+            </div>
+          </div>
         </div>
       )}
 
