@@ -38,6 +38,13 @@ export function saveInventoryCount(supabase, sessionId, lines, storage) {
   }), storage);
 }
 
+export function createProRetailSale(supabase, payload, storage) {
+  return runInventoryCommand(supabase, 'pro_retail_sale', payload, requestId => supabase.rpc('create_pro_retail_sale_atomic', {
+    p_request_id: requestId, p_warehouse_id: payload.warehouse_id, p_items: payload.items,
+    p_customer_name: payload.customer_name || null, p_notes: payload.notes || null,
+  }), storage);
+}
+
 export function inventoryTransferItems(items, products, credits = {}) {
   if (!items?.length) throw new Error('Incluye al menos una partida.');
   return items.map(item => {

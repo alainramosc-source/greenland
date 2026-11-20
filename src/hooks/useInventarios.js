@@ -1,4 +1,4 @@
-import { runInventoryOperation, inventoryTransferItems } from '@/lib/inventory-operations';
+import { runInventoryOperation, inventoryTransferItems, createProRetailSale } from '@/lib/inventory-operations';
 import { todayMX } from '@/utils/formatters';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
@@ -491,30 +491,15 @@ export function useInventarios() {
         sale_price: Number(selectedProduct.price || 0),
       }];
       const noteText = sanitizeText(adjustmentReason, 300) || 'Venta a público';
-      const { data, error } = await supabase.rpc('create_retail_sale', {
-        p_conversation_id: null,
-        p_warehouse_id: selectedWarehouse,
-        p_delivery_type: 'pickup',
-        p_items: items,
-        p_notes: noteText,
-      });
-
-      if (error) {
-        alert('Error: ' + error.message);
-      } else if (data && !data.success) {
-        alert(data.error || 'Error al registrar la venta.');
-      } else {
-        if (data?.order_id) {
-          await supabase.from('lastmile_orders').update({
-            payment_method: 'cash',
-            payment_status: 'paid',
-          }).eq('id', data.order_id);
-        }
+      try {
+        await createProRetailSale(supabase, { warehouse_id: selectedWarehouse, items, notes: noteText });
         await fetchData();
         setSelectedProduct(null);
         setAdjustmentAmount('');
         setAdjustmentReason('');
         setSelectedWarehouse('');
+      } catch (error) {
+        alert('Error: ' + error.message);
       }
       setSubmitting(false);
     } else {
@@ -985,10 +970,13 @@ export function useInventarios() {
           product_id: prod?.id || item.productId || item.product_id,
           sku: item.sku || prod?.sku,
           name: prod?.name || item.name || item.sku,
-          quantity: parseInt(item.qty || item.quantity || 0),
+          quantity: Number(item.qty ?? item.quantity ?? 0),
           sale_price: Number(item.price !== undefined ? item.price : (item.sale_price !== undefined ? item.sale_price : (prod?.price || 0))),
         };
-      }).filter(i => i.product_id && i.quantity > 0);
+      });
+      if (formattedItems.some(i => !i.product_id || !Number.isSafeInteger(i.quantity) || i.quantity <= 0)) {
+        throw new Error('Todas las partidas deben tener un producto y una cantidad entera mayor a cero.');
+      }
 
       if (formattedItems.length === 0) {
         alert('Ingresa al menos 1 producto con cantidad mayor a 0.');
@@ -1001,32 +989,9 @@ export function useInventarios() {
         notes ? notes.trim() : ''
       ].filter(Boolean).join(' — ') || 'Venta a público';
 
-      const { data, error } = await supabase.rpc('create_retail_sale', {
-        p_conversation_id: null,
-        p_warehouse_id: whId,
-        p_delivery_type: 'pickup',
-        p_items: formattedItems,
-        p_notes: noteText,
+      await createProRetailSale(supabase, {
+        warehouse_id: whId, items: formattedItems, customer_name: clientName ? clientName.trim() : null, notes: noteText,
       });
-
-      if (error) {
-        alert('Error al registrar venta: ' + error.message);
-        setLoading(false);
-        return false;
-      } else if (data && !data.success) {
-        alert(data.error || 'Error al registrar la venta.');
-        setLoading(false);
-        return false;
-      }
-
-      // Auto-mark as paid in lastmile_orders
-      if (data?.order_id) {
-        await supabase.from('lastmile_orders').update({
-          payment_method: 'cash',
-          payment_status: 'paid',
-          customer_name: clientName ? clientName.trim() : null,
-        }).eq('id', data.order_id);
-      }
 
       salesLoadedRef.current = true;
       await fetchData();

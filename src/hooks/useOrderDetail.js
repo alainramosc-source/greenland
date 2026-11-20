@@ -264,8 +264,8 @@ export function useOrderDetail() {
       p_item_id: itemId,
       p_warehouse_id: warehouseId || null
     });
-    if (error) {
-      alert('Error al asignar bodega: ' + error.message);
+    if (error || !data?.success) {
+      alert('Error al asignar bodega: ' + (error?.message || data?.error || 'No se pudo confirmar el cambio.'));
     } else {
       setOrder(prev => ({
         ...prev,
@@ -761,25 +761,14 @@ export function useOrderDetail() {
     if (!confirm('¿Seguro que deseas eliminar este producto del pedido?')) return;
     setActionLoading(`del-${itemId}`);
     
-    // First try RPC, fallback to direct delete
+    // Server applies item and inventory changes together.
     const { data, error } = await supabase.rpc('remove_item_from_order', {
       p_order_id: id,
       p_item_id: itemId
     });
 
-    if (error || (data && !data.success)) {
-      const { error: delErr } = await supabase.from('order_items').delete().eq('id', itemId);
-      if (delErr) {
-        alert('Error al eliminar producto: ' + delErr.message);
-      } else {
-        const remainingItems = order.order_items.filter(i => i.id !== itemId);
-        const newTotal = remainingItems.reduce((acc, i) => acc + (Number(editingItems[i.id] ?? i.quantity) * Number(editingPrices[i.id] ?? i.unit_price)), 0);
-        await supabase.from('orders').update({ total_amount: newTotal }).eq('id', id);
-
-        setEditingItems(prev => { const next = { ...prev }; delete next[itemId]; return next; });
-        setEditingPrices(prev => { const next = { ...prev }; delete next[itemId]; return next; });
-        await fetchOrderDetails();
-      }
+    if (error || !data?.success) {
+      alert('Error al eliminar producto: ' + (error?.message || data?.error || 'No se confirmó la operación.'));
     } else {
       setEditingItems(prev => { const next = { ...prev }; delete next[itemId]; return next; });
       setEditingPrices(prev => { const next = { ...prev }; delete next[itemId]; return next; });
@@ -806,22 +795,8 @@ export function useOrderDetail() {
       p_new_quantity: validQty
     });
 
-    if (error || (data && !data.success)) {
-      const item = order.order_items.find(i => i.id === itemId);
-      if (item) {
-        const unitPrice = editingPrices[itemId] ?? item.unit_price;
-        const newSubtotal = validQty * unitPrice;
-        await supabase.from('order_items').update({ quantity: validQty }).eq('id', itemId);
-        
-        const updatedItems = order.order_items.map(i => i.id === itemId ? { ...i, quantity: validQty } : i);
-        const newTotal = updatedItems.reduce((acc, i) => acc + (Number(editingItems[i.id] ?? i.quantity) * Number(editingPrices[i.id] ?? i.unit_price)), 0);
-        await supabase.from('orders').update({ total_amount: newTotal }).eq('id', id);
-        
-        setEditingItems(prev => { const next = { ...prev }; delete next[itemId]; return next; });
-        await fetchOrderDetails();
-      } else {
-        alert('Error: ' + (error?.message || data?.error));
-      }
+    if (error || !data?.success) {
+      alert('Error al modificar cantidad: ' + (error?.message || data?.error || 'No se confirmó la operación.'));
     } else {
       setEditingItems(prev => { const next = { ...prev }; delete next[itemId]; return next; });
       await fetchOrderDetails();
@@ -954,41 +929,29 @@ export function useOrderDetail() {
     setActionLoading(`add-prod-${product.id}`);
     const unitPrice = product.price || 0;
 
-    // Try RPC first, fallback to direct insertion to allow multiple SKU lines for warehouse splitting
-    const { data, error } = await supabase.rpc('add_item_to_order', {
+    let warehouseId = null;
+    if (order.status !== 'pending') {
+      const choices = warehouses.filter(w => w.is_active !== false);
+      const existing = [...new Set(order.order_items.map(i => i.warehouse_id).filter(Boolean))];
+      warehouseId = existing.length === 1 ? existing[0] : null;
+      if (!warehouseId) {
+        const choice = prompt('Selecciona bodega para la nueva partida:\n' + choices.map((w, i) => (i + 1) + '. ' + w.name).join('\n'));
+        if (choice === null) { setActionLoading(null); return; }
+        const index = Number(choice);
+        warehouseId = Number.isInteger(index) ? choices[index - 1]?.id : null;
+        if (!warehouseId) { alert('Selecciona una bodega válida.'); setActionLoading(null); return; }
+      }
+    }
+    const { data, error } = await supabase.rpc('add_order_item_in_warehouse', {
       p_order_id: id,
       p_product_id: product.id,
       p_quantity: 1,
-      p_unit_price: unitPrice
+      p_unit_price: unitPrice,
+      p_warehouse_id: warehouseId
     });
 
-    if (error || (data && !data.success)) {
-      const { error: insErr } = await supabase
-        .from('order_items')
-        .insert({
-          order_id: id,
-          product_id: product.id,
-          quantity: 1,
-          unit_price: unitPrice,
-          warehouse_id: null
-        });
-
-      if (insErr) {
-        alert('Error al agregar producto: ' + insErr.message);
-      } else {
-        const { data: allItems } = await supabase
-          .from('order_items')
-          .select('quantity, unit_price')
-          .eq('order_id', id);
-
-        const newTotal = (allItems || []).reduce((acc, i) => acc + (Number(i.quantity) * Number(i.unit_price)), 0);
-        await supabase.from('orders').update({ total_amount: newTotal }).eq('id', id);
-
-        setShowAddProduct(false);
-        setProductSearch('');
-        setAvailableProducts([]);
-        await fetchOrderDetails();
-      }
+    if (error || !data?.success) {
+      alert('Error al agregar producto: ' + (error?.message || data?.error || 'No se confirmó la operación.'));
     } else {
       setShowAddProduct(false);
       setProductSearch('');
@@ -1005,26 +968,13 @@ export function useOrderDetail() {
     setActionLoading(`split-${item.id}`);
     const unitPrice = editingPrices[item.id] ?? item.unit_price;
 
-    const { error } = await supabase
-      .from('order_items')
-      .insert({
-        order_id: id,
-        product_id: item.product_id,
-        quantity: 1,
-        unit_price: unitPrice,
-        warehouse_id: null
-      });
-
-    if (error) {
-      alert('Error al dividir línea: ' + error.message);
+    const { data, error } = await supabase.rpc('add_order_item_in_warehouse', {
+      p_order_id: id, p_product_id: item.product_id, p_quantity: 1,
+      p_unit_price: unitPrice, p_warehouse_id: item.warehouse_id || null,
+    });
+    if (error || !data?.success) {
+      alert('Error al dividir línea: ' + (error?.message || data?.error || 'No se confirmó la operación.'));
     } else {
-      const { data: allItems } = await supabase
-        .from('order_items')
-        .select('quantity, unit_price')
-        .eq('order_id', id);
-
-      const newTotal = (allItems || []).reduce((acc, i) => acc + (Number(i.quantity) * Number(i.unit_price)), 0);
-      await supabase.from('orders').update({ total_amount: newTotal }).eq('id', id);
       await fetchOrderDetails();
     }
     setActionLoading(null);
