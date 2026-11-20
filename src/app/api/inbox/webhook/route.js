@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { processBotMessage } from '@/lib/chatbot-engine';
 import { dispatchInboxPush } from '@/lib/inbox-push-server';
+import { verifyMetaSignature } from '@/lib/meta-webhook-signature';
 
 export const maxDuration = 60;
 
@@ -29,7 +30,7 @@ export async function GET(request) {
     'greenland_inbox_verify_2024',
   ].filter(Boolean);
 
-  console.log('[Webhook] GET — mode:', mode, 'token:', JSON.stringify(token), 'challenge:', challenge ? 'yes' : 'no');
+  console.log('[Webhook] GET verification request');
 
   if (mode === 'subscribe' && acceptedTokens.includes(token)) {
     console.log('[Webhook] ✅ Verification successful');
@@ -41,7 +42,7 @@ export async function GET(request) {
     return new Response('OK', { status: 200 });
   }
 
-  console.warn('[Webhook] ❌ Verification failed — token received:', JSON.stringify(token), 'accepted:', JSON.stringify(acceptedTokens));
+  console.warn('[Webhook] Verification failed');
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 }
 
@@ -50,7 +51,20 @@ export async function GET(request) {
 // ============================================================
 export async function POST(request) {
   try {
-    const body = await request.json();
+    const rawBody = Buffer.from(await request.arrayBuffer());
+    const secret = process.env.META_APP_SECRET;
+    const signatureValid = Boolean(secret) && verifyMetaSignature(
+      rawBody, request.headers.get('x-hub-signature-256'), [secret]
+    );
+    const body = JSON.parse(rawBody.toString('utf8'));
+    // Observe real deliveries before enforcing: no messages, tokens, account
+    // identifiers, signatures or secret values are written to this log.
+    console.info('[MetaSignature]', JSON.stringify({
+      mode: 'observe',
+      result: !secret ? 'unconfigured' : signatureValid ? 'valid' : 'invalid',
+      platform: ['whatsapp_business_account', 'page', 'instagram'].includes(body.object)
+        ? body.object : 'other',
+    }));
 
     // Meta sends different structures per platform
     if (body.object === 'whatsapp_business_account') {
