@@ -1,5 +1,6 @@
 'use client';
 import { createClient } from '@/utils/supabase/client';
+import { saveInventoryCount } from '@/lib/inventory-operations';
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
@@ -30,7 +31,7 @@ export default function ConteoDetailPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterDiff, setFilterDiff] = useState('all'); // all, differences, uncounted
     const [skuInput, setSkuInput] = useState('');
-    const [userId, setUserId] = useState(null);
+    const [canManage, setCanManage] = useState(false);
     const [advancing, setAdvancing] = useState(false);
 
     useEffect(() => { fetchSession(); }, [id]);
@@ -39,7 +40,8 @@ export default function ConteoDetailPage() {
         setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { router.push('/login'); return; }
-        setUserId(user.id);
+        const { data: profile } = await supabase.from('profiles').select('role,sub_role,is_active').eq('id', user.id).single();
+        setCanManage(Boolean(profile?.is_active === true && profile.role === 'admin' && ['super_admin', 'admin', 'warehouse_admin'].includes(profile.sub_role)));
 
         const { data: sessionData } = await supabase
             .from('inventory_count_sessions')
@@ -60,7 +62,7 @@ export default function ConteoDetailPage() {
     // Update a line's counted quantity
     const updateLineCount = (lineId, value) => {
         setLines(prev => prev.map(l =>
-            l.id === lineId ? { ...l, qty_counted: value === '' ? null : Number(value), _dirty: true } : l
+            l.id === lineId ? { ...l, qty_counted: value === '' ? null : Number(value), _dirty: true, _countDirty: true } : l
         ));
     };
 
@@ -77,27 +79,14 @@ export default function ConteoDetailPage() {
         if (dirtyLines.length === 0) { alert('No hay cambios por guardar'); return; }
         setSaving(true);
 
-        for (const line of dirtyLines) {
-            await supabase.from('inventory_count_lines').update({
-                qty_counted: line.qty_counted,
-                reason: line.reason || null,
-                counted_by: userId,
-                counted_at: new Date().toISOString()
-            }).eq('id', line.id);
-        }
-
-        // Update session status to in_progress if draft
-        if (session.status === 'draft') {
-            await supabase.from('inventory_count_sessions').update({
-                status: 'in_progress',
-                started_at: new Date().toISOString()
-            }).eq('id', id);
-        }
-
-        setSaving(false);
-        setLines(prev => prev.map(l => ({ ...l, _dirty: false })));
-        alert(`✅ ${dirtyLines.length} líneas guardadas`);
-        fetchSession();
+        try {
+            const data = await saveInventoryCount(supabase, id,
+                dirtyLines.map(line => ({ id: line.id, qty_counted: line.qty_counted, reason: line.reason || null, recapture: Boolean(line._countDirty) })));
+            alert(`✅ ${data.saved} líneas guardadas`);
+            await fetchSession();
+        } catch (error) {
+            alert('No se guardaron cambios: ' + error.message);
+        } finally { setSaving(false); }
     };
 
     // Quick SKU input — in partial/free mode: ADD new line; in full mode: find and focus
@@ -184,13 +173,13 @@ export default function ConteoDetailPage() {
                 if (!row[0]) continue;
                 const sku = String(row[0]).trim().toUpperCase();
                 const qty = Number(row[1]);
-                if (isNaN(qty)) continue;
+                if (row[1] == null || String(row[1]).trim() === '' || !Number.isSafeInteger(qty) || qty < 0) continue;
 
                 const idx = updatedLines.findIndex(l =>
                     (l.sku || l.product?.sku || '').toUpperCase() === sku
                 );
                 if (idx !== -1) {
-                    updatedLines[idx] = { ...updatedLines[idx], qty_counted: qty, _dirty: true };
+                    updatedLines[idx] = { ...updatedLines[idx], qty_counted: qty, _dirty: true, _countDirty: true };
                     matched++;
                 }
             }
@@ -240,6 +229,8 @@ export default function ConteoDetailPage() {
     // Workflow advance
     const handleAdvanceWorkflow = async (action) => {
         const labels = {
+            unfreeze: { title: 'Reanudar movimientos', msg: 'La bodega volverá a aceptar movimientos. Si el stock cambia después de la captura, tendrás que verificar y recapturar las partidas afectadas antes de aplicar.', btn: 'Reanudar' },
+            reopen: { title: 'Volver a conteo', msg: 'Se retirará la aprobación pendiente. Verifica físicamente y recaptura las partidas que tuvieron movimientos antes de volver a enviar.', btn: 'Volver a conteo' },
             submit: { title: 'Enviar para revisión', msg: `¿Enviar ${session.session_code} para aprobación? Ya no podrás editar las cantidades.`, btn: 'Enviar' },
             approve: { title: 'Aprobar conteo', msg: `¿Aprobar ${session.session_code}? Confirmas que las diferencias son correctas.`, btn: 'Aprobar' },
             post: { title: 'Aplicar ajustes al inventario', msg: `¿Aplicar ${session.session_code}? Esto AJUSTARÁ el stock real de la bodega según las diferencias encontradas. Esta acción es IRREVERSIBLE.`, btn: 'Aplicar Ajustes' },
@@ -293,7 +284,7 @@ export default function ConteoDetailPage() {
     );
 
     const st = STATUS_LABELS[session.status] || STATUS_LABELS.draft;
-    const canEdit = ['draft', 'in_progress'].includes(session.status);
+    const canEdit = canManage && ['draft', 'in_progress'].includes(session.status);
 
     return (
         <div className="relative">
@@ -327,19 +318,29 @@ export default function ConteoDetailPage() {
                             </button>
                         )}
                         {/* Workflow buttons */}
+                        {canManage && session.freeze_inventory && session.status !== 'posted' && (
+                            <button onClick={() => handleAdvanceWorkflow('unfreeze')} disabled={advancing}
+                                className="px-4 py-2.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl font-bold text-sm cursor-pointer">Reanudar movimientos</button>
+                        )}
+                        {canManage && ['submitted', 'approved'].includes(session.status) && (
+                            <button onClick={() => handleAdvanceWorkflow('reopen')} disabled={advancing}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-xl font-bold text-sm cursor-pointer">
+                                <ArrowLeft size={16} /> Volver a conteo
+                            </button>
+                        )}
                         {canEdit && dirtyCount === 0 && countedLines > 0 && (
                             <button onClick={() => handleAdvanceWorkflow('submit')} disabled={advancing}
                                 className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50">
                                 {advancing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Enviar
                             </button>
                         )}
-                        {session.status === 'submitted' && (
+                        {canManage && session.status === 'submitted' && (
                             <button onClick={() => handleAdvanceWorkflow('approve')} disabled={advancing}
                                 className="flex items-center gap-2 px-5 py-2.5 bg-[#6a9a04] text-white font-bold text-sm rounded-xl border-none cursor-pointer hover:bg-[#6a9a04]/90 transition-all shadow-lg shadow-[#6a9a04]/20 disabled:opacity-50">
                                 {advancing ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />} Aprobar
                             </button>
                         )}
-                        {session.status === 'approved' && (
+                        {canManage && session.status === 'approved' && (
                             <button onClick={() => handleAdvanceWorkflow('post')} disabled={advancing}
                                 className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl border-none cursor-pointer hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50">
                                 {advancing ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />} Aplicar

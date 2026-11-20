@@ -42,9 +42,9 @@ export default function AdjustStockModal({
       setErrorMsg('Selecciona un SKU.');
       return;
     }
-    const qtyNum = parseFloat(quantity);
-    if (isNaN(qtyNum) || qtyNum < 0) {
-      setErrorMsg('Ingresa una cantidad válida.');
+    const qtyNum = Number(quantity);
+    if (quantity === '' || !Number.isSafeInteger(qtyNum) || qtyNum < 0) {
+      setErrorMsg('Ingresa una cantidad entera no negativa.');
       return;
     }
 

@@ -66,7 +66,7 @@ export default function TransferStockModal({
     : 0;
 
   const handleQtyChange = (sku, val) => {
-    const numVal = parseInt(val, 10) || 0;
+    const numVal = Number(val) || 0;
     setItemsToTransfer(prev => prev.map(item => {
       if (item.sku === sku) {
         return { ...item, qty: Math.max(0, Math.min(numVal, item.maxQty)) };

@@ -439,8 +439,8 @@ export default function InventariosPage() {
         warehouses={warehouses}
         stockData={stockData}
         onSubmit={async (data) => {
-          await handleAdjustStock(data);
-          closeModal();
+          const ok = await handleAdjustStock(data);
+          if (ok) closeModal();
         }}
         loading={loading}
       />
@@ -466,8 +466,8 @@ export default function InventariosPage() {
         previewData={csvPreviewData}
         invalidRows={csvInvalidRows}
         onSubmit={async () => {
-          await handleBulkCsvImport();
-          closeModal();
+          const ok = await handleBulkCsvImport();
+          if (ok) closeModal();
         }}
         loading={loading}
       />

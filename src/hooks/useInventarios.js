@@ -1,3 +1,4 @@
+import { runInventoryOperation, inventoryTransferItems } from '@/lib/inventory-operations';
 import { todayMX } from '@/utils/formatters';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
@@ -466,8 +467,8 @@ export function useInventarios() {
     if (e && e.preventDefault) e.preventDefault();
     if (!selectedProduct || !adjustmentAmount || !selectedWarehouse) return;
 
-    const qty = parseInt(adjustmentAmount);
-    if (isNaN(qty) || qty === 0) {
+    const qty = Number(adjustmentAmount);
+    if (!Number.isSafeInteger(qty) || qty === 0) {
       alert('Ingresa una cantidad válida.');
       return;
     }
@@ -528,12 +529,9 @@ export function useInventarios() {
       }
 
       setSubmitting(true);
-      const { error } = await supabase.rpc('adjust_warehouse_stock', {
-        p_product_id: selectedProduct.id,
-        p_warehouse_id: selectedWarehouse,
-        p_quantity_change: finalQty,
-        p_reason: sanitizeText(adjustmentReason, 300) || 'Ajuste manual'
-      });
+      let error;
+      try { await runInventoryOperation(supabase, 'adjust', { reason: sanitizeText(adjustmentReason, 300) || 'Ajuste manual', items: [{ product_id: selectedProduct.id, warehouse_id: selectedWarehouse, type: 'DELTA', quantity: finalQty }] }); }
+      catch (failure) { error = failure; }
 
       if (error) {
         alert('Error: ' + error.message);
@@ -558,86 +556,18 @@ export function useInventarios() {
   }, [proDistributors]);
 
   const handleTransfer = useCallback(async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    if (!showTransfer || !transferFrom || !transferTo || !transferQty) return;
-    if (transferFrom === transferTo) { alert('Las bodegas deben ser diferentes.'); return; }
-
-    const qty = parseInt(transferQty);
-    if (isNaN(qty) || qty < 1) {
-      alert('La cantidad de transferencia debe ser un número entero mayor a 0.');
-      return;
-    }
-
-    const creditAmt = Number(transferCreditAmount) || 0;
-    if (transferProInfo && creditAmt > 0) {
-      const destName = warehouses.find(w => w.id === transferTo)?.name || 'otra bodega';
-      if (!confirm(
-        `¿Confirmar transferencia con crédito PRO?\n\n` +
-        `• ${qty} pzas de ${showTransfer.sku} — ${showTransfer.name}\n` +
-        `• De: ${warehouses.find(w => w.id === transferFrom)?.name} → A: ${destName}\n` +
-        `• Crédito de $${creditAmt.toLocaleString('es-MX', { minimumFractionDigits: 2 })} al saldo de ${transferProInfo.name}\n\n` +
-        `El saldo pendiente del distribuidor PRO se reducirá por este monto.`
-      )) { return; }
-    }
-
-    setTransferring(true);
-    const { data, error } = await supabase.rpc('transfer_stock', {
-      p_product_id: showTransfer.id,
-      p_from_warehouse_id: transferFrom,
-      p_to_warehouse_id: transferTo,
-      p_quantity: qty
-    });
-
-    if (error) {
-      alert('Error: ' + error.message);
-    } else if (data && !data.success) {
-      alert(data.error);
-    } else {
-      if (transferProInfo && creditAmt > 0) {
-        const destName = warehouses.find(w => w.id === transferTo)?.name || 'otra bodega';
-        const fromName = warehouses.find(w => w.id === transferFrom)?.name || 'bodega origen';
-        const unitPrice = Math.round((creditAmt / qty) * 100) / 100;
-        const { data: creditData, error: creditError } = await supabase
-          .from('container_receptions')
-          .insert({
-            distributor_id: transferProInfo.id,
-            warehouse_id: transferFrom,
-            reception_date: todayMX(),
-            container_label: `Traspaso ${fromName} → ${destName}`,
-            charge_amount: -creditAmt,
-            total_origin_cost: 0,
-            total_additional_costs: 0,
-            total_landed_cost: 0,
-            status: 'completed',
-            notes: `Crédito por traspaso de ${qty} pzas de ${showTransfer.sku} (${showTransfer.name}) de ${fromName} a ${destName}. Precio unitario: $${unitPrice.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
-            created_by: userId,
-          })
-          .select('id')
-          .single();
-
-        if (creditError) {
-          alert('⚠️ Stock transferido, pero error al crear crédito: ' + creditError.message);
-        } else if (creditData) {
-          await supabase.from('container_reception_items').insert({
-            reception_id: creditData.id,
-            product_id: showTransfer.id,
-            quantity: qty,
-            unit_origin_cost: 0,
-            unit_landed_cost: 0,
-            unit_pro_price: unitPrice,
-          });
-        }
-      }
-      await fetchData();
-      setShowTransfer(null);
-      setTransferFrom('');
-      setTransferTo('');
-      setTransferQty('');
-      setTransferCreditAmount('');
-      setTransferProInfo(null);
-    }
-    setTransferring(false);
-  }, [showTransfer, transferFrom, transferTo, transferQty, transferCreditAmount, transferProInfo, warehouses, supabase, userId, fetchData]);
+    e?.preventDefault();
+    if (!showTransfer || !transferFrom || !transferTo) return;
+    const qty = Number(transferQty), credit = Number(transferCreditAmount || 0);
+    try {
+      const lines = inventoryTransferItems([{ sku: showTransfer.sku, qty }], products, { [showTransfer.sku]: credit });
+      if (credit > 0 && !confirm('¿Confirmar transferencia y crédito PRO de $' + credit.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + '?')) return;
+      setTransferring(true);
+      await runInventoryOperation(supabase, 'transfer', { from_warehouse_id: transferFrom, to_warehouse_id: transferTo, items: lines });
+      await fetchData(); setShowTransfer(null); setTransferFrom(''); setTransferTo(''); setTransferQty(''); setTransferCreditAmount(''); setTransferProInfo(null);
+    } catch (error) { alert('No se aplicó la transferencia: ' + error.message); }
+    finally { setTransferring(false); }
+  }, [showTransfer, transferFrom, transferTo, transferQty, transferCreditAmount, products, supabase, fetchData]);
 
   // Action Handler: Create Count Session
   const handleCreateSession = useCallback(async () => {
@@ -720,8 +650,8 @@ export function useInventarios() {
           );
           if (!targetWh) { errors.push(`Línea ${i + 1}: Bodega "${whName}" no encontrada.`); continue; }
 
-          const targetQty = parseInt(qtyStr);
-          if (isNaN(targetQty)) { errors.push(`Línea ${i + 1}: Cantidad inválida "${qtyStr}".`); continue; }
+          const targetQty = Number(qtyStr);
+          if (qtyStr == null || qtyStr.trim() === '' || !Number.isSafeInteger(targetQty) || targetQty < 0) { errors.push(`Línea ${i + 1}: Cantidad inválida "${qtyStr}".`); continue; }
 
           const currentWs = getWhStock(prod.id, targetWh.id);
           const diff = targetQty - currentWs.stock;
@@ -768,8 +698,8 @@ export function useInventarios() {
           whCols.forEach(({ colIdx, warehouse }) => {
             const valStr = cols[colIdx];
             if (valStr !== undefined && valStr !== '') {
-              const targetQty = parseInt(valStr);
-              if (isNaN(targetQty)) {
+              const targetQty = Number(valStr);
+              if (!Number.isSafeInteger(targetQty) || targetQty < 0) {
                 errors.push(`Línea ${i + 1} (${warehouse.name}): Valor no numérico "${valStr}".`);
                 return;
               }
@@ -804,31 +734,15 @@ export function useInventarios() {
 
   // Action Handler: Apply CSV Stock Adjustments
   const handleApplyCsv = useCallback(async () => {
-    if (csvRows.length === 0 || csvUploading) return;
+    if (!csvRows.length || csvUploading) return false;
     setCsvUploading(true);
-
-    let successCount = 0;
-    let failCount = 0;
-    const reasonText = csvComment.trim() ? `Ajuste masivo CSV: ${csvComment.trim()}` : 'Ajuste masivo por importación CSV';
-
-    for (const row of csvRows) {
-      if (row.diff === 0) continue;
-      try {
-        const { error } = await supabase.rpc('adjust_warehouse_stock', {
-          p_product_id: row.productId,
-          p_warehouse_id: row.warehouseId,
-          p_quantity_change: row.diff,
-          p_reason: reasonText,
-        });
-        if (error) { failCount++; } else { successCount++; }
-      } catch {
-        failCount++;
-      }
-    }
-
-    setCsvResult({ successCount, failCount });
-    setCsvUploading(false);
-    fetchData();
+    setLoading(true);
+    try {
+      const items = csvRows.filter(row => row.diff !== 0).map(row => ({ product_id: row.productId, warehouse_id: row.warehouseId, type: 'SET', quantity: row.targetStock, expected_stock: row.currentStock }));
+      if (items.length) await runInventoryOperation(supabase, 'adjust', { reason: sanitizeText(csvComment, 300) || 'Ajuste masivo por importación CSV', items });
+      setCsvResult({ successCount: items.length, failCount: 0 }); await fetchData(); return true;
+    } catch (error) { setCsvResult({ successCount: 0, failCount: csvRows.length }); alert(error.message); return false; }
+    finally { setCsvUploading(false); setLoading(false); }
   }, [csvRows, csvUploading, csvComment, supabase, fetchData]);
 
   // Action Handler: Toggle Hidden Warehouses
@@ -996,33 +910,16 @@ export function useInventarios() {
 
   // Action Handler: Adjust Stock
   const handleAdjustStockWrapper = useCallback(async ({ warehouseId, sku, type, quantity, reason }) => {
-    const prod = products.find(p => p.sku === sku);
-    if (!prod) return;
-
-    let qtyChange = quantity;
-    if (type === 'SET') {
-      const currentWs = getWhStock(prod.id, warehouseId);
-      qtyChange = quantity - currentWs.stock;
-    } else if (type === 'SUB') {
-      qtyChange = -quantity;
-    }
-
-    if (qtyChange === 0) return;
-
+    const product = products.find(p => p.sku === sku);
+    if (!product || !Number.isSafeInteger(Number(quantity)) || Number(quantity) < 0) { alert('Producto o cantidad inválida. Usa piezas enteras.'); return false; }
     setLoading(true);
-    const { error } = await supabase.rpc('adjust_warehouse_stock', {
-      p_product_id: prod.id,
-      p_warehouse_id: warehouseId,
-      p_quantity_change: qtyChange,
-      p_reason: sanitizeText(reason, 300) || 'Ajuste manual'
-    });
-
-    if (error) {
-      alert('Error en ajuste: ' + error.message);
-    } else {
-      await fetchData();
-    }
-    setLoading(false);
+    try {
+      const item = { product_id: product.id, warehouse_id: warehouseId, type, quantity: Number(quantity) };
+      if (type === 'SET') item.expected_stock = getWhStock(product.id, warehouseId).stock;
+      await runInventoryOperation(supabase, 'adjust', { reason: sanitizeText(reason, 300) || 'Ajuste manual', items: [item] });
+      await fetchData(); return true;
+    } catch (error) { alert('Error en ajuste: ' + error.message); return false; }
+    finally { setLoading(false); }
   }, [products, getWhStock, supabase, fetchData]);
 
   // Action Handler: Transfer Stock
@@ -1032,97 +929,17 @@ export function useInventarios() {
   // igual que el flujo legacy handleTransfer.
   // Devuelve true solo si TODAS las partidas se transfirieron.
   const handleTransferStockWrapper = useCallback(async ({ originWarehouseId, destWarehouseId, items, credits = {} }) => {
-    const pro = proDistributors.find(d => d.assigned_warehouse_id === originWarehouseId) || null;
-    const fromName = warehouses.find(w => w.id === originWarehouseId)?.name || 'bodega origen';
-    const destName = warehouses.find(w => w.id === destWarehouseId)?.name || 'otra bodega';
-    const fmt = (n) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 });
-
-    const valid = items
-      .map(i => ({ ...i, qty: parseInt(i.qty, 10), prod: products.find(p => p.sku === i.sku) }))
-      .filter(i => i.prod && i.qty > 0);
-    const withCredit = pro ? valid.filter(i => Number(credits[i.sku]) > 0) : [];
-    const totalCredit = withCredit.reduce((s, i) => s + Number(credits[i.sku]), 0);
-
-    if (pro && totalCredit > 0) {
-      if (!confirm(
-        `¿Confirmar transferencia con crédito PRO?\n\n` +
-        valid.map(i => `• ${i.qty} pzas de ${i.sku}${Number(credits[i.sku]) > 0 ? ` — crédito $${fmt(credits[i.sku])}` : ''}`).join('\n') +
-        `\n• De: ${fromName} → A: ${destName}\n` +
-        `• Crédito total de $${fmt(totalCredit)} al saldo de ${pro.full_name}\n\n` +
-        `El saldo pendiente del distribuidor PRO se reducirá por este monto.`
-      )) return false;
-    }
-
-    setLoading(true);
-    const done = [];
-    let ok = true;
-    for (const item of valid) {
-      const { data, error } = await supabase.rpc('transfer_stock', {
-        p_product_id: item.prod.id,
-        p_from_warehouse_id: originWarehouseId,
-        p_to_warehouse_id: destWarehouseId,
-        p_quantity: item.qty,
-      });
-
-      const errMsg = error?.message || (data && data.success === false ? data.error : null);
-      if (errMsg) {
-        alert(
-          `Error al transferir ${item.sku}: ${errMsg}` +
-          (done.length ? `\n\nYa transferidos: ${done.map(d => `${d.sku} (${d.qty})`).join(', ')}` : '')
-        );
-        ok = false;
-        break;
-      }
-      done.push(item);
-    }
-
-    // Crédito PRO solo por lo que sí se transfirió
-    if (pro) {
-      for (const item of done) {
-        const creditAmt = Number(credits[item.sku]) || 0;
-        if (creditAmt <= 0) continue;
-        const unitPrice = Math.round((creditAmt / item.qty) * 100) / 100;
-        const { data: creditData, error: creditError } = await supabase
-          .from('container_receptions')
-          .insert({
-            distributor_id: pro.id,
-            warehouse_id: originWarehouseId,
-            reception_date: todayMX(),
-            container_label: `Traspaso ${fromName} → ${destName}`,
-            charge_amount: -creditAmt,
-            total_origin_cost: 0,
-            total_additional_costs: 0,
-            total_landed_cost: 0,
-            status: 'completed',
-            notes: `Crédito por traspaso de ${item.qty} pzas de ${item.sku} (${item.prod.name}) de ${fromName} a ${destName}. Precio unitario: $${fmt(unitPrice)}`,
-            created_by: userId,
-          })
-          .select('id')
-          .single();
-
-        if (creditError) {
-          // El stock ya se movió: no dejar la ventana abierta (re-enviar transferiría dos veces)
-          alert(`⚠️ ${item.sku} transferido, pero error al crear crédito: ${creditError.message}\nRegistra el crédito manualmente.`);
-          continue;
-        }
-        const { error: itemErr } = await supabase.from('container_reception_items').insert({
-          reception_id: creditData.id,
-          product_id: item.prod.id,
-          quantity: item.qty,
-          unit_origin_cost: 0,
-          unit_landed_cost: 0,
-          unit_pro_price: unitPrice,
-        });
-        if (itemErr) alert(`⚠️ Crédito de ${item.sku} creado, pero error en su partida: ${itemErr.message}`);
-      }
-    }
-
-    await fetchData();
-    setLoading(false);
-    // Si algo ya se movió, cerrar la ventana aunque una partida haya fallado:
-    // re-enviar el mismo formulario duplicaría lo ya transferido.
-    return ok || done.length > 0;
-  }, [products, warehouses, proDistributors, supabase, userId, fetchData]);
+    try {
+      const lines = inventoryTransferItems(items, products, credits);
+      const total = lines.reduce((sum, item) => sum + item.credit, 0);
+      const pro = proDistributors.find(d => d.assigned_warehouse_id === originWarehouseId);
+      if (total > 0 && !confirm('¿Confirmar transferencia y crédito PRO de $' + total.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + (pro ? ' a ' + pro.full_name : '') + '? Se aplicarán juntos, una sola vez.')) return false;
+      setLoading(true);
+      await runInventoryOperation(supabase, 'transfer', { from_warehouse_id: originWarehouseId, to_warehouse_id: destWarehouseId, items: lines });
+      await fetchData(); return true;
+    } catch (error) { alert('No se aplicó la transferencia: ' + error.message); return false; }
+    finally { setLoading(false); }
+  }, [products, proDistributors, supabase, fetchData]);
 
   // Action Handler: Count Session
   const handleCreateCountSessionWrapper = useCallback(async ({ warehouseId, notes }) => {

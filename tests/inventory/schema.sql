@@ -1,0 +1,128 @@
+-- Read-only schema snapshot from greenland-products, 2026-11-17. No business data.
+CREATE SCHEMA auth;
+-- uuid-ossp compatibility for the schema snapshot in the isolated PGlite runtime.
+CREATE FUNCTION public.uuid_generate_v4() RETURNS uuid LANGUAGE sql AS $$ SELECT gen_random_uuid() $$;
+CREATE TABLE auth.users(id uuid PRIMARY KEY);
+CREATE SEQUENCE public.service_orders_order_number_seq;
+CREATE TABLE public.audit_log (id uuid DEFAULT gen_random_uuid() NOT NULL, user_id uuid, action text NOT NULL, entity_type text NOT NULL, entity_id uuid, details jsonb DEFAULT '{}'::jsonb, created_at timestamp with time zone DEFAULT now());
+CREATE TABLE public.categories (id uuid DEFAULT uuid_generate_v4() NOT NULL, name text NOT NULL, slug text NOT NULL, sort_order integer DEFAULT 0);
+CREATE TABLE public.container_reception_items (id uuid DEFAULT gen_random_uuid() NOT NULL, reception_id uuid NOT NULL, product_id uuid NOT NULL, quantity integer DEFAULT 0 NOT NULL, unit_origin_cost numeric(12,2) DEFAULT 0, unit_landed_cost numeric(12,2) DEFAULT 0, unit_pro_price numeric(12,2), created_at timestamp with time zone DEFAULT now(), warehouse_id uuid);
+CREATE TABLE public.container_receptions (id uuid DEFAULT gen_random_uuid() NOT NULL, purchase_order_id uuid, distributor_id uuid, warehouse_id uuid NOT NULL, reception_date date DEFAULT CURRENT_DATE NOT NULL, container_label text, pedimento_number text, freight_maritime numeric(12,2) DEFAULT 0, freight_national numeric(12,2) DEFAULT 0, import_taxes numeric(12,2) DEFAULT 0, port_handling numeric(12,2) DEFAULT 0, customs_broker numeric(12,2) DEFAULT 0, other_costs numeric(12,2) DEFAULT 0, other_costs_description text, exchange_rate_goods numeric(10,4) DEFAULT 1, exchange_rate_freight numeric(10,4) DEFAULT 1, total_origin_cost numeric(12,2) DEFAULT 0, total_additional_costs numeric(12,2) DEFAULT 0, total_landed_cost numeric(12,2) DEFAULT 0, charge_amount numeric(12,2) DEFAULT 0, status text DEFAULT 'draft'::text NOT NULL, notes text, created_at timestamp with time zone DEFAULT now(), created_by uuid, operation_number text, customs_broker_ref text, supplier_id uuid, bl_number text, freight_external boolean DEFAULT false NOT NULL, freight_external_carrier text);
+CREATE TABLE public.inventory_logs (id uuid DEFAULT uuid_generate_v4() NOT NULL, product_id uuid, user_id uuid, quantity_change integer NOT NULL, reason text, created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL);
+CREATE TABLE public.products (id uuid DEFAULT uuid_generate_v4() NOT NULL, category_id uuid, name text NOT NULL, sku text NOT NULL, description text, price numeric(10,2) DEFAULT 0.00, stock_quantity integer DEFAULT 0, stock_minimum integer DEFAULT 5, image_url text, is_active boolean DEFAULT true, created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL, reserved_quantity integer DEFAULT 0 NOT NULL, category text, container_capacity integer DEFAULT 0, avg_cost numeric DEFAULT 0, weight_kg numeric(10,3) DEFAULT 0);
+CREATE TABLE public.profiles (id uuid NOT NULL, full_name text, email text, role text DEFAULT 'distributor'::text, is_active boolean DEFAULT true, created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL, city text, phone text, company_name text, address text, client_number text, sub_role text, parent_distributor_id uuid, assigned_warehouse_id uuid, product_segment text DEFAULT 'mobiliario'::text, authorization_pin text, employee_barcode text, job_title text);
+CREATE TABLE public.purchase_order_items (id uuid DEFAULT gen_random_uuid() NOT NULL, purchase_order_id uuid, product_id uuid, supplier_sku text, quantity integer DEFAULT 0 NOT NULL, unit_price_usd numeric(10,2) DEFAULT 0, container_name text, departure_date date);
+CREATE TABLE public.purchase_orders (id uuid DEFAULT gen_random_uuid() NOT NULL, po_number text NOT NULL, supplier_id uuid, status text DEFAULT 'draft'::text, destination_code text, destination_port text, notes text, created_by uuid, created_at timestamp with time zone DEFAULT now(), updated_at timestamp with time zone DEFAULT now());
+CREATE TABLE public.service_orders (id uuid DEFAULT gen_random_uuid() NOT NULL, order_number integer DEFAULT nextval('service_orders_order_number_seq'::regclass) NOT NULL, supplier_id uuid NOT NULL, service_type text NOT NULL, description text, scheduled_date date, location text, reference_info text, agreed_amount numeric(12,2) DEFAULT 0, status text DEFAULT 'pendiente'::text, rejection_comment text, completed_at timestamp with time zone, created_by uuid, created_at timestamp with time zone DEFAULT now(), updated_at timestamp with time zone DEFAULT now(), reception_id uuid);
+CREATE TABLE public.suppliers (id uuid DEFAULT gen_random_uuid() NOT NULL, user_id uuid, company_name text NOT NULL, contact_name text, email text, phone text, rfc text, address text, service_types text[] DEFAULT '{}'::text[], notes text, is_active boolean DEFAULT true, created_at timestamp with time zone DEFAULT now(), updated_at timestamp with time zone DEFAULT now(), name text, short_name text, type text DEFAULT 'service'::text, production_lead_weeks integer, transit_lead_weeks integer, tax_id text, default_incoterm text DEFAULT 'FOB'::text, payment_terms text DEFAULT '30% deposit upon order confirmation, 70% T/T before shipment'::text);
+CREATE TABLE public.transit_shipments (id uuid DEFAULT gen_random_uuid() NOT NULL, product_id uuid NOT NULL, warehouse_id uuid NOT NULL, quantity integer NOT NULL, estimated_arrival date NOT NULL, origin text, status text DEFAULT 'in_transit'::text, notes text, created_at timestamp with time zone DEFAULT now(), created_by uuid, purchase_order_id uuid);
+CREATE TABLE public.warehouse_stock (id uuid DEFAULT gen_random_uuid() NOT NULL, warehouse_id uuid NOT NULL, product_id uuid NOT NULL, stock_quantity integer DEFAULT 0, reserved_quantity integer DEFAULT 0, updated_at timestamp with time zone DEFAULT now());
+CREATE TABLE public.warehouses (id uuid DEFAULT gen_random_uuid() NOT NULL, name text NOT NULL, code text NOT NULL, is_active boolean DEFAULT true, created_at timestamp with time zone DEFAULT now(), sort_order integer DEFAULT 0, transit_lead_weeks integer);
+ALTER TABLE public.audit_log ADD CONSTRAINT audit_log_pkey PRIMARY KEY (id);
+ALTER TABLE public.categories ADD CONSTRAINT categories_pkey PRIMARY KEY (id);
+ALTER TABLE public.categories ADD CONSTRAINT categories_slug_key UNIQUE (slug);
+ALTER TABLE public.container_reception_items ADD CONSTRAINT container_reception_items_pkey PRIMARY KEY (id);
+ALTER TABLE public.container_receptions ADD CONSTRAINT container_receptions_pkey PRIMARY KEY (id);
+ALTER TABLE public.container_receptions ADD CONSTRAINT container_receptions_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'completed'::text, 'cancelled'::text])));
+ALTER TABLE public.inventory_logs ADD CONSTRAINT inventory_logs_pkey PRIMARY KEY (id);
+ALTER TABLE public.products ADD CONSTRAINT products_pkey PRIMARY KEY (id);
+ALTER TABLE public.products ADD CONSTRAINT products_sku_key UNIQUE (sku);
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_client_number_key UNIQUE (client_number);
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_pkey PRIMARY KEY (id);
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'distributor'::text, 'supplier'::text, 'driver'::text])));
+ALTER TABLE public.purchase_order_items ADD CONSTRAINT purchase_order_items_pkey PRIMARY KEY (id);
+ALTER TABLE public.purchase_orders ADD CONSTRAINT purchase_orders_pkey PRIMARY KEY (id);
+ALTER TABLE public.purchase_orders ADD CONSTRAINT purchase_orders_po_number_key UNIQUE (po_number);
+ALTER TABLE public.purchase_orders ADD CONSTRAINT purchase_orders_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'sent'::text, 'partially_received'::text, 'received'::text, 'cancelled'::text])));
+ALTER TABLE public.service_orders ADD CONSTRAINT service_orders_pkey PRIMARY KEY (id);
+ALTER TABLE public.service_orders ADD CONSTRAINT service_orders_status_check CHECK ((status = ANY (ARRAY['pendiente'::text, 'aceptada'::text, 'en_proceso'::text, 'completada'::text, 'rechazada'::text, 'cancelada'::text])));
+ALTER TABLE public.suppliers ADD CONSTRAINT suppliers_pkey PRIMARY KEY (id);
+ALTER TABLE public.transit_shipments ADD CONSTRAINT transit_shipments_pkey PRIMARY KEY (id);
+ALTER TABLE public.transit_shipments ADD CONSTRAINT transit_shipments_quantity_check CHECK ((quantity > 0));
+ALTER TABLE public.transit_shipments ADD CONSTRAINT transit_shipments_status_check CHECK ((status = ANY (ARRAY['in_transit'::text, 'arrived'::text, 'cancelled'::text])));
+ALTER TABLE public.warehouse_stock ADD CONSTRAINT warehouse_stock_pkey PRIMARY KEY (id);
+ALTER TABLE public.warehouse_stock ADD CONSTRAINT warehouse_stock_warehouse_id_product_id_key UNIQUE (warehouse_id, product_id);
+ALTER TABLE public.warehouses ADD CONSTRAINT warehouses_code_key UNIQUE (code);
+ALTER TABLE public.warehouses ADD CONSTRAINT warehouses_pkey PRIMARY KEY (id);
+ALTER TABLE public.audit_log ADD CONSTRAINT audit_log_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id);
+ALTER TABLE public.container_reception_items ADD CONSTRAINT container_reception_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id);
+ALTER TABLE public.container_reception_items ADD CONSTRAINT container_reception_items_reception_id_fkey FOREIGN KEY (reception_id) REFERENCES container_receptions(id) ON DELETE CASCADE;
+ALTER TABLE public.container_reception_items ADD CONSTRAINT container_reception_items_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES warehouses(id);
+ALTER TABLE public.container_receptions ADD CONSTRAINT container_receptions_created_by_fkey FOREIGN KEY (created_by) REFERENCES profiles(id);
+ALTER TABLE public.container_receptions ADD CONSTRAINT container_receptions_distributor_id_fkey FOREIGN KEY (distributor_id) REFERENCES profiles(id);
+ALTER TABLE public.container_receptions ADD CONSTRAINT container_receptions_purchase_order_id_fkey FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id);
+ALTER TABLE public.container_receptions ADD CONSTRAINT container_receptions_supplier_id_fkey FOREIGN KEY (supplier_id) REFERENCES suppliers(id);
+ALTER TABLE public.container_receptions ADD CONSTRAINT container_receptions_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES warehouses(id);
+ALTER TABLE public.inventory_logs ADD CONSTRAINT inventory_logs_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id);
+ALTER TABLE public.inventory_logs ADD CONSTRAINT inventory_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id);
+ALTER TABLE public.products ADD CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES categories(id);
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_assigned_warehouse_id_fkey FOREIGN KEY (assigned_warehouse_id) REFERENCES warehouses(id);
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_parent_distributor_id_fkey FOREIGN KEY (parent_distributor_id) REFERENCES profiles(id) ON DELETE SET NULL;
+ALTER TABLE public.purchase_order_items ADD CONSTRAINT purchase_order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id);
+ALTER TABLE public.purchase_order_items ADD CONSTRAINT purchase_order_items_purchase_order_id_fkey FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE CASCADE;
+ALTER TABLE public.purchase_orders ADD CONSTRAINT purchase_orders_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+ALTER TABLE public.service_orders ADD CONSTRAINT service_orders_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+ALTER TABLE public.service_orders ADD CONSTRAINT service_orders_reception_id_fkey FOREIGN KEY (reception_id) REFERENCES container_receptions(id);
+ALTER TABLE public.service_orders ADD CONSTRAINT service_orders_supplier_id_fkey FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE;
+ALTER TABLE public.suppliers ADD CONSTRAINT suppliers_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.transit_shipments ADD CONSTRAINT transit_shipments_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+ALTER TABLE public.transit_shipments ADD CONSTRAINT transit_shipments_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE;
+ALTER TABLE public.transit_shipments ADD CONSTRAINT transit_shipments_purchase_order_id_fkey FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id);
+ALTER TABLE public.transit_shipments ADD CONSTRAINT transit_shipments_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE;
+ALTER TABLE public.warehouse_stock ADD CONSTRAINT warehouse_stock_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE;
+ALTER TABLE public.warehouse_stock ADD CONSTRAINT warehouse_stock_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE;
+
+CREATE TABLE IF NOT EXISTS inventory_count_sessions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    session_code TEXT NOT NULL UNIQUE,
+    warehouse_id UUID NOT NULL REFERENCES warehouses(id),
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'in_progress', 'submitted', 'approved', 'posted')),
+    count_type TEXT NOT NULL DEFAULT 'full' CHECK (count_type IN ('full', 'partial', 'free')),
+    freeze_inventory BOOLEAN DEFAULT false,
+    responsible_user_id UUID REFERENCES profiles(id),
+    supervisor_user_id UUID REFERENCES profiles(id),
+    notes TEXT,
+    started_at TIMESTAMPTZ,
+    submitted_at TIMESTAMPTZ,
+    submitted_by UUID REFERENCES profiles(id),
+    approved_at TIMESTAMPTZ,
+    approved_by UUID REFERENCES profiles(id),
+    posted_at TIMESTAMPTZ,
+    posted_by UUID REFERENCES profiles(id),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    created_by UUID REFERENCES profiles(id)
+);
+
+-- 2. Líneas de conteo (detalle por SKU)
+CREATE TABLE IF NOT EXISTS inventory_count_lines (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    session_id UUID NOT NULL REFERENCES inventory_count_sessions(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES products(id),
+    sku TEXT,
+    qty_system_snapshot INT NOT NULL DEFAULT 0,
+    qty_counted INT,
+    difference INT GENERATED ALWAYS AS (COALESCE(qty_counted, 0) - qty_system_snapshot) STORED,
+    reason TEXT,
+    counted_by UUID REFERENCES profiles(id),
+    counted_at TIMESTAMPTZ,
+    notes TEXT
+);
+
+-- 3. Ajustes de inventario (generados al "Posted")
+CREATE TABLE IF NOT EXISTS inventory_adjustments (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    session_id UUID REFERENCES inventory_count_sessions(id),
+    product_id UUID NOT NULL REFERENCES products(id),
+    warehouse_id UUID NOT NULL REFERENCES warehouses(id),
+    qty_before INT NOT NULL,
+    qty_after INT NOT NULL,
+    adjustment INT NOT NULL,
+    reason TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    created_by UUID REFERENCES profiles(id)
+);
+
+
+ALTER TABLE public.container_receptions ADD COLUMN linked_purchase_orders jsonb DEFAULT '[]'::jsonb NOT NULL;
+ALTER TABLE public.container_reception_items ADD COLUMN purchase_order_id uuid;
