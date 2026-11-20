@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const {PGlite}=await import(process.env.PGLITE_MODULE||'@electric-sql/pglite');
+const db=new PGlite();
+const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const [owner,other,admin,accountant,order,p1,p2]=[1,2,3,4,10,20,21].map(id);
+const rows=async(q,v=[]) => (await db.query(q,v)).rows;
+const actor=async(uid,role='authenticated')=>{await db.exec('RESET ROLE');await rows("select set_config('request.jwt.claim.sub',$1,false)",[uid||'']);await db.exec('SET ROLE '+role);};
+const receive=async()=> (await rows('select public.receive_order($1) result',[order]))[0].result;
+try{
+ await db.exec(`CREATE SCHEMA auth;CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role BYPASSRLS;
+ CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+ CREATE TABLE profiles(id uuid PRIMARY KEY,role text,sub_role text,is_active boolean);
+ CREATE TABLE products(id uuid PRIMARY KEY);
+ CREATE TABLE orders(id uuid PRIMARY KEY,distributor_id uuid REFERENCES profiles(id),status text,delivered_at timestamptz);
+ CREATE TABLE order_items(order_id uuid REFERENCES orders(id),product_id uuid REFERENCES products(id),quantity integer);
+ CREATE TABLE distributor_inventory(id uuid DEFAULT gen_random_uuid() PRIMARY KEY,distributor_id uuid REFERENCES profiles(id),product_id uuid REFERENCES products(id),stock integer,updated_at timestamptz,UNIQUE(distributor_id,product_id));
+ CREATE FUNCTION public.has_admin_sub_role(allowed text[]) RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$ SELECT EXISTS(SELECT 1 FROM public.profiles WHERE id=auth.uid() AND role='admin' AND is_active IS TRUE AND sub_role=ANY(allowed)) $$;
+ GRANT USAGE ON SCHEMA public,auth TO anon,authenticated,service_role;
+ INSERT INTO profiles VALUES('${owner}','distributor','distributor_standard',true),('${other}','distributor','distributor_standard',true),('${admin}','admin','super_admin',true),('${accountant}','admin','accountant',true);
+ INSERT INTO products VALUES('${p1}'),('${p2}');
+ INSERT INTO orders VALUES('${order}','${owner}','shipped',null);
+ INSERT INTO order_items VALUES('${order}','${p1}',10),('${order}','${p1}',5),('${order}','${p2}',20);
+ INSERT INTO distributor_inventory(distributor_id,product_id,stock) VALUES('${owner}','${p1}',7);`);
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261120203259_fix_receive_order_stock_column.sql',import.meta.url),'utf8'));
+ await actor(null,'anon');await assert.rejects(receive(),/permission denied/);
+ for(const uid of [other,accountant]){await actor(uid);assert.equal((await receive()).success,false);}
+ await actor(owner);assert.equal((await receive()).success,true);
+ await db.exec('RESET ROLE');assert.deepEqual((await rows('select product_id,stock from distributor_inventory order by product_id')).map(r=>r.stock),[22,20]);
+ const closed=(await rows('select status,delivered_at from orders'))[0];assert.equal(closed.status,'closed');assert(closed.delivered_at);
+ await actor(owner);assert.equal((await receive()).success,false);
+ await db.exec('RESET ROLE');assert.deepEqual((await rows('select stock from distributor_inventory order by product_id')).map(r=>r.stock),[22,20]);
+ console.log('PASS owner receipt uses stock, aggregates repeated SKU rows, sets delivered_at and cannot credit twice; outsiders/anon/accounting denied.');
+ await rows("update orders set status='shipped',delivered_at=null");
+ await db.exec(`CREATE FUNCTION fail_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.product_id='${p2}' THEN RAISE EXCEPTION 'injected failure';END IF;RETURN NEW;END $$;CREATE TRIGGER fail_receipt BEFORE INSERT OR UPDATE ON distributor_inventory FOR EACH ROW EXECUTE FUNCTION fail_receipt();`);
+ await actor(owner);await assert.rejects(receive(),/injected failure/);
+ await db.exec('RESET ROLE');assert.deepEqual((await rows('select stock from distributor_inventory order by product_id')).map(r=>r.stock),[22,20]);assert.equal((await rows('select status from orders'))[0].status,'shipped');
+ await db.exec('DROP TRIGGER fail_receipt ON distributor_inventory');
+ await actor(admin);assert.equal((await receive()).success,true);
+ await db.exec('RESET ROLE');assert.deepEqual((await rows('select stock from distributor_inventory order by product_id')).map(r=>r.stock),[37,40]);
+ console.log('PASS late failure rolls back all SKU credits and order closure; authorized administrator retains receipt flow.');
+}finally{await db.close();}
