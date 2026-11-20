@@ -17,7 +17,7 @@ const post = await new AsyncFunction('NextResponse', 'verifyMetaSignature', 'pro
   'handleWhatsApp', 'handleMessenger', 'handleInstagram',
   postSource + '\nreturn POST;')(
   { json: (body, options) => Response.json(body, options) }, verifyMetaSignature,
-  { env }, { info: (...args) => logs.push(args.join(' ')), log() {}, error() {} },
+  { env }, { info: (...args) => logs.push(args.join(' ')), warn: (...args) => logs.push(args.join(' ')), log() {}, error() {} },
   async () => handled.push('whatsapp_business_account'), async () => handled.push('page'), async () => handled.push('instagram')
 );
 for (const platform of ['whatsapp_business_account', 'page', 'instagram']) {
@@ -26,11 +26,13 @@ for (const platform of ['whatsapp_business_account', 'page', 'instagram']) {
   const sig = 'sha256=' + createHmac('sha256', signingSecret).update(raw).digest('hex');
   assert(verifyMetaSignature(raw, sig, [signingSecret]));
   for (const header of [sig, undefined, 'sha256=' + '0'.repeat(64)]) {
+    const handledBefore = handled.length;
     const response = await post(new Request('https://local.test', {
       method: 'POST', body: raw, headers: header ? { 'x-hub-signature-256': header } : {},
     }));
-    assert.equal(response.status, 200);
-    assert.equal(handled.at(-1), platform);
+    assert.equal(response.status, header === sig ? 200 : 403);
+    assert.equal(handled.length, handledBefore + (header === sig ? 1 : 0));
+    if (header === sig) assert.equal(handled.at(-1), platform);
     assert(logs.at(-1).includes(header === sig ? '"valid"' : '"invalid"'));
     assert(!logs.at(-1).includes(secret));
     assert(!logs.at(-1).includes(instagramSecret));
@@ -41,9 +43,9 @@ for (const platform of ['whatsapp_business_account', 'page', 'instagram']) {
 }
 env.META_APP_SECRET = undefined;
 env.META_INSTAGRAM_APP_SECRET = undefined;
-assert.equal((await post(new Request('https://local.test', { method: 'POST', body: '{"object":"page"}' }))).status, 200);
+assert.equal((await post(new Request('https://local.test', { method: 'POST', body: '{"object":"page"}' }))).status, 503);
 assert(logs.at(-1).includes('unconfigured'));
-assert.equal(handled.length, 10);
+assert.equal(handled.length, 3);
 assert(!source.includes('JSON.stringify(acceptedTokens)'));
 assert(!source.includes('JSON.stringify(token)'));
-console.log('PASS: raw-byte signatures, all 3 platform handlers, observation compatibility, missing configuration and secret-free logs.');
+console.log('PASS: both app secrets, all 3 legitimate handlers; missing/invalid signatures and missing configuration rejected before effects; secret-free logs.');

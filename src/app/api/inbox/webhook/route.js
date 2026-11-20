@@ -56,12 +56,20 @@ export async function POST(request) {
     const signatureValid = secrets.length > 0 && verifyMetaSignature(
       rawBody, request.headers.get('x-hub-signature-256'), secrets
     );
+    // Authenticate the original bytes before parsing or invoking any handler.
+    // Never log messages, tokens, signatures, account IDs or secret values.
+    if (!secrets.length || !signatureValid) {
+      console.warn('[MetaSignature]', JSON.stringify({
+        mode: 'enforce', result: !secrets.length ? 'unconfigured' : 'invalid',
+      }));
+      return NextResponse.json({ error: 'Webhook authentication failed' }, {
+        status: !secrets.length ? 503 : 403,
+      });
+    }
     const body = JSON.parse(rawBody.toString('utf8'));
-    // Observe real deliveries before enforcing: no messages, tokens, account
-    // identifiers, signatures or secret values are written to this log.
     console.info('[MetaSignature]', JSON.stringify({
-      mode: 'observe',
-      result: !secrets.length ? 'unconfigured' : signatureValid ? 'valid' : 'invalid',
+      mode: 'enforce',
+      result: 'valid',
       platform: ['whatsapp_business_account', 'page', 'instagram'].includes(body.object)
         ? body.object : 'other',
     }));
