@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createClient as createAuthClient } from '@/utils/supabase/server';
 import { randomUUID } from 'node:crypto';
 import { isInboxOperator, validateInboxFile, INBOX_FILE_TYPES } from '@/lib/inbox-access';
+import { legacyMediaPath, legacyMediaUrl, signLegacyMedia } from '@/lib/inbox-legacy-media';
 
 function getAdminClient() {
   return createClient(
@@ -68,17 +69,43 @@ export async function POST(request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const { data: urlData } = getAdminClient().storage
-      .from('inbox-media')
-      .getPublicUrl(fileName);
-
     return NextResponse.json({
       success: true,
-      url: urlData.publicUrl,
+      url: legacyMediaUrl(fileName),
       fileName: file.name,
     });
   } catch (err) {
     console.error('[Upload] Error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// Historical attachments and delivery evidence use the same protected route.
+// Authorize the conversation/order before using the privileged storage client.
+export async function GET(request) {
+  try {
+    const supabase = await createAuthClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) return NextResponse.json({ error: 'No autenticado.' }, { status: 401 });
+    const path = legacyMediaPath('/api/inbox/upload?path=' + encodeURIComponent(new URL(request.url).searchParams.get('path') || ''));
+    if (!path) return NextResponse.json({ error: 'Referencia inválida.' }, { status: 400 });
+    const { data: profile, error: profileError } = await supabase.from('profiles')
+      .select('id, role, is_active').eq('id', user.id).single();
+    if (profileError || !profile?.is_active) return NextResponse.json({ error: 'Sin permiso.' }, { status: 403 });
+    const parentId = path.split('/')[0];
+    const { data: conversation, error: conversationError } = await supabase.from('inbox_conversations')
+      .select('id').eq('id', parentId).maybeSingle();
+    let allowed = !conversationError && conversation && isInboxOperator(profile);
+    if (!allowed && ['admin', 'driver'].includes(profile.role)) {
+      const { data: order } = await supabase.from('lastmile_orders')
+        .select('id, assigned_driver_id').eq('id', parentId).maybeSingle();
+      allowed = order && (profile.role === 'admin' || order.assigned_driver_id === user.id);
+    }
+    if (!allowed) return NextResponse.json({ error: 'Adjunto no disponible.' }, { status: 404 });
+    return NextResponse.redirect(await signLegacyMedia(getAdminClient(), path), {
+      status: 307, headers: { 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer' },
+    });
+  } catch {
+    return NextResponse.json({ error: 'Adjunto no disponible.' }, { status: 404 });
   }
 }

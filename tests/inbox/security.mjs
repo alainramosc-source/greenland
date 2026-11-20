@@ -4,6 +4,7 @@ import { createHmac } from 'node:crypto';
 import { isInboxOperator, checkInboxSession, validateInboxFile, INBOX_SIGNERS, INBOX_FILE_TYPES } from '../../src/lib/inbox-access.js';
 import { attachmentPath, attachmentUrl, signInboxAttachment } from '../../src/lib/inbox-attachments.js';
 import { verifyMetaSignature } from '../../src/lib/meta-webhook-signature.js';
+import { legacyMediaPath, legacyMediaUrl, signLegacyMedia } from '../../src/lib/inbox-legacy-media.js';
 
 const [alain, didier] = [...INBOX_SIGNERS];
 let passes = 0;
@@ -49,11 +50,11 @@ async function route(name, authClient, extra = {}) {
   let source = await readFile(new URL(`../../src/app/api/inbox/${name}/route.js`, import.meta.url), 'utf8');
   source = source.replace(/^import .*;\r?\n/gm, '').replace(/export const /g, 'const ').replace(/export async function /g, 'async function ');
   return new AsyncFunction('NextResponse', 'createAuthClient', 'checkInboxSession', 'createClient', 'GoogleGenerativeAI', 'GREENLAND_KNOWLEDGE',
-    'isInboxOperator', 'validateInboxFile', 'INBOX_FILE_TYPES', 'randomUUID',
+    'isInboxOperator', 'validateInboxFile', 'INBOX_FILE_TYPES', 'randomUUID', 'legacyMediaPath', 'legacyMediaUrl', 'signLegacyMedia',
     source + '\nreturn { GET: typeof GET === "function" ? GET : null, POST: typeof POST === "function" ? POST : null };')(
     NextResponse, async () => authClient, checkInboxSession,
     extra.admin || (() => { throw new Error('Unexpected privileged integration call'); }),
-    () => { throw new Error('Unexpected AI call'); }, '', isInboxOperator, validateInboxFile, INBOX_FILE_TYPES, () => didier);
+    () => { throw new Error('Unexpected AI call'); }, '', isInboxOperator, validateInboxFile, INBOX_FILE_TYPES, () => didier, legacyMediaPath, legacyMediaUrl, signLegacyMedia);
 }
 for (const c of [client(profile, null), client({ ...profile, id: 'other' })]) {
   const routes = await route('insights', c);

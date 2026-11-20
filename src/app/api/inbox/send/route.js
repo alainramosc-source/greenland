@@ -1,5 +1,6 @@
 import { checkInboxSession } from '@/lib/inbox-access';
 import { attachmentPath, signInboxAttachment } from '@/lib/inbox-attachments';
+import { legacyMediaPath, signLegacyMedia } from '@/lib/inbox-legacy-media';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createAuthClient } from '@/utils/supabase/server';
@@ -65,6 +66,11 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Adjunto inválido para esta conversación.' }, { status: 400 });
       }
       if (path) deliveryContent = await signInboxAttachment(getAdminClient(), path, 3600);
+      const legacyPath = legacyMediaPath(content);
+      if (content.startsWith('/api/inbox/upload') && (!legacyPath || legacyPath.split('/')[0] !== conversation_id)) {
+        return NextResponse.json({ error: 'Adjunto inválido para esta conversación.' }, { status: 400 });
+      }
+      if (legacyPath) deliveryContent = await signLegacyMedia(getAdminClient(), legacyPath, 3600);
     }
 
     // Send via the appropriate platform
