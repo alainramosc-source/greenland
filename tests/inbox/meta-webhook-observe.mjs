@@ -11,7 +11,8 @@ const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const secret = 'isolated-test-secret';
 let handled = [];
 let logs = [];
-const env = { META_APP_SECRET: secret };
+const instagramSecret = 'isolated-instagram-secret';
+const env = { META_APP_SECRET: secret, META_INSTAGRAM_APP_SECRET: instagramSecret };
 const post = await new AsyncFunction('NextResponse', 'verifyMetaSignature', 'process', 'console',
   'handleWhatsApp', 'handleMessenger', 'handleInstagram',
   postSource + '\nreturn POST;')(
@@ -21,8 +22,9 @@ const post = await new AsyncFunction('NextResponse', 'verifyMetaSignature', 'pro
 );
 for (const platform of ['whatsapp_business_account', 'page', 'instagram']) {
   const raw = Buffer.from(JSON.stringify({ object: platform, entry: [], test: 'á 🌱' }));
-  const sig = 'sha256=' + createHmac('sha256', secret).update(raw).digest('hex');
-  assert(verifyMetaSignature(raw, sig, [secret]));
+  const signingSecret = platform === 'instagram' ? instagramSecret : secret;
+  const sig = 'sha256=' + createHmac('sha256', signingSecret).update(raw).digest('hex');
+  assert(verifyMetaSignature(raw, sig, [signingSecret]));
   for (const header of [sig, undefined, 'sha256=' + '0'.repeat(64)]) {
     const response = await post(new Request('https://local.test', {
       method: 'POST', body: raw, headers: header ? { 'x-hub-signature-256': header } : {},
@@ -31,12 +33,14 @@ for (const platform of ['whatsapp_business_account', 'page', 'instagram']) {
     assert.equal(handled.at(-1), platform);
     assert(logs.at(-1).includes(header === sig ? '"valid"' : '"invalid"'));
     assert(!logs.at(-1).includes(secret));
+    assert(!logs.at(-1).includes(instagramSecret));
     assert(!logs.at(-1).includes(sig));
     assert(!logs.at(-1).includes('entry'));
   }
-  assert(!verifyMetaSignature(Buffer.concat([raw, Buffer.from(' ')]), sig, [secret]));
+  assert(!verifyMetaSignature(Buffer.concat([raw, Buffer.from(' ')]), sig, [secret, instagramSecret]));
 }
 env.META_APP_SECRET = undefined;
+env.META_INSTAGRAM_APP_SECRET = undefined;
 assert.equal((await post(new Request('https://local.test', { method: 'POST', body: '{"object":"page"}' }))).status, 200);
 assert(logs.at(-1).includes('unconfigured'));
 assert.equal(handled.length, 10);

@@ -52,16 +52,16 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const rawBody = Buffer.from(await request.arrayBuffer());
-    const secret = process.env.META_APP_SECRET;
-    const signatureValid = Boolean(secret) && verifyMetaSignature(
-      rawBody, request.headers.get('x-hub-signature-256'), [secret]
+    const secrets = [process.env.META_APP_SECRET, process.env.META_INSTAGRAM_APP_SECRET].filter(Boolean);
+    const signatureValid = secrets.length > 0 && verifyMetaSignature(
+      rawBody, request.headers.get('x-hub-signature-256'), secrets
     );
     const body = JSON.parse(rawBody.toString('utf8'));
     // Observe real deliveries before enforcing: no messages, tokens, account
     // identifiers, signatures or secret values are written to this log.
     console.info('[MetaSignature]', JSON.stringify({
       mode: 'observe',
-      result: !secret ? 'unconfigured' : signatureValid ? 'valid' : 'invalid',
+      result: !secrets.length ? 'unconfigured' : signatureValid ? 'valid' : 'invalid',
       platform: ['whatsapp_business_account', 'page', 'instagram'].includes(body.object)
         ? body.object : 'other',
     }));
