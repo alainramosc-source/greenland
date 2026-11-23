@@ -56,3 +56,9 @@ export function inventoryTransferItems(items, products, credits = {}) {
     return { product_id: product.id, quantity, credit };
   }).sort((a, b) => a.product_id.localeCompare(b.product_id));
 }
+
+export function createCounterSale(supabase, payload, storage) {
+  return runInventoryCommand(supabase, 'counter_sale', payload, requestId => supabase.rpc('create_counter_sale_with_folio', {
+    p_request_id: requestId, p_payload: payload,
+  }), storage);
+}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { sanitizeText } from '@/utils/sanitize';
+import { createCounterSale } from '@/lib/inventory-operations';
 import { useRouter } from 'next/navigation';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -404,29 +405,6 @@ export function useCounterSale() {
     setReceiptData(null);
   };
 
-  // ──────────── GENERATE SALE NUMBER ────────────
-  const generateSaleNumber = async () => {
-    const now = new Date();
-    const yy = String(now.getFullYear()).slice(-2);
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const prefix = `VMP-${yy}${mm}${dd}`;
-
-    const { data } = await supabase
-      .from('counter_sales')
-      .select('sale_number')
-      .like('sale_number', `${prefix}-%`)
-      .order('sale_number', { ascending: false })
-      .limit(1);
-
-    let seq = 1;
-    if (data && data.length > 0) {
-      const lastSeq = parseInt(data[0].sale_number.split('-').pop()) || 0;
-      seq = lastSeq + 1;
-    }
-    return `${prefix}-${String(seq).padStart(3, '0')}`;
-  };
-
   const shortName = (name) => {
     if (!name) return '—';
     const parts = name.trim().split(/\s+/);
@@ -550,7 +528,6 @@ export function useCounterSale() {
     setSubmitting(true);
 
     try {
-      const saleNumber = await generateSaleNumber();
       const customerFinal = sanitizeText(customerName, 200) || 'Público General';
       const notesFinal = sanitizeText(notes, 500);
 
@@ -570,26 +547,12 @@ export function useCounterSale() {
 
       // Ejecutar venta, descuento de stock y registro en caja como unidad atómica en base de datos
       // La atribución del vendedor se verifica en servidor mediante p_seller_code
-      const { data: atomicRes, error: atomicErr } = await supabase.rpc('create_counter_sale_atomic', {
-        p_sale_number: saleNumber,
-        p_warehouse_id: selectedWarehouse,
-        p_sold_by: sellerId,
-        p_seller_name: sellerName,
-        p_customer_name: customerFinal,
-        p_payment_method: paymentMethod,
-        p_subtotal: subtotal,
-        p_total: subtotal,
-        p_amount_received: receivedVal,
-        p_notes: notesFinal || null,
-        p_items: itemsJson,
-        p_seller_code: sellerObj?.code || null,
+      const atomicRes = await createCounterSale(supabase, {
+        warehouse_id: selectedWarehouse, sold_by: sellerId, seller_name: sellerName,
+        customer_name: customerFinal, payment_method: paymentMethod,
+        subtotal, total: subtotal, amount_received: receivedVal,
+        notes: notesFinal || null, items: itemsJson, seller_code: sellerObj?.code || null,
       });
-
-      if (atomicErr || !atomicRes?.success) {
-        alert('Error al registrar la venta: ' + (atomicErr?.message || atomicRes?.error || 'Error desconocido'));
-        setSubmitting(false);
-        return;
-      }
 
       const saleRecord = atomicRes.sale || {};
 
@@ -606,7 +569,7 @@ export function useCounterSale() {
       const warehouseName = warehouses.find(w => w.id === selectedWarehouse)?.name || '';
       const receivedNum = paymentMethod === 'Efectivo' && amountReceived ? parseFloat(amountReceived) : subtotal;
       setReceiptData({
-        sale_number: saleNumber,
+        sale_number: saleRecord.sale_number,
         created_at: saleRecord.created_at || new Date().toISOString(),
         customer_name: customerFinal,
         payment_method: paymentMethod,
